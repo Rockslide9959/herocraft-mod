@@ -46,8 +46,17 @@ public final class SymbioteHud {
 
 	/** Slot ordinal (R G X Z V C) -> the Normal host ability id on that key (matches {@code AbilitySlot}). */
 	private static final String[] NORMAL_SLOT_ABILITIES = {
-			"tendril_strike", "spike_shot", "leap", "barrage", "blade", "spikes"
+			"tendril_strike", "spike_shot", "leap", "barrage", "form", "maw_bite"
 	};
+	/** v0.17.5 moveset v2: the hold move on each key (null = none), and X's airborne move, for the move list. */
+	private static final String[] NORMAL_HOLD_ABILITIES = {
+			"impaling_spear", "spike_rain", null, "ground_eruption", null, "devour"
+	};
+	/** v0.17.5: each hold move's cooldown (ticks) and its index in the synced cooldown list, for the key box's thin strip. */
+	private static final int[] HOLD_CD_INDEX = { 6, 7, 8, 9, -1, 11 };
+	private static final int[] HOLD_CD_TICKS = { 160, 280, 120, 240, 0, 400 };
+	/** Client-side: when each of R G X Z V C went down without Sneak (for the hold fill), or -1. */
+	private static final long[] HOLD_DOWN = { -1, -1, -1, -1, -1, -1 };
 	/** v0.16.6: the Shift move on each key (SymbioteAbilityManager.handle's sneak branches), for the move list. */
 	private static final String[] NORMAL_SHIFT_ABILITIES = {
 			"tendril_sweep", "spike_fan", "grapple", "onslaught", "shield", "tendril_grab"
@@ -156,12 +165,15 @@ public final class SymbioteHud {
 		for (int i = 0; i < VanillaHud.ORDER.length; i++) {
 			AbilitySlot slot = VanillaHud.ORDER[i];
 			int o = slot.ordinal();
-			boolean active = (o == 3 && charging) || (o == 4 && (v.bladeActive || s.shieldHeld))
-					|| (o == 5 && (v.thornsMode || s.tendrilGrabHeld));
+			// v0.17.5: V lights while a Form (Blade / Thorns) or the shield is up; C while a grab is held
+			boolean active = (o == 3 && charging) || (o == 4 && (v.bladeActive || v.thornsMode || s.shieldHeld))
+					|| (o == 5 && s.tendrilGrabHeld);
 			int cd = o < s.abilityCooldowns.size() ? (int) Math.max(0L, s.abilityCooldowns.get(o) - now) : 0;
 			float cdFrac = VanillaHudExtras.frac("symbiote/" + o, cd);
 			float shown = cdFrac, other = 0f;
 			int secs = VanillaHud.seconds(cd);
+			// v0.17.5: the key's hold move (and X's Dive Bomb) cools down on the thin strip along the bottom of the box
+			float holdCd = holdCooldownFrac(s, o, now);
 			if (o == 1) {
 				// Shift+G's Spike Fan runs its own cooldown
 				if (shift) {
@@ -169,12 +181,30 @@ public final class SymbioteHud {
 					secs = VanillaHud.seconds(spikeFan);
 					other = cdFrac;
 				} else {
-					other = spikeFanFrac;
+					other = Math.max(spikeFanFrac, holdCd);
 				}
+			} else if (o == 5) {
+				// C: Maw Bite (cooldown index 10) is the tap now; Shift+C's grab keeps slot 5's own
+				int maw = s.abilityCooldowns.size() > 10 ? (int) Math.max(0L, s.abilityCooldowns.get(10) - now) : 0;
+				float mawFrac = VanillaHudExtras.frac("symbiote/maw", maw);
+				if (shift) {
+					other = mawFrac;
+				} else {
+					shown = mawFrac;
+					secs = VanillaHud.seconds(maw);
+					other = Math.max(cdFrac, holdCd);
+				}
+			} else if (!shift) {
+				other = holdCd;
 			}
 			st.slot(i, VanillaHud.keyLabel(slot), !v.broken, shift, shown, secs, other, active);
 			if (o == 3 && charging) {
 				st.hold(i, chargeFrac);
+			} else {
+				float hold = holdFill(o, shift, now);
+				if (hold > 0f) {
+					st.hold(i, hold);
+				}
 			}
 		}
 
@@ -197,18 +227,70 @@ public final class SymbioteHud {
 		if (v.broken) {
 			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.symbiote.hp_broken").getString(), VanillaHud.RED));
 		}
+		// v0.17.5: the Form V cycles to (Normal shows nothing)
+		int form = SymbioteVitalsManager.form(player);
+		if (form != SymbioteVitalsManager.FORM_NORMAL) {
+			tags.add(new VanillaHud.Tag(Component.translatable("message.projecthero.symbiote.form",
+					Component.translatable(form == SymbioteVitalsManager.FORM_BLADE ? "projecthero.symbiote.form.blade"
+							: "projecthero.symbiote.form.thorns")).getString(), COLOR_LABEL));
+		}
 		st.tags(tags);
 		if (MoveListOverlay.held()) {
-			// v0.16.6: the shared move list (each key: plain move + Shift move)
+			// v0.16.6: the shared move list (each key: plain move + Shift move); v0.17.5: + the hold move / X's air move
 			List<MoveListOverlay.Row> rows = new ArrayList<>();
 			for (AbilitySlot slot : VanillaHud.ORDER) {
 				int o = slot.ordinal();
+				Component extra = null;
+				if (NORMAL_HOLD_ABILITIES[o] != null) {
+					extra = Component.translatable("hud.projecthero.move_list.hold",
+							Component.translatable("projecthero.symbiote.ability." + NORMAL_HOLD_ABILITIES[o]));
+				} else if (o == AbilitySlot.SLOT_3.ordinal()) {
+					extra = Component.translatable("hud.projecthero.symbiote.move_list.air",
+							Component.translatable("projecthero.symbiote.ability.dive_bomb"));
+				}
 				rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot),
 						Component.translatable("projecthero.symbiote.ability." + NORMAL_SLOT_ABILITIES[o]),
-						Component.translatable("projecthero.symbiote.ability." + NORMAL_SHIFT_ABILITIES[o])));
+						Component.translatable("projecthero.symbiote.ability." + NORMAL_SHIFT_ABILITIES[o]), extra));
 			}
 			st.moveList(rows);
 		}
+	}
+
+	/** v0.17.5: the hold move's (or Dive Bomb's) remaining cooldown on key {@code o}, 0..1 of its full length. */
+	private static float holdCooldownFrac(SymbioteState s, int o, long now) {
+		int idx = HOLD_CD_INDEX[o];
+		if (idx < 0 || idx >= s.abilityCooldowns.size()) {
+			return 0f;
+		}
+		long left = Math.max(0L, s.abilityCooldowns.get(idx) - now);
+		return Math.min(1f, left / (float) Math.max(1, HOLD_CD_TICKS[o]));
+	}
+
+	/**
+	 * v0.17.5: the key box fills while R / G / Z / C is held without Sneak -- up to the hold threshold (0.4 s), then on R the
+	 * Impaling Spear's charge (another second). Read from the local key, so it costs no packets; 0 when nothing is held.
+	 */
+	private static float holdFill(int o, boolean shift, long now) {
+		if (NORMAL_HOLD_ABILITIES[o] == null || o >= com.projecthero.mod.client.ModKeyBindings.ABILITY_SLOTS.length) {
+			return 0f;
+		}
+		boolean down = com.projecthero.mod.client.ModKeyBindings.ABILITY_SLOTS[o].isDown();
+		if (!down) {
+			HOLD_DOWN[o] = -1;
+			return 0f;
+		}
+		if (HOLD_DOWN[o] < 0) {
+			HOLD_DOWN[o] = shift ? Long.MAX_VALUE : now; // a Sneak press is the Shift move: no hold
+		}
+		if (HOLD_DOWN[o] == Long.MAX_VALUE) {
+			return 0f;
+		}
+		long held = now - HOLD_DOWN[o];
+		int hold = com.projecthero.mod.symbiote.SymbioteAbilityManager.HOLD_TICKS;
+		if (o == 0 && held >= hold) {
+			return Math.min(1f, 0.35f + 0.65f * (held - hold) / 20f); // the Spear charging
+		}
+		return Math.min(1f, held / (float) hold) * (o == 0 ? 0.35f : 1f);
 	}
 
 	// ---------------- the hero hosts (v0.13.21) ----------------

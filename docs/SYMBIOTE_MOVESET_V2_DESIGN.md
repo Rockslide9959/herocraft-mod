@@ -1,4 +1,4 @@
-# Symbiote moveset v2 (v0.17.5) — APPROVED 2026-11-19
+# Symbiote moveset v2 (v0.17.5) — APPROVED 2026-11-19, BUILT 2026-11-19 (numbers, tap/hold rules and tests: `SYMBIOTE_REFERENCE.md` "Moveset v2")
 
 User: "Can we come up with a better moveset for symbiote please, the power needs more attacking moves while not losing what i
 can already do". Approved as shown ("Yes, build it"). Applies to the Normal-host Symbiote kit (Lethal Protector suit). Black

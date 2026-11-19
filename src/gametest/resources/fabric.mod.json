@@ -107,6 +107,7 @@
       "com.projecthero.mod.gametest.SymbioteSuitStyleGameTests",
       "com.projecthero.mod.gametest.SymbioteSecondaryGameTests",
       "com.projecthero.mod.gametest.SymbioteSuitUpGameTests",
+      "com.projecthero.mod.gametest.SymbioteMovesetV2GameTests",
       "com.projecthero.mod.gametest.MaxSteelGameTests",
       "com.projecthero.mod.gametest.SupervillainRaidGameTests",
       "com.projecthero.mod.gametest.PunisherGameTests",

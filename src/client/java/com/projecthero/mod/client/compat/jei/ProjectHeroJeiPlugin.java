@@ -117,7 +117,8 @@ public final class ProjectHeroJeiPlugin implements IModPlugin {
 				new ItemStack(com.projecthero.mod.symbiote.item.SymbioteHostItems.CHESTPLATE),
 				new ItemStack(com.projecthero.mod.symbiote.item.SymbioteHostItems.LEGGINGS),
 				new ItemStack(com.projecthero.mod.symbiote.item.SymbioteHostItems.BOOTS)),
-				net.minecraft.network.chat.Component.translatable("projecthero.jei.symbiote_host_suit"));
+				net.minecraft.network.chat.Component.translatable("projecthero.jei.symbiote_host_suit"),
+				net.minecraft.network.chat.Component.translatable("projecthero.jei.symbiote_host_moves")); // v0.17.5: moveset v2
 		// v0.17.5: the villain-hideout artifacts and the core
 		for (com.projecthero.mod.hideout.HideoutFaction f : com.projecthero.mod.hideout.HideoutFaction.values()) {
 			net.minecraft.world.item.Item artifact = switch (f) {

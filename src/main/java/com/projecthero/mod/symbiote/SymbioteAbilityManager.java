@@ -25,6 +25,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.AABB;
@@ -45,6 +46,20 @@ import net.minecraft.world.phys.Vec3;
  *   V  Symbiote Blade (toggle)                     Shift+V  Symbiote Shield (toggle)
  *   C  Symbiote Spikes (Thorns toggle)             Shift+C  Tendril Grab (C again to throw)
  * </pre>
+ *
+ * <p>v0.17.5 moveset v2 (user-approved, {@code docs/SYMBIOTE_MOVESET_V2_DESIGN.md}): every move above is kept and these are added --
+ * <pre>
+ *   R  every 3rd Tendril Strike in a row is a Tendril Slam     hold R  Impaling Spear (charge, release)
+ *   G                                                         hold G  Spike Rain (3 s on the aimed area)
+ *   X  in the air (2.5+ blocks up): Dive Bomb
+ *   Z                                                         hold Z  Ground Eruption (a travelling line)
+ *   C  Maw Bite (replaces the Thorns toggle)                  hold C  Devour (under 25%: execute; else Maw Bite)
+ *   V  Form: Normal -> Blade -> Thorns (one cycle instead of the Blade and Thorns toggles)
+ * </pre>
+ * Tap vs hold on R / G / Z / C (no Sneak): the press only notes the time; a release under {@link #HOLD_TICKS} is the tap move,
+ * still down at {@link #HOLD_TICKS} the hold move starts (from {@link #serverTick}) and the release that follows does nothing
+ * (except the Spear, whose release throws it). Sneak moves still fire on the press. Passive with the suit on: +1 block melee
+ * reach and every 3rd punch in a row knocks back ({@link #onMeleeSwing}).
  *
  * <p>v0.13.19: every move comes out of the host's hands ({@link SymbioteHands}) and is drawn as a real living
  * tendril ({@link SymbioteTendrilEntity}) or spike ({@link SymbioteSpikeEntity}) rather than a particle line;
@@ -170,6 +185,15 @@ public final class SymbioteAbilityManager {
 		BARRAGE.clear();
 		ONSLAUGHT_VICTIMS.clear();
 		HELD_TENDRIL.clear();
+		KEY_DOWN.clear();
+		STRIKE_CHAIN.clear();
+		SPEAR.clear();
+		PINNED.clear();
+		RAIN.clear();
+		DIVE.clear();
+		ERUPTION.clear();
+		DEVOUR.clear();
+		PUNCH_CHAIN.clear();
 	}
 
 	public static void clearFor(ServerPlayer player) {
@@ -180,6 +204,25 @@ public final class SymbioteAbilityManager {
 		BARRAGE.remove(player.getId());
 		ONSLAUGHT_VICTIMS.remove(player.getId());
 		dropHeldTendril(player);
+		stopMovesV2(player);
+	}
+
+	/** v0.17.5: drops every moveset-v2 move in flight (a pending tap, the Spear's charge, a pin, the rain, a dive, a devour). */
+	private static void stopMovesV2(ServerPlayer player) {
+		int id = player.getId();
+		KEY_DOWN.remove(id);
+		STRIKE_CHAIN.remove(id);
+		if (SPEAR.remove(id) != null) {
+			SymbioteAnim.stop(player, SymbioteAnim.SPEAR_CHARGE);
+		}
+		PINNED.remove(id);
+		RAIN.remove(id);
+		if (DIVE.remove(id) != null) {
+			SymbioteAnim.stop(player, SymbioteAnim.DIVE_BOMB);
+		}
+		ERUPTION.remove(id);
+		PUNCH_CHAIN.remove(id);
+		releaseDevour(player);
 	}
 
 	// ---------------- dispatch ----------------
@@ -200,14 +243,25 @@ public final class SymbioteAbilityManager {
 				handleOnslaught(player, pressed, now);
 				return;
 			}
-			if (sneak) {
-				if (pressed) {
-					handleOnslaught(player, true, now);
-				}
+			if (sneak && pressed) {
+				handleOnslaught(player, true, now);
 				return;
 			}
+			// (a release with Sneak down falls through: a plain Z press that is let go while sneaking is still a tap)
+		}
+		// v0.17.5: the Impaling Spear is thrown when R comes up
+		if (slot == AbilitySlot.SLOT_1 && !pressed && SPEAR.containsKey(player.getId())) {
+			fireSpear(player, now);
+			return;
 		}
 		if (!pressed) {
+			// v0.17.5: a release under HOLD_TICKS is the tap move (a later one -- the hold move already ran -- does nothing)
+			if (hasHoldMove(slot)) {
+				long down = takePending(player, slot);
+				if (down >= 0L && now - down < HOLD_TICKS) {
+					tap(player, slot, now);
+				}
+			}
 			return;
 		}
 		// Symbiote Shield (Shift + V): a toggle.
@@ -217,6 +271,7 @@ public final class SymbioteAbilityManager {
 		}
 		// C while holding something throws it -- whatever the Biomass says, you can always let go.
 		if (slot == AbilitySlot.SLOT_6 && Symbiote.state(player).tendrilGrabHeld) {
+			takePending(player, slot); // that C's release must not bite as well
 			throwGrabbed(player, Symbiote.state(player), now);
 			return;
 		}
@@ -224,29 +279,83 @@ public final class SymbioteAbilityManager {
 			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.spent"), true);
 			return;
 		}
+		// v0.17.5: R / G / Z / C without Sneak wait to see whether this is a tap or a hold
+		if (!sneak && hasHoldMove(slot)) {
+			KEY_DOWN.computeIfAbsent(player.getId(), k -> newKeyDown())[slot.ordinal()] = now;
+			return;
+		}
 
 		switch (slot) {
-			case SLOT_1 -> {
-				if (sneak) {
-					tryWithCooldown(player, 0, now, CD_TENDRIL_SWEEP, () -> tendrilSweep(player));
-				} else {
-					tryWithCooldown(player, 0, now, CD_TENDRIL_STRIKE, () -> tendrilStrike(player));
-				}
-			}
-			case SLOT_2 -> {
-				if (sneak) {
-					spikeFan(player, now);
-				} else {
-					tryWithCooldown(player, AbilitySlot.SLOT_2.index(), now, CD_SPIKE_SHOT, () -> spikeShot(player));
-				}
-			}
+			case SLOT_1 -> tryWithCooldown(player, 0, now, CD_TENDRIL_SWEEP, () -> tendrilSweep(player));
+			case SLOT_2 -> spikeFan(player, now);
 			case SLOT_3 -> {
 				if (sneak) {
 					handleGrapple(player, now);
+				} else if (canDiveBomb(player)) {
+					tryWithCooldown(player, CDI_DIVE, now, CD_DIVE, () -> diveBomb(player, now));
 				} else {
 					tryWithCooldown(player, 2, now, CD_LEAP, () -> symbioteLunge(player));
 				}
 			}
+			case SLOT_5 -> SymbioteVitalsManager.cycleForm(player);
+			case SLOT_6 -> beginTendrilGrab(player, now);
+			default -> {
+			}
+		}
+	}
+
+	// ---------------- v0.17.5 tap vs hold ----------------
+
+	/** A key held this long (0.4 s) is a hold; released sooner it is a tap. */
+	public static final int HOLD_TICKS = 8;
+
+	/** Cooldown list indices of the new moves ({@link SymbioteState#COOLDOWN_SLOTS}). */
+	public static final int CDI_SPEAR = 6;
+	public static final int CDI_RAIN = 7;
+	public static final int CDI_DIVE = 8;
+	public static final int CDI_ERUPTION = 9;
+	public static final int CDI_MAW = 10;
+	public static final int CDI_DEVOUR = 11;
+
+	/** playerId -> per slot ordinal, the game time the key went down (-1 = nothing pending). */
+	private static final Map<Integer, long[]> KEY_DOWN = new ConcurrentHashMap<>();
+
+	private static long[] newKeyDown() {
+		long[] a = new long[AbilitySlot.values().length];
+		java.util.Arrays.fill(a, -1L);
+		return a;
+	}
+
+	/** R, G, Z and C (no Sneak) have a hold move. */
+	public static boolean hasHoldMove(AbilitySlot slot) {
+		return slot == AbilitySlot.SLOT_1 || slot == AbilitySlot.SLOT_2 || slot == AbilitySlot.SLOT_4 || slot == AbilitySlot.SLOT_6;
+	}
+
+	/** Takes (clears) the pending press on {@code slot}: when it went down, or -1. */
+	private static long takePending(ServerPlayer player, AbilitySlot slot) {
+		long[] a = KEY_DOWN.get(player.getId());
+		if (a == null) {
+			return -1L;
+		}
+		long down = a[slot.ordinal()];
+		a[slot.ordinal()] = -1L;
+		return down;
+	}
+
+	/** Is a press on {@code slot} still waiting to become a tap or a hold? (tests, HUD-free) */
+	public static boolean pending(ServerPlayer player, AbilitySlot slot) {
+		long[] a = KEY_DOWN.get(player.getId());
+		return a != null && a[slot.ordinal()] >= 0L;
+	}
+
+	private static void tap(ServerPlayer player, AbilitySlot slot, long now) {
+		if (!SymbioteVitalsManager.usable(player)) {
+			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.spent"), true);
+			return;
+		}
+		switch (slot) {
+			case SLOT_1 -> tryWithCooldown(player, 0, now, CD_TENDRIL_STRIKE, () -> tendrilStrike(player));
+			case SLOT_2 -> tryWithCooldown(player, AbilitySlot.SLOT_2.index(), now, CD_SPIKE_SHOT, () -> spikeShot(player));
 			case SLOT_4 -> {
 				if (SymbioteVitalsManager.bladeActive(player)) {
 					tryWithCooldown(player, 3, now, CD_BARRAGE, () -> bladeSlash(player));
@@ -254,15 +363,38 @@ public final class SymbioteAbilityManager {
 					tryWithCooldown(player, 3, now, CD_BARRAGE, () -> startBarrage(player, now));
 				}
 			}
-			case SLOT_5 -> SymbioteVitalsManager.toggleBlade(player);
-			case SLOT_6 -> {
-				if (sneak) {
-					beginTendrilGrab(player, now);
-				} else {
-					SymbioteVitalsManager.toggleThorns(player);
-				}
-			}
+			case SLOT_6 -> tryWithCooldown(player, CDI_MAW, now, CD_MAW, () -> mawBite(player));
 			default -> {
+			}
+		}
+	}
+
+	private static void hold(ServerPlayer player, AbilitySlot slot, long now) {
+		if (!SymbioteVitalsManager.usable(player)) {
+			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.spent"), true);
+			return;
+		}
+		switch (slot) {
+			case SLOT_1 -> beginSpear(player, now);
+			case SLOT_2 -> tryWithCooldown(player, CDI_RAIN, now, CD_RAIN, () -> spikeRain(player, now));
+			case SLOT_4 -> tryWithCooldown(player, CDI_ERUPTION, now, CD_ERUPTION, () -> groundEruption(player, now));
+			case SLOT_6 -> devourOrBite(player, now);
+			default -> {
+			}
+		}
+	}
+
+	/** Every tick: a key still down at {@link #HOLD_TICKS} starts its hold move (once). */
+	private static void tickHolds(ServerPlayer player, long now) {
+		long[] a = KEY_DOWN.get(player.getId());
+		if (a == null) {
+			return;
+		}
+		for (AbilitySlot slot : AbilitySlot.values()) {
+			long down = a[slot.ordinal()];
+			if (down >= 0L && now - down >= HOLD_TICKS) {
+				a[slot.ordinal()] = -1L;
+				hold(player, slot, now);
 			}
 		}
 	}
@@ -344,6 +476,19 @@ public final class SymbioteAbilityManager {
 		Vec3 end = traceTendril(player, player.getLookAngle(), TENDRIL_STRIKE_RANGE, hit);
 		LivingEntity target = hit[0];
 		ServerLevel level = AbilityHelpers.level(player);
+		// v0.17.5: two strikes in a row that found something -- this third one is the Tendril Slam
+		long now = player.level().getGameTime();
+		long[] chain = STRIKE_CHAIN.get(player.getId());
+		int prior = chain != null && now - chain[1] <= STRIKE_CHAIN_WINDOW ? (int) chain[0] : 0;
+		if (target == null) {
+			STRIKE_CHAIN.remove(player.getId());
+		} else if (prior >= 2) {
+			STRIKE_CHAIN.remove(player.getId());
+			tendrilSlam(player, target);
+			return true;
+		} else {
+			STRIKE_CHAIN.put(player.getId(), new long[]{prior + 1, now});
+		}
 		SymbioteAnim.play(player, SymbioteAnim.TENDRIL_STRIKE);
 		SymbioteTendrilEntity.fromHand(player, true, end, target, 11, 3, 0.14f);
 		SymbioteSounds.lash(player, 0.9f, 0.8f);
@@ -949,6 +1094,694 @@ public final class SymbioteAbilityManager {
 		}
 	}
 
+	// =====================================================================================================================
+	// v0.17.5 moveset v2
+	// =====================================================================================================================
+
+	/** Strikes count as "in a row" while each lands within 4 s of the last (the cooldown is 1.5 s). */
+	private static final int STRIKE_CHAIN_WINDOW = 80;
+	public static final float SLAM_DAMAGE = 22.0f;
+	private static final float SLAM_SPLASH_DAMAGE = 6.0f;
+	private static final double SLAM_SPLASH_RADIUS = 2.5;
+	/** playerId -> {strikes in a row that found something, game time of the last}. */
+	private static final Map<Integer, long[]> STRIKE_CHAIN = new ConcurrentHashMap<>();
+
+	private static final int CD_SPEAR = 160;            // 8 s
+	/** Ticks of holding past the hold start for a full-power Spear; it throws itself after SPEAR_MAX_HOLD. */
+	private static final int SPEAR_FULL_CHARGE = 20;
+	private static final int SPEAR_MAX_HOLD = 60;
+	public static final double SPEAR_RANGE = 10.0;
+	public static final float SPEAR_MIN_DAMAGE = 14.0f;
+	public static final float SPEAR_MAX_DAMAGE = 26.0f;
+	private static final int SPEAR_PIN_TICKS = 20;
+	/** playerId -> game time the Spear's charge began. */
+	private static final Map<Integer, Long> SPEAR = new ConcurrentHashMap<>();
+	/** playerId -> {pinned target id, end tick, x, y, z}: the Spear's first victim held in place. */
+	private static final Map<Integer, double[]> PINNED = new ConcurrentHashMap<>();
+
+	private static final int CD_RAIN = 280;             // 14 s
+	private static final int RAIN_TICKS = 60;
+	private static final int RAIN_INTERVAL = 3;
+	private static final int RAIN_PER_VOLLEY = 2;
+	private static final double RAIN_RADIUS = 4.0;
+	private static final double RAIN_RANGE = 24.0;
+	private static final double RAIN_HEIGHT = 11.0;
+	public static final float RAIN_SPIKE_DAMAGE = 3.0f;
+	/** playerId -> {centre x, y, z, end tick, last volley tick, spawn height}. */
+	private static final Map<Integer, double[]> RAIN = new ConcurrentHashMap<>();
+
+	private static final int CD_DIVE = 120;             // 6 s
+	private static final double DIVE_MIN_HEIGHT = 2.5;
+	private static final double DIVE_RADIUS = 4.5;
+	public static final float DIVE_BASE_DAMAGE = 12.0f;
+	private static final float DIVE_MAX_BONUS = 12.0f;
+	private static final int DIVE_MAX_TICKS = 80;
+	/** playerId -> {start y, start tick}. */
+	private static final Map<Integer, double[]> DIVE = new ConcurrentHashMap<>();
+
+	private static final int CD_ERUPTION = 240;         // 12 s
+	private static final int ERUPTION_STEPS = 8;
+	private static final double ERUPTION_STEP = 1.5;
+	private static final double ERUPTION_HIT_RADIUS = 1.7;
+	public static final float ERUPTION_DAMAGE = 12.0f;
+
+	private static final class Eruption {
+		final Vec3 origin;
+		final Vec3 dir;
+		final long start;
+		int step;
+		final java.util.Set<Integer> hit = new java.util.HashSet<>();
+
+		Eruption(Vec3 origin, Vec3 dir, long start) {
+			this.origin = origin;
+			this.dir = dir;
+			this.start = start;
+		}
+	}
+
+	private static final Map<Integer, Eruption> ERUPTION = new ConcurrentHashMap<>();
+
+	private static final int CD_MAW = 100;              // 5 s
+	private static final double MAW_RANGE = 5.0;
+	public static final float MAW_DAMAGE = 18.0f;
+	public static final float MAW_BIOMASS = 12.0f;
+
+	private static final int CD_DEVOUR = 400;           // 20 s
+	private static final double DEVOUR_RANGE = 4.5;
+	public static final float DEVOUR_THRESHOLD = 0.25f;
+	public static final float DEVOUR_BIOMASS = 40.0f;
+	private static final float DEVOUR_HOST_HEAL = 6.0f;
+	public static final float HEAVY_BITE_DAMAGE = 30.0f;
+	private static final float HEAVY_BITE_BIOMASS = 20.0f;
+	/** Ticks the tongue takes to drag the prey into the maw. */
+	public static final int DEVOUR_PULL_TICKS = 12;
+	/** playerId -> {target id, start tick}. */
+	private static final Map<Integer, long[]> DEVOUR = new ConcurrentHashMap<>();
+
+	/** Punches count as "in a row" while each lands within 1.5 s of the last. */
+	private static final int PUNCH_CHAIN_WINDOW = 30;
+	public static final double PUNCH_KNOCKBACK = 1.4;
+	/** playerId -> {punches in a row, game time of the last}. */
+	private static final Map<Integer, long[]> PUNCH_CHAIN = new ConcurrentHashMap<>();
+	private static final net.minecraft.resources.ResourceLocation REACH_ID = com.projecthero.mod.ProjectHeroMod.id("symbiote_suit_reach");
+	public static final double SUIT_REACH_BONUS = 1.0;
+
+	/** Bosses (300+ max health, the Wither, the Dragon, 200+ like the grab rule) are never devoured or yanked. */
+	public static boolean isBoss(LivingEntity target) {
+		return target.getMaxHealth() >= 200.0f || com.projecthero.mod.titanshifter.TitanCombat.isBoss(target);
+	}
+
+	private static Vec3 mid(LivingEntity e) {
+		return e.position().add(0, e.getBbHeight() * 0.5, 0);
+	}
+
+	// ---------------- Tendril Slam (R, every 3rd strike in a row) ----------------
+
+	/**
+	 * The tendril wraps the target, yanks it in to just in front of the host and smashes it into the ground: 22 damage, Slowness II
+	 * for 2 s, and 6 to anything else within 2.5 blocks of the impact. A boss (or anything the grab rules refuse) is smashed where
+	 * it stands instead of being yanked.
+	 */
+	private static void tendrilSlam(ServerPlayer player, LivingEntity target) {
+		ServerLevel level = AbilityHelpers.level(player);
+		SymbioteAnim.play(player, SymbioteAnim.TENDRIL_SLAM);
+		SymbioteTendrilEntity.fromHand(player, true, mid(target), target, 16, 3, 0.18f);
+		if (!isBoss(target) && AbilityHelpers.isValidGrabTarget(target, player)) {
+			Vec3 look = player.getLookAngle();
+			Vec3 flat = new Vec3(look.x, 0, look.z);
+			flat = flat.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : flat.normalize();
+			Vec3 dest = groundPoint(level, player.position().add(flat.scale(2.2 * Math.max(1.0, player.getScale()))));
+			if (level.noCollision(target, target.getBoundingBox().move(dest.subtract(target.position())))) {
+				target.teleportTo(dest.x, dest.y, dest.z);
+			}
+			target.setDeltaMovement(0, -0.8, 0);
+			target.hurtMarked = true;
+		}
+		Vec3 impact = target.position();
+		if (AbilityHelpers.hurtBurst(player, target, SLAM_DAMAGE)) {
+			AbilityHelpers.applyControl(target, MobEffects.MOVEMENT_SLOWDOWN, 40, 1);
+		}
+		for (LivingEntity other : enemiesAround(player, impact, SLAM_SPLASH_RADIUS)) {
+			if (other != target) {
+				AbilityHelpers.hurt(player, other, SLAM_SPLASH_DAMAGE);
+				AbilityHelpers.knockbackFrom(other, impact, 0.6);
+			}
+		}
+		for (int i = 0; i < 16; i++) {
+			double a = Math.PI * 2 * i / 16;
+			level.sendParticles(ICHOR, impact.x + Math.cos(a) * 1.6, impact.y + 0.1, impact.z + Math.sin(a) * 1.6, 1, 0.05, 0, 0.05, 0);
+		}
+		AbilityHelpers.burst(level, impact.add(0, 0.4, 0), ParticleTypes.SQUID_INK, 30, 0.6);
+		level.sendParticles(ParticleTypes.EXPLOSION, impact.x, impact.y + 0.2, impact.z, 1, 0, 0, 0, 0);
+		AbilityHelpers.sound(player, SoundEvents.GENERIC_EXPLODE.value(), 0.6f, 1.4f);
+		SymbioteSounds.organic(player, 1.0f, 0.4f);
+		SymbioteSounds.lash(player, 1.0f, 0.6f);
+	}
+
+	// ---------------- Impaling Spear (hold R, release) ----------------
+
+	private static void beginSpear(ServerPlayer player, long now) {
+		long readyAt = Symbiote.state(player).abilityCooldowns.get(CDI_SPEAR);
+		if (now < readyAt) {
+			cooldownMessage(player, readyAt - now);
+			return;
+		}
+		SPEAR.put(player.getId(), now);
+		SymbioteAnim.play(player, SymbioteAnim.SPEAR_CHARGE);
+		SymbioteSounds.organic(player, 0.8f, 0.5f);
+		AbilityHelpers.sound(player, SoundEvents.WARDEN_HEARTBEAT, 0.7f, 1.2f);
+	}
+
+	/** 0..1: how charged the Spear is. */
+	public static float spearCharge(ServerPlayer player, long now) {
+		Long start = SPEAR.get(player.getId());
+		return start == null ? 0.0f : Math.min(1.0f, (now - start) / (float) SPEAR_FULL_CHARGE);
+	}
+
+	public static boolean spearCharging(ServerPlayer player) {
+		return SPEAR.containsKey(player.getId());
+	}
+
+	private static void tickSpear(ServerPlayer player, long now) {
+		Long start = SPEAR.get(player.getId());
+		if (start == null) {
+			return;
+		}
+		if (now - start >= SPEAR_MAX_HOLD) {
+			fireSpear(player, now);
+			return;
+		}
+		// the spear grows in the hand: a tightening spiral of ichor round the fist
+		ServerLevel level = AbilityHelpers.level(player);
+		Vec3 hand = SymbioteHands.right(player);
+		float c = spearCharge(player, now);
+		for (int i = 0; i < 3; i++) {
+			double a = now * 0.7 + i * Math.PI * 2 / 3;
+			double r = 0.45 * (1.0 - c * 0.6);
+			level.sendParticles(ICHOR, hand.x + Math.cos(a) * r, hand.y + Math.sin(a) * r, hand.z + Math.sin(a + 1) * r, 1, 0, 0, 0, 0);
+		}
+		if (c >= 1.0f && now % 4 == 0) {
+			level.sendParticles(SHEEN, hand.x, hand.y, hand.z, 2, 0.08, 0.08, 0.08, 0.0);
+		}
+	}
+
+	/**
+	 * Release: a thick tendril spear rams 10 blocks down the aim (blocks stop it) and pierces everything on the line --
+	 * 14 damage at the hold's start up to 26 fully charged (another second) -- and the first thing it runs through is pinned
+	 * in place for 1 s (not a boss). 8 s cooldown, started on the throw.
+	 */
+	private static void fireSpear(ServerPlayer player, long now) {
+		float charge = spearCharge(player, now);
+		SPEAR.remove(player.getId());
+		SymbioteAnim.play(player, SymbioteAnim.SPEAR_THROW);
+		setCooldown(player, CDI_SPEAR, now, CD_SPEAR);
+		ServerLevel level = AbilityHelpers.level(player);
+		Vec3 eye = player.getEyePosition();
+		Vec3 look = player.getLookAngle();
+		Vec3 far = eye.add(look.scale(SPEAR_RANGE));
+		HitResult block = level.clip(new ClipContext(eye, far, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
+		Vec3 end = block.getType() == HitResult.Type.MISS ? far : block.getLocation();
+		float damage = SPEAR_MIN_DAMAGE + (SPEAR_MAX_DAMAGE - SPEAR_MIN_DAMAGE) * charge;
+		List<LivingEntity> line = new java.util.ArrayList<>(enemiesAround(player, eye.add(end).scale(0.5), SPEAR_RANGE * 0.5 + 2.0)
+				.stream().filter(e -> e.getBoundingBox().inflate(0.6).clip(eye, end).isPresent()).toList());
+		line.sort(java.util.Comparator.comparingDouble(e -> e.distanceToSqr(eye)));
+		SymbioteTendrilEntity.fromHand(player, true, end, null, 14, 2, 0.26f + 0.08f * charge);
+		boolean first = true;
+		for (LivingEntity target : line) {
+			if (AbilityHelpers.hurtBurst(player, target, damage)) {
+				AbilityHelpers.burst(level, mid(target), ParticleTypes.SQUID_INK, 18, 0.35);
+				level.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + target.getBbHeight() * 0.5, target.getZ(),
+						8, 0.2, 0.2, 0.2, 0.3);
+				if (first && !isBoss(target)) {
+					PINNED.put(player.getId(), new double[]{target.getId(), now + SPEAR_PIN_TICKS, target.getX(), target.getY(), target.getZ()});
+					AbilityHelpers.applyControl(target, MobEffects.MOVEMENT_SLOWDOWN, SPEAR_PIN_TICKS, 9);
+					SymbioteTendrilEntity.fromPoint(player, groundPoint(level, target.position()), mid(target), target,
+							SPEAR_PIN_TICKS, 2, 0.16f);
+				} else {
+					AbilityHelpers.knockbackFrom(target, player.position(), 0.5);
+				}
+				first = false;
+			}
+		}
+		AbilityHelpers.sound(player, SoundEvents.TRIDENT_THROW, 1.0f, 0.6f);
+		SymbioteSounds.lash(player, 1.2f, 0.5f);
+		SymbioteSounds.organic(player, 0.9f, 0.6f);
+	}
+
+	/** The entity the Spear has pinned, or -1 (tests). */
+	public static int pinnedTarget(ServerPlayer player) {
+		double[] pin = PINNED.get(player.getId());
+		return pin == null ? -1 : (int) pin[0];
+	}
+
+	public static boolean raining(ServerPlayer player) {
+		return RAIN.containsKey(player.getId());
+	}
+
+	private static void tickPinned(ServerPlayer player, long now) {
+		double[] pin = PINNED.get(player.getId());
+		if (pin == null) {
+			return;
+		}
+		Entity e = AbilityHelpers.level(player).getEntity((int) pin[0]);
+		if (now >= (long) pin[1] || !(e instanceof LivingEntity target) || !target.isAlive()) {
+			PINNED.remove(player.getId());
+			return;
+		}
+		if (!(target instanceof Player)) {
+			target.teleportTo(pin[2], pin[3], pin[4]);
+		}
+		target.setDeltaMovement(Vec3.ZERO);
+		target.hurtMarked = true;
+	}
+
+	// ---------------- Spike Rain (hold G) ----------------
+
+	/**
+	 * Spikes burst up out of the host's back and arms, then rain on the aimed area (up to 24 blocks away, 4-block radius) for
+	 * 3 s: two spikes every 3 ticks, 4 damage and Wither I for 2 s each. Spikes respect hit invulnerability, so one target takes
+	 * a hit about every half second. 14 s cooldown.
+	 */
+	private static boolean spikeRain(ServerPlayer player, long now) {
+		ServerLevel level = AbilityHelpers.level(player);
+		Vec3 centre = groundPoint(level, AbilityHelpers.aimPoint(player, RAIN_RANGE));
+		// rain from up to 11 blocks above -- lower under a roof
+		Vec3 up = centre.add(0, 1.0, 0);
+		HitResult roof = level.clip(new ClipContext(up, up.add(0, RAIN_HEIGHT, 0), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
+		double height = roof.getType() == HitResult.Type.MISS ? RAIN_HEIGHT : Math.max(1.5, roof.getLocation().y - centre.y - 0.8);
+		RAIN.put(player.getId(), new double[]{centre.x, centre.y, centre.z, now + RAIN_TICKS, now - RAIN_INTERVAL, height});
+		SymbioteAnim.play(player, SymbioteAnim.SPIKE_RAIN);
+		// the launch: a volley thrown up out of both hands
+		for (int i = 0; i < 6; i++) {
+			Vec3 dir = new Vec3((player.getRandom().nextDouble() - 0.5) * 0.4, 1.0, (player.getRandom().nextDouble() - 0.5) * 0.4).normalize();
+			SymbioteSpikeEntity.rain(player, SymbioteHands.hand(player, i % 2 == 0), dir, RAIN_SPIKE_DAMAGE, 40, 2.4f);
+		}
+		AbilityHelpers.sound(player, SoundEvents.TRIDENT_THROW, 0.9f, 0.8f);
+		SymbioteSounds.organic(player, 1.0f, 0.9f);
+		return true;
+	}
+
+	private static void tickRain(ServerPlayer player, long now) {
+		double[] r = RAIN.get(player.getId());
+		if (r == null) {
+			return;
+		}
+		if (now >= (long) r[3]) {
+			RAIN.remove(player.getId());
+			return;
+		}
+		ServerLevel level = AbilityHelpers.level(player);
+		if (now % 5 == 0) {
+			// the marked ground
+			for (int i = 0; i < 20; i++) {
+				double a = Math.PI * 2 * i / 20 + now * 0.05;
+				level.sendParticles(ICHOR, r[0] + Math.cos(a) * RAIN_RADIUS, r[1] + 0.1, r[2] + Math.sin(a) * RAIN_RADIUS, 1, 0, 0, 0, 0);
+			}
+		}
+		if (now - (long) r[4] < RAIN_INTERVAL) {
+			return;
+		}
+		r[4] = now;
+		Vec3 centre = new Vec3(r[0], r[1], r[2]);
+		List<LivingEntity> inside = enemiesAround(player, centre, RAIN_RADIUS + 0.5).stream()
+				.filter(e -> e.position().subtract(centre).horizontalDistance() <= RAIN_RADIUS).toList();
+		for (int i = 0; i < RAIN_PER_VOLLEY; i++) {
+			Vec3 from;
+			if (i == 0 && !inside.isEmpty()) {
+				// one spike a volley falls on something in the circle (the rain is the Symbiote's -- it aims)
+				LivingEntity t = inside.get(player.getRandom().nextInt(inside.size()));
+				from = new Vec3(t.getX() + (player.getRandom().nextDouble() - 0.5) * 0.5, r[1] + r[5],
+						t.getZ() + (player.getRandom().nextDouble() - 0.5) * 0.5);
+			} else {
+				double a = player.getRandom().nextDouble() * Math.PI * 2;
+				double d = Math.sqrt(player.getRandom().nextDouble()) * RAIN_RADIUS;
+				from = new Vec3(r[0] + Math.cos(a) * d, r[1] + r[5], r[2] + Math.sin(a) * d);
+			}
+			Vec3 dir = new Vec3((player.getRandom().nextDouble() - 0.5) * 0.08, -1.0, (player.getRandom().nextDouble() - 0.5) * 0.08);
+			SymbioteSpikeEntity.rain(player, from, dir.normalize(), RAIN_SPIKE_DAMAGE, 40, 1.9f);
+		}
+		if (now % 6 == 0) {
+			level.playSound(null, r[0], r[1] + 2, r[2], SoundEvents.ARROW_SHOOT, net.minecraft.sounds.SoundSource.PLAYERS, 0.5f, 0.6f);
+		}
+	}
+
+	// ---------------- Dive Bomb (X in the air) ----------------
+
+	/** X in the air: at least 2.5 blocks clear below the host (a hop still lunges), not in water. */
+	public static boolean canDiveBomb(ServerPlayer player) {
+		if (player.onGround() || player.isInWater() || player.isPassenger() || player.getAbilities().flying) {
+			return false;
+		}
+		Vec3 feet = player.position();
+		HitResult below = player.level().clip(new ClipContext(feet, feet.add(0, -DIVE_MIN_HEIGHT, 0),
+				ClipContext.Block.COLLIDER, ClipContext.Fluid.ANY, player));
+		return below.getType() == HitResult.Type.MISS;
+	}
+
+	/** The Symbiote drives the host straight down (a little along the aim); the landing is the slam ({@link #diveImpact}). */
+	private static boolean diveBomb(ServerPlayer player, long now) {
+		LUNGE.remove(player.getId());
+		DIVE.put(player.getId(), new double[]{player.getY(), now});
+		LEAP_NO_FALL_UNTIL.put(player.getId(), now + LEAP_NO_FALL_TICKS);
+		Vec3 look = player.getLookAngle();
+		AbilityHelpers.launchSelf(player, new Vec3(look.x * 0.35, -2.4, look.z * 0.35));
+		SymbioteAnim.play(player, SymbioteAnim.DIVE_BOMB);
+		AbilityHelpers.burst(AbilityHelpers.level(player), player.position().add(0, 1, 0), ParticleTypes.SQUID_INK, 20, 0.4);
+		SymbioteSounds.lash(player, 1.0f, 0.5f);
+		AbilityHelpers.sound(player, SoundEvents.PHANTOM_SWOOP, 0.8f, 0.6f);
+		return true;
+	}
+
+	public static boolean diving(ServerPlayer player) {
+		return DIVE.containsKey(player.getId());
+	}
+
+	private static void tickDive(ServerPlayer player, long now) {
+		double[] d = DIVE.get(player.getId());
+		if (d == null) {
+			return;
+		}
+		boolean landed = now - (long) d[1] >= 1 && (player.onGround() || player.isInWater());
+		if (landed || now - (long) d[1] >= DIVE_MAX_TICKS) {
+			DIVE.remove(player.getId());
+			diveImpact(player, Math.max(0.0, d[0] - player.getY()));
+			return;
+		}
+		// keep it a dive, not a float: the push down is renewed if something slowed it
+		Vec3 v = player.getDeltaMovement();
+		if (v.y > -1.6) {
+			AbilityHelpers.launchSelf(player, new Vec3(v.x, -2.0, v.z));
+		}
+		AbilityHelpers.level(player).sendParticles(ParticleTypes.SQUID_INK, player.getX(), player.getY() + 1.0, player.getZ(),
+				4, 0.2, 0.4, 0.2, 0.01);
+	}
+
+	/**
+	 * The landing: a 4.5-block slam -- 12 damage plus 0.8 per block fallen (up to 24) -- that throws everything up and out,
+	 * while tendrils burst out of the ground in a ring.
+	 */
+	private static void diveImpact(ServerPlayer player, double fallen) {
+		ServerLevel level = AbilityHelpers.level(player);
+		Vec3 c = player.position();
+		float damage = DIVE_BASE_DAMAGE + (float) Math.min(DIVE_MAX_BONUS, fallen * 0.8);
+		SymbioteAnim.play(player, SymbioteAnim.DIVE_IMPACT);
+		for (LivingEntity target : enemiesAround(player, c, DIVE_RADIUS)) {
+			if (AbilityHelpers.hurtBurst(player, target, damage) && !isBoss(target)) {
+				AbilityHelpers.knockbackFrom(target, c, 1.1);
+				AbilityHelpers.push(target, new Vec3(0, 0.6, 0));
+			}
+		}
+		for (int i = 0; i < 10; i++) {
+			double a = Math.PI * 2 * i / 10;
+			Vec3 root = groundPoint(level, c.add(Math.cos(a) * 1.2, 0, Math.sin(a) * 1.2));
+			Vec3 tip = groundPoint(level, c.add(Math.cos(a) * DIVE_RADIUS, 0, Math.sin(a) * DIVE_RADIUS)).add(0, 1.0 + (i % 2) * 0.6, 0);
+			SymbioteTendrilEntity.fromPoint(player, root, tip, null, 16, 3, 0.18f);
+		}
+		for (int ring = 1; ring <= 2; ring++) {
+			double r = DIVE_RADIUS * ring / 2.0;
+			for (int i = 0; i < 24 * ring; i++) {
+				double a = Math.PI * 2 * i / (24 * ring);
+				level.sendParticles(ring == 1 ? SHEEN : ICHOR, c.x + Math.cos(a) * r, c.y + 0.15, c.z + Math.sin(a) * r, 1, 0.05, 0.05, 0.05, 0);
+			}
+		}
+		level.sendParticles(ParticleTypes.EXPLOSION, c.x, c.y + 0.3, c.z, 2, 0.6, 0.1, 0.6, 0);
+		AbilityHelpers.burst(level, c.add(0, 0.5, 0), ParticleTypes.SQUID_INK, 50, 1.6);
+		AbilityHelpers.sound(player, SoundEvents.GENERIC_EXPLODE.value(), 0.8f, 0.8f);
+		AbilityHelpers.sound(player, SoundEvents.RAVAGER_ROAR, 0.6f, 1.2f);
+		SymbioteSounds.organic(player, 1.0f, 0.4f);
+	}
+
+	// ---------------- Ground Eruption (hold Z) ----------------
+
+	/**
+	 * Tendrils burst out of the ground in a travelling line ahead -- a burst every 1.5 blocks out to 12, one a tick -- and
+	 * everything they come up under takes 12, is launched up (not a boss) and slowed for 3 s. Each thing is hit once. 12 s cooldown.
+	 */
+	private static boolean groundEruption(ServerPlayer player, long now) {
+		Vec3 look = player.getLookAngle();
+		Vec3 flat = new Vec3(look.x, 0, look.z);
+		flat = flat.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : flat.normalize();
+		ERUPTION.put(player.getId(), new Eruption(player.position(), flat, now));
+		SymbioteAnim.play(player, SymbioteAnim.ERUPTION);
+		AbilityHelpers.sound(player, SoundEvents.WARDEN_DIG, 0.9f, 1.3f);
+		SymbioteSounds.organic(player, 1.0f, 0.5f);
+		return true;
+	}
+
+	private static void tickEruption(ServerPlayer player, long now) {
+		Eruption e = ERUPTION.get(player.getId());
+		if (e == null) {
+			return;
+		}
+		int due = (int) Math.min(ERUPTION_STEPS, now - e.start + 1);
+		ServerLevel level = AbilityHelpers.level(player);
+		while (e.step < due) {
+			e.step++;
+			Vec3 root = groundPoint(level, e.origin.add(e.dir.scale(ERUPTION_STEP * e.step)));
+			for (int k = 0; k < 3; k++) {
+				Vec3 jitter = new Vec3((player.getRandom().nextDouble() - 0.5) * 1.0, 0, (player.getRandom().nextDouble() - 0.5) * 1.0);
+				Vec3 tip = root.add(jitter.scale(0.6)).add(e.dir.scale(0.3)).add(0, 2.0 + player.getRandom().nextDouble() * 1.2, 0);
+				SymbioteTendrilEntity.fromPoint(player, root.add(jitter), tip, null, 14, 2, 0.17f + k * 0.03f);
+			}
+			level.sendParticles(ParticleTypes.SQUID_INK, root.x, root.y + 0.3, root.z, 14, 0.5, 0.2, 0.5, 0.06);
+			level.sendParticles(ICHOR, root.x, root.y + 0.1, root.z, 8, 0.6, 0.05, 0.6, 0.0);
+			BlockPos under = BlockPos.containing(root.x, root.y - 0.5, root.z);
+			level.sendParticles(new net.minecraft.core.particles.BlockParticleOption(ParticleTypes.BLOCK, level.getBlockState(under)),
+					root.x, root.y + 0.2, root.z, 10, 0.5, 0.1, 0.5, 0.1);
+			for (LivingEntity target : enemiesAround(player, root, ERUPTION_HIT_RADIUS + 1.5)) {
+				Vec3 to = target.position().subtract(root);
+				if (e.hit.contains(target.getId()) || to.horizontalDistance() > ERUPTION_HIT_RADIUS + target.getBbWidth() * 0.5
+						|| Math.abs(to.y) > 2.5) {
+					continue;
+				}
+				e.hit.add(target.getId());
+				if (AbilityHelpers.hurtBurst(player, target, ERUPTION_DAMAGE)) {
+					AbilityHelpers.applyControl(target, MobEffects.MOVEMENT_SLOWDOWN, 60, 1);
+					if (!isBoss(target)) {
+						AbilityHelpers.push(target, new Vec3(e.dir.x * 0.2, 1.1, e.dir.z * 0.2));
+					}
+				}
+			}
+			if (e.step % 2 == 0) {
+				level.playSound(null, root.x, root.y, root.z, SoundEvents.ROOTED_DIRT_BREAK, net.minecraft.sounds.SoundSource.PLAYERS, 1.0f, 0.6f);
+			}
+		}
+		if (e.step >= ERUPTION_STEPS) {
+			ERUPTION.remove(player.getId());
+		}
+	}
+
+	// ---------------- Maw Bite (C) ----------------
+
+	/** The nearest enemy in front of the host within {@code range} (aim first, then a narrow cone). */
+	private static LivingEntity biteTarget(ServerPlayer player, double range) {
+		LivingEntity aimed = AbilityHelpers.raycastEntity(player, range);
+		if (aimed != null && !Squads.areAllies(player, aimed) && aimed != player) {
+			return aimed;
+		}
+		Vec3 eye = player.getEyePosition();
+		Vec3 look = player.getLookAngle();
+		LivingEntity best = null;
+		double bestD = Double.MAX_VALUE;
+		for (LivingEntity e : enemiesAround(player, player.position(), range)) {
+			Vec3 to = mid(e).subtract(eye);
+			double d = to.length();
+			if (d > 0.01 && to.scale(1.0 / d).dot(look) >= 0.75 && d < bestD) {
+				best = e;
+				bestD = d;
+			}
+		}
+		return best;
+	}
+
+	/**
+	 * C: the host snaps forward (a short lunge toward the target, up to 5 blocks) and the Symbiote's jaws close on it: 18 damage,
+	 * and the Symbiote takes back 12 Biomass when it lands. A miss still lunges. 5 s cooldown.
+	 */
+	private static boolean mawBite(ServerPlayer player) {
+		ServerLevel level = AbilityHelpers.level(player);
+		LivingEntity target = biteTarget(player, MAW_RANGE);
+		SymbioteAnim.play(player, SymbioteAnim.MAW_BITE);
+		Vec3 look = player.getLookAngle();
+		Vec3 toward = target != null ? target.position().subtract(player.position()) : new Vec3(look.x, 0, look.z).scale(2.0);
+		double dist = toward.horizontalDistance();
+		if (dist > 1.6) {
+			Vec3 flat = new Vec3(toward.x, 0, toward.z).normalize();
+			AbilityHelpers.launchSelf(player, flat.scale(Math.min(1.3, 0.35 + (dist - 1.6) * 0.3)).add(0, 0.15, 0));
+		}
+		AbilityHelpers.sound(player, SoundEvents.EVOKER_FANGS_ATTACK, 1.0f, 0.7f);
+		SymbioteSounds.organic(player, 1.0f, 0.5f);
+		if (target != null && AbilityHelpers.hurtBurst(player, target, MAW_DAMAGE)) {
+			SymbioteVitalsManager.gainBiomass(player, MAW_BIOMASS);
+			Vec3 m = mid(target);
+			level.sendParticles(ParticleTypes.CRIT, m.x, m.y, m.z, 12, 0.3, 0.3, 0.3, 0.3);
+			level.sendParticles(ParticleTypes.DAMAGE_INDICATOR, m.x, m.y, m.z, 6, 0.2, 0.2, 0.2, 0.1);
+			AbilityHelpers.burst(level, m, ParticleTypes.SQUID_INK, 14, 0.3);
+			AbilityHelpers.sound(player, SoundEvents.PLAYER_ATTACK_CRIT, 1.0f, 0.6f);
+		}
+		return true;
+	}
+
+	// ---------------- Devour (hold C) ----------------
+
+	/** Could hold-C devour {@code target} right now? Under 25% health, not a boss, not a player, not a dummy / armour stand. */
+	public static boolean devourable(ServerPlayer player, LivingEntity target) {
+		return target != null && target.isAlive() && !(target instanceof Player) && !isBoss(target)
+				&& AbilityHelpers.isValidGrabTarget(target, player)
+				&& target.getHealth() <= target.getMaxHealth() * DEVOUR_THRESHOLD;
+	}
+
+	/**
+	 * Hold C: on a target under 25% health the tongue lashes out, drags it into the maw over 0.6 s and the Symbiote eats it --
+	 * it dies, the Symbiote takes back 40 Biomass and the host heals 3 hearts (20 s cooldown). A boss is too big to eat: it takes a
+	 * heavy bite instead (30 damage, 20 Biomass, the same 20 s cooldown). Anything else (above 25%, a player, nothing in reach, or
+	 * Devour cooling down) gets a Maw Bite.
+	 */
+	private static void devourOrBite(ServerPlayer player, long now) {
+		LivingEntity target = biteTarget(player, DEVOUR_RANGE);
+		long readyAt = Symbiote.state(player).abilityCooldowns.get(CDI_DEVOUR);
+		boolean devourReady = now >= readyAt && !DEVOUR.containsKey(player.getId());
+		if (target != null && devourReady && isBoss(target)) {
+			heavyBite(player, target, now);
+			return;
+		}
+		if (target != null && devourReady && devourable(player, target)) {
+			DEVOUR.put(player.getId(), new long[]{target.getId(), now});
+			setCooldown(player, CDI_DEVOUR, now, CD_DEVOUR);
+			target.setNoGravity(true);
+			target.setDeltaMovement(Vec3.ZERO);
+			SymbioteAnim.play(player, SymbioteAnim.DEVOUR);
+			AbilityHelpers.sound(player, SoundEvents.WARDEN_ROAR, 0.7f, 1.5f);
+			SymbioteSounds.organic(player, 1.0f, 0.4f);
+			return;
+		}
+		tryWithCooldown(player, CDI_MAW, now, CD_MAW, () -> mawBite(player));
+	}
+
+	private static void heavyBite(ServerPlayer player, LivingEntity target, long now) {
+		setCooldown(player, CDI_DEVOUR, now, CD_DEVOUR);
+		SymbioteAnim.play(player, SymbioteAnim.MAW_BITE);
+		ServerLevel level = AbilityHelpers.level(player);
+		if (AbilityHelpers.hurtBurst(player, target, HEAVY_BITE_DAMAGE)) {
+			SymbioteVitalsManager.gainBiomass(player, HEAVY_BITE_BIOMASS);
+			Vec3 m = player.getEyePosition().add(player.getLookAngle().scale(1.2));
+			level.sendParticles(ParticleTypes.CRIT, m.x, m.y, m.z, 20, 0.4, 0.4, 0.4, 0.4);
+			AbilityHelpers.burst(level, m, ParticleTypes.SQUID_INK, 24, 0.4);
+		}
+		AbilityHelpers.sound(player, SoundEvents.EVOKER_FANGS_ATTACK, 1.2f, 0.5f);
+		AbilityHelpers.sound(player, SoundEvents.RAVAGER_ATTACK, 1.0f, 0.7f);
+		player.displayClientMessage(Component.translatable("message.projecthero.symbiote.devour_too_big"), true);
+	}
+
+	public static boolean devouring(ServerPlayer player) {
+		return DEVOUR.containsKey(player.getId());
+	}
+
+	private static void tickDevour(ServerPlayer player, long now) {
+		long[] d = DEVOUR.get(player.getId());
+		if (d == null) {
+			return;
+		}
+		ServerLevel level = AbilityHelpers.level(player);
+		Entity e = level.getEntity((int) d[0]);
+		if (!(e instanceof LivingEntity target) || !target.isAlive() || player.distanceToSqr(target) > 64.0) {
+			releaseDevour(player);
+			return;
+		}
+		long age = now - d[1];
+		Vec3 mouth = player.getEyePosition().add(player.getLookAngle().scale(0.9 * Math.max(1.0, player.getScale()))).add(0, -0.2, 0);
+		if (age < DEVOUR_PULL_TICKS) {
+			// the tongue reels it in
+			Vec3 at = mid(target);
+			double f = Math.min(1.0, 0.35 + age / (double) DEVOUR_PULL_TICKS * 0.5);
+			Vec3 next = at.add(mouth.subtract(at).scale(f));
+			target.teleportTo(next.x, next.y - target.getBbHeight() * 0.5, next.z);
+			target.setDeltaMovement(Vec3.ZERO);
+			target.fallDistance = 0;
+			if (age % 2 == 0) {
+				level.sendParticles(ParticleTypes.SQUID_INK, next.x, next.y, next.z, 6, 0.2, 0.2, 0.2, 0.02);
+			}
+			return;
+		}
+		// the jaws close
+		DEVOUR.remove(player.getId());
+		target.setNoGravity(false);
+		Vec3 m = mid(target);
+		AbilityHelpers.hurtBurst(player, target, target.getHealth() + target.getAbsorptionAmount() + 100.0f);
+		if (target.isAlive()) {
+			target.kill();
+		}
+		SymbioteVitalsManager.gainBiomass(player, DEVOUR_BIOMASS);
+		player.heal(DEVOUR_HOST_HEAL);
+		AbilityHelpers.burst(level, m, ParticleTypes.SQUID_INK, 60, 0.6);
+		level.sendParticles(SHEEN, m.x, m.y, m.z, 20, 0.4, 0.4, 0.4, 0.0);
+		level.sendParticles(ParticleTypes.DAMAGE_INDICATOR, m.x, m.y, m.z, 10, 0.3, 0.3, 0.3, 0.1);
+		AbilityHelpers.sound(player, SoundEvents.GENERIC_EAT, 1.2f, 0.5f);
+		AbilityHelpers.sound(player, SoundEvents.PLAYER_BURP, 1.0f, 0.6f);
+		SymbioteSounds.organic(player, 1.2f, 0.3f);
+		player.displayClientMessage(Component.translatable("message.projecthero.symbiote.devoured", target.getDisplayName())
+				.withStyle(net.minecraft.ChatFormatting.DARK_PURPLE), true);
+	}
+
+	/** Lets go of a half-eaten target (it falls again). */
+	private static void releaseDevour(ServerPlayer player) {
+		long[] d = DEVOUR.remove(player.getId());
+		if (d != null && player.level().getEntity((int) d[0]) instanceof LivingEntity target) {
+			target.setNoGravity(false);
+		}
+	}
+
+	// ---------------- passive: suit-on reach and the 3rd punch ----------------
+
+	/** The suit is on and the kit is the host's: Normal host only (Black Suit Spider-Man and Agent Venom keep their own). */
+	public static boolean suitPassivesLive(ServerPlayer player) {
+		return hasContext(player) && Symbiote.isActive(player);
+	}
+
+	private static void reconcileReach(ServerPlayer player) {
+		if (suitPassivesLive(player)) {
+			com.projecthero.mod.hero.power.PowerToggles.modifier(player, net.minecraft.world.entity.ai.attributes.Attributes.ENTITY_INTERACTION_RANGE,
+					REACH_ID, SUIT_REACH_BONUS, net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_VALUE);
+		} else {
+			com.projecthero.mod.hero.power.PowerToggles.clearModifier(player,
+					net.minecraft.world.entity.ai.attributes.Attributes.ENTITY_INTERACTION_RANGE, REACH_ID);
+		}
+	}
+
+	/**
+	 * A melee swing that reached a living thing (Fabric's attack callback, server side): with the suit on, every 3rd punch in a row
+	 * (each within 1.5 s of the last) throws the target back. @return true if this punch was the knockback one.
+	 */
+	public static boolean onMeleeSwing(ServerPlayer player, Entity hit) {
+		if (!(hit instanceof LivingEntity target) || !suitPassivesLive(player) || Squads.areAllies(player, target)) {
+			return false;
+		}
+		long now = player.level().getGameTime();
+		long[] c = PUNCH_CHAIN.get(player.getId());
+		int count = c != null && now - c[1] <= PUNCH_CHAIN_WINDOW ? (int) c[0] + 1 : 1;
+		if (count >= 3) {
+			PUNCH_CHAIN.remove(player.getId());
+			if (!isBoss(target)) {
+				AbilityHelpers.knockbackFrom(target, player.position(), PUNCH_KNOCKBACK);
+				AbilityHelpers.push(target, new Vec3(0, 0.3, 0));
+			}
+			AbilityHelpers.burst(AbilityHelpers.level(player), mid(target), ParticleTypes.SQUID_INK, 12, 0.3);
+			SymbioteSounds.lash(player, 0.8f, 0.7f);
+			return true;
+		}
+		PUNCH_CHAIN.put(player.getId(), new long[]{count, now});
+		return false;
+	}
+
+	public static void registerEvents() {
+		net.fabricmc.fabric.api.event.player.AttackEntityCallback.EVENT.register((p, world, hand, entity, hitResult) -> {
+			if (!world.isClientSide && p instanceof ServerPlayer sp && !sp.isSpectator()) {
+				onMeleeSwing(sp, entity);
+			}
+			return net.minecraft.world.InteractionResult.PASS;
+		});
+	}
+
 	// ---------------- Symbiote Shield (Shift + V toggle) ----------------
 
 	/**
@@ -1028,6 +1861,7 @@ public final class SymbioteAbilityManager {
 		LUNGE.remove(player.getId());
 		ONSLAUGHT_VICTIMS.remove(player.getId());
 		dropHeldTendril(player);
+		stopMovesV2(player);
 	}
 
 	private static final double RESURRECT_RADIUS = 20.0;
@@ -1085,8 +1919,14 @@ public final class SymbioteAbilityManager {
 
 	public static void serverTick(ServerPlayer player) {
 		if (!Symbiote.hasSymbiote(player)) {
+			if (KEY_DOWN.containsKey(player.getId()) || DEVOUR.containsKey(player.getId())) {
+				stopMovesV2(player);
+			}
+			com.projecthero.mod.hero.power.PowerToggles.clearModifier(player,
+					net.minecraft.world.entity.ai.attributes.Attributes.ENTITY_INTERACTION_RANGE, REACH_ID);
 			return;
 		}
+		reconcileReach(player);
 		long now = player.level().getGameTime();
 		if (leapFallProtected(player, now) && player.onGround()) {
 			LEAP_NO_FALL_UNTIL.remove(player.getId());
@@ -1101,7 +1941,16 @@ public final class SymbioteAbilityManager {
 			tickGrapplePull(player, now);
 			tickBarrage(player, now);
 			tickLunge(player, now);
+			// v0.17.5 moveset v2
+			tickHolds(player, now);
+			tickSpear(player, now);
+			tickPinned(player, now);
+			tickRain(player, now);
+			tickDive(player, now);
+			tickEruption(player, now);
+			tickDevour(player, now);
 		} else {
+			stopMovesV2(player);
 			SymbioteState held = Symbiote.state(player);
 			if (held.tendrilGrabHeld) {
 				releaseGrabQuietly(player, held, now);
