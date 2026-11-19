@@ -659,4 +659,160 @@ public class SuperSoldierGameTests implements FabricGameTest {
 				.thenExecute(() -> helper.assertTrue(p.getOffhandItem().is(SuperSoldierItems.ADAMANTIUM_SHIELD), "back in the off hand"))
 				.thenSucceed();
 	}
+
+	// ---------------------------------------------------------------- v0.17.5: the Captain America Battle Suit's shield slot (N)
+
+	private static ItemStack battleTop(ServerPlayer p) {
+		ItemStack top = new ItemStack(com.projecthero.mod.supersoldier.item.CapBattleSuitItem.TOP);
+		p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, top);
+		return top;
+	}
+
+	private static ItemStack named(net.minecraft.world.item.Item item, String name) {
+		ItemStack s = new ItemStack(item);
+		s.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, net.minecraft.network.chat.Component.literal(name));
+		return s;
+	}
+
+	private static boolean isNamed(ItemStack s, String name) {
+		return !s.isEmpty() && name.equals(s.getHoverName().getString());
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void battleSuitNStoresRetrievesAndSwapsTheShield(GameTestHelper helper) {
+		ServerPlayer p = soldier(helper);
+		battleTop(p);
+		helper.assertTrue(com.projecthero.mod.supersoldier.CapShieldSlot.hasSlot(p), "a Super Soldier in the top has the slot");
+		p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, named(SuperSoldierItems.ADAMANTIUM_SHIELD, "Sentinel"));
+		AbilityRouter.handleInput(p, 8, true);
+		AbilityRouter.handleInput(p, 8, false);
+		helper.assertTrue(p.getMainHandItem().isEmpty(), "N: the hand is free");
+		helper.assertTrue(isNamed(com.projecthero.mod.supersoldier.CapShieldSlot.slotted(p), "Sentinel"), "N: the shield is in the slot");
+		helper.assertTrue(com.projecthero.mod.supersoldier.CapShieldSlot.hasThrowable(p), "a slotted shield counts as held");
+		// a second shield in hand: N swaps them
+		p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+				named(com.projecthero.mod.ultron.contagion.item.ContagionItems.VIBRANIUM_SHIELD, "Vib"));
+		AbilityRouter.handleInput(p, 8, true);
+		helper.assertTrue(isNamed(p.getMainHandItem(), "Sentinel") && isNamed(com.projecthero.mod.supersoldier.CapShieldSlot.slotted(p), "Vib"),
+				"N with a shield in hand swaps it with the slotted one");
+		// empty hand: N takes it out
+		p.getInventory().add(p.getMainHandItem().copy());
+		p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+		AbilityRouter.handleInput(p, 8, true);
+		helper.assertTrue(isNamed(p.getMainHandItem(), "Vib"), "N with an empty hand takes the shield back out");
+		helper.assertTrue(com.projecthero.mod.supersoldier.CapShieldSlot.slotted(p).isEmpty(), "and the slot is empty");
+		// a vanilla shield is not a Captain America shield: it stays in hand
+		p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(Items.SHIELD));
+		AbilityRouter.handleInput(p, 8, true);
+		helper.assertTrue(p.getMainHandItem().is(Items.SHIELD) && com.projecthero.mod.supersoldier.CapShieldSlot.slotted(p).isEmpty(),
+				"a vanilla shield doesn't go in the slot");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void slottedShieldThrowsWithCAndFliesHomeIntoTheSlot(GameTestHelper helper) {
+		ServerPlayer p = soldier(helper);
+		Zombie[] zs = threeZombies(helper, p);
+		battleTop(p);
+		p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, named(SuperSoldierItems.ADAMANTIUM_SHIELD, "Sentinel"));
+		helper.assertTrue(com.projecthero.mod.supersoldier.CapShieldSlot.toggle(p), "stored");
+		helper.assertTrue(SuperSoldierAbilities.shieldHand(p) == null, "nothing in either hand");
+		AbilityRouter.handleInput(p, 6, true); // C
+		helper.assertTrue(shieldsAround(helper, p) == 1, "C threw the slotted shield");
+		helper.assertTrue(com.projecthero.mod.supersoldier.CapShieldSlot.slotted(p).isEmpty(), "the slot is empty while it flies");
+		helper.startSequence()
+				.thenWaitUntil(() -> {
+					for (Zombie z : zs) {
+						helper.assertTrue(Math.abs(z.getHealth() - (200.0f - SuperSoldierConfig.SHIELD_DAMAGE)) < 0.05f,
+								"every zombie hit once for 9 (full Adamantium numbers from the slot)");
+					}
+				})
+				.thenWaitUntil(() -> helper.assertTrue(shieldsAround(helper, p) == 0, "it came back"))
+				.thenExecute(() -> {
+					helper.assertTrue(isNamed(com.projecthero.mod.supersoldier.CapShieldSlot.slotted(p), "Sentinel"), "back in the slot, name intact");
+					helper.assertTrue(p.getMainHandItem().isEmpty() && p.getOffhandItem().isEmpty(), "not in either hand");
+					helper.assertTrue(p.getInventory().countItem(SuperSoldierItems.ADAMANTIUM_SHIELD) == 0 && looseShields(helper, p) == 0,
+							"no copy in the inventory or on the ground");
+				})
+				.thenSucceed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void slottedShieldRaisedWithAnEmptyHandBlocksFromTheFront(GameTestHelper helper) {
+		ServerPlayer p = soldier(helper);
+		battleTop(p);
+		p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(SuperSoldierItems.ADAMANTIUM_SHIELD));
+		com.projecthero.mod.supersoldier.CapShieldSlot.toggle(p);
+		p.setYRot(0f);
+		p.setYHeadRot(0f);
+		Zombie front = zombieAt(helper, p, 2.0, 0.0);
+		Zombie behind = zombieAt(helper, p, -2.0, 0.0);
+		helper.startSequence()
+				.thenIdle(70) // a fresh (mock) player is spawn-invulnerable for 60 ticks
+				.thenExecute(() -> {
+					com.projecthero.mod.supersoldier.CapShieldSlot.guardStart(p);
+					helper.assertTrue(com.projecthero.mod.supersoldier.CapShieldSlot.isGuarding(p), "raised");
+				})
+				.thenIdle(com.projecthero.mod.supersoldier.CapShieldSlot.GUARD_DELAY + 2)
+				.thenExecute(() -> {
+					p.setHealth(p.getMaxHealth());
+					float hp = p.getHealth();
+					p.hurt(helper.getLevel().damageSources().mobAttack(front), 6f);
+					helper.assertTrue(p.getHealth() == hp, "a hit from the front is blocked, health " + hp + " -> " + p.getHealth());
+					p.hurt(helper.getLevel().damageSources().mobAttack(behind), 6f);
+					helper.assertTrue(p.getHealth() < hp, "a hit from behind is not");
+					com.projecthero.mod.supersoldier.CapShieldSlot.guardStop(p);
+					helper.assertFalse(com.projecthero.mod.supersoldier.CapShieldSlot.isGuarding(p), "lowered");
+					// holding something in the main hand: no guard
+					p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(Items.STICK));
+					com.projecthero.mod.supersoldier.CapShieldSlot.guardStart(p);
+					helper.assertFalse(com.projecthero.mod.supersoldier.CapShieldSlot.isGuarding(p), "no guard with something in the main hand");
+				})
+				.thenSucceed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void takingTheBattleTopOffPutsTheShieldInTheInventory(GameTestHelper helper) {
+		ServerPlayer p = soldier(helper);
+		ItemStack top = battleTop(p);
+		p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, named(SuperSoldierItems.ADAMANTIUM_SHIELD, "Sentinel"));
+		com.projecthero.mod.supersoldier.CapShieldSlot.toggle(p);
+		// the slot is saved on the top (death / relog / dropped): a save round trip keeps it
+		net.minecraft.nbt.Tag saved = top.save(helper.getLevel().registryAccess());
+		ItemStack loaded = ItemStack.parse(helper.getLevel().registryAccess(), saved).orElseThrow();
+		helper.assertTrue(isNamed(com.projecthero.mod.supersoldier.CapShieldSlot.get(loaded), "Sentinel"), "the slot survives a save / load");
+		// off it comes, into the inventory
+		p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, ItemStack.EMPTY);
+		p.getInventory().setItem(5, top); // (setItem keeps this very stack; Inventory.add would move it into a copy)
+		pump(helper, p);
+		helper.startSequence()
+				.thenWaitUntil(() -> helper.assertTrue(com.projecthero.mod.supersoldier.CapShieldSlot.get(top).isEmpty(), "the top let go of it"))
+				.thenExecute(() -> {
+					helper.assertTrue(p.getInventory().countItem(SuperSoldierItems.ADAMANTIUM_SHIELD) == 1, "exactly one shield, in the inventory");
+					helper.assertTrue(looseShields(helper, p) == 0, "nothing dropped");
+				})
+				.thenSucceed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void nonSuperSoldierInTheBattleSuitGetsNoSlot(GameTestHelper helper) {
+		ServerPlayer plain = player(helper);
+		ItemStack top = battleTop(plain);
+		helper.assertTrue(plain.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST) == top, "anyone can wear the Battle Suit");
+		helper.assertFalse(com.projecthero.mod.supersoldier.CapShieldSlot.hasSlot(plain), "but only a Super Soldier gets the slot");
+		plain.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(SuperSoldierItems.ADAMANTIUM_SHIELD));
+		AbilityRouter.handleInput(plain, 8, true);
+		helper.assertTrue(plain.getMainHandItem().is(SuperSoldierItems.ADAMANTIUM_SHIELD), "N does nothing: the shield stays in hand");
+		helper.assertFalse(com.projecthero.mod.supersoldier.CapShieldSlot.toggle(plain), "no slot to toggle");
+		// a top that already holds a shield (from a Super Soldier) gives it up to a wearer without the slot
+		ItemStack carried = new ItemStack(com.projecthero.mod.supersoldier.item.CapBattleSuitItem.TOP);
+		carried.set(com.projecthero.mod.supersoldier.CapShieldSlot.SLOT,
+				net.minecraft.world.item.component.ItemContainerContents.fromItems(List.of(new ItemStack(SuperSoldierItems.ADAMANTIUM_SHIELD))));
+		plain.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+		plain.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, carried);
+		com.projecthero.mod.supersoldier.CapShieldSlot.tick(plain);
+		helper.assertTrue(com.projecthero.mod.supersoldier.CapShieldSlot.get(carried).isEmpty(), "the slot was emptied");
+		helper.assertTrue(plain.getInventory().countItem(SuperSoldierItems.ADAMANTIUM_SHIELD) == 1, "into his inventory");
+		helper.succeed();
+	}
 }

@@ -47,7 +47,8 @@ public final class CapShieldStow {
 
 	/** The shield that belongs on his back: the first Captain America shield in the hotbar while neither hand holds one. */
 	public static ItemStack stowed(Player p) {
-		if (isCapShield(p.getMainHandItem()) || isCapShield(p.getOffhandItem()) || p.isSpectator()) {
+		// v0.17.5: a shield in the Battle Suit's slot is drawn by the back layer itself (from the worn top), never a hotbar one with it
+		if (isCapShield(p.getMainHandItem()) || isCapShield(p.getOffhandItem()) || p.isSpectator() || !CapShieldSlot.slotted(p).isEmpty()) {
 			return ItemStack.EMPTY;
 		}
 		for (int i = 0; i < 9; i++) {

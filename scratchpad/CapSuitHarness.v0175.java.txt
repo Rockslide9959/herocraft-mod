@@ -1,0 +1,513 @@
+// TEMP-HARNESS copy (v0.17.5 Captain America Battle Suit). To use: put CapSuitHarness.java back in src/client/java/com/projecthero/mod/client/,
+// add "com.projecthero.mod.client.CapSuitHarness" to the client entrypoints in src/main/resources/fabric.mod.json, put the camera mixin below in
+// src/client/java/com/projecthero/mod/client/mixin/CapSuitHarnessCameraMixin.java and list it in projecthero.client.mixins.json, write
+// run/capsuit.flag = "capsuit_out|after", run node scratchpad/low_graphics_options.js run/options.txt, ./gradlew runClient;
+// then node scratchpad/supersoldier/cap_suit_films.js. Remove all of it again afterwards.
+
+// ===== CapSuitHarness.java =====
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import com.mojang.blaze3d.platform.InputConstants;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.monster.Husk;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+import org.lwjgl.glfw.GLFW;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.5 Captain America Battle Suit): stills of the suit on a player (front / back / side, wide and slim, the
+ * held shield, the shield in the slot on the back, the HUD) and films of N stowing the shield, C throwing it from the slot and its return,
+ * and blocking with the slotted shield (third and first person). Enabled by run/capsuit.flag = "<out dir>|<mode>"; fixed camera via
+ * CapSuitHarnessCameraMixin.
+ */
+public final class CapSuitHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static BlockPos base;
+	private static File out;
+	private static String mode = "after";
+	private static final java.util.Map<Integer, List<Runnable>> AT = new java.util.HashMap<>();
+	private static int film0 = -1, filmEnd = -1;
+	private static String filmDir = "film";
+	private static float camAngle, camDist, camH, camLookAhead, camLookH = 1.1f;
+	private static boolean camOn;
+	public static volatile double[] camPose;
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("capsuit.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			String[] parts = Files.readString(flag).trim().split("\\|");
+			out = new File(parts[0]);
+			if (parts.length > 1) {
+				mode = parts[1];
+			}
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(CapSuitHarness::tick);
+		ClientTickEvents.START_CLIENT_TICK.register(CapSuitHarness::placeCam);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "capsuit-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		new File(out, "screenshots/" + name + ".png").getParentFile().mkdirs();
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.computeIfAbsent(t, k -> new ArrayList<>()).add(r);
+	}
+
+	private static Item item(String id) {
+		return BuiltInRegistries.ITEM.get(ResourceLocation.parse(id));
+	}
+
+	private static void give(Minecraft mc, Item main) {
+		server(mc, p -> {
+			p.getInventory().selected = 0;
+			for (int i = 0; i < 36; i++) {
+				p.getInventory().setItem(i, ItemStack.EMPTY);
+			}
+			p.getInventory().setItem(0, main == null ? ItemStack.EMPTY : new ItemStack(main));
+			p.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY);
+		});
+		Minecraft.getInstance().player.getInventory().selected = 0;
+	}
+
+	private static void suit(ServerPlayer p) {
+		p.setItemSlot(EquipmentSlot.HEAD, new ItemStack(item("projecthero:cap_battle_cowl")));
+		p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(item("projecthero:cap_battle_suit_top")));
+		p.setItemSlot(EquipmentSlot.LEGS, new ItemStack(item("projecthero:cap_battle_suit_trousers")));
+		p.setItemSlot(EquipmentSlot.FEET, new ItemStack(item("projecthero:cap_battle_suit_boots")));
+	}
+
+	private static void use(boolean on) {
+		InputConstants.Key k = Minecraft.getInstance().options.keyUse.getDefaultKey();
+		KeyMapping.set(k, on);
+		if (on) {
+			KeyMapping.click(k);
+		}
+	}
+
+	/** The real N key (ModKeyBindings.MAX_STEEL_TRANSFORM) down / up, so the client's own N path sends it. */
+	private static void nKey(boolean on) {
+		InputConstants.Key k = com.projecthero.mod.client.ModKeyBindings.MAX_STEEL_TRANSFORM.getDefaultKey();
+		KeyMapping.set(k, on);
+	}
+
+	private static void cam3(float angle, float dist, float h) {
+		cam3(angle, dist, h, 0f, 1.1f);
+	}
+
+	private static void cam3(float angle, float dist, float h, float lookAhead, float lookH) {
+		camAngle = angle;
+		camDist = dist;
+		camH = h;
+		camLookAhead = lookAhead;
+		camLookH = lookH;
+		camOn = true;
+		Minecraft mc = Minecraft.getInstance();
+		mc.options.hideGui = true;
+		placeCam(mc);
+	}
+
+	private static void fp(boolean gui) {
+		camOn = false;
+		camPose = null;
+		Minecraft mc = Minecraft.getInstance();
+		mc.options.hideGui = !gui;
+		mc.options.setCameraType(CameraType.FIRST_PERSON);
+		if (mc.player != null) {
+			mc.setCameraEntity(mc.player);
+		}
+	}
+
+	private static void placeCam(Minecraft mc) {
+		if (!camOn || mc.player == null || mc.level == null || base == null) {
+			camPose = null;
+			return;
+		}
+		Vec3 c = new Vec3(base.getX() + 0.5, base.getY(), base.getZ() + 0.5);
+		double r = Math.toRadians(camAngle);
+		Vec3 eye = c.add(Math.sin(r) * camDist, camH, Math.cos(r) * camDist);
+		Vec3 look = c.add(0, camLookH, camLookAhead);
+		Vec3 d = look.subtract(eye);
+		float yaw = (float) (Math.toDegrees(Math.atan2(-d.x, d.z)));
+		float pitch = (float) (-Math.toDegrees(Math.atan2(d.y, d.horizontalDistance())));
+		camPose = new double[] { eye.x, eye.y, eye.z, yaw, pitch };
+		mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+	}
+
+	private static void face(Minecraft mc) {
+		var p = mc.player;
+		p.setYRot(0f);
+		p.yRotO = 0f;
+		p.setXRot(5f);
+		p.xRotO = 5f;
+		p.yBodyRot = 0f;
+		p.yBodyRotO = 0f;
+		p.yHeadRot = 0f;
+		p.yHeadRotO = 0f;
+	}
+
+	private static void slim(Minecraft mc, boolean slim) {
+		try {
+			var info = mc.getConnection().getPlayerInfo(mc.player.getUUID());
+			var f = net.minecraft.client.multiplayer.PlayerInfo.class.getDeclaredField("skinLookup");
+			f.setAccessible(true);
+			net.minecraft.client.resources.PlayerSkin skin = slim
+					? new net.minecraft.client.resources.PlayerSkin(ResourceLocation.withDefaultNamespace("textures/entity/player/slim/alex.png"), null, null, null,
+							net.minecraft.client.resources.PlayerSkin.Model.SLIM, true)
+					: new net.minecraft.client.resources.PlayerSkin(ResourceLocation.withDefaultNamespace("textures/entity/player/wide/steve.png"), null, null, null,
+							net.minecraft.client.resources.PlayerSkin.Model.WIDE, true);
+			java.util.function.Supplier<net.minecraft.client.resources.PlayerSkin> sup = () -> skin;
+			f.set(info, sup);
+		} catch (Exception e) {
+			System.out.println("[HARNESS] slim failed " + e);
+		}
+	}
+
+	private static void stage(ServerPlayer p) {
+		ServerLevel level = p.serverLevel();
+		level.setDayTime(6000L);
+		level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+		level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+		level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+		p.server.setDifficulty(Difficulty.EASY, true);
+		p.setGameMode(GameType.SURVIVAL);
+		base = p.blockPosition();
+		for (int x = -12; x <= 12; x++) {
+			for (int z = -8; z <= 20; z++) {
+				level.setBlock(base.offset(x, -1, z), (x + z) % 2 == 0 ? Blocks.SMOOTH_STONE.defaultBlockState() : Blocks.POLISHED_ANDESITE.defaultBlockState(), 3);
+			}
+		}
+		p.getInventory().clearContent();
+		System.out.println("[HARNESS] grant: " + com.projecthero.mod.hero.PowerGrants.grantHero(p, "super_soldier").message().getString());
+		suit(p);
+		p.connection.teleport(base.getX() + 0.5, base.getY(), base.getZ() + 0.5, 0f, 5f);
+	}
+
+	private static void spawnTargets(ServerPlayer p) {
+		ServerLevel level = p.serverLevel();
+		double[][] at = { { -2.5, 7 }, { 2.5, 10 }, { -1.0, 13 } };
+		for (double[] a : at) {
+			Husk h = new Husk(EntityType.HUSK, level);
+			h.setNoAi(true);
+			h.getAttribute(Attributes.MAX_HEALTH).setBaseValue(1000);
+			h.setHealth(1000);
+			h.setPersistenceRequired();
+			h.moveTo(base.getX() + 0.5 + a[0], base.getY(), base.getZ() + 0.5 + a[1], 180f, 0f);
+			h.setYHeadRot(180f);
+			level.addFreshEntity(h);
+		}
+	}
+
+	/** A husk 2.2 blocks in front that swings at him (melee hit sent from the server every 15 ticks for the block film). */
+	private static Husk attacker;
+
+	private static void film(int from, int to, String dir) {
+		at(from, () -> {
+			film0 = from;
+			filmEnd = to;
+			filmDir = dir;
+		});
+	}
+
+	private static void plan() {
+		Minecraft mc = Minecraft.getInstance();
+		final Item ad = item("projecthero:adamantium_shield");
+		final Item vib = item("projecthero:vibranium_shield");
+		int t = 0;
+		if (mode.equals("fp")) {
+			// re-shoot: first-person block with the HUD on (hideGui also hides the hand in first person)
+			at(t, () -> give(mc, ad));
+			at(t + 4, () -> nKey(true));
+			at(t + 6, () -> nKey(false));
+			at(t + 8, () -> fp(true));
+			film(t + 12, t + 68, "film_block_fp");
+			at(t + 18, () -> use(true));
+			at(t + 34, () -> shot(mc, "block_fp"));
+			at(t + 46, () -> use(false));
+			at(t + 70, () -> Runtime.getRuntime().halt(0));
+			return;
+		}
+		// suit stills, empty hands
+		at(t, () -> give(mc, null));
+		at(t + 2, () -> cam3(0f, 2.6f, 1.3f));
+		at(t + 10, () -> shot(mc, "suit_front"));
+		at(t + 11, () -> cam3(180f, 2.6f, 1.3f));
+		at(t + 18, () -> shot(mc, "suit_back"));
+		at(t + 19, () -> cam3(90f, 2.6f, 1.3f));
+		at(t + 26, () -> shot(mc, "suit_side"));
+		at(t + 27, () -> cam3(-35f, 1.3f, 1.65f, 0f, 1.6f));
+		at(t + 34, () -> shot(mc, "suit_face_close"));
+		at(t + 35, () -> slim(mc, true));
+		at(t + 37, () -> cam3(-30f, 2.6f, 1.3f));
+		at(t + 44, () -> shot(mc, "suit_front_slim"));
+		at(t + 45, () -> slim(mc, false));
+		t += 48;
+		// holding the Adamantium shield, then N (the real key): stowed on the back
+		at(t, () -> give(mc, ad));
+		at(t + 4, () -> cam3(-140f, 2.8f, 1.5f));
+		film(t + 8, t + 48, "film_n_stow");
+		at(t + 16, () -> nKey(true));
+		at(t + 18, () -> nKey(false));
+		t += 50;
+		at(t, () -> cam3(180f, 2.6f, 1.4f));
+		at(t + 6, () -> shot(mc, "slot_back"));
+		at(t + 7, () -> cam3(-120f, 2.6f, 1.4f));
+		at(t + 13, () -> shot(mc, "slot_back_side"));
+		at(t + 14, () -> cam3(-30f, 2.6f, 1.4f));
+		at(t + 20, () -> shot(mc, "slot_front"));
+		at(t + 21, () -> fp(true));
+		at(t + 28, () -> shot(mc, "slot_hud_fp"));
+		t += 30;
+		// N again with an empty hand: back out
+		at(t, () -> cam3(-140f, 2.8f, 1.5f));
+		film(t + 4, t + 40, "film_n_retrieve");
+		at(t + 10, () -> nKey(true));
+		at(t + 12, () -> nKey(false));
+		t += 42;
+		at(t, () -> nKey(true)); // and in again for the throw
+		at(t + 2, () -> nKey(false));
+		t += 6;
+		// C from the slot -> flight -> home into the slot
+		at(t, () -> server(mc, CapSuitHarness::spawnTargets));
+		at(t + 4, () -> {
+			mc.options.fov().set(50);
+			cam3(80f, 7.5f, 2.4f, 6.5f, 1.0f);
+		});
+		film(t + 8, t + 100, "film_throw_from_slot");
+		at(t + 14, () -> server(mc, p -> com.projecthero.mod.hero.AbilityRouter.handleInput(p, 6, true)));
+		t += 104;
+		at(t, () -> mc.options.fov().set(70));
+		at(t + 1, () -> cam3(170f, 2.6f, 1.4f));
+		at(t + 6, () -> shot(mc, "slot_back_after_throw"));
+		t += 8;
+		// block with the slotted shield: right-click with an empty hand (third person front, side, first person)
+		at(t, () -> server(mc, p -> {
+			for (Husk h : p.serverLevel().getEntitiesOfClass(Husk.class, p.getBoundingBox().inflate(30))) {
+				h.discard();
+			}
+		}));
+		at(t + 2, () -> cam3(35f, 2.8f, 1.6f));
+		film(t + 6, t + 70, "film_block_tp");
+		at(t + 12, () -> use(true));
+		at(t + 44, () -> use(false));
+		t += 72;
+		at(t, () -> cam3(-70f, 2.8f, 1.5f));
+		film(t + 4, t + 60, "film_block_tp_side");
+		at(t + 10, () -> use(true));
+		at(t + 38, () -> use(false));
+		t += 62;
+		at(t, () -> cam3(30f, 2.4f, 1.6f));
+		at(t + 2, () -> use(true));
+		at(t + 14, () -> shot(mc, "block_tp_front"));
+		at(t + 15, () -> cam3(-80f, 2.4f, 1.5f));
+		at(t + 20, () -> shot(mc, "block_tp_side"));
+		at(t + 21, () -> use(false));
+		t += 26;
+		at(t, () -> fp(true));
+		film(t + 4, t + 60, "film_block_fp");
+		at(t + 10, () -> use(true));
+		at(t + 38, () -> use(false));
+		t += 62;
+		// a husk hitting the raised shield from the front (no damage taken)
+		at(t, () -> server(mc, p -> {
+			Husk h = new Husk(EntityType.HUSK, p.serverLevel());
+			h.setNoAi(true);
+			h.moveTo(base.getX() + 0.5, base.getY(), base.getZ() + 2.2, 180f, 0f);
+			h.setYHeadRot(180f);
+			p.serverLevel().addFreshEntity(h);
+			attacker = h;
+			p.setHealth(p.getMaxHealth());
+		}));
+		at(t + 2, () -> cam3(70f, 3.6f, 1.7f, 1.0f, 1.1f));
+		film(t + 6, t + 66, "film_block_hits");
+		at(t + 8, () -> use(true));
+		for (int k = 20; k <= 56; k += 12) {
+			at(t + k, () -> server(mc, p -> {
+				if (attacker != null) {
+					attacker.swing(InteractionHand.MAIN_HAND);
+					float hp = p.getHealth();
+					p.hurt(p.damageSources().mobAttack(attacker), 5f);
+					System.out.println("[HARNESS] husk hit on the raised slotted shield: health " + hp + " -> " + p.getHealth());
+				}
+			}));
+		}
+		at(t + 62, () -> use(false));
+		t += 70;
+		// the Vibranium shield in the slot on a slim player, back view
+		at(t, () -> slim(mc, true));
+		at(t + 1, () -> server(mc, p -> {
+			com.projecthero.mod.supersoldier.CapShieldSlot.toggle(p); // the adamantium one out
+			p.getInventory().setItem(0, new ItemStack(vib));
+			p.getInventory().selected = 0;
+			com.projecthero.mod.supersoldier.CapShieldSlot.toggle(p); // swap: vibranium in
+		}));
+		at(t + 6, () -> cam3(160f, 2.6f, 1.4f));
+		at(t + 12, () -> shot(mc, "slot_back_vibranium_slim"));
+		t += 14;
+		final int end = t;
+		at(end, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(CapSuitHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 20) {
+			GLFW.glfwSetWindowSize(mc.getWindow().getWindow(), 854, 480);
+		}
+		if (t == 40) {
+			mc.options.fov().set(70);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			mc.getToasts().clear();
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, CapSuitHarness::stage);
+		}
+		if (t < 140 || base == null) {
+			return;
+		}
+		face(mc);
+		int s = t - 140;
+		if (s == 0) {
+			plan();
+		}
+		if (s % 10 == 0) {
+			mc.gui.getChat().clearMessages(false);
+		}
+		List<Runnable> todo = AT.remove(s);
+		if (todo != null) {
+			todo.forEach(Runnable::run);
+		}
+		if (s >= film0 && s < filmEnd) {
+			shot(mc, String.format(filmDir + "/f%03d", s - film0));
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		rules.getRule(GameRules.RULE_DOMOBSPAWNING).set(false, null);
+		LevelSettings settings = new LevelSettings("CAPSUIT_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false, Difficulty.EASY, true,
+				rules, WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}
+
+
+// ===== mixin/CapSuitHarnessCameraMixin.java =====
+package com.projecthero.mod.client.mixin;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import net.minecraft.client.Camera;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.BlockGetter;
+
+/** TEMP-HARNESS (not shipped): the CapSuitHarness's fixed camera. */
+@Mixin(Camera.class)
+public abstract class CapSuitHarnessCameraMixin {
+	@Shadow
+	private boolean detached;
+
+	@Shadow
+	protected abstract void setRotation(float yaw, float pitch);
+
+	@Shadow
+	protected abstract void setPosition(double x, double y, double z);
+
+	@Inject(method = "setup", at = @At("TAIL"))
+	private void projecthero$capSuitHarnessCam(BlockGetter level, Entity entity, boolean detached, boolean mirrored, float partial, CallbackInfo ci) {
+		double[] c = com.projecthero.mod.client.CapSuitHarness.camPose;
+		if (c != null) {
+			this.detached = true;
+			setPosition(c[0], c[1], c[2]);
+			setRotation((float) c[3], (float) c[4]);
+		}
+	}
+}

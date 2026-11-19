@@ -87,6 +87,10 @@ public final class SuperSoldierDamage {
 			if (s.iframeUntil > now) {
 				return false; // the roll's frames
 			}
+			if (CapShieldSlot.blocks(player, source)) {
+				CapShieldSlot.onBlocked(player, source); // v0.17.5: the slotted shield raised (right-click, empty hand) -- a full block
+				return false;
+			}
 			if ((source.is(DamageTypes.FALL) || source.is(DamageTypes.FLY_INTO_WALL))
 					&& (s.noFallUntil > now || SuperSoldierAbilities.slamming(player))) {
 				player.resetFallDistance();

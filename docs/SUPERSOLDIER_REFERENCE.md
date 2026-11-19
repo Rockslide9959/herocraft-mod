@@ -25,6 +25,7 @@ selector), strong but deliberately below the Hulk / Thor / All Might.
 | `recipe/SuperSoldierSerumRecipe` | `CustomRecipe` + `SimpleCraftingRecipeSerializer`, type `projecthero:super_soldier_serum` |
 | client `SuperSoldierHud`, `SoldierShieldRenderer`, `AdamantiumShieldRenderer`, `SuperSoldierClient` | Mono HUD (R G Z X V + C, no bars), the spinning thrown shield (the real stack: the stepped dish with after-images / vanilla shield with its banner), the shield item renderer (`BuiltinItemRendererRegistry`: GUI, ground, frame), registration |
 | `CapShieldStow` (common) | v0.17.5: which Captain America shield is slung on a player's back (first one in the hotbar while neither hand holds one); synced attachment `projecthero:cap_shield_stowed` (all trackers, not saved), re-checked every 5 ticks |
+| `item/CapBattleSuitItem`, `CapShieldSlot` (common); client `CapSuitClient` | v0.17.5: the Captain America Battle Suit (anyone can wear it) and the top's shield slot -- N, the throw from / back into the slot, the right-click guard, upkeep; see **Captain America Battle Suit and the shield slot** |
 | client `CapShieldModel`, `CapShieldPose`, `CapShieldBackLayer`; mixins `CapShieldPoseMixin`, `CapShieldHeldLayerMixin`, `CapShieldFirstPersonMixin` | v0.17.5: the stepped-dish model and its three textures; the strapped-forearm placement (turned square to the front when raised), arm poses (eased block, bash, throw, reach, catch) and first-person placement; the back sling |
 
 ## Obtaining
@@ -166,6 +167,68 @@ back-sling attachment.
 - Only a Super Soldier may wear it: `SuperSoldierArmorItem.use` refuses a right-click equip; `SuperSoldierArmorGate`
   ejects any worn piece (inventory, else dropped) from anyone without the power every tick (drag-equip, dispenser, `/item`,
   losing the power), with the action-bar message `message.projecthero.super_soldier.armor_locked`.
+
+## Captain America Battle Suit and the shield slot (v0.17.5)
+
+User: "Super Soldier: add this captain america suit to the game please: https://namemc.com/skin/63b230543038f21b . when players with
+super soldier wear this they can press N and put the shield into a shield slot. the shield will always count as "held" when this
+happens". N is user-assigned here (the H / N rule otherwise stands: no N HUD box).
+
+- **Items** (`item/CapBattleSuitItem`): `cap_battle_cowl` / `cap_battle_suit_top` / `_trousers` / `_boots`. Material
+  `projecthero:cap_battle_suit`: 3 / 7 / 6 / 3 = 19 armour, toughness 1.5, enchantability 12, durability multiplier 30, repaired with
+  leather, leather equip sound. **Anyone can wear it** (no armour gate -- unlike the v0.14.9 suit); the slot is Super Soldier only.
+  Recipes (shaped, B blue wool, W white dye, R red dye, L leather, I iron ingot, H hero alloy ingot): cowl `BWB / L L`; top
+  `B B / WHW / RLR`; trousers `BLB / B B / B B`; boots `L L / I I`. JEI info page on all four; Guidebook section "The Battle Suit and the
+  Shield Slot" in the Super Soldier chapter; N listed in the chapter's controls and the Left-Alt move list.
+- **Look**: a skin costume drawn by `QuirkCostume` (the Gyro / Undead path: base layer 0.02 px over the body, outer layer at vanilla's
+  offsets, cowl = head + hat, top = body + arms, trousers = legs above row 7, boots = below); `QuirkSuitArmourMixin` skips the vanilla
+  armour model. The cowl keeps the face open: the wearer's own eyes, nose and mouth show; the cowl's hat layer hides the wearer's hair.
+- **Textures** (`scratchpad/supersoldier/make_cap_suit_textures.js`): from `docs/reference/supersoldier/cap_suit.png` (the user's NameMC
+  skin, never modified; `SOURCE.txt`) -> `textures/entity/supersoldier/cap_battle_suit_wide/_slim.png`: skin-tone texels of the head and
+  the eye whites / irises in the face opening cleared, bare skin on body / legs cleared, the wrist band and finger tips on the arms
+  repainted in the gloves' browns (so no stripe of the wearer's own sleeve shows through the gauntlet); slim made by dropping the
+  most-alike middle column. **Held back**: those two files are `.gitignore`d (author unknown, no licence stated). Without them the
+  client draws `cap_battle_suit_original_wide/_slim.png`, original art from the same script (navy, white star, red / white stripes,
+  brown gloves / belt / boots, a cowl with a white "A" and wings, a leather harness on the back). Item icons are original. Preview:
+  `docs/screenshots/v0175/cap_suit/texture_preview.png` (source, borrowed front / back, original front / back over a test skin).
+- **The slot** (`CapShieldSlot`): a Super Soldier wearing the **top** (`hasSlot`). Stored on the top as the `projecthero:cap_shield_slot`
+  component (`ItemContainerContents`, one item -- compares by contents, so equipment sync doesn't resend it every tick): survives death and
+  relogs, drops with the top. Allowed in it: the three Captain America shields (`CapShieldStow.isCapShield`: Adamantium, Vibranium, the
+  display-only Soldier's Shield -- the last for looks only, it can't block or be thrown in the hand either). A vanilla shield never.
+- **N** (`CapShieldSlot.toggle`, routed by `AbilityRouter`'s H / N branch -> `SuperSoldierAbilityManager.ownsN/handleN`; the client sends
+  N from `ProjectHeroModClient.handleMaxSteelTransform` when `hasSlot`): slot empty + a Captain America shield in hand (main first) ->
+  into the slot, hand free; slot full + main hand empty -> out into the main hand (else the empty off hand; both busy: "Free a hand");
+  slot full + another Captain America shield in hand -> swap; slot empty and the slotted shield in flight -> a hint. Sounds: netherite
+  equip in, iron equip out. Action-bar messages `message.projecthero.super_soldier.slot_*`.
+- **Always counts as held**:
+  - **C** (`SuperSoldierAbilities.shieldThrow`): with no shield in either hand, the slotted one (a real `ShieldItem`) is thrown with its
+    own numbers (Adamantium 9 x 4, Vibranium upgraded); `SoldierShieldEntity.returnToSlot()` (saved as `ToSlot`) sends it home **into the
+    slot** (`CapShieldSlot.putBack`), else -- no slot any more / slot refilled -- the old rule (main hand, inventory, feet). The main arm
+    plays the throw animation.
+  - **Block**: hold right-click with the main hand empty (the off hand empty or holding something with no use -- a totem, a map; not food,
+    a block, a bow or a shield) -> `CapSuitClient` sends `CapShieldSlot.GuardPayload` press / release; the server keeps the synced
+    `projecthero:cap_shield_guard` attachment (the tick it went up). After `GUARD_DELAY` = 5 ticks (vanilla's) it stops everything a raised
+    vanilla shield stops: not `bypasses_shield`, not a piercing arrow, source position in the front half (`LivingEntity.isDamageSourceBlocked`'s
+    test); handled in `SuperSoldierDamage` ALLOW_DAMAGE (a full cancel: arrows bounce off), clang + crits, a melee attacker knocked back
+    0.5. No attacking / mining while it is up (`WolverineAttackMixin` checks `CapSuitClient.guardSent` too). The guard drops the moment it
+    stops being legal (item picked up, slot emptied, suit off, power lost).
+  - The HUD's C key is lit (`hasThrowable`).
+- **Display**: idle, the slotted shield hangs on the back (`CapShieldBackLayer` reads it from the worn top -- every viewer; a hotbar shield is
+  never slung with it; 2.15 px out, the Battle Suit is skin-tight). Raised (and while lowering) it is strapped to the **off-hand forearm**
+  with the existing block pose / blend (`CapShieldPose.raised` counts the guard; `lastBlockHand` falls back to the off hand), and in first
+  person drawn as the off-hand shield (`CapShieldFirstPersonMixin`). Thrown: the flying shield as usual.
+- **Taking it off / no slot** (`CapShieldSlot.tick`, every player, from `SuperSoldierAbilityManager.serverTick`): a top worn by someone
+  without the slot gives its shield up at once; every 5 ticks a top anywhere in the inventory / off hand / cursor does too -- into the
+  inventory, else dropped at his feet.
+- **HUD**: no N box; a status word above the title -- "Shield on back" (blue), "Slot empty" (grey), "Shield raised".
+- No static state (component + attachment), nothing for `ServerStateReset`.
+- **Seen in a real client** (`scratchpad/CapSuitHarness.v0175.java.txt`, output in `docs/screenshots/v0175/cap_suit`): the suit front /
+  back / side / face close-up (wide) and front (slim); the real N key stowing and retrieving (`n_stow`, `n_retrieve` MP4 + sheets); the
+  slotted shield on the back (Adamantium wide, Vibranium slim) and the HUD word with C lit; C from the slot -> three husks -> home into the
+  slot (`throw_from_slot`); right-click raising it on the off-hand arm in third person (`block_tp`, `block_tp_side`) and first person
+  (`block_fp`); a husk hitting the raised shield four times, 30 -> 30 health (`block_hits`). **Not seen**: the original fallback suit
+  in game (only `texture_preview.png`), multiplayer (another player's slot / guard), the Soldier's Shield in the slot, an inventory swap
+  of the top while the shield flies.
 
 ## State / lifecycle
 

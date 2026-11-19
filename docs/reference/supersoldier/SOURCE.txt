@@ -1,0 +1,10 @@
+Captain America skin from NameMC (the user's pick, v0.17.5 Captain America Battle Suit, 2026-11-19)
+
+cap_suit.png
+  https://namemc.com/skin/63b230543038f21b
+  Author unknown (the NameMC skin page names no artist). No licence stated -- CHECK BEFORE ANY PUBLIC RELEASE.
+
+64x64 RGBA, wide (Steve) arms. Never modified; scratchpad/supersoldier/make_cap_suit_textures.js turns it into
+textures/entity/supersoldier/cap_battle_suit_wide.png / _slim.png (the face inside the cowl cleared, wrist / finger skin repainted as
+glove leather). Those outputs are .gitignored: local builds only. Without them the game falls back to the mod's own original
+cap_battle_suit_original_wide.png / _slim.png (made by the same script, no borrowed pixels).

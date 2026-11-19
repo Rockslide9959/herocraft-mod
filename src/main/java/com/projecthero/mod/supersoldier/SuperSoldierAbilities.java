@@ -77,7 +77,8 @@ public final class SuperSoldierAbilities {
 			{ "Z", SLAM }, { "Shift+Z", ONSLAUGHT },
 			{ "X", ROLL }, { "Shift+X", HIGH_LEAP },
 			{ "V", BATTLE_CRY }, { "Shift+V", FOCUS },
-			{ "C", SHIELD_THROW } };
+			{ "C", SHIELD_THROW },
+			{ "N", "shield_slot" } }; // v0.17.5: only in the Captain America Battle Suit top
 
 	private record Task(long due, Runnable run) {
 	}
@@ -524,27 +525,37 @@ public final class SuperSoldierAbilities {
 	 */
 	public static boolean shieldThrow(ServerPlayer p) {
 		InteractionHand hand = shieldHand(p);
-		if (hand == null) {
+		// v0.17.5: a shield in the Battle Suit's slot always counts as held -- thrown from the slot, it flies home into the slot
+		boolean fromSlot = hand == null && CapShieldSlot.hasThrowable(p);
+		if (hand == null && !fromSlot) {
 			SuperSoldier.say(p, "message.projecthero.super_soldier.no_shield", ChatFormatting.GRAY);
 			return false;
 		}
-		ItemStack held = p.getItemInHand(hand);
+		ItemStack held = fromSlot ? CapShieldSlot.usable(p) : p.getItemInHand(hand);
 		// v0.16.1: the Vibranium Shield is a better Adamantium Shield (it extends it) -- full-strength numbers and then some
 		boolean adamantium = held.getItem() instanceof com.projecthero.mod.supersoldier.item.AdamantiumShieldItem;
 		boolean vibranium = held.getItem() instanceof com.projecthero.mod.ultron.contagion.item.VibraniumShieldItem;
 		if (!begin(p, SHIELD_THROW, adamantium ? SuperSoldierConfig.SHIELD_THROW_COOLDOWN : SuperSoldierConfig.NORMAL_SHIELD_THROW_COOLDOWN, 6)) {
 			return false;
 		}
-		if (p.isUsingItem() && p.getUsedItemHand() == hand) {
-			p.stopUsingItem();
+		if (fromSlot) {
+			held = CapShieldSlot.takeForThrow(p);
+			hand = InteractionHand.MAIN_HAND; // the main arm throws it (and it would come back to that hand if the slot is gone)
+		} else {
+			if (p.isUsingItem() && p.getUsedItemHand() == hand) {
+				p.stopUsingItem();
+			}
+			p.setItemInHand(hand, ItemStack.EMPTY);
 		}
-		p.setItemInHand(hand, ItemStack.EMPTY);
 		p.swing(hand, true);
 		AbilityHelpers.sound(p, SoundEvents.TRIDENT_THROW, 1.0f, adamantium ? 1.3f : 1.5f);
 		Vec3 from = p.getEyePosition().add(0, -0.2, 0).add(p.getLookAngle().scale(0.6));
 		LivingEntity first = facing(p, vibranium ? com.projecthero.mod.ultron.contagion.item.VibraniumShieldItem.THROW_RANGE
 				: adamantium ? SuperSoldierConfig.SHIELD_RANGE : SuperSoldierConfig.NORMAL_SHIELD_RANGE);
 		SoldierShieldEntity thrown = SoldierShieldEntity.launch(p, from, p.getLookAngle(), held, hand, adamantium, first);
+		if (fromSlot) {
+			thrown.returnToSlot();
+		}
 		if (vibranium) {
 			thrown.upgrade(com.projecthero.mod.ultron.contagion.item.VibraniumShieldItem.THROW_DAMAGE,
 					com.projecthero.mod.ultron.contagion.item.VibraniumShieldItem.THROW_HITS,

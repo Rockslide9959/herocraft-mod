@@ -38,6 +38,15 @@ public abstract class CapShieldFirstPersonMixin {
 			CapShieldPose.renderFirstPerson(player, hand, stack, partialTick, swingProgress, equipProgress, pose, buffers, light);
 			return;
 		}
+		// v0.17.5: the Battle Suit's slotted shield raised with an empty off hand -- drawn as if that hand held it, while up / lowering
+		if (stack.isEmpty() && hand == InteractionHand.OFF_HAND) {
+			ItemStack slotted = com.projecthero.mod.supersoldier.CapShieldSlot.usable(player);
+			if (!slotted.isEmpty() && CapShieldPose.block(player, partialTick) > 0.001f) {
+				ci.cancel();
+				CapShieldPose.renderFirstPerson(player, hand, slotted, partialTick, 0f, 0f, pose, buffers, light);
+				return;
+			}
+		}
 		if (stack.isEmpty() && hand == InteractionHand.MAIN_HAND) {
 			pose.pushPose();
 			if (CapShieldPose.firstPersonEmptyArm(player, partialTick, pose)) {

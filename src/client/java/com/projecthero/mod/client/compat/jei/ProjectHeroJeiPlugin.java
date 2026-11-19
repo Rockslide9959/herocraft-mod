@@ -154,6 +154,13 @@ public final class ProjectHeroJeiPlugin implements IModPlugin {
 				com.projecthero.mod.sentry.item.SentrySuitItem.TROUSERS }) {
 			registration.addItemStackInfo(new ItemStack(i), net.minecraft.network.chat.Component.translatable("item.projecthero.sentry_suit.hint"));
 		}
+		// v0.17.5: the Captain America Battle Suit (the top's shield slot: N, right-click to block, C throws from it)
+		registration.addItemStackInfo(java.util.List.of(new ItemStack(com.projecthero.mod.supersoldier.item.CapBattleSuitItem.COWL),
+				new ItemStack(com.projecthero.mod.supersoldier.item.CapBattleSuitItem.TOP),
+				new ItemStack(com.projecthero.mod.supersoldier.item.CapBattleSuitItem.TROUSERS),
+				new ItemStack(com.projecthero.mod.supersoldier.item.CapBattleSuitItem.BOOTS)),
+				net.minecraft.network.chat.Component.translatable("item.projecthero.cap_battle_suit.hint"),
+				net.minecraft.network.chat.Component.translatable("projecthero.guide.super_soldier.battle_suit.body"));
 	}
 
 	@Override

@@ -29,6 +29,7 @@ public final class SuperSoldierClient {
 		// the raise is the arm moving (CapShieldPose), the shield stays strapped where it is
 		BuiltinItemRendererRegistry.INSTANCE.register(SuperSoldierItems.SOLDIER_SHIELD, new AdamantiumShieldRenderer(AdamantiumShieldRenderer.SOLDIER_TEXTURE));
 		CapShieldPose.initialize();
+		CapSuitClient.initialize(); // v0.17.5: the Battle Suit's slotted shield, raised with right-click
 		LivingEntityFeatureRendererRegistrationCallback.EVENT.register((entityType, entityRenderer, helper, context) -> {
 			if (entityRenderer instanceof PlayerRenderer playerRenderer) {
 				helper.register(new CapShieldBackLayer(playerRenderer));
