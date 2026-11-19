@@ -379,29 +379,43 @@ public final class ElectrokinesisHandlers {
 		}));
 
 		// G -- Chain Lightning (Shift + G: EMP).
-		AbilityHandlers.register(KEY, "chain_lightning", Handlers.instant(ctx -> {
-			ServerPlayer p = ctx.player();
-			if (p.isShiftKeyDown()) {
-				if (!spend(ctx, COST_EMP)) {
+		// v0.17.5 (user: split Shift/hold cooldowns): the EMP keeps G's Shift entry, so neither blocks the other
+		AbilityHandlers.register(KEY, "chain_lightning", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				if (p.isShiftKeyDown()) {
+					if (!ctx.shiftCooldownReady()) {
+						ctx.actionBar("message.projecthero.ability.on_cooldown", Component.translatable(ctx.ability().nameKey()),
+								String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(ctx.shiftCooldownRemaining() / 20.0f)));
+						return;
+					}
+					if (!spend(ctx, COST_EMP)) {
+						return;
+					}
+					emp(ctx, 20.0);
+					MutationVisuals.play(p, "cast_raise_both");
+					ctx.triggerShiftCooldown(25 * 20);
 					return;
 				}
-				emp(ctx, 20.0);
-				MutationVisuals.play(p, "cast_raise_both");
-				ctx.triggerCooldown(25 * 20);
-				return;
+				LivingEntity first = AbilityHelpers.raycastEntity(p, 24.0);
+				if (first == null) {
+					ctx.actionBar("message.projecthero.electro.no_target");
+					return;
+				}
+				if (!spend(ctx, COST_CHAIN)) {
+					return;
+				}
+				chainLightning(p, first, 6);
+				MutationVisuals.play(p, "cast_two_hand");
+				ctx.triggerCooldown();
 			}
-			LivingEntity first = AbilityHelpers.raycastEntity(p, 24.0);
-			if (first == null) {
-				ctx.actionBar("message.projecthero.electro.no_target");
-				return;
+
+			@Override
+			public boolean shiftHasOwnCooldown() {
+				return true;
 			}
-			if (!spend(ctx, COST_CHAIN)) {
-				return;
-			}
-			chainLightning(p, first, 6);
-			MutationVisuals.play(p, "cast_two_hand");
-			ctx.triggerCooldown();
-		}));
+		});
 
 		// X -- Bolt Form: become a streak of lightning for up to 10 blocks.
 		AbilityHandlers.register(KEY, "electric_dash", Handlers.instant(ctx -> {

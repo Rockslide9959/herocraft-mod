@@ -124,15 +124,16 @@ public final class InvisibilityLightHandlers {
 			public void onActivate(AbilityContext ctx) {
 				ServerPlayer p = ctx.player();
 				if (p.isShiftKeyDown()) {
-					if (!ctx.cooldownReady()) {
-						onCooldownMessage(ctx);
+					// v0.17.5 (user: split Shift/hold cooldowns): the volley keeps its own entry, R's quick shot stays free
+					if (!ctx.shiftCooldownReady()) {
+						onShiftCooldownMessage(ctx);
 						return;
 					}
 					ctx.setResource("burst_left", 5, 5);
 					ctx.setResource("burst_timer", 0, 1);
 					fireBlast(ctx, 0.0f);
 					ctx.setResource("burst_left", 4, 5);
-					ctx.triggerCooldown(VOLLEY_COOLDOWN);
+					ctx.triggerShiftCooldown(VOLLEY_COOLDOWN);
 					return;
 				}
 				if (!ctx.cooldownReady()) {
@@ -188,10 +189,15 @@ public final class InvisibilityLightHandlers {
 		});
 
 		// G -- Flash: a searing burst of light around you. Shift+G: Radiant Lance, a piercing line of light.
-		AbilityHandlers.register(KEY, "flash", Handlers.instant(ctx -> {
+		// v0.17.5 (user: split Shift/hold cooldowns): Radiant Lance keeps its own entry (and skips the router's Flash gate)
+		AbilityHandlers.register(KEY, "flash", shiftOwnCooldown(ctx -> {
 			ServerPlayer p = ctx.player();
 			ServerLevel level = ctx.level();
 			if (p.isShiftKeyDown()) {
+				if (!ctx.shiftCooldownReady()) {
+					onShiftCooldownMessage(ctx);
+					return;
+				}
 				double r = range(p, 30.0);
 				Vec3 end = AbilityHelpers.aimPoint(p, r);
 				for (LivingEntity e : lanceTargets(p, r, 1.6)) {
@@ -206,7 +212,7 @@ public final class InvisibilityLightHandlers {
 				yellowBurst(level, end, 40, 1.4);
 				MutationVisuals.play(p, "point_right");
 				AbilityHelpers.sound(p, SoundEvents.BEACON_DEACTIVATE, 1.1f, 1.6f);
-				ctx.triggerCooldown(LANCE_COOLDOWN);
+				ctx.triggerShiftCooldown(LANCE_COOLDOWN);
 				return;
 			}
 			double r = range(p, 8.0);
@@ -493,6 +499,28 @@ public final class InvisibilityLightHandlers {
 		ctx.actionBar("message.projecthero.ability.on_cooldown",
 				net.minecraft.network.chat.Component.translatable(ctx.ability().nameKey()),
 				String.format(java.util.Locale.ROOT, "%.1f", ctx.cooldownRemaining() / 20.0f));
+	}
+
+	// v0.17.5 (user: split Shift/hold cooldowns)
+	private static void onShiftCooldownMessage(AbilityContext ctx) {
+		ctx.actionBar("message.projecthero.ability.on_cooldown",
+				net.minecraft.network.chat.Component.translatable(ctx.ability().nameKey()),
+				String.format(java.util.Locale.ROOT, "%.1f", ctx.shiftCooldownRemaining() / 20.0f));
+	}
+
+	/** v0.17.5: an INSTANT handler whose Shift move keeps its own cooldown (the router then skips its plain-move gate). */
+	private static AbilityHandler shiftOwnCooldown(java.util.function.Consumer<AbilityContext> onActivate) {
+		return new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				onActivate.accept(ctx);
+			}
+
+			@Override
+			public boolean shiftHasOwnCooldown() {
+				return true;
+			}
+		};
 	}
 
 	private static void shimmer(ServerLevel level, ServerPlayer p) {

@@ -405,7 +405,8 @@ public final class AbilityRouter {
 		switch (ability.activation()) {
 			case INSTANT -> {
 				if (pressed) {
-					if (!ctx.cooldownReady()) {
+					// v0.17.5: a Shift move with its own cooldown is not held up by the plain move's
+					if (!(player.isShiftKeyDown() && handler.shiftHasOwnCooldown()) && !ctx.cooldownReady()) {
 						player.displayClientMessage(Component.translatable("message.projecthero.ability.on_cooldown",
 								Component.translatable(ability.nameKey()),
 								String.format(java.util.Locale.ROOT, "%.1f", ctx.cooldownRemaining() / 20.0f)), true);

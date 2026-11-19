@@ -120,7 +120,11 @@ public class LaserVisionV0145GameTests implements FabricGameTest {
 		AbilityRouter.handleInput(p, 1, false);
 		p.setShiftKeyDown(false);
 		assertHeat(helper, p, 27f, "Piercing Blast");
-		helper.assertTrue(onCooldown(p, AbilitySlot.SLOT_1), "Piercing Blast's cooldown shows on R");
+		// v0.17.5: Piercing Blast keeps R's Shift entry, so the held Heat Vision beam stays usable
+		Power lv = Powers.byKey(K);
+		helper.assertTrue(!ExperimentalPowers.cooldownReady(p, lv, lv.ability(AbilitySlot.SLOT_1), ExperimentalPowers.SHIFT),
+				"Piercing Blast's cooldown is R's Shift entry");
+		helper.assertFalse(onCooldown(p, AbilitySlot.SLOT_1), "and plain R (Heat Vision) is not on cooldown");
 		helper.assertTrue(res(p, "beaming") == 0f, "Shift+R is a one-shot, not the held beam");
 		helper.succeed();
 	}

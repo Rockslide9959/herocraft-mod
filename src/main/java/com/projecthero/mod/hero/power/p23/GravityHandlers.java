@@ -121,16 +121,21 @@ public final class GravityHandlers {
 
 	public static void register() {
 		// R -- Gravity Push, 50-block range. Shift+R is a grab: press again (either way) to throw.
-		AbilityHandlers.register(KEY, "gravity_push", Handlers.instantTicking(ctx -> {
+		AbilityHandlers.register(KEY, "gravity_push", shiftOwn(Handlers.instantTicking(ctx -> {
 			ServerPlayer p = ctx.player();
 			if (GrabHelper.isHolding(ctx)) {
 				GrabHelper.throwHeld(ctx, 2.2, THROW_DAMAGE + nexusBonus(p));
 				MutationVisuals.play(p, "throw_right");
 				AbilityHelpers.sound(p, SoundEvents.WARDEN_SONIC_BOOM, 0.8f, 1.2f);
-				ctx.triggerCooldown(PUSH_CD);
+				// v0.17.5 (user: split Shift/hold cooldowns): the throw ends the Shift grab, so it paces the grab, not Push
+				ctx.triggerShiftCooldown(PUSH_CD);
 				return;
 			}
 			if (p.isShiftKeyDown()) {
+				if (!ctx.shiftCooldownReady()) {
+					shiftCooldownMessage(ctx);
+					return;
+				}
 				if (GrabHelper.tryGrab(ctx, 16.0, 160)) {
 					ctx.actionBar("message.projecthero.ability.grabbed");
 					BatchDFx.distortion(ctx.level(), p.position().add(0, 1, 0), 0.5, 12);
@@ -153,7 +158,7 @@ public final class GravityHandlers {
 			MutationVisuals.play(p, "cast_right");
 			AbilityHelpers.sound(p, SoundEvents.WARDEN_SONIC_BOOM, 0.8f, 1.4f);
 			ctx.triggerCooldown(PUSH_CD);
-		}, ctx -> GrabHelper.tick(ctx, 3.0)));
+		}, ctx -> GrabHelper.tick(ctx, 3.0))));
 
 		// G -- Gravity Crush: hold to crush a target for up to 8s. Shift+G is a smaller, separate Gravity Well.
 		AbilityHandlers.register(KEY, "gravity_crush", new AbilityHandler() {
@@ -161,7 +166,9 @@ public final class GravityHandlers {
 			public void onActivate(AbilityContext ctx) {
 				ServerPlayer p = ctx.player();
 				if (p.isShiftKeyDown()) {
-					if (!ctx.cooldownReady()) {
+					// v0.17.5 (user: split Shift/hold cooldowns): the small Gravity Well keeps its own cooldown entry
+					if (!ctx.shiftCooldownReady()) {
+						shiftCooldownMessage(ctx);
 						return;
 					}
 					Vec3 center = p.getEyePosition().add(p.getLookAngle().scale(20));
@@ -171,7 +178,7 @@ public final class GravityHandlers {
 					ctx.setResource("well_ticks2", 120, 120);
 					MutationVisuals.play(p, "cast_two_hand");
 					AbilityHelpers.sound(p, SoundEvents.WARDEN_SONIC_BOOM, 1.0f, 1.0f);
-					ctx.triggerCooldown(CRUSH_CD);
+					ctx.triggerShiftCooldown(CRUSH_CD);
 					return;
 				}
 				if (ctx.resource("crush_hold") > 0.5f || !ctx.cooldownReady()) {
@@ -180,6 +187,11 @@ public final class GravityHandlers {
 				ctx.setResource("crush_hold", 1, 1);
 				ctx.setResource("crush_hold_ticks", 0, 160);
 				MutationVisuals.play(p, "p23.crush");
+			}
+
+			@Override
+			public boolean shiftHasOwnCooldown() {
+				return true;
 			}
 
 			@Override
@@ -254,7 +266,9 @@ public final class GravityHandlers {
 					PowerToggles.modifier(ctx.player(), Attributes.GRAVITY, ZERO_G, -0.85, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 					MutationVisuals.play(ctx.player(), "leap");
 					BatchDFx.distortion(ctx.level(), ctx.player().position().add(0, 0.2, 0), 0.6, 12);
-					if (ctx.player().isShiftKeyDown()) {
+					// v0.17.5 (user: split Shift/hold cooldowns): Repulsion's wait is its own Shift entry (it used to sit on
+					// X's box and was never checked)
+					if (ctx.player().isShiftKeyDown() && ctx.shiftCooldownReady()) {
 						repulse(ctx);
 					}
 				},
@@ -324,11 +338,16 @@ public final class GravityHandlers {
 		});
 
 		// V -- Gravity Lift: mark up to 10 targets. Shift+V slams every marked target down.
-		AbilityHandlers.register(KEY, "levitate", Handlers.instant(ctx -> {
+		AbilityHandlers.register(KEY, "levitate", shiftOwn(Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
 			List<Lift> mine = LIFTS.computeIfAbsent(p.getUUID(), id -> new ArrayList<>());
 			if (p.isShiftKeyDown()) {
 				if (mine.isEmpty()) {
+					return;
+				}
+				// v0.17.5 (user: split Shift/hold cooldowns): the slam keeps its own entry, so marking stays usable
+				if (!ctx.shiftCooldownReady()) {
+					shiftCooldownMessage(ctx);
 					return;
 				}
 				for (Lift l : mine) {
@@ -343,7 +362,7 @@ public final class GravityHandlers {
 				mine.clear();
 				MutationVisuals.play(p, "ground_pound");
 				AbilityHelpers.sound(p, SoundEvents.WARDEN_SONIC_BOOM, 1.0f, 0.6f);
-				ctx.triggerCooldown(SLAM_CD);
+				ctx.triggerShiftCooldown(SLAM_CD);
 				return;
 			}
 			if (mine.size() >= 10) {
@@ -360,7 +379,7 @@ public final class GravityHandlers {
 			BatchDFx.distortion(ctx.level(), BatchDFx.centre(t), 0.4, 8);
 			MutationVisuals.play(p, "p23.lift");
 			AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_HIT, 1.0f, 0.7f);
-		}));
+		})));
 
 		// C -- Gravitational Nexus: a drain-bar combat stance.
 		AbilityHandlers.register(KEY, "gravity_field", new AbilityHandler() {
@@ -469,7 +488,7 @@ public final class GravityHandlers {
 		AbilityHelpers.burst(ctx.level(), p.position(), ParticleTypes.PORTAL, 30, 1.2);
 		BatchDFx.distortion(ctx.level(), p.position().add(0, 1, 0), 2.0, 30);
 		AbilityHelpers.sound(p, SoundEvents.WARDEN_SONIC_BOOM, 1.0f, 1.3f);
-		ctx.triggerCooldown(REPULSE_CD);
+		ctx.triggerShiftCooldown(REPULSE_CD);
 	}
 
 	private static void endNexus(AbilityContext ctx) {
@@ -481,6 +500,41 @@ public final class GravityHandlers {
 		ctx.actionBar("message.projecthero.ability.on_cooldown",
 				net.minecraft.network.chat.Component.translatable(ctx.ability().nameKey()),
 				String.format(java.util.Locale.ROOT, "%.1f", ctx.cooldownRemaining() / 20.0f));
+	}
+
+	/** v0.17.5: the "on cooldown" message for a key's Shift move (its own entry). */
+	private static void shiftCooldownMessage(AbilityContext ctx) {
+		ctx.actionBar("message.projecthero.ability.on_cooldown",
+				net.minecraft.network.chat.Component.translatable(ctx.ability().nameKey()),
+				String.format(java.util.Locale.ROOT, "%.1f", ctx.shiftCooldownRemaining() / 20.0f));
+	}
+
+	/**
+	 * v0.17.5 (user: split Shift/hold cooldowns): wraps an INSTANT handler whose Shift move keeps its own cooldown entry,
+	 * so the router stops gating Shift presses on the plain move's cooldown (the handler checks the Shift entry itself).
+	 */
+	private static AbilityHandler shiftOwn(AbilityHandler inner) {
+		return new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				inner.onActivate(ctx);
+			}
+
+			@Override
+			public void onRelease(AbilityContext ctx) {
+				inner.onRelease(ctx);
+			}
+
+			@Override
+			public void onServerTick(AbilityContext ctx) {
+				inner.onServerTick(ctx);
+			}
+
+			@Override
+			public boolean shiftHasOwnCooldown() {
+				return true;
+			}
+		};
 	}
 
 	// ================================================================= H: Invert

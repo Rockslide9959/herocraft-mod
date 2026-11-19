@@ -198,26 +198,41 @@ public final class ShadowManipulationHandlers {
 			@Override
 			public void onActivate(AbilityContext ctx) {
 				ServerPlayer p = ctx.player();
+				if (p.isShiftKeyDown()) {
+					// v0.17.5 (user: split Shift/hold cooldowns): the volley keeps its own cooldown entry
+					if (!ctx.shiftCooldownReady()) {
+						shiftCooldownMessage(ctx);
+						return;
+					}
+					surface(ctx);
+					fireBoltVolley(ctx);
+					MutationVisuals.play(p, "cast_two_hand");
+					ctx.triggerShiftCooldown(Math.max(1, Math.round(255 / tier(p))));
+					return;
+				}
 				if (!ctx.cooldownReady()) {
 					onCooldownMessage(ctx);
 					return;
 				}
 				surface(ctx);
-				if (p.isShiftKeyDown()) {
-					fireBoltVolley(ctx);
-					MutationVisuals.play(p, "cast_two_hand");
-					ctx.triggerCooldown(Math.max(1, Math.round(255 / tier(p))));
-					return;
-				}
 				fireBolt(ctx);
 				MutationVisuals.play(p, "cast_right");
 				cd(ctx, 34);
 			}
+
+			@Override
+			public boolean shiftHasOwnCooldown() {
+				return true;
+			}
 		});
 
 		// G -- Shadow Tendrils. Shift+G is a cone that roots.
-		AbilityHandlers.register(KEY, "shadow_tendrils", Handlers.instant(ctx -> {
+		AbilityHandlers.register(KEY, "shadow_tendrils", shiftOwn(Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
+			if (p.isShiftKeyDown() && !ctx.shiftCooldownReady()) { // v0.17.5: the cone keeps its own cooldown
+				shiftCooldownMessage(ctx);
+				return;
+			}
 			surface(ctx);
 			float damage = dmg(p, TENDRIL_DAMAGE) + cloakAbilityBonus(p);
 			if (p.isShiftKeyDown()) {
@@ -236,7 +251,7 @@ public final class ShadowManipulationHandlers {
 						ParticleTypes.SQUID_INK, 1.5);
 				MutationVisuals.play(p, "summon_ground");
 				AbilityHelpers.sound(p, SoundEvents.WARDEN_ATTACK_IMPACT, 1.0f, 0.5f);
-				ctx.triggerCooldown(Math.max(1, Math.round(340 / tier(p))));
+				ctx.triggerShiftCooldown(Math.max(1, Math.round(340 / tier(p))));
 				return;
 			}
 			for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.getEyePosition().add(p.getLookAngle().scale(4)), 4.0)) {
@@ -251,14 +266,18 @@ public final class ShadowManipulationHandlers {
 			MutationVisuals.play(p, "whip_right");
 			AbilityHelpers.sound(p, SoundEvents.WARDEN_ATTACK_IMPACT, 0.8f, 0.7f);
 			cd(ctx, 136);
-		}));
+		})));
 
 		// X -- Shadow Step, up to 75 blocks. Out of darkness only Shift+X works (it seeks a dark spot to land in).
-		AbilityHandlers.register(KEY, "shadow_step", Handlers.instant(ctx -> {
+		AbilityHandlers.register(KEY, "shadow_step", shiftOwn(Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
 			ServerLevel level = ctx.level();
 			boolean dark = tier(p) >= 1.0f;
 			boolean shift = p.isShiftKeyDown();
+			if (shift && !ctx.shiftCooldownReady()) { // v0.17.5: the seeking step keeps its own cooldown
+				shiftCooldownMessage(ctx);
+				return;
+			}
 			if (!dark && !shift) {
 				ctx.actionBar("message.projecthero.shadow.need_darkness");
 				return;
@@ -289,8 +308,12 @@ public final class ShadowManipulationHandlers {
 				AbilityHelpers.knockbackFrom(hit, p.position(), 0.6);
 				blind4s(hit);
 			}
-			ctx.triggerCooldown(shift ? Math.max(1, Math.round(136 / tier(p))) : Math.max(1, Math.round(51 / tier(p))));
-		}));
+			if (shift) {
+				ctx.triggerShiftCooldown(Math.max(1, Math.round(136 / tier(p))));
+			} else {
+				ctx.triggerCooldown(Math.max(1, Math.round(51 / tier(p))));
+			}
+		})));
 
 		// Z -- hold for 5s to charge, then unleash Shadow Zone.
 		AbilityHandlers.register(KEY, "total_darkness", new AbilityHandler() {
@@ -341,8 +364,8 @@ public final class ShadowManipulationHandlers {
 		});
 
 		// V -- Shadow Bind (sneak: Shadow Grab, the old V).
-		AbilityHandlers.register(KEY, "shadow_bind", Handlers.instantTicking(ShadowManipulationHandlers::bindPress,
-				ctx -> GrabHelper.tick(ctx, 3.0)));
+		AbilityHandlers.register(KEY, "shadow_bind", shiftOwn(Handlers.instantTicking(ShadowManipulationHandlers::bindPress,
+				ctx -> GrabHelper.tick(ctx, 3.0))));
 
 		// C -- Shadow Cloak (drains a bar, +12 ability / +8 melee damage). Shift+C is the indefinite Shadow Form.
 		AbilityHandlers.register(KEY, "shadow_form", new AbilityHandler() {
@@ -504,6 +527,41 @@ public final class ShadowManipulationHandlers {
 				String.format(java.util.Locale.ROOT, "%.1f", ctx.cooldownRemaining() / 20.0f));
 	}
 
+	/** v0.17.5: the "on cooldown" message for a key's Shift move (its own entry). */
+	private static void shiftCooldownMessage(AbilityContext ctx) {
+		ctx.actionBar("message.projecthero.ability.on_cooldown",
+				net.minecraft.network.chat.Component.translatable(ctx.ability().nameKey()),
+				String.format(java.util.Locale.ROOT, "%.1f", ctx.shiftCooldownRemaining() / 20.0f));
+	}
+
+	/**
+	 * v0.17.5 (user: split Shift/hold cooldowns): wraps an INSTANT handler whose Shift move keeps its own cooldown entry,
+	 * so the router stops gating Shift presses on the plain move's cooldown (the handler checks the Shift entry itself).
+	 */
+	private static AbilityHandler shiftOwn(AbilityHandler inner) {
+		return new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				inner.onActivate(ctx);
+			}
+
+			@Override
+			public void onRelease(AbilityContext ctx) {
+				inner.onRelease(ctx);
+			}
+
+			@Override
+			public void onServerTick(AbilityContext ctx) {
+				inner.onServerTick(ctx);
+			}
+
+			@Override
+			public boolean shiftHasOwnCooldown() {
+				return true;
+			}
+		};
+	}
+
 	private static void endCloak(AbilityContext ctx) {
 		int mode = cloakMode(ctx);
 		ctx.setResource("cloak_mode", 0, 2);
@@ -656,7 +714,12 @@ public final class ShadowManipulationHandlers {
 				MutationVisuals.play(p, "throw_right");
 			}
 			AbilityHelpers.sound(p, SoundEvents.WARDEN_ATTACK_IMPACT, 0.8f, 0.6f);
-			ctx.triggerCooldown(20);
+			// v0.17.5 (user: split Shift/hold cooldowns): the throw / drop ends Shadow Grab, so it paces the grab, not Bind
+			ctx.triggerShiftCooldown(20);
+			return;
+		}
+		if (p.isShiftKeyDown() && !ctx.shiftCooldownReady()) {
+			shiftCooldownMessage(ctx);
 			return;
 		}
 		surface(ctx);

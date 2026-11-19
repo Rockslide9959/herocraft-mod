@@ -6,6 +6,7 @@ import com.projecthero.mod.galactus.GalactusConfig;
 import com.projecthero.mod.galactus.GalactusFx;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -23,6 +24,7 @@ import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
@@ -51,17 +53,40 @@ public class PowerCosmicItem extends Item {
 		if (!(level instanceof ServerLevel server)) {
 			return InteractionResultHolder.success(stack);
 		}
-		if (player.isSecondaryUseActive()) {
+		// v0.17.5 (user: split Shift/hold cooldowns): the blast and the Sneak shield each keep their own ready time on the stack
+		// (an item cooldown blocked both -- a 20 s shield locked the blast out)
+		boolean shield = player.isSecondaryUseActive();
+		String key = shield ? SHIELD_READY : BLAST_READY;
+		long now = server.getGameTime();
+		long ready = readyAt(stack, key);
+		if (now < ready) {
+			player.displayClientMessage(Component.translatable("message.projecthero.casket.cooldown",
+					Component.translatable("item.projecthero.power_cosmic"), (ready - now + 19) / 20).withStyle(ChatFormatting.GRAY), true);
+			return InteractionResultHolder.fail(stack);
+		}
+		if (shield) {
 			player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, cfg.shieldTicks, 1, false, true));
 			player.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, cfg.shieldTicks, 1, false, true));
 			GalactusFx.ring(server, GalactusFx.SILVER, player.position().add(0, 1, 0), 1.2, 18);
 			server.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 1.0f, 1.8f);
-			player.getCooldowns().addCooldown(this, cfg.shieldCooldownTicks);
+			setReadyAt(stack, SHIELD_READY, now + cfg.shieldCooldownTicks);
 			return InteractionResultHolder.consume(stack);
 		}
 		blast(server, player, cfg);
-		player.getCooldowns().addCooldown(this, cfg.blastCooldownTicks);
+		setReadyAt(stack, BLAST_READY, now + cfg.blastCooldownTicks);
 		return InteractionResultHolder.consume(stack);
+	}
+
+	/** v0.17.5: custom-data keys holding the game time each move is ready again. */
+	public static final String BLAST_READY = "CosmicBlastReady";
+	public static final String SHIELD_READY = "CosmicShieldReady";
+
+	public static long readyAt(ItemStack stack, String key) {
+		return stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag().getLong(key);
+	}
+
+	private static void setReadyAt(ItemStack stack, String key, long gameTime) {
+		CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> tag.putLong(key, gameTime));
 	}
 
 	/** The bolt: the first valid target along the look ray (stopped by blocks). Returns who was hit, or null. */

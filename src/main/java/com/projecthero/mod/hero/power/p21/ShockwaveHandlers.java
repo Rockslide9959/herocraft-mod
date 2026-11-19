@@ -258,6 +258,13 @@ public final class ShockwaveHandlers {
 			public void onActivate(AbilityContext ctx) {
 				ServerPlayer p = ctx.player();
 				ServerLevel level = ctx.level();
+				// v0.17.5 (user: split Shift/hold cooldowns): the Shift burst keeps its own cooldown entry
+				if (p.isShiftKeyDown() && !ctx.shiftCooldownReady()) {
+					ctx.actionBar("message.projecthero.ability.on_cooldown",
+							net.minecraft.network.chat.Component.translatable(ctx.ability().nameKey()),
+							String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(ctx.shiftCooldownRemaining() / 20.0f)));
+					return;
+				}
 				float mult = boost(ctx, 15.0f, 0.5f);
 				if (p.isShiftKeyDown()) {
 					for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), 8.0)) {
@@ -272,7 +279,7 @@ public final class ShockwaveHandlers {
 					recordImpact(p, p.position());
 					MutationVisuals.play(p, "stomp");
 					AbilityHelpers.sound(p, SoundEvents.WIND_CHARGE_BURST.value(), 1.0f, 0.7f);
-					ctx.triggerCooldown(6 * 20);
+					ctx.triggerShiftCooldown(6 * 20);
 					return;
 				}
 				Vec3 look = p.getLookAngle();
@@ -282,6 +289,11 @@ public final class ShockwaveHandlers {
 				MutationVisuals.play(p, "ground_pound");
 				AbilityHelpers.sound(p, SoundEvents.WIND_CHARGE_BURST.value(), 1.0f, 0.9f);
 				ctx.triggerCooldown();
+			}
+
+			@Override
+			public boolean shiftHasOwnCooldown() {
+				return true;
 			}
 
 			@Override

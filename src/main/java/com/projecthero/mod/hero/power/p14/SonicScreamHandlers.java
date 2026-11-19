@@ -247,9 +247,12 @@ public final class SonicScreamHandlers {
 				if (ctx.resource("scream_start") > 0.5f) {
 					return;
 				}
-				if (!ctx.cooldownReady()) {
+				// v0.17.5 (user: split Shift/hold cooldowns): the Shift all-round scream keeps its own entry
+				boolean shift = ctx.player().isShiftKeyDown();
+				if (shift ? !ctx.shiftCooldownReady() : !ctx.cooldownReady()) {
 					ctx.actionBar("message.projecthero.ability.on_cooldown", Component.translatable(ctx.ability().nameKey()),
-							String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(ctx.cooldownRemaining() / 20.0f)));
+							String.format(java.util.Locale.ROOT, "%.0f",
+									Math.ceil((shift ? ctx.shiftCooldownRemaining() : ctx.cooldownRemaining()) / 20.0f)));
 					return;
 				}
 				seed(ctx);
@@ -646,7 +649,7 @@ public final class SonicScreamHandlers {
 						p.getZ() + Math.sin(a) * 6, 1, 0, 0, 0, 0);
 			}
 			level.playSound(null, p.blockPosition(), SoundEvents.WARDEN_SONIC_BOOM, SoundSource.PLAYERS, 1.8f, 0.5f);
-			ctx.triggerCooldown(68 * 20);
+			ctx.triggerShiftCooldown(68 * 20); // v0.17.5: its own entry, the cone stays ready
 			return;
 		}
 		double r = sensesRange(p, 20.0);

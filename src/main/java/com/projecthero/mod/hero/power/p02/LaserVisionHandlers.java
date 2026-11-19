@@ -174,12 +174,6 @@ public final class LaserVisionHandlers {
 		MutationVisuals.stopIf(p, ANIM_MAX_CHARGE);
 	}
 
-	private static void cooldownMessage(AbilityContext ctx) {
-		ctx.actionBar("message.projecthero.ability.on_cooldown",
-				Component.translatable(ctx.ability().nameKey()),
-				String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(ctx.cooldownRemaining() / 20.0f)));
-	}
-
 	/** How long a one-shot beam animation keeps its beam on screen. */
 	public static int oneShotTicks(String anim) {
 		return switch (anim) {
@@ -219,8 +213,10 @@ public final class LaserVisionHandlers {
 					return; // Maximum Output already owns the eyes
 				}
 				if (p.isShiftKeyDown()) {
-					if (!ctx.cooldownReady()) {
-						cooldownMessage(ctx);
+					// v0.17.5 (user: split Shift/hold cooldowns): Piercing Blast keeps its own Shift entry
+					if (!ctx.shiftCooldownReady()) {
+						ctx.actionBar("message.projecthero.ability.on_cooldown", Component.translatable(ctx.ability().nameKey()),
+								String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(ctx.shiftCooldownRemaining() / 20.0f)));
 						return;
 					}
 					if (!canFire(ctx)) {
@@ -484,7 +480,7 @@ public final class LaserVisionHandlers {
 		AbilityHelpers.sound(p, SoundEvents.BLAZE_SHOOT, 1.0f, 0.6f);
 		AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_RESONATE, 1.0f, 1.8f);
 		addHeat(p, HEAT_PIERCING_BLAST);
-		ctx.triggerCooldown(PIERCING_BLAST_COOLDOWN); // on R's own box
+		ctx.triggerShiftCooldown(PIERCING_BLAST_COOLDOWN); // v0.17.5: R's own Shift entry (the HUD shows it on the R box)
 	}
 
 	// ---- Z: Maximum Output -----------------------------------------------------------------------

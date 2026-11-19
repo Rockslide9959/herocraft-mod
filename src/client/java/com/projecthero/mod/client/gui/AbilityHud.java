@@ -48,6 +48,9 @@ public final class AbilityHud {
 
 	/** The longest cooldown seen on each key since it last came off cooldown (the sweep's scale). */
 	private static final int[] SEEN_MAX = new int[8];
+	/** v0.17.5: the same for each key's Shift move / hold move kept under {@code power/ability#shift} / {@code #hold}. */
+	private static final int[] SEEN_MAX_SHIFT = new int[8];
+	private static final int[] SEEN_MAX_HOLD = new int[8];
 
 	private AbilityHud() {
 	}
@@ -233,8 +236,22 @@ public final class AbilityHud {
 				shiftLeft = Math.round(state.resources.getOrDefault(power.key() + "/" + strip, 0.0f));
 				shiftFull = state.resources.getOrDefault(power.key() + "/" + strip + "_full", 0.0f);
 				hasShift = true;
+			} else {
+				// v0.17.5: a Shift move with its own entry in the ready-at map (AbilityContext.triggerShiftCooldown)
+				Long shiftReady = state.abilityReadyAt.get(power.key() + "/" + ability.id() + "#shift");
+				if (shiftReady != null) {
+					shiftLeft = (int) Math.max(0L, shiftReady - gameTime);
+					SEEN_MAX_SHIFT[idx] = shiftLeft <= 0 ? 0 : Math.max(SEEN_MAX_SHIFT[idx], shiftLeft);
+					shiftFull = SEEN_MAX_SHIFT[idx];
+					hasShift = true;
+				}
 			}
 		}
+		// v0.17.5: a hold move with its own entry (AbilityContext.triggerHoldCooldown) -- its wait is the durability bar while
+		// nothing else on the key is cooling (it never greys the key: the tap is still ready)
+		Long holdReady = state.abilityReadyAt.get(power.key() + "/" + ability.id() + "#hold");
+		int holdLeft = holdReady == null ? 0 : (int) Math.max(0L, holdReady - gameTime);
+		SEEN_MAX_HOLD[idx] = holdLeft <= 0 ? 0 : Math.max(SEEN_MAX_HOLD[idx], holdLeft);
 		if (cdRemain <= 0) {
 			SEEN_MAX[idx] = 0;
 		} else if (cdRemain > SEEN_MAX[idx]) {
@@ -248,6 +265,9 @@ public final class AbilityHud {
 		float cooldown = showShift ? shiftFrac : plainFrac;
 		int seconds = VanillaHud.seconds(showShift ? shiftLeft : cdRemain);
 		float other = hasShift ? (showShift ? plainFrac : shiftFrac) : 0f;
+		if (other <= 0f && holdLeft > 0) {
+			other = Math.min(1f, holdLeft / (float) Math.max(1, SEEN_MAX_HOLD[idx]));
+		}
 		stack.slot(i, VanillaHud.keyLabel(slot), true, showShift, cooldown, seconds, other, toggled);
 		if (hasShift && !showShift && cdRemain <= 0 && shiftLeft > 0) {
 			// the plain move is ready but its Shift move still waits: the Shift move's seconds, in yellow, where a stack count sits
