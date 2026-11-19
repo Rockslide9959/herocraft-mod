@@ -42,6 +42,13 @@ public final class TitanShifterState {
 	public boolean emergencyPenalty;
 	/** v0.12.43: N in the base form switches the passive (Regeneration II) healing off / on. Persisted in the {@code flags} codec field. */
 	public boolean regenOff;
+	/**
+	 * v0.17.5 (user): Titan charges -- each shift spends one; they come back one at a time ({@code TitanCharges}). -1 = never
+	 * set (a save from before charges): read as a full set of the selected Titan's charges.
+	 */
+	public int charges = -1;
+	/** v0.17.5: ticks the next charge has regenerated so far (0..charges.regenTicks); a counter, not a game time, so it survives relogs and world switches. */
+	public int chargeProgress;
 
 	public TitanShifterState() {
 		this(false, TitanPhase.HUMAN.name(), "generic_titan", 0L, 0L, 0L, 0L, 0L, 0f, 0f, 0, 0L, new HashMap<>(), 0f, 0L, 0);
@@ -92,8 +99,34 @@ public final class TitanShifterState {
 	}
 
 	public TitanShifterState copy() {
-		return new TitanShifterState(unlocked, phase, typeId, phaseStartedAt, phaseUntil, cooldownUntil, regenUntil,
+		TitanShifterState c = new TitanShifterState(unlocked, phase, typeId, phaseStartedAt, phaseUntil, cooldownUntil, regenUntil,
 				hardenUntil, titanHealth, titanMaxHealth, lastAction, lastActionTick, abilityReadyAt, energy, emergencyUntil, flags());
+		c.charges = charges;
+		c.chargeProgress = chargeProgress;
+		return c;
+	}
+
+	/**
+	 * v0.17.5: the codec already had RecordCodecBuilder's 16 fields, so the last two (emergency_until, flags) and the new charge
+	 * fields share one inline map codec -- the keys stay flat in the NBT, so older saves read exactly as before.
+	 */
+	private record Extras(long emergencyUntil, int flags, int charges, int chargeProgress) {
+		static final com.mojang.serialization.MapCodec<Extras> MAP_CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+				Codec.LONG.optionalFieldOf("emergency_until", 0L).forGetter(Extras::emergencyUntil),
+				Codec.INT.optionalFieldOf("flags", 0).forGetter(Extras::flags),
+				Codec.INT.optionalFieldOf("charges", -1).forGetter(Extras::charges),
+				Codec.INT.optionalFieldOf("charge_progress", 0).forGetter(Extras::chargeProgress)
+		).apply(i, Extras::new));
+	}
+
+	private static TitanShifterState fromCodec(boolean unlocked, String phase, String typeId, long phaseStartedAt, long phaseUntil,
+			long cooldownUntil, long regenUntil, long hardenUntil, float titanHealth, float titanMaxHealth, int lastAction,
+			long lastActionTick, Map<String, Long> abilityReadyAt, float energy, Extras x) {
+		TitanShifterState s = new TitanShifterState(unlocked, phase, typeId, phaseStartedAt, phaseUntil, cooldownUntil, regenUntil,
+				hardenUntil, titanHealth, titanMaxHealth, lastAction, lastActionTick, abilityReadyAt, energy, x.emergencyUntil(), x.flags());
+		s.charges = x.charges();
+		s.chargeProgress = Math.max(0, x.chargeProgress());
+		return s;
 	}
 
 	public static final Codec<TitanShifterState> CODEC = RecordCodecBuilder.create(instance -> instance.group(
@@ -113,7 +146,6 @@ public final class TitanShifterState {
 					.forGetter(s -> new HashMap<>(s.abilityReadyAt)),
 			// saves from v0.12.31 have no energy: an existing shifter simply starts with a full bar
 			Codec.FLOAT.optionalFieldOf("energy", 100f).forGetter(s -> s.energy),
-				Codec.LONG.optionalFieldOf("emergency_until", 0L).forGetter(s -> s.emergencyUntil),
-				Codec.INT.optionalFieldOf("flags", 0).forGetter(TitanShifterState::flags)
-	).apply(instance, TitanShifterState::new));
+			Extras.MAP_CODEC.forGetter(s -> new Extras(s.emergencyUntil, s.flags(), s.charges, s.chargeProgress))
+	).apply(instance, TitanShifterState::fromCodec));
 }

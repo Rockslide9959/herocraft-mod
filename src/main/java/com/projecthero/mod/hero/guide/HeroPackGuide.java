@@ -1417,6 +1417,11 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.titan_shifter.transform");
 			para(lines, "projecthero.guide.titan_shifter.transform.body");
 			blank(lines);
+			// v0.17.5 (user): Titan charges
+			head(lines, "projecthero.guide.titan_shifter.charges");
+			para(lines, "projecthero.guide.titan_shifter.charges.body");
+			para(lines, "projecthero.guide.titan_shifter.charges.counts");
+			blank(lines);
 			head(lines, "projecthero.guide.titan_shifter.energy");
 			para(lines, "projecthero.guide.titan_shifter.energy.body");
 			blank(lines);

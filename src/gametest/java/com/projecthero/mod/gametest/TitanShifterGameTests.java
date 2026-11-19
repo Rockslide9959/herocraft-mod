@@ -6,6 +6,7 @@ import com.projecthero.mod.titanshifter.TitanAbilities;
 import com.projecthero.mod.titanshifter.TitanPhase;
 import com.projecthero.mod.titanshifter.TitanShifter;
 import com.projecthero.mod.titanshifter.TitanShifterConfig;
+import com.projecthero.mod.titanshifter.TitanType;
 import com.projecthero.mod.titanshifter.data.TitanShifterState;
 import com.projecthero.mod.titanshifter.entity.TitanFormEntity;
 
@@ -250,19 +251,184 @@ public class TitanShifterGameTests implements FabricGameTest {
 
 // ---------------- v0.12.32: Titan Energy, the new hit-box, the new key layout ----------------
 
+	/** v0.17.5: a shift needs a Titan charge (not a full Steam bar any more) and spends exactly one. */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
-	public void transformNeedsAFullEnergyBar(GameTestHelper helper) {
+	public void transformNeedsAndSpendsATitanCharge(GameTestHelper helper) {
 		ServerPlayer p = shifter(helper);
 		helper.assertTrue(TitanShifter.energy(p) == (float) TitanShifterConfig.energy().max, "a fresh shifter has a full bar");
-		TitanShifterState low = TitanShifter.state(p).copy();
-		low.energy = 99.0f;
-		p.setAttached(com.projecthero.mod.attachment.ModAttachments.TITAN_SHIFTER_STATE, low);
-		helper.assertFalse(TitanShifter.transform(p), "99% is not enough");
-		helper.assertTrue(TitanShifter.phase(p) == TitanPhase.HUMAN, "still human");
-		TitanShifterState ok = TitanShifter.state(p).copy();
-		ok.energy = 100.0f;
-		p.setAttached(com.projecthero.mod.attachment.ModAttachments.TITAN_SHIFTER_STATE, ok);
-		helper.assertTrue(TitanShifter.transform(p), "100% is enough");
+		helper.assertTrue(TitanShifter.charges(p) == 3, "a fresh Attack Titan has all 3 charges, had " + TitanShifter.charges(p));
+		TitanShifter.setCharges(p, 0);
+		helper.assertFalse(TitanShifter.transform(p), "no charge -> no shift, even with a full bar");
+		TitanShifter.requestToggle(p);
+		helper.assertTrue(TitanShifter.phase(p) == TitanPhase.HUMAN && TitanShifter.formOf(p) == null, "still human");
+		TitanShifter.setCharges(p, 1);
+		setEnergy(p, 5.0f);
+		helper.assertTrue(TitanShifter.transform(p), "one charge is enough, whatever the Steam");
+		helper.assertTrue(TitanShifter.charges(p) == 0, "and it was spent, left " + TitanShifter.charges(p));
+		helper.succeed();
+	}
+
+	// ---------------- v0.17.5: Titan charges ----------------
+
+	/** The user's example: with charges left the shifter can change back and shift again at once; each shift costs one. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 600)
+	public void chargesLetTheShifterTransformTwiceInARow(GameTestHelper helper) {
+		ServerPlayer p = shifter(helper);
+		pump(helper, p);
+		helper.assertTrue(TitanShifter.transform(p), "first shift");
+		helper.assertTrue(TitanShifter.charges(p) == 2, "3 -> 2");
+		helper.runAfterDelay(SETTLE, () -> {
+			helper.assertTrue(TitanShifter.inTitan(p), "in the Titan");
+			TitanShifter.requestToggle(p);
+			helper.runAfterDelay(TitanShifterConfig.transformation().revertTicks + 3, () -> {
+				helper.assertTrue(TitanShifter.phase(p) == TitanPhase.HUMAN, "human again");
+				TitanShifter.requestToggle(p); // H straight away: a second shift
+				helper.assertTrue(TitanShifter.phase(p) == TitanPhase.TRANSFORMING, "shifting again at once, was " + TitanShifter.phase(p));
+				helper.assertTrue(TitanShifter.charges(p) == 1, "2 -> 1, had " + TitanShifter.charges(p));
+				helper.succeed();
+			});
+		});
+	}
+
+	/** One charge back per regenTicks, strictly one after the other: checked on the timer's own steps. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void chargesRegenerateOneAtATimeInSequence(GameTestHelper helper) {
+		helper.assertTrue(com.projecthero.mod.titanshifter.TitanCharges.regenTicks() == 1200, "60 s a charge");
+		TitanShifterState s = new TitanShifterState();
+		s.unlocked = true;
+		s.typeId = TitanType.GENERIC_TITAN.id;
+		s.charges = 1; // used two of three
+		s.chargeProgress = 0;
+		int t = 0;
+		int[] backAt = new int[3];
+		int got = 0;
+		while (t < 4000) {
+			int before = s.charges;
+			int gained = com.projecthero.mod.titanshifter.TitanCharges.advance(s, 20);
+			t += 20;
+			helper.assertTrue(gained <= 1 && s.charges - before == gained, "never more than one charge per step");
+			if (gained > 0) {
+				backAt[got++] = t;
+			}
+		}
+		helper.assertTrue(got == 2, "exactly the two missing charges came back, got " + got);
+		helper.assertTrue(backAt[0] == 1200, "the first after 1200 ticks, at " + backAt[0]);
+		helper.assertTrue(backAt[1] - backAt[0] == 1200, "the second only 1200 ticks after the first, step " + (backAt[1] - backAt[0]));
+		helper.assertTrue(s.charges == 3 && s.chargeProgress == 0, "full, and the timer stopped at 0");
+		// one big jump still pays out one charge per 1200 ticks, never early
+		s.charges = 0;
+		s.chargeProgress = 0;
+		helper.assertTrue(com.projecthero.mod.titanshifter.TitanCharges.advance(s, 1199) == 0, "1199 ticks: nothing yet");
+		helper.assertTrue(com.projecthero.mod.titanshifter.TitanCharges.advance(s, 1) == 1 && s.chargeProgress == 0, "tick 1200: one, the timer restarts");
+		helper.assertTrue(com.projecthero.mod.titanshifter.TitanCharges.advance(s, 2400) == 2 && s.charges == 3, "2400 more: the other two");
+		// spending from full starts the timer from zero
+		com.projecthero.mod.titanshifter.TitanCharges.spend(s);
+		helper.assertTrue(s.charges == 2 && s.chargeProgress == 0, "spent one from full: 2, timer at 0");
+		helper.succeed();
+	}
+
+	/** The real tick: the timer steps 20 ticks a second in human form, pays out on time, and pauses inside the Titan. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 500)
+	public void chargeTimerRunsInHumanFormAndPausesInTheTitan(GameTestHelper helper) {
+		ServerPlayer p = shifter(helper);
+		TitanShifter.setCharges(p, 1);
+		TitanShifter.setChargeTicksLeft(p, 60);
+		int start = TitanShifter.state(p).chargeProgress;
+		helper.assertTrue(start == 1140, "60 ticks left = progress 1140, was " + start);
+		int[] last = { start };
+		boolean[] badStep = { false };
+		helper.onEachTick(() -> {
+			TitanShifter.tick(p);
+			TitanShifterState s = TitanShifter.state(p);
+			if (s.charges == 1 && s.chargeProgress != last[0]) {
+				if (s.chargeProgress - last[0] != 20) {
+					badStep[0] = true; // every step is 20 ticks (one a second), however often the player is ticked
+				}
+				last[0] = s.chargeProgress;
+			}
+		});
+		helper.runAfterDelay(90, () -> {
+			TitanShifterState s = TitanShifter.state(p);
+			helper.assertFalse(badStep[0], "the timer only moves in 20-tick steps");
+			helper.assertTrue(s.charges == 2, "the charge came back on time, charges " + s.charges);
+			helper.assertTrue(s.chargeProgress <= 40, "and the next one started over, progress " + s.chargeProgress);
+			helper.assertTrue(TitanShifter.transform(p), "shift (2 -> 1)");
+			helper.runAfterDelay(SETTLE, () -> {
+				helper.assertTrue(TitanShifter.inTitan(p), "in the Titan");
+				int frozen = TitanShifter.state(p).chargeProgress;
+				helper.runAfterDelay(100, () -> {
+					helper.assertTrue(TitanShifter.state(p).chargeProgress == frozen, "paused inside the Titan: "
+							+ frozen + " -> " + TitanShifter.state(p).chargeProgress);
+					helper.assertTrue(TitanShifter.charges(p) == 1, "and no charge came back meanwhile");
+					helper.succeed();
+				});
+			});
+		});
+	}
+
+	/** Each Titan's own count; a re-forge keeps the charges, cut to the new maximum. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void eachTitanHasItsOwnChargeCount(GameTestHelper helper) {
+		int[] expect = { 3, 2, 4, 2 };
+		TitanType[] types = { TitanType.GENERIC_TITAN, TitanType.ARMORED_TITAN, TitanType.FEMALE_TITAN, TitanType.BEAST_TITAN };
+		for (int i = 0; i < types.length; i++) {
+			helper.assertTrue(com.projecthero.mod.titanshifter.TitanCharges.max(types[i]) == expect[i],
+					types[i].id + " stores " + expect[i] + ", got " + com.projecthero.mod.titanshifter.TitanCharges.max(types[i]));
+			ServerPlayer p = helper.makeMockServerPlayerInLevel();
+			TitanShifter.grant(p, types[i]);
+			helper.assertTrue(TitanShifter.charges(p) == expect[i], types[i].id + " starts full");
+		}
+		TitanShifterState s = new TitanShifterState();
+		s.typeId = TitanType.FEMALE_TITAN.id;
+		s.charges = 4;
+		s.typeId = TitanType.ARMORED_TITAN.id;
+		com.projecthero.mod.titanshifter.TitanCharges.clamp(s);
+		helper.assertTrue(s.charges == 2 && s.chargeProgress == 0, "Female 4 -> Armoured: clamped to 2");
+		s.charges = 1;
+		s.typeId = TitanType.FEMALE_TITAN.id;
+		com.projecthero.mod.titanshifter.TitanCharges.clamp(s);
+		helper.assertTrue(s.charges == 1, "a re-forge never refills");
+		helper.succeed();
+	}
+
+	/** Charges and the timer survive a save / load (and old saves read as full) and a death. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void chargesPersistAcrossSavesAndDeath(GameTestHelper helper) {
+		TitanShifterState s = new TitanShifterState();
+		s.unlocked = true;
+		s.typeId = TitanType.FEMALE_TITAN.id;
+		s.charges = 1;
+		s.chargeProgress = 600;
+		s.emergencyUntil = 77L;
+		s.regenOff = true;
+		var nbt = TitanShifterState.CODEC.encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, s).getOrThrow();
+		TitanShifterState back = TitanShifterState.CODEC.parse(net.minecraft.nbt.NbtOps.INSTANCE, nbt).getOrThrow();
+		helper.assertTrue(back.charges == 1 && back.chargeProgress == 600, "charges and timer saved: " + back.charges + " / " + back.chargeProgress);
+		helper.assertTrue(back.emergencyUntil == 77L && back.regenOff && "female_titan".equals(back.typeId), "the packed fields still round-trip");
+		net.minecraft.nbt.CompoundTag legacy = (net.minecraft.nbt.CompoundTag) nbt.copy();
+		legacy.remove("charges");
+		legacy.remove("charge_progress");
+		TitanShifterState old = TitanShifterState.CODEC.parse(net.minecraft.nbt.NbtOps.INSTANCE, legacy).getOrThrow();
+		helper.assertTrue(com.projecthero.mod.titanshifter.TitanCharges.current(old) == 4, "a save from before charges reads as full");
+
+		ServerPlayer p = shifter(helper);
+		TitanShifter.setCharges(p, 1);
+		TitanShifter.setChargeTicksLeft(p, 300);
+		TitanShifter.onPlayerRespawn(p);
+		helper.assertTrue(TitanShifter.charges(p) == 1 && TitanShifter.state(p).chargeProgress == 900, "respawning keeps charges and timer");
+		helper.succeed();
+	}
+
+	/** With no charges the Emergency Titan is the way out: it costs no charge but restarts the running timer. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void theEmergencyTitanCostsNoChargeButRestartsTheTimer(GameTestHelper helper) {
+		ServerPlayer p = shifter(helper);
+		TitanShifter.setCharges(p, 0);
+		TitanShifter.setChargeTicksLeft(p, 100);
+		setEnergy(p, 50.0f);
+		helper.assertTrue(TitanShifter.transform(p, true), "emergency shift at 0 charges");
+		helper.assertTrue(TitanShifter.charges(p) == 0, "no charge spent (none to spend)");
+		helper.assertTrue(TitanShifter.state(p).chargeProgress == 0, "the timer started over");
 		helper.succeed();
 	}
 
@@ -365,6 +531,7 @@ public class TitanShifterGameTests implements FabricGameTest {
 	public void holdingHForFiveSecondsAt30PercentMakesAWeakPaleSevenBlockTitan(GameTestHelper helper) {
 		ServerPlayer p = shifter(helper);
 		setEnergy(p, 40.0f);
+		TitanShifter.setCharges(p, 0); // v0.17.5: H only starts an emergency hold with no Titan charges left
 		pump(helper, p);
 		TitanShifter.requestToggle(p); // H pressed
 		helper.runAfterDelay(60, () -> helper.assertTrue(TitanShifter.phase(p) == TitanPhase.HUMAN, "still just holding after 3 s"));
@@ -384,6 +551,7 @@ public class TitanShifterGameTests implements FabricGameTest {
 	public void releasingHOrBeingUnder30PercentNeverStartsAnEmergencyShift(GameTestHelper helper) {
 		ServerPlayer p = shifter(helper);
 		setEnergy(p, 20.0f);
+		TitanShifter.setCharges(p, 0); // v0.17.5: with a charge, H would simply shift
 		pump(helper, p);
 		TitanShifter.requestToggle(p);
 		helper.runAfterDelay(130, () -> {

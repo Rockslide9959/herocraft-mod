@@ -86,7 +86,7 @@ public class TitanPickerScreen extends Screen {
 			g.drawString(font, Component.translatable(t.nameKey()).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), tx, ty, 0xFFFFAA00, true);
 			ty += 11;
 			Component size = Component.translatable(mine ? "screen.projecthero.titan_picker.size_current" : "screen.projecthero.titan_picker.size",
-					Math.round(t.dimensionHeight()));
+					Math.round(t.dimensionHeight()), com.projecthero.mod.titanshifter.TitanCharges.max(t)); // v0.17.5: + its Titan charges
 			g.drawString(font, size, tx, ty, mine ? 0xFF8FC8FF : 0xFFA89880, false);
 			ty += 10;
 			List<FormattedCharSequence> lines = font.split(Component.translatable(t.descKey()), tw);

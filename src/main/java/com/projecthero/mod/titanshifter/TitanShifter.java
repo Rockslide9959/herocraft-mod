@@ -40,8 +40,13 @@ import net.minecraft.world.phys.Vec3;
  *   a heavy nape hit -> {@link #cutOut}: TITAN -> RECOVERING (ejected at once)
  * </pre>
  *
+ * <h2>Titan charges (v0.17.5)</h2>
+ * A normal shift spends one Titan charge ({@link TitanCharges}); with none left only the Emergency Titan (hold H) is possible.
+ * Charges come back one at a time, 60 s each, in human form only.
+ *
  * <h2>Steam (v0.16.7, was "Titan Energy")</h2>
- * A normal shift needs the full bar. Leaving the Titan refunds the Steam it had x its remaining HP fraction (a quick
+ * v0.17.5: Steam no longer gates a normal shift (charges do) -- it is the Titan's healing / limb-regrowth fuel, the Partial
+ * Shifting fuel and the Emergency Titan's gate (30%). Leaving the Titan refunds the Steam it had x its remaining HP fraction (a quick
  * exit at full HP costs nothing); only a defeat or a cut-out empties it -- and those also drop the shifter to 4 hearts
  * and lock shifting for 60 s. Out of combat the Titan heals ~2 HP/s by burning Steam; the human form heals from its own
  * small pool (shown on the HUD), never from the bar.
@@ -66,6 +71,8 @@ public final class TitanShifter {
 	private static final Map<UUID, Long> LAST_REFILL = new HashMap<>();
 	/** v0.16.7: players who drank a Titan Serum and have the picker open -> game time the offer runs out. */
 	private static final Map<UUID, Long> PENDING_PICK = new HashMap<>();
+	/** v0.17.5: the game tick each shifter's charge timer last stepped on -- a player ticked twice in one tick steps once. */
+	private static final Map<UUID, Long> LAST_CHARGE_STEP = new HashMap<>();
 
 	private TitanShifter() {
 	}
@@ -76,6 +83,7 @@ public final class TitanShifter {
 		EMERGENCY_HOLD.clear();
 		LAST_REFILL.clear();
 		PENDING_PICK.clear();
+		LAST_CHARGE_STEP.clear();
 	}
 
 	public static void setSprintHeld(ServerPlayer player, boolean held) {
@@ -258,6 +266,7 @@ public final class TitanShifter {
 		s.energy = (float) TitanShifterConfig.energy().max; // a fresh shifter starts with a full bar of Steam
 		s.emergencyUntil = 0L;
 		s.emergencyPenalty = false;
+		TitanCharges.fill(s); // v0.17.5: a fresh shifter starts with every charge of its Titan
 		save(player, s);
 
 		ServerLevel level = (ServerLevel) player.level();
@@ -322,6 +331,7 @@ public final class TitanShifter {
 		} else if (s.phase() == TitanPhase.HUMAN) {
 			TitanShifterState n = s.copy();
 			n.typeId = type.id;
+			TitanCharges.clamp(n); // v0.17.5: never more charges than the new Titan stores (and no refill)
 			save(player, n);
 			ServerLevel level = (ServerLevel) player.level();
 			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.WARDEN_HEARTBEAT, SoundSource.PLAYERS, 2.0f, 0.6f);
@@ -369,16 +379,40 @@ public final class TitanShifter {
 		s.energy = 0f;
 		s.emergencyUntil = 0L;
 		s.emergencyPenalty = false;
+		s.charges = -1;
+		s.chargeProgress = 0;
 		s.abilityReadyAt.clear();
 		save(player, s);
 	}
 
 	// ---------------- transformation ----------------
 
-	/** Steam needed to transform: the whole bar by default. */
-	public static float energyNeeded() {
-		var e = TitanShifterConfig.energy();
-		return (float) (e.max * e.transformMinFraction);
+	/** v0.17.5: Titan charges available now (both sides; 0 for a non-shifter). */
+	public static int charges(Player player) {
+		TitanShifterState s = player.getAttachedOrElse(ModAttachments.TITAN_SHIFTER_STATE, null);
+		return s == null || !s.unlocked ? 0 : TitanCharges.current(s);
+	}
+
+	/** v0.17.5: admin / tests -- exactly {@code n} charges (clamped to the Titan's maximum), the timer restarted. */
+	public static void setCharges(ServerPlayer player, int n) {
+		TitanShifterState s = state(player).copy();
+		TitanCharges.set(s, n);
+		save(player, s);
+	}
+
+	/** v0.17.5: admin / tests -- the next charge is back in {@code ticks} (ignored at full charges). */
+	public static void setChargeTicksLeft(ServerPlayer player, int ticks) {
+		TitanShifterState s = state(player).copy();
+		if (!TitanCharges.full(s)) {
+			s.charges = TitanCharges.current(s);
+			s.chargeProgress = Math.max(0, TitanCharges.regenTicks() - Math.max(1, ticks));
+			save(player, s);
+		}
+	}
+
+	/** v0.17.5: the "no charges" refusal, with the seconds until the next one. */
+	static void sayNoCharges(ServerPlayer player, TitanShifterState s) {
+		say(player, "message.projecthero.titan_shifter.no_charges", ChatFormatting.RED, (TitanCharges.ticksToNext(s) + 19) / 20);
 	}
 
 	/** The Titan Shift key: transform when human, revert when a Titan. */
@@ -395,15 +429,15 @@ public final class TitanShifter {
 							String.format(java.util.Locale.ROOT, "%.0f", (s.cooldownUntil - now) / 20.0));
 					return;
 				}
-				// v0.12.39: a full bar shifts at once; between the emergency minimum and a full bar, HOLD H for an emergency shift
-				if (s.energy + 1.0e-3f >= energyNeeded() || !emergencyAllowed(s)) {
-					if (s.energy + 1.0e-3f < energyNeeded() && s.emergencyPenalty) {
-						say(player, "message.projecthero.titan_shifter.emergency_locked", ChatFormatting.RED);
-					} else {
-						transform(player);
-					}
-				} else {
+				// v0.17.5: a Titan charge shifts at once; with none left, HOLD H for an emergency shift (30%+ Steam, not exhausted)
+				if (TitanCharges.current(s) > 0) {
+					transform(player);
+				} else if (emergencyAllowed(s)) {
 					beginEmergencyHold(player);
+				} else if (s.emergencyPenalty) {
+					say(player, "message.projecthero.titan_shifter.emergency_locked", ChatFormatting.RED);
+				} else {
+					sayNoCharges(player, s);
 				}
 			}
 			case TITAN -> revert(player);
@@ -525,9 +559,13 @@ public final class TitanShifter {
 					String.format(java.util.Locale.ROOT, "%.0f", (s.cooldownUntil - now) / 20.0));
 			return false;
 		}
-		if (emergency ? !emergencyAllowed(s) : s.energy + 1.0e-3f < energyNeeded()) {
-			say(player, "message.projecthero.titan_shifter.low_energy", ChatFormatting.RED,
-					(int) Math.ceil(s.energy), (int) Math.ceil(energyNeeded()));
+		if (emergency && !emergencyAllowed(s)) {
+			say(player, s.emergencyPenalty ? "message.projecthero.titan_shifter.emergency_locked"
+					: "message.projecthero.titan_shifter.low_energy", ChatFormatting.RED);
+			return false;
+		}
+		if (!emergency && TitanCharges.current(s) <= 0) {
+			sayNoCharges(player, s); // v0.17.5: a normal shift needs a Titan charge
 			return false;
 		}
 		if (player.isSpectator() || player.isSleeping() || player.isPassenger() || !player.isAlive()
@@ -566,6 +604,11 @@ public final class TitanShifter {
 		next.regenUntil = 0L;
 		next.hardenUntil = 0L;
 		next.emergencyUntil = emergency ? now + TitanShifterConfig.emergency().durationTicks : 0L;
+		if (emergency) {
+			next.chargeProgress = 0; // v0.17.5: the Emergency Titan costs no charge, but the next one starts over
+		} else {
+			TitanCharges.spend(next); // v0.17.5: a normal shift costs one Titan charge
+		}
 		next.abilityReadyAt.remove(COCOON_KEY);
 		save(player, next);
 		setPhase(player, TitanPhase.TRANSFORMING, now + ticks);
@@ -913,6 +956,11 @@ public final class TitanShifter {
 			return;
 		}
 		TitanPhase phase = s.phase();
+		// v0.17.5: the charge timer runs in human form (and while recovering); inside the Titan it pauses unless the config says otherwise
+		if (phase == TitanPhase.HUMAN || phase == TitanPhase.RECOVERING || TitanShifterConfig.charges().regenInTitan) {
+			tickCharges(player);
+			s = state(player);
+		}
 		if (phase == TitanPhase.HUMAN) {
 			tickEnergy(player, s);
 			tickBaseFormRegen(player);
@@ -1113,6 +1161,41 @@ public final class TitanShifter {
 	}
 
 	/**
+	 * v0.17.5: the charge timer -- one step of 20 ticks a second (so the HUD's countdown syncs once a second), only while a
+	 * charge is missing. A never-set count (a save from before charges) is written out as full on the first tick.
+	 */
+	private static void tickCharges(ServerPlayer player) {
+		TitanShifterState s = state(player);
+		boolean full = TitanCharges.full(s);
+		if (s.charges < 0 || (full && s.chargeProgress != 0)) {
+			TitanShifterState n = s.copy();
+			TitanCharges.advance(n, 0); // normalise
+			save(player, n);
+			return;
+		}
+		if (full) {
+			return;
+		}
+		long now = player.level().getGameTime();
+		if (now % 20L != 0L) {
+			return;
+		}
+		Long last = LAST_CHARGE_STEP.put(player.getUUID(), now);
+		if (last != null && last == now) {
+			return; // already stepped this tick (the player was ticked twice)
+		}
+		TitanShifterState n = s.copy();
+		int gained = TitanCharges.advance(n, 20);
+		save(player, n);
+		if (gained > 0) {
+			ServerLevel level = (ServerLevel) player.level();
+			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 1.0f, 0.8f);
+			player.displayClientMessage(Component.translatable("message.projecthero.titan_shifter.charge_ready",
+					TitanCharges.current(n), TitanCharges.max(n)).withStyle(ChatFormatting.GOLD), true);
+		}
+	}
+
+	/**
 	 * Outside the Titan the bar refills: {@code regenPerSecond} (1%) every second, in whole steps so it syncs rarely.
 	 * v0.16.7: the human healing pool refills here too while it is not being spent.
 	 */
@@ -1247,6 +1330,7 @@ public final class TitanShifter {
 		LAST_MESSAGE.remove(player.getUUID());
 		EMERGENCY_HOLD.remove(player.getUUID());
 		PENDING_PICK.remove(player.getUUID());
+		LAST_CHARGE_STEP.remove(player.getUUID());
 		forceEnd(player, true);
 	}
 

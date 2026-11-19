@@ -382,6 +382,12 @@ public class TitanRevampGameTests implements FabricGameTest {
 		}
 		helper.assertTrue(IronManUiLayout.approxWidth(String.format(java.util.Locale.ROOT, t("hud.projecthero.titan_shifter.cooldown"), 60)) <= w,
 				"the lock line fits");
+		// v0.17.5: Titan charges -- the pip row (label + 4 pips of 9 px + "4/4"), the Hairline row (label + 20-px bar + "0:00")
+		helper.assertTrue(IronManUiLayout.approxWidth(t("hud.projecthero.titan_shifter.charges_label")) + 4 + 4 * 9 + 4
+				+ IronManUiLayout.approxWidth("4/4") <= w, "the charge pips fit");
+		helper.assertTrue(IronManUiLayout.approxWidth(t("hud.projecthero.titan_shifter.next_charge")) + 4 + 20 + 3
+				+ IronManUiLayout.approxWidth("0:00") <= w, "the next-charge Hairline fits");
+		helper.assertTrue(IronManUiLayout.approxWidth(t("hud.projecthero.titan_shifter.no_charges")) <= w, "the no-charges status fits");
 		helper.assertTrue(IronManUiLayout.approxWidth(String.format(java.util.Locale.ROOT, t("hud.projecthero.titan_shifter.revert"), "H")) <= w,
 				"the revert line fits");
 		// the picker: each card's text wraps into its lines at the smallest screen, the name and size on one line
@@ -391,8 +397,11 @@ public class TitanRevampGameTests implements FabricGameTest {
 				int lines = IronManUiLayout.wrapLines(t(type.descKey()), tw, IronManUiLayout::approxWidth);
 				helper.assertTrue(lines <= TitanUi.PICKER_TEXT_LINES, type.id + " description wraps to " + lines + " lines at " + screenW);
 				helper.assertTrue(IronManUiLayout.approxWidth(t(type.nameKey()), true) <= tw, type.id + " name fits the card");
-				helper.assertTrue(IronManUiLayout.approxWidth(String.format(java.util.Locale.ROOT,
-						t("screen.projecthero.titan_picker.size_current"), 15)) <= tw, "size line fits");
+				// v0.17.5: the size line also gives the Titan's charges
+				for (String k : new String[] { "size", "size_current" }) {
+					helper.assertTrue(IronManUiLayout.approxWidth(String.format(java.util.Locale.ROOT,
+							t("screen.projecthero.titan_picker." + k), 15, 4)) <= tw, k + " line fits at " + screenW);
+				}
 			}
 			helper.assertTrue(IronManUiLayout.approxWidth(t("screen.projecthero.titan_picker.reforge"), true) <= TitanUi.pickerCardWidth(screenW) * 2,
 					"title fits");
