@@ -155,13 +155,16 @@ public final class SymbiotePose {
 			f(2, 0.7f, 0, 0.4f, 0.7f, 0, -0.4f, 0.4f, 0, -0.5f, 0.4f, -0.35f),
 			f(6, 0.6f, 0, 0.35f, 0.6f, 0, -0.35f, 0.35f, 0, -0.45f, 0.35f, 0.1f),
 			rest(12) }, false, false);
-	/** Devour: arms wide, then hugging the prey in as the tongue reels it to the maw. */
+	/**
+	 * Devour: arms flung wide as the tongue shoots out, then claws reaching in low on either side as the prey is reeled to the maw
+	 * (kept out of the way of the face, so the mouth reads), a lunge of the head as the jaws close.
+	 */
 	private static final Pose DEVOUR = new Pose(new float[][] {
 			rest(0),
-			f(3, -1.3f, 0, 0.9f, -1.3f, 0, -0.9f, -0.15f, 0, 0, 0, -0.35f),
-			f(10, -1.5f, -0.6f, 0, -1.5f, 0.6f, 0, 0.15f, 0, -0.1f, 0.1f, -0.1f),
-			f(16, -1.2f, -0.7f, 0, -1.2f, 0.7f, 0, 0.3f, 0, -0.15f, 0.15f, 0.25f),
-			f(22, -1.15f, -0.7f, 0, -1.15f, 0.7f, 0, 0.25f, 0, -0.1f, 0.1f, 0.2f),
+			f(3, -0.6f, 0, 1.0f, -0.6f, 0, -1.0f, -0.1f, 0, 0, 0, -0.3f),
+			f(10, -0.9f, -0.2f, 0.7f, -0.9f, 0.2f, -0.7f, 0.1f, 0, -0.1f, 0.1f, -0.1f),
+			f(15, -0.8f, -0.35f, 0.45f, -0.8f, 0.35f, -0.45f, 0.25f, 0, -0.15f, 0.15f, 0.25f),
+			f(22, -0.75f, -0.35f, 0.45f, -0.75f, 0.35f, -0.45f, 0.2f, 0, -0.1f, 0.1f, 0.15f),
 			rest(28) }, false, false);
 
 	private static float[][] spearChargeFrames() {

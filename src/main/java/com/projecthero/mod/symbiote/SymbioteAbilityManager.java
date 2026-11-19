@@ -1174,7 +1174,9 @@ public final class SymbioteAbilityManager {
 	public static final float HEAVY_BITE_DAMAGE = 30.0f;
 	private static final float HEAVY_BITE_BIOMASS = 20.0f;
 	/** Ticks the tongue takes to drag the prey into the maw. */
-	public static final int DEVOUR_PULL_TICKS = 12;
+	public static final int DEVOUR_PULL_TICKS = 14;
+	/** The first ticks of a Devour the tongue spends shooting out and wrapping the prey (it is held, not yet pulled). */
+	private static final int DEVOUR_WRAP_TICKS = 5;
 	/** playerId -> {target id, start tick}. */
 	private static final Map<Integer, long[]> DEVOUR = new ConcurrentHashMap<>();
 
@@ -1505,7 +1507,7 @@ public final class SymbioteAbilityManager {
 			}
 		}
 		level.sendParticles(ParticleTypes.EXPLOSION, c.x, c.y + 0.3, c.z, 2, 0.6, 0.1, 0.6, 0);
-		AbilityHelpers.burst(level, c.add(0, 0.5, 0), ParticleTypes.SQUID_INK, 50, 1.6);
+		AbilityHelpers.burst(level, c.add(0, 0.5, 0), ParticleTypes.SQUID_INK, 28, 1.4);
 		AbilityHelpers.sound(player, SoundEvents.GENERIC_EXPLODE.value(), 0.8f, 0.8f);
 		AbilityHelpers.sound(player, SoundEvents.RAVAGER_ROAR, 0.6f, 1.2f);
 		SymbioteSounds.organic(player, 1.0f, 0.4f);
@@ -1632,7 +1634,7 @@ public final class SymbioteAbilityManager {
 	}
 
 	/**
-	 * Hold C: on a target under 25% health the tongue lashes out, drags it into the maw over 0.6 s and the Symbiote eats it --
+	 * Hold C: on a target under 25% health the tongue lashes out, drags it into the maw over 0.7 s and the Symbiote eats it --
 	 * it dies, the Symbiote takes back 40 Biomass and the host heals 3 hearts (20 s cooldown). A boss is too big to eat: it takes a
 	 * heavy bite instead (30 damage, 20 Biomass, the same 20 s cooldown). Anything else (above 25%, a player, nothing in reach, or
 	 * Devour cooling down) gets a Maw Bite.
@@ -1651,6 +1653,12 @@ public final class SymbioteAbilityManager {
 			target.setNoGravity(true);
 			target.setDeltaMovement(Vec3.ZERO);
 			SymbioteAnim.play(player, SymbioteAnim.DEVOUR);
+			// the tongue itself: a thin red tendril from the maw to the prey (it follows the prey as it is reeled in)
+			SymbioteTendrilEntity tongue = SymbioteTendrilEntity.fromPoint(player.level(), mouthPoint(player), mid(target), target,
+					DEVOUR_PULL_TICKS + 1, 3, 0.07f);
+			if (tongue != null) {
+				tongue.setCrimson(true);
+			}
 			AbilityHelpers.sound(player, SoundEvents.WARDEN_ROAR, 0.7f, 1.5f);
 			SymbioteSounds.organic(player, 1.0f, 0.4f);
 			return;
@@ -1673,6 +1681,11 @@ public final class SymbioteAbilityManager {
 		player.displayClientMessage(Component.translatable("message.projecthero.symbiote.devour_too_big"), true);
 	}
 
+	/** Just in front of the host's mouth. */
+	private static Vec3 mouthPoint(ServerPlayer player) {
+		return player.getEyePosition().add(player.getLookAngle().scale(0.9 * Math.max(1.0, player.getScale()))).add(0, -0.2, 0);
+	}
+
 	public static boolean devouring(ServerPlayer player) {
 		return DEVOUR.containsKey(player.getId());
 	}
@@ -1689,17 +1702,18 @@ public final class SymbioteAbilityManager {
 			return;
 		}
 		long age = now - d[1];
-		Vec3 mouth = player.getEyePosition().add(player.getLookAngle().scale(0.9 * Math.max(1.0, player.getScale()))).add(0, -0.2, 0);
+		Vec3 mouth = mouthPoint(player);
 		if (age < DEVOUR_PULL_TICKS) {
-			// the tongue reels it in
+			// the tongue shoots out and wraps it (held where it is), then reels it into the maw
 			Vec3 at = mid(target);
-			double f = Math.min(1.0, 0.35 + age / (double) DEVOUR_PULL_TICKS * 0.5);
-			Vec3 next = at.add(mouth.subtract(at).scale(f));
+			double f = age < DEVOUR_WRAP_TICKS ? 0.0 : Math.min(1.0, (age - DEVOUR_WRAP_TICKS + 1) / (double) (DEVOUR_PULL_TICKS - DEVOUR_WRAP_TICKS));
+			f = f * f * (3 - 2 * f);
+			Vec3 next = at.add(mouth.subtract(at).scale(Math.min(1.0, f * 0.6)));
 			target.teleportTo(next.x, next.y - target.getBbHeight() * 0.5, next.z);
 			target.setDeltaMovement(Vec3.ZERO);
 			target.fallDistance = 0;
-			if (age % 2 == 0) {
-				level.sendParticles(ParticleTypes.SQUID_INK, next.x, next.y, next.z, 6, 0.2, 0.2, 0.2, 0.02);
+			if (age % 3 == 0) {
+				level.sendParticles(ParticleTypes.SQUID_INK, next.x, next.y, next.z, 2, 0.15, 0.15, 0.15, 0.01);
 			}
 			return;
 		}
@@ -1713,8 +1727,8 @@ public final class SymbioteAbilityManager {
 		}
 		SymbioteVitalsManager.gainBiomass(player, DEVOUR_BIOMASS);
 		player.heal(DEVOUR_HOST_HEAL);
-		AbilityHelpers.burst(level, m, ParticleTypes.SQUID_INK, 60, 0.6);
-		level.sendParticles(SHEEN, m.x, m.y, m.z, 20, 0.4, 0.4, 0.4, 0.0);
+		AbilityHelpers.burst(level, m, ParticleTypes.SQUID_INK, 20, 0.4);
+		level.sendParticles(SHEEN, m.x, m.y, m.z, 10, 0.3, 0.3, 0.3, 0.0);
 		level.sendParticles(ParticleTypes.DAMAGE_INDICATOR, m.x, m.y, m.z, 10, 0.3, 0.3, 0.3, 0.1);
 		AbilityHelpers.sound(player, SoundEvents.GENERIC_EAT, 1.2f, 0.5f);
 		AbilityHelpers.sound(player, SoundEvents.PLAYER_BURP, 1.0f, 0.6f);

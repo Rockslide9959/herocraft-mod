@@ -574,7 +574,7 @@ player's while the suit is on when they also hold a Primary (`SymbioteAbilityMan
 | Hold Z | **Ground Eruption** | 8 bursts, one a tick, every 1.5 blocks to 12 blocks ahead (flat aim); each hits within 1.7 blocks (+ half the target's width), 2.5 up/down: 12 dmg, Slowness II 3 s, launched up 1.1 (not bosses); each target once | 12 s (9) |
 | Shift + hold Z | Onslaught (kept) | | 90 s (3) |
 | C tap | **Maw Bite** (replaces the Thorns toggle) | nearest enemy in the aim or a ~41-degree cone within 5 blocks; short lunge toward it (also on a miss), 18 dmg, +12 Biomass on a hit | 5 s (10) |
-| Hold C | **Devour** | enemy within 4.5 blocks, at or under 25% health, not a boss / player / dummy: the tongue drags it to the mouth over 12 ticks (no gravity), then it dies (a killing blow from the host, `kill()` if that did not finish it); +40 Biomass, host heals 6 HP. A boss (200+ max health, or `TitanCombat.isBoss`) takes a **heavy bite**: 30 dmg, +20 Biomass. Anything else (above 25%, a player, nothing in reach, Devour cooling down) gets a Maw Bite | 20 s (11), devour and heavy bite |
+| Hold C | **Devour** | enemy within 4.5 blocks, at or under 25% health, not a boss / player / dummy: the tongue (also drawn as a thin red tendril from the mouth) wraps it for 5 ticks, then reels it to the mouth by tick 14 (no gravity), then it dies (a killing blow from the host, `kill()` if that did not finish it); +40 Biomass, host heals 6 HP. A boss (200+ max health, or `TitanCombat.isBoss`) takes a **heavy bite**: 30 dmg, +20 Biomass. Anything else (above 25%, a player, nothing in reach, Devour cooling down) gets a Maw Bite | 20 s (11), devour and heavy bite |
 | Shift+C | Tendril Grab, C again throws (kept) | | 5 s (5) |
 | V | **Form** cycle Normal -> Blade -> Thorns -> Normal (replaces the separate Blade and Thorns toggles) | Blade and Thorns keep their old rules (+5 melee / 50% faster / 0.3 Biomass a second; Thorns IV reflection). A full main hand skips the Blade (Normal -> Thorns); a spent bar refuses; an old save with both on goes to Normal | none |
 | Shift+V | Symbiote Shield (kept) | | toggle |
@@ -610,7 +610,7 @@ cannot bite. Taps now fire on the release (at most 0.4 s later than before). X a
 - `SymbioteMouth` (Lethal Protector): every new move snarls (the default); SPEAR_CHARGE and DIVE_BOMB hold the roar while they run;
   **Maw Bite** gapes to 40 degrees, snaps shut at ticks 3-5, then the tongue licks out (a lash 8 ticks in); **Devour** has its own
   30-tick animation (`devourJaw` / `devourTongue`): the jaw thrown to 42 degrees with a tremble, the tongue shot all the way out
-  (7.3 px), its tip curling down round the prey, reeled in by tick 14, the jaws crash shut at 13-16, then it chews.
+  (7.3 px), its tip curling down round the prey, reeled in by tick 14, the jaws crash shut at 13-16, then it chews. The tongue is only 7 px long, so the server also lashes a thin crimson tendril from the mouth to the prey for the pull.
 - HUD (`SymbioteHud`): V's box is lit while a Form (Blade / Thorns) or the shield is up, plus a "Form: Blade / Thorns" tag; C's box shows
   Maw Bite's cooldown (Shift: the grab's); each key's thin strip shows its hold move's cooldown (G: the larger of Spike Fan and Spike
   Rain; X: Dive Bomb); a held R / G / Z / C fills its box up to the hold threshold (R keeps filling with the Spear's charge), read from
@@ -630,3 +630,10 @@ gets a Maw Bite (Devour's cooldown untouched); a 400-HP husk at 10% is not devou
 without biting; V cycles Normal / Blade / Thorns, a full hand skips the Blade, Shift+V is the shield; the old moves (G / Z taps,
 Shift+R / G / X, Shift + hold Z charge and early cancel) still fire; +1 reach and the 3rd-punch knockback with the suit on, neither with
 it off.
+
+Visual checks: `docs/screenshots/v0175/symbiote_moveset2/` -- a still per move (01-23: HUD, Left-Alt list, Tendril Strike / Slam,
+Spear charge / throw, Spike Rain, Dive Bomb, Ground Eruption, Maw Bite gape / snap / lick, Devour tongue / reel / jaws / chew, the three
+Forms), `symbiote_moveset_v2_all_moves.mp4` + `_sheet.png` (every move in sequence on husks and iron golems, the real keys held and
+let go so the HUD fills) and `symbiote_maw_bite_devour_closeup.mp4` + `_sheet.png`. Harness
+`scratchpad/SymbioteMovesetHarness.v0175.java.txt` (+ `SymbioteMovesetHarnessCameraMixin.v0175.java.txt` for the fixed camera offsets),
+films via `scratchpad/symbiote/films_moveset_v0175.js`.

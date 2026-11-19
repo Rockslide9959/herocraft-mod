@@ -56,6 +56,15 @@ public final class SymbioteMovesetHarness implements ClientModInitializer {
 	private static int planTick;
 	private static BlockPos site;
 	private static final List<Integer> SPAWNED = new ArrayList<>();
+	/** Read by SymbioteMovesetHarnessCameraMixin: the camera's world offset from the player (null = vanilla third person). */
+	public static volatile net.minecraft.world.phys.Vec3 camOffset;
+	public static volatile double camLookY = 1.2;
+
+	private static void cam(double x, double y, double z, double lookY, int fov) {
+		camOffset = new net.minecraft.world.phys.Vec3(x, y, z);
+		camLookY = lookY;
+		Minecraft.getInstance().options.fov().set(fov);
+	}
 
 	@Override
 	public void onInitializeClient() {
@@ -244,7 +253,8 @@ public final class SymbioteMovesetHarness implements ClientModInitializer {
 		int a = f0;
 		at(a - 6, () -> {
 			face(mc, 0, 180f, 4f, 0);
-			spawn(mc, EntityType.IRON_GOLEM, 0, 7, 2000, 2000f);
+			cam(-4.5, 2.4, 3.0, 1.0, 70);
+			spawn(mc, EntityType.IRON_GOLEM, 0, 7, 150, 150f);
 		});
 		key(a + 4, 0, 2);
 		at(a + 9, () -> shot(mc, "03_tendril_strike"));
@@ -256,8 +266,9 @@ public final class SymbioteMovesetHarness implements ClientModInitializer {
 		int b = a + 105;
 		at(b - 6, () -> {
 			clearTargets(mc);
-			spawn(mc, EntityType.HUSK, 0, 4, 1000, 1000f);
-			spawn(mc, EntityType.HUSK, 0.2, 7.5, 1000, 1000f);
+			spawn(mc, EntityType.HUSK, 0, 4, 150, 150f);
+			spawn(mc, EntityType.HUSK, 0.2, 7.5, 150, 150f);
+			cam(-4.0, 2.0, 2.5, 1.2, 70);
 		});
 		key(b, 0, 30);
 		at(b + 24, () -> shot(mc, "06_impaling_spear_charging"));
@@ -267,16 +278,20 @@ public final class SymbioteMovesetHarness implements ClientModInitializer {
 		at(c - 6, () -> {
 			clearTargets(mc);
 			face(mc, 0, 180f, 18f, 0);
-			spawn(mc, EntityType.HUSK, 0, 9, 1000, 1000f);
-			spawn(mc, EntityType.HUSK, -1.8, 10, 1000, 1000f);
-			spawn(mc, EntityType.IRON_GOLEM, 2.0, 9.5, 2000, 2000f);
+			cam(-7.0, 4.5, 3.0, 0.5, 70);
+			spawn(mc, EntityType.HUSK, 0, 9, 150, 150f);
+			spawn(mc, EntityType.HUSK, -1.8, 10, 150, 150f);
+			spawn(mc, EntityType.IRON_GOLEM, 2.0, 9.5, 150, 150f);
 		});
 		key(c, 1, 12);
 		at(c + 16, () -> shot(mc, "08_spike_rain_launch"));
 		at(c + 34, () -> shot(mc, "09_spike_rain_falling"));
 		// D: X in the air -- Dive Bomb onto the same group
 		int d = c + 75;
-		at(d - 4, () -> face(mc, 6.5, 180f, 40f, 7.0));
+		at(d - 4, () -> {
+			face(mc, 6.5, 180f, 40f, 7.0);
+			cam(-6.5, 1.0, 3.5, 0.0, 70);
+		});
 		key(d, 2, 2);
 		at(d + 2, () -> shot(mc, "10_dive_bomb"));
 		at(d + 6, () -> shot(mc, "11_dive_bomb_impact"));
@@ -285,9 +300,10 @@ public final class SymbioteMovesetHarness implements ClientModInitializer {
 		at(e - 6, () -> {
 			clearTargets(mc);
 			face(mc, 0, 180f, 10f, 0);
-			spawn(mc, EntityType.HUSK, 0, 3.5, 1000, 1000f);
-			spawn(mc, EntityType.HUSK, 0.4, 7, 1000, 1000f);
-			spawn(mc, EntityType.IRON_GOLEM, -0.3, 10.5, 2000, 2000f);
+			cam(-5.5, 3.0, 1.5, 0.5, 70);
+			spawn(mc, EntityType.HUSK, 0, 3.5, 150, 150f);
+			spawn(mc, EntityType.HUSK, 0.4, 7, 150, 150f);
+			spawn(mc, EntityType.IRON_GOLEM, -0.3, 10.5, 150, 150f);
 		});
 		key(e, 3, 12);
 		at(e + 12, () -> shot(mc, "12_ground_eruption"));
@@ -297,9 +313,8 @@ public final class SymbioteMovesetHarness implements ClientModInitializer {
 		at(g - 8, () -> {
 			clearTargets(mc);
 			face(mc, 0, 180f, 6f, 0);
-			spawn(mc, EntityType.HUSK, 1.2, 2.4, 1000, 1000f);
-			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
-			mc.options.fov().set(30);
+			spawn(mc, EntityType.HUSK, 1.2, 2.4, 150, 150f);
+			cam(-1.9, 1.95, -3.0, 1.72, 45);
 		});
 		key(g, 5, 2);
 		at(g + 3, () -> shot(mc, "14_maw_bite_gape"));
@@ -311,6 +326,7 @@ public final class SymbioteMovesetHarness implements ClientModInitializer {
 			clearTargets(mc);
 			face(mc, 0, 180f, 6f, 0);
 			spawn(mc, EntityType.HUSK, 1.3, 3.0, 20, 4f);
+			cam(-2.1, 1.95, -2.8, 1.7, 45);
 		});
 		key(h, 5, 12);
 		at(h + 11, () -> shot(mc, "17_devour_tongue_out"));
@@ -320,9 +336,9 @@ public final class SymbioteMovesetHarness implements ClientModInitializer {
 		// H: V -- the Form cycle
 		int v = h + 55;
 		at(v - 6, () -> {
-			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
-			mc.options.fov().set(70);
-			face(mc, 0, 150f, 8f, 0);
+			face(mc, 0, 180f, 8f, 0);
+			cam(-2.6, 1.9, -2.6, 1.1, 55);
+			server(mc, p -> p.getInventory().clearContent()); // the devoured husk dropped rotten flesh into the hand
 		});
 		key(v, 4, 2);
 		at(v + 14, () -> shot(mc, "21_form_blade"));
