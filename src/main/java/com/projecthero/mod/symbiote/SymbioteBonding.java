@@ -110,9 +110,10 @@ public final class SymbioteBonding {
 				.withStyle(ChatFormatting.DARK_PURPLE, ChatFormatting.ITALIC), false);
 
 		ServerLevel level = player.serverLevel();
-		level.sendParticles(ParticleTypes.SQUID_INK, fxX, fxY, fxZ, 100, 0.4, 0.6, 0.4, 0.12);
-		level.sendParticles(ParticleTypes.SQUID_INK, player.getX(), player.getY() + 1.0, player.getZ(),
-				60, 0.4, 0.9, 0.4, 0.05);
+		// v0.17.5 tendril-vfx: the goo lunges in tendrils at its new host and coils round them (were two big ink bursts)
+		SymbioteVfx.impact(player, new net.minecraft.world.phys.Vec3(fxX, fxY, fxZ), player.position().subtract(fxX, fxY, fxZ), 1.2f);
+		SymbioteVfx.send(player, SymbioteVfx.WRAP, player.getId(), player.position(), net.minecraft.world.phys.Vec3.ZERO, 1.0f, 30);
+		SymbioteVfx.bodyBurst(player, 1.2f);
 		SymbioteSounds.organic(level, player.getX(), player.getY(), player.getZ(), 1.2f, 0.35f);
 	}
 }

@@ -21,6 +21,7 @@ public final class SymbioteSuitColours {
 
 	public static void initialize() {
 		PayloadTypeRegistry.playC2S().register(SymbioteColourPayload.TYPE, SymbioteColourPayload.CODEC);
+		SymbioteVfx.initialize(); // v0.17.5 tendril-vfx round: the move effects (S2C)
 		ServerPlayNetworking.registerGlobalReceiver(SymbioteColourPayload.TYPE, (payload, context) -> context.server().execute(() -> {
 			ServerPlayer p = context.player();
 			if (p != null) {
@@ -41,9 +42,9 @@ public final class SymbioteSuitColours {
 		player.setAttached(ModAttachments.SYMBIOTE_COLOURS, clean);
 	}
 
-	/** New colours (the colour commands). */
+	/** New body / emblem / eye colours (the colour commands, presets): the player's mouth colour is kept. */
 	public static void setColours(ServerPlayer player, SymbioteColours colours) {
-		set(player, colours);
+		set(player, (colours == null ? SymbioteColours.CLASSIC : colours).withMouth(get(player).mouth()));
 	}
 
 	/** A preset's colours. */

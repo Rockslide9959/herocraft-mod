@@ -24,27 +24,44 @@ import net.minecraft.network.codec.StreamCodec;
  * {@code style} field is gone: saves that still carry {@code "style": "classic"} (or anything else) load fine, the field is simply
  * ignored, so they show the Lethal Protector too.
  */
-public record SymbioteColours(int primary, int secondary, int eyes) {
+public record SymbioteColours(int primary, int secondary, int eyes, int mouth) {
+	/**
+	 * v0.17.5 tendril-vfx round (user: "make sure the symbiote suit is fully customizable"): the fourth colour, the inside of the mouth
+	 * (tongue, throat, the floor of the mouth; the lips are the body colour and the teeth stay white). This default is the painted
+	 * mouth's own red, so everyone who never touches it keeps the look they had. Keep in step with the mouth channel reference in
+	 * {@code scratchpad/symbiote/make_lethal_protector.js}.
+	 */
+	public static final int NATURAL_MOUTH = 0xB03A52;
 	/** The Classic colours: glossy blue-black, white emblem, white eyes. Same values as {@link SymbioteColourPreset#CLASSIC}. */
 	public static final SymbioteColours CLASSIC = new SymbioteColours(0x14161F, 0xF2F4F8, 0xF4F6FA);
+	/** Channel indices ({@link #channel}): body, emblem, eyes, mouth. */
+	public static final int CHANNELS = 4;
 
 	public SymbioteColours {
 		primary = rgb(primary);
 		secondary = rgb(secondary);
 		eyes = rgb(eyes);
+		mouth = rgb(mouth);
+	}
+
+	/** Body, emblem and eyes, with the natural mouth (presets, the random scheme, the colour command). */
+	public SymbioteColours(int primary, int secondary, int eyes) {
+		this(primary, secondary, eyes, NATURAL_MOUTH);
 	}
 
 	/** Unknown keys (the old {@code style}) are ignored by the record codec, so pre-change saves still load. */
 	public static final Codec<SymbioteColours> CODEC = RecordCodecBuilder.create(i -> i.group(
 			Codec.INT.optionalFieldOf("primary", CLASSIC.primary).forGetter(SymbioteColours::primary),
 			Codec.INT.optionalFieldOf("secondary", CLASSIC.secondary).forGetter(SymbioteColours::secondary),
-			Codec.INT.optionalFieldOf("eyes", CLASSIC.eyes).forGetter(SymbioteColours::eyes))
+			Codec.INT.optionalFieldOf("eyes", CLASSIC.eyes).forGetter(SymbioteColours::eyes),
+			Codec.INT.optionalFieldOf("mouth", NATURAL_MOUTH).forGetter(SymbioteColours::mouth))
 			.apply(i, SymbioteColours::new));
 
 	public static final StreamCodec<ByteBuf, SymbioteColours> STREAM_CODEC = StreamCodec.composite(
 			ByteBufCodecs.INT, SymbioteColours::primary,
 			ByteBufCodecs.INT, SymbioteColours::secondary,
 			ByteBufCodecs.INT, SymbioteColours::eyes,
+			ByteBufCodecs.INT, SymbioteColours::mouth,
 			SymbioteColours::new);
 
 	/** Drops anything above the low 24 bits (alpha, sign), leaving a valid {@code 0xRRGGBB}. */
@@ -63,7 +80,7 @@ public record SymbioteColours(int primary, int secondary, int eyes) {
 
 	/** {@code this} with every channel made valid (already true for any instance; kept as the explicit entry point). */
 	public SymbioteColours sanitize() {
-		return new SymbioteColours(primary, secondary, eyes);
+		return new SymbioteColours(primary, secondary, eyes, mouth);
 	}
 
 	/** The Classic colours (the skin as painted). */
@@ -73,31 +90,36 @@ public record SymbioteColours(int primary, int secondary, int eyes) {
 
 	/** Same as {@link #isClassic} (kept: the style that once made them differ is gone). */
 	public boolean hasClassicColours() {
-		return isClassic();
+		return sameColours(CLASSIC);
 	}
 
-	/** The same three colours. */
+	/** The same body, emblem and eye colours (the mouth aside: presets match on these three). */
 	public boolean sameColours(SymbioteColours other) {
-		return equals(other);
+		return other != null && primary == other.primary && secondary == other.secondary && eyes == other.eyes;
 	}
 
 	public SymbioteColours withPrimary(int rgb) {
-		return new SymbioteColours(rgb, secondary, eyes);
+		return new SymbioteColours(rgb, secondary, eyes, mouth);
 	}
 
 	public SymbioteColours withSecondary(int rgb) {
-		return new SymbioteColours(primary, rgb, eyes);
+		return new SymbioteColours(primary, rgb, eyes, mouth);
 	}
 
 	public SymbioteColours withEyes(int rgb) {
-		return new SymbioteColours(primary, secondary, rgb);
+		return new SymbioteColours(primary, secondary, rgb, mouth);
 	}
 
-	/** The colour of channel {@code 0} primary, {@code 1} secondary, {@code 2} eyes. */
+	public SymbioteColours withMouth(int rgb) {
+		return new SymbioteColours(primary, secondary, eyes, rgb);
+	}
+
+	/** The colour of channel {@code 0} primary, {@code 1} secondary, {@code 2} eyes, {@code 3} mouth. */
 	public int channel(int index) {
 		return switch (index) {
 			case 1 -> secondary;
 			case 2 -> eyes;
+			case 3 -> mouth;
 			default -> primary;
 		};
 	}
@@ -106,6 +128,7 @@ public record SymbioteColours(int primary, int secondary, int eyes) {
 		return switch (index) {
 			case 1 -> withSecondary(rgb);
 			case 2 -> withEyes(rgb);
+			case 3 -> withMouth(rgb);
 			default -> withPrimary(rgb);
 		};
 	}
@@ -143,8 +166,9 @@ public record SymbioteColours(int primary, int secondary, int eyes) {
 		return String.format(Locale.ROOT, "#%06X", rgb(rgb));
 	}
 
-	/** A cache key for the colours (equal keys only for equal values): the plain colour triple. */
+	/** A cache key for the colours (equal keys only for equal values): the colours, the mouth only when it is not the natural one. */
 	public String key() {
-		return String.format(Locale.ROOT, "%06x_%06x_%06x", primary, secondary, eyes);
+		String k = String.format(Locale.ROOT, "%06x_%06x_%06x", primary, secondary, eyes);
+		return mouth == NATURAL_MOUTH ? k : k + "_m" + String.format(Locale.ROOT, "%06x", mouth);
 	}
 }

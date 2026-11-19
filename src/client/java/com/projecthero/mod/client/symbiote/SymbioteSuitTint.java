@@ -15,6 +15,7 @@ import com.projecthero.mod.symbiote.Symbiote;
 import com.projecthero.mod.symbiote.SymbioteColours;
 import com.projecthero.mod.symbiote.SymbioteSuitColours;
 import com.projecthero.mod.symbiote.SymbioteSuitStyle;
+import com.projecthero.mod.symbiote.SymbioteTintMath;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
@@ -267,30 +268,9 @@ public final class SymbioteSuitTint {
 		return SymbioteSuitTint.abgr(alpha, rgb & 0xFF, (rgb >> 8) & 0xFF, (rgb >> 16) & 0xFF);
 	}
 
-	/** One mask texel to {@code 0xRRGGBB} (0 when transparent). Pure maths. */
+	/** One mask texel to {@code 0xRRGGBB} (0 when transparent). Pure maths, shared with the server tests ({@link SymbioteTintMath}). */
 	public static int bake(int shade, int gloss, int channel, int alpha, SymbioteColours colours) {
-		if (alpha == 0) {
-			return 0;
-		}
-		int base = channel >= 192 ? colours.eyes() : channel >= 64 ? colours.secondary() : colours.primary();
-		float[] c = { ((base >> 16) & 0xFF) / 255f, ((base >> 8) & 0xFF) / 255f, (base & 0xFF) / 255f };
-		float s = shade / 255f;
-		float g = gloss / 255f;
-		float m = Math.max(c[0], Math.max(c[1], c[2]));
-		float[] hue = m < 0.03f ? new float[] { 0.82f, 0.86f, 1.0f } : new float[] { c[0] / m, c[1] / m, c[2] / m };
-		float[] o = new float[3];
-		for (int i = 0; i < 3; i++) {
-			if (s <= 0.5f) {
-				o[i] = c[i] * (s / 0.5f);
-			} else {
-				float t = (s - 0.5f) / 0.5f;
-				float lift = (0.5f + 0.5f * hue[i]) * 0.86f;
-				o[i] = c[i] + (Math.max(lift, c[i]) - c[i]) * t;
-			}
-			float spec = 0.72f + 0.28f * hue[i];
-			o[i] = o[i] + (Math.max(spec, o[i]) - o[i]) * g;
-		}
-		return Math.round(clamp(o[0]) * 255f) << 16 | Math.round(clamp(o[1]) * 255f) << 8 | Math.round(clamp(o[2]) * 255f);
+		return SymbioteTintMath.bake(shade, gloss, channel, alpha, colours);
 	}
 
 	// ------------------------------------------------------------------ plumbing

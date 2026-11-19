@@ -361,18 +361,24 @@ function hue(c) {
 	if (m < 0.03) return [0.82, 0.86, 1.0];
 	return [c[0] / m, c[1] / m, c[2] / m];
 }
+// v0.17.5 tendril-vfx round: the twin of SymbioteTintMath.bake -- mid shade 128/255 is the exact colour; the emblem and eyes are never
+// lifted above it and their gloss only brightens as much as the colour is bright (so black emblems / eyes stay black); B 16..63 is the
+// mouth channel (cols.mouth, the Lethal Protector only)
+const MID = 128 / 255;
 function bakePixel(r, gl, b, a, cols) {
 	if (a === 0) return [0, 0, 0, 0];
-	const c = (b >= 192 ? cols.eyes : b >= 64 ? cols.secondary : cols.primary).map((v) => v / 255);
+	const exact = b >= 64;
+	const c = (b >= 192 ? cols.eyes : b >= 64 ? cols.secondary : b >= 16 && cols.mouth ? cols.mouth : cols.primary).map((v) => v / 255);
 	const s = r / 255, g = gl / 255;
 	const hu = hue(c);
+	const m = Math.max(...c);
 	let o;
-	if (s <= 0.5) { const k = s / 0.5; o = c.map((v) => v * k); } else {
-		const t = (s - 0.5) / 0.5;
+	if (s <= MID) { const k = s / MID; o = c.map((v) => v * k); } else if (exact) { o = c.slice(); } else {
+		const t = (s - MID) / (1 - MID);
 		const lift = hu.map((v) => (0.5 + 0.5 * v) * 0.86);
 		o = c.map((v, i) => v + (Math.max(lift[i], v) - v) * t);
 	}
-	const spec = hu.map((v) => 0.72 + 0.28 * v);
+	const spec = exact ? c.map((v) => v + (1 - v) * 0.3 * m) : hu.map((v) => 0.72 + 0.28 * v);
 	o = o.map((v, i) => v + (Math.max(spec[i], v) - v) * g);
 	return [Math.round(clamp(o[0]) * 255), Math.round(clamp(o[1]) * 255), Math.round(clamp(o[2]) * 255), a];
 }

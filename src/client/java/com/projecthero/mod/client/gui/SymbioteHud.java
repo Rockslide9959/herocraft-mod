@@ -55,6 +55,11 @@ public final class SymbioteHud {
 	/** v0.17.5: each hold move's cooldown (ticks) and its index in the synced cooldown list, for the key box's thin strip. */
 	private static final int[] HOLD_CD_INDEX = { 6, 7, 8, 9, -1, 11 };
 	private static final int[] HOLD_CD_TICKS = { 160, 280, 120, 240, 0, 400 };
+	/**
+	 * v0.17.5: the Shift variant's own cooldown entry on R / X / Z (Tendril Sweep 12, Grapple 14, Onslaught 13 -- they no longer share
+	 * the plain move's). G (Spike Fan) and C (Tendril Grab) are handled below as before; V has none.
+	 */
+	private static final int[] SHIFT_CD_INDEX = { 12, -1, 14, 13, -1, -1 };
 	/** Client-side: when each of R G X Z V C went down without Sneak (for the hold fill), or -1. */
 	private static final long[] HOLD_DOWN = { -1, -1, -1, -1, -1, -1 };
 	/** v0.16.6: the Shift move on each key (SymbioteAbilityManager.handle's sneak branches), for the move list. */
@@ -193,6 +198,18 @@ public final class SymbioteHud {
 					shown = mawFrac;
 					secs = VanillaHud.seconds(maw);
 					other = Math.max(cdFrac, holdCd);
+				}
+			} else if (SHIFT_CD_INDEX[o] >= 0) {
+				// R / X / Z: the plain move's cooldown, and the Shift move's while Shift is held (the same rule as G and C)
+				int idx = SHIFT_CD_INDEX[o];
+				int scd = idx < s.abilityCooldowns.size() ? (int) Math.max(0L, s.abilityCooldowns.get(idx) - now) : 0;
+				float shiftFrac = VanillaHudExtras.frac("symbiote/shift" + o, scd);
+				if (shift) {
+					shown = shiftFrac;
+					secs = VanillaHud.seconds(scd);
+					other = cdFrac;
+				} else {
+					other = Math.max(holdCd, shiftFrac);
 				}
 			} else if (!shift) {
 				other = holdCd;

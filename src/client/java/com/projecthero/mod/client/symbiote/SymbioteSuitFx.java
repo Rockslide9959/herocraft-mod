@@ -117,6 +117,9 @@ public final class SymbioteSuitFx {
 				return;
 			}
 			Player p = (Player) wearer;
+			if ((eyeGlow(SymbioteSuitTint.colours(p)) & 0xFFFFFF) == 0) {
+				return; // dark eyes: no glow pass at all
+			}
 			FxSet set = setFor(p);
 			RenderType glow = SymbioteFxTypes.glow(set.eyes);
 			getRenderer().reRender(bakedModel, poseStack, bufferSource, animatable, glow, bufferSource.getBuffer(glow), partialTick,
@@ -124,10 +127,14 @@ public final class SymbioteSuitFx {
 		}
 	}
 
-	/** The additive eye glow: the eye colour at a little under half strength (0xAARRGGBB). */
+	/**
+	 * The additive eye glow: the eye colour at up to 40% strength (0xAARRGGBB). v0.17.5: scaled by the colour's brightness
+	 * ({@code SymbioteTintMath.eyeGlowStrength}) -- dark eyes get none, so black eyes stay black instead of being lifted by the glow.
+	 */
 	static int eyeGlow(SymbioteColours c) {
 		int e = c.eyes();
-		int r = ((e >> 16) & 0xFF) * 40 / 100, g = ((e >> 8) & 0xFF) * 40 / 100, b = (e & 0xFF) * 40 / 100;
+		float k = com.projecthero.mod.symbiote.SymbioteTintMath.eyeGlowStrength(e);
+		int r = Math.round(((e >> 16) & 0xFF) * k), g = Math.round(((e >> 8) & 0xFF) * k), b = Math.round((e & 0xFF) * k);
 		return 0xFF000000 | r << 16 | g << 8 | b;
 	}
 

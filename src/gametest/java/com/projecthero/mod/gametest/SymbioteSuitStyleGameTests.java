@@ -70,7 +70,7 @@ public class SymbioteSuitStyleGameTests implements FabricGameTest {
 		SymbioteColours mine = new SymbioteColours(0x5B2A86, 0x121016, 0xF2E9FF);
 		RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), helper.getLevel().registryAccess());
 		SymbioteColourPayload.CODEC.encode(buf, new SymbioteColourPayload(mine));
-		helper.assertTrue(buf.readableBytes() == 12, "three ints, no style: " + buf.readableBytes() + " bytes");
+		helper.assertTrue(buf.readableBytes() == 16, "four ints (body, emblem, eyes, mouth), no style: " + buf.readableBytes() + " bytes");
 		helper.assertTrue(SymbioteColourPayload.CODEC.decode(buf).colours().equals(mine), "the payload round-trips");
 		RegistryFriendlyByteBuf sync = new RegistryFriendlyByteBuf(Unpooled.buffer(), helper.getLevel().registryAccess());
 		SymbioteColours.STREAM_CODEC.encode(sync, mine);

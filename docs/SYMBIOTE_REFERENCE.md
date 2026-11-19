@@ -637,3 +637,100 @@ Forms), `symbiote_moveset_v2_all_moves.mp4` + `_sheet.png` (every move in sequen
 let go so the HUD fills) and `symbiote_maw_bite_devour_closeup.mp4` + `_sheet.png`. Harness
 `scratchpad/SymbioteMovesetHarness.v0175.java.txt` (+ `SymbioteMovesetHarnessCameraMixin.v0175.java.txt` for the fixed camera offsets),
 films via `scratchpad/symbiote/films_moveset_v0175.js`.
+
+## v0.17.5 -- tendrils instead of particles, exact colours, the soles, separate Shift cooldowns
+
+User: "make the bottom of the symbiote suit feet not blue, make it the same colour as the suit itself", "instead of spawning in particles
+for the symbiote powers can you make it the tentacle models and vfx ... when player uses symbiote lunge ... symbiote tendril come off the
+players legs and push off the ground launching them", "for symbiote customization you cant get the exact colours your want with the eyes
+and emblem ... make sure the symbiote suit is fully customizable", and "if i use shift+R on symbiote i cant use regular R while Shift+R is on
+cooldown". Normal host (Lethal Protector suit) only. No damage, cooldown length or targeting changed.
+
+### The soles
+
+The borrowed skin paints the bottom faces of both legs flat blue (40, 94, 175); `make_lethal_protector.js` left every saturated texel as
+painted (tint mask A = 0), so they stayed blue on every colour. The script now marks the leg bottom faces (base and trouser layers:
+texels (16..24, 32..40), (16..24, 64..72), (48..56, 96..104), (16..24, 96..104)) as body channel at shade 112 (a touch under the exact
+colour, an underside) and repaints the wearable texture's soles to the Classic bake. Re-run the script after a merge (the textures stay
+gitignored). Shots: `feet_below_*` (six colours, from under the hovering host).
+
+### Exact colours (`SymbioteTintMath`, common; `SymbioteSuitTint.bake` delegates)
+
+- **Why black was impossible:** the emblem and eye texels sit at mask shade 255 (the emblem with gloss 94). Above shade 0.5 the bake lifted
+  toward a pale tint of the hue (a cool white for black: ~0.78 grey) and the gloss laid a near-white on top -- so a black emblem or black
+  eyes came out light grey.
+- **Now:** shade 128 is the exact colour (was 0.5, which 8 bits cannot hit -- 128 baked black to #010101). Body and mouth keep the lift and
+  wet gloss (muscle shading, highlights on a black suit). **Emblem and eyes are never lifted** above the picked colour, and their gloss only
+  brightens by `c + (1 - c) * 0.3 * max(c)` -- zero for black. Black is #000000, white #FFFFFF, any RGB in between as picked.
+- **Eye glow:** `SymbioteSuitFx.eyeGlow` is scaled by `SymbioteTintMath.eyeGlowStrength` (40% for bright eyes, smoothstepped to none below
+  ~35% brightness) and the pass is skipped when it adds nothing, so dark eyes are not brightened.
+- **A fourth colour, the mouth:** `SymbioteColours(primary, secondary, eyes, mouth)`; the 3-int constructor (presets, the random scheme, the
+  colour command) uses `NATURAL_MOUTH` (0xB03A52, the painted tongue red), so nobody's look changes. Codec field `"mouth"` (optional, old saves
+  read natural), stream codec / payload 16 bytes. `key()` only appends the mouth when it is not natural (existing bake keys unchanged).
+  `sameColours` / preset matching / `hasClassicColours` compare body, emblem and eyes; `setColours` / `setPreset` keep the player's mouth.
+  The mask's mouth flesh (throat, tongue, the floor of the mouth) is channel B = 32 (16..63 = mouth), shade solved against NATURAL_MOUTH;
+  teeth and saliva stay A = 0. The Classic fallback art has no mouth, so the mouth colour only shows on the Lethal Protector.
+- `gen_symbiote_suit_v0175.js`'s `bakePixel` twin follows (shipped Classic textures not re-baked: white emblem / eyes bake the same).
+
+### The colour screen
+
+Four parts (Body, Emblem, Eyes, Mouth, each with a wrapped tooltip). The bars switch between Hue / Saturation / Brightness and Red / Green /
+Blue (0-255) with the RGB / HSB button beside the hex field (remembered while the game runs); each bar shows its exact value; the hovered bar
+nudges one step with the mouse wheel or the left / right arrows; two chips set pure black / pure white for the current part. Presets set body
+/ emblem / eyes and keep the mouth. Lang: `scratchpad/symbiote/lang_symbiote_tendril_vfx_v0175.js` (key by key). Shots: `screen_*`.
+
+### Tendrils instead of particles (`SymbioteVfx` server, `SymbioteVfxPayload` S2C, `client/symbiote/SymbioteVfxClient`)
+
+The server sends one small payload per effect to the host and everyone tracking them (96 blocks); every client draws it as living tendrils
+(`GooMesh` tubes, the tendril texture tinted to the host's body colour by `SymbioteSuitTint.goo`) in world space after the entities,
+re-anchored every frame on the host's legs / hands / body and on a held target. Held states need no packets -- they are drawn from the
+synced `SymbioteState` / `SymbioteVitals` of every player in view. The only particles left on the kit are 2-3 goo droplets
+(`SymbioteParticles.GOO`, body colour) as accents on impacts / bursts, and a little block dust where Ground Eruption breaks the ground.
+
+| Move | Was | Now |
+|---|---|---|
+| R Tendril Strike | ink + crits on a hit, ink on a miss | IMPACT: tendrils splay out of the wound (clinging to the target), a small splat where a miss lands |
+| R x3 Tendril Slam | ichor ring, ink, explosion particle | WRAP on the target while it is yanked + GROUND_BURST where it lands |
+| Shift+R Sweep | ink per target | IMPACT per target |
+| Hold R Impaling Spear | ichor spiral + sheen round the fist | held: tendrils spiral down the arm into a spear growing from the fist (barbs at full charge); IMPACT per pierced target |
+| G Spike Shot / Shift+G Fan | squid-ink trail, ink + crits on hit, ink on blocks | a writhing goo strand trails each spike (renderer); IMPACT on hit, small IMPACT on a block (Carnage's crimson spikes unchanged) |
+| Hold G Spike Rain | ichor ring every 5 ticks | GROUND_MARK: tendrils writhe up round the circle for the 3 s |
+| X Lunge | ink + poof, an ink trail, ink on the ram | LEG_PUSH: two tendrils per leg (calf, thigh) stab down, plant on the ground where the host stood with three splayed toes, stay planted and stretch as the host flies off, then let go and whip back; IMPACT on the ram |
+| X air Dive Bomb | ink at the start and every tick | held: five tendrils stream off the shoulders like a wake, two claws reach down from the feet; landing GROUND_BURST (the ring of ground tendrils was already there) |
+| Shift+X Grapple | (tendril only) | + a small IMPACT where the tip latches |
+| Z Barrage | ink per hit | IMPACT (small) per hit |
+| Z Blade Slash | vanilla sweep particles, ink per target | SLASH: a living blade-crescent sweeps right to left; IMPACT per target |
+| Hold Z Ground Eruption | ink + ichor per burst | a small GROUND_BURST round each burst (the eruption tendrils were already entities) |
+| Shift + hold Z Onslaught | ichor ring while charging; ichor / sheen rings, sonic boom, sculk souls, 80 ink; ink on victims for 8 s | held charge: tendrils from the legs anchor in the ground and a ring of claws rises and closes in; release: two GROUND_BURSTs (9 and 4.5 blocks), a BODY_BURST, IMPACT + WRAP (3 s) on every victim |
+| C Maw Bite / heavy bite | crits, damage indicators, ink | JAWS: two jaw-tendrils from the shoulders gape round the prey and snap shut, fangs inward; IMPACT on a hit |
+| Hold C Devour | ink while reeling; ink, sheen, damage indicators on the kill | WRAP for the pull (with the tongue tendril), JAWS on the kill |
+| Shift+C Grab / C throw | ink at the seize and every 3 ticks; ink on the throw | WRAP for the whole hold; IMPACT on the throw |
+| V Form | ink on Thorns | BODY_BURST on Blade and Thorns |
+| Shift+V Shield | ink burst; an ink ring every other tick | BODY_BURST; held: a woven disc of tendrils (rim, inner ring, spokes) in front of the host, grown from both forearms |
+| suit fists (3rd punch), blade bite, thorns reflect, arrow catch, Biomass hit | ink | IMPACT |
+| bonding, bond complete, cloak, wall climb, suit collapse, hazard / sonic recoil, resurrection | ink / portal / flash / smoke / sonic boom | WRAP on the host, BODY_BURST, WALL_GRIP (tendrils from the hands to the wall), GROUND_BURST |
+
+The suit-up already was tendrils + goo droplets (`SymbioteEmerge`) and is unchanged. The normal host has no Let It Take Over / Frenzy (those
+belong to Black Suit Spider-Man, whose kit, like Agent Venom's and the pets', is untouched).
+
+### Every Shift / hold variant on its own cooldown
+
+`SymbioteState.COOLDOWN_SLOTS` 12 -> 15 (old saves read the new entries as ready): 12 Tendril Sweep (Shift+R; was R's entry 0), 13 Onslaught
+(Shift + hold Z; was Z's entry 3), 14 Grapple (Shift+X; was an unsynced static map, now synced). Already separate: Shift+G Spike Fan
+(`spikeConeReadyAt`), Shift+C Grab (5, while C's tap Maw Bite is 10), every hold move (6-9, 11). Still shared on purpose: Barrage and Blade
+Slash (both Z's tap, the Form decides which -- a Form swap must not hand out a fresh Z) and Devour's Maw Bite fallback (the same bite). HUD:
+R / X / Z follow the existing G / C rule -- the box shows the plain move's cooldown, the Shift move's while Shift is held, and the thin strip
+carries the other.
+
+### Tests
+
+`SymbioteExactColourGameTests` (black / white emblem, eyes, body and mouth bake exactly; any RGB at the top shade comes out as picked; the eye
+glow never brightens dark eyes; pure black / white survive the payload, the save and the sync; the mouth channel, old saves, keys, presets keep
+the mouth), `SymbioteTendrilVfxGameTests` (the Lunge sends LEG_PUSH planted at the host's feet with the launch direction; strike / Maw Bite /
+grab / shield send IMPACT / JAWS / WRAP / BODY_BURST; the payload round-trips and clamps), `SymbioteMovesetV2GameTests.shiftVariantsNeverBlockThePlainMove`
+(R fires while Shift+R cools down and the other way round, Barrage while Onslaught cools down, Grapple vs Lunge, 15 entries); the payload
+size and junk-packet tests updated for the mouth. Visual checks: `docs/screenshots/v0175/symbiote_tendril_vfx/` -- stills per move (`move_*`),
+soles (`feet_below_*`), faces in extreme colours with the mouth open (`face_*`; the baked textures were checked but are not committed -- they derive from the held-back skin), the screen (`screen_*`),
+the HUD with / without Shift (`hud_*`), `symbiote_tendril_vfx_all_moves.mp4` + `_sheet.png`, the Lunge close-ups
+`symbiote_lunge_leg_tendrils_closeup.mp4` / `_from_behind.mp4` (quarter speed) + sheets. Harness `scratchpad/SymbioteVfxHarness.v0175.java.txt`
+(+ `SymbioteVfxHarnessCameraMixin.v0175.java.txt`), films via `scratchpad/symbiote/films_tendril_vfx_v0175.js`.

@@ -248,7 +248,15 @@ fillRect(M.u + 6, M.v + 1, 1, 1, () => [56, 10, 22]);                           
 
 // ---------------------------------------------------------------- the tint mask (so the style takes the player's colours)
 // Classic colours, as in SymbioteColours.CLASSIC: shade is solved so the Classic bake of each texel comes back close to the skin.
-const CLASSIC = { 0: [0x14, 0x16, 0x1F], 128: [0xF2, 0xF4, 0xF8], 255: [0xF4, 0xF6, 0xFA] };
+// 32 = the mouth channel, against SymbioteColours.NATURAL_MOUTH (keep the two in step)
+const CLASSIC = { 0: [0x14, 0x16, 0x1F], 32: [0xB0, 0x3A, 0x52], 128: [0xF2, 0xF4, 0xF8], 255: [0xF4, 0xF6, 0xFA] };
+// the bottom faces of both legs, base and trouser layers (128 px space): right leg (16..24, 32..40) / (16..24, 64..72), left leg
+// (48..56, 96..104) / (16..24, 96..104)
+const SOLES = [[16, 32, 24, 40], [16, 64, 24, 72], [48, 96, 56, 104], [16, 96, 24, 104]];
+const isSole = (x, y) => SOLES.some(([x0, y0, x1, y1]) => x >= x0 && x < x1 && y >= y0 && y < y1);
+const SOLE_SHADE = 112; // a touch under 0.5 (the exact colour): the underside of the foot
+// the teeth ramps in the mouth atlas (block M, skin (56,0) .. (57,2) -> texels 112..115 x 0..3) keep their own colours
+const inTeeth = (x, y) => x >= 112 && x < 116 && y >= 0 && y < 4;
 function solve(c, ch) {
 	const base = CLASSIC[ch].map((v) => v / 255);
 	const m = Math.max(...base);
@@ -281,11 +289,29 @@ for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
 		tint[i] = s; tint[i + 1] = s > 140 ? 40 : 0; tint[i + 2] = 0; tint[i + 3] = 255;
 		continue;
 	}
-	if (keep[y * W + x]) continue; // mask A = 0: keeps its own colour; no sheen on the mouth
+	if (keep[y * W + x]) {
+		// v0.17.5 tendril-vfx round (user: "make sure the symbiote suit is fully customizable"): the mouth's flesh (throat, tongue, the
+		// floor of the mouth) is the MOUTH channel (B = 32), shade solved against SymbioteColours.NATURAL_MOUTH so the default still
+		// bakes back to the painted mouth; the teeth and the saliva stay A = 0 (their own colours)
+		if (saliva[y * W + x] || inTeeth(x, y)) continue;
+		const [s, g] = solve(c, 32);
+		tint[i] = s; tint[i + 1] = g; tint[i + 2] = 32; tint[i + 3] = 255;
+		continue;
+	}
+	if (isSole(x, y)) {
+		// v0.17.5 tendril-vfx round (user: "make the bottom of the symbiote suit feet not blue, make it the same colour as the suit"):
+		// the skin's soles are flat blue (40, 94, 175) and used to be left as painted (A = 0). Now they are the body colour, a touch
+		// darker (an underside), on every colour choice; the wearable texture's soles are repainted to match the Classic bake
+		const s = SOLE_SHADE;
+		tint[i] = s; tint[i + 1] = 0; tint[i + 2] = 0; tint[i + 3] = 255;
+		put(x, y, CLASSIC[0].map((v) => Math.round(v * s / 127.5)));
+		fx[i + 1] = 0; fx[i + 3] = 255;
+		continue;
+	}
 	const mx = Math.max(c[0], c[1], c[2]), mn = Math.min(c[0], c[1], c[2]);
 	const sat = mx ? (mx - mn) / mx : 0;
 	const L = lum(c);
-	if (sat > 0.45 && L > 0.18) continue; // the odd saturated texel (the blue soles): left as painted
+	if (sat > 0.45 && L > 0.18) continue; // the odd saturated texel left as painted (the soles are handled above)
 	let ch = 0;
 	if (L > 0.5 && sat < 0.3 && !(x < 16 && y < 16)) ch = inHead(x, y) ? 255 : 128; // (the jaw block J is all body)
 	const [s, g] = solve(c, ch);

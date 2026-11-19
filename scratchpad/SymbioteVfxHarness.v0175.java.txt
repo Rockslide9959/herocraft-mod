@@ -1,0 +1,651 @@
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.client.gui.SymbioteColourScreen;
+import com.projecthero.mod.client.gui.SymbioteHud;
+import com.projecthero.mod.client.symbiote.SymbioteSuitTint;
+import com.projecthero.mod.symbiote.Symbiote;
+import com.projecthero.mod.symbiote.SymbioteColourPreset;
+import com.projecthero.mod.symbiote.SymbioteColours;
+import com.projecthero.mod.symbiote.SymbioteState;
+import com.projecthero.mod.symbiote.SymbioteSuitColours;
+import com.projecthero.mod.symbiote.SymbioteVitals;
+import com.projecthero.mod.symbiote.SymbioteVitalsManager;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.5 Symbiote tendril vfx + colours): a suited Normal host on a flat arena. (1) the soles from below in
+ * several colours, (2) face close-ups of colour extremes (black eyes + black emblem, white on black, ...) and the baked textures dumped,
+ * (3) the colour screen (HSB, RGB, the Mouth part), (4) every move through the REAL keys, filmed every tick, (5) a slowed-down Lunge
+ * close-up from a fixed camera. Enabled by run/symvfx.flag = "<out dir>". Kept as scratchpad/SymbioteVfxHarness.v0175.java.txt.
+ */
+public final class SymbioteVfxHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static File out;
+	private static final List<Runnable> PLAN = new ArrayList<>();
+	private static int planTick;
+	private static BlockPos site;
+	private static final List<Integer> SPAWNED = new ArrayList<>();
+	public static volatile Vec3 camOffset;
+	public static volatile Vec3 camFixed;
+	public static volatile Vec3 lookFixed;
+	public static volatile double camLookY = 1.2;
+
+	private static void cam(double x, double y, double z, double lookY, int fov) {
+		camFixed = null;
+		lookFixed = null;
+		camOffset = new Vec3(x, y, z);
+		camLookY = lookY;
+		Minecraft.getInstance().options.fov().set(fov);
+	}
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("symvfx.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			out = new File(Files.readAllLines(flag).get(0).trim());
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(SymbioteVfxHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(900_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "symvfx-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		mc.gui.getChat().clearMessages(false);
+		mc.getToasts().clear();
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		if (!name.startsWith("film_")) {
+			System.out.println("[HARNESS] shot " + name);
+		}
+	}
+
+	static void at(int ticks, Runnable r) {
+		while (PLAN.size() < ticks) {
+			PLAN.add(() -> {
+			});
+		}
+		Runnable prev = PLAN.get(ticks - 1);
+		PLAN.set(ticks - 1, () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	private static void toggle() {
+		ClientPlayNetworking.send(new com.projecthero.mod.network.SpiderActionPayload(
+				com.projecthero.mod.network.SpiderActionPayload.Action.TOGGLE_SYMBIOTE));
+	}
+
+	/** Key i (0 = R, 1 = G, 2 = X, 3 = Z, 4 = V, 5 = C) down at {@code t}, up at {@code t + held}. */
+	private static void key(int t, int i, int held) {
+		KeyMapping k = ModKeyBindings.ABILITY_SLOTS[i];
+		at(t, () -> k.setDown(true));
+		at(t + held, () -> k.setDown(false));
+	}
+
+	private static void sneak(int t, boolean down) {
+		at(t, () -> Minecraft.getInstance().options.keyShift.setDown(down));
+	}
+
+	/** Full Biomass, every cooldown ready (the harness runs the whole kit back to back). */
+	private static void refill(Minecraft mc) {
+		server(mc, p -> {
+			SymbioteVitals v = SymbioteVitalsManager.vitals(p).copy();
+			v.hp = SymbioteVitalsManager.MAX_HP;
+			v.broken = false;
+			v.spikeConeReadyAt = 0L;
+			p.setAttached(ModAttachments.SYMBIOTE_VITALS, v);
+			SymbioteState s = Symbiote.state(p).copy();
+			for (int i = 0; i < s.abilityCooldowns.size(); i++) {
+				s.abilityCooldowns.set(i, 0L);
+			}
+			p.setAttached(ModAttachments.SYMBIOTE_STATE, s);
+		});
+	}
+
+	private static void clearTargets(Minecraft mc) {
+		server(mc, p -> {
+			for (int id : SPAWNED) {
+				Entity e = p.serverLevel().getEntity(id);
+				if (e != null) {
+					e.discard();
+				}
+			}
+			SPAWNED.clear();
+		});
+	}
+
+	private static void spawn(Minecraft mc, EntityType<? extends Mob> type, double dx, double dz, double max, float health) {
+		server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			Mob m = type.create(level);
+			if (m == null) {
+				return;
+			}
+			m.moveTo(site.getX() + 0.5 + dx, site.getY() + 1, site.getZ() + 0.5 - dz, 0f, 0f);
+			m.setNoAi(true);
+			m.setPersistenceRequired();
+			m.getAttribute(Attributes.MAX_HEALTH).setBaseValue(max);
+			m.setHealth(health);
+			m.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 20 * 600, 0, false, false));
+			level.addFreshEntity(m);
+			SPAWNED.add(m.getId());
+		});
+	}
+
+	private static void face(Minecraft mc, double dz, float yaw, float pitch, double up) {
+		server(mc, p -> p.connection.teleport(site.getX() + 0.5, site.getY() + 1 + up, site.getZ() + 0.5 - dz, yaw, pitch));
+	}
+
+	private static void colours(Minecraft mc, SymbioteColours c) {
+		server(mc, p -> SymbioteSuitColours.set(p, c));
+	}
+
+	/** The baked suit texture for {@code c}, written next to the shots (proof of the exact texels). */
+	private static void dumpBake(SymbioteColours c, String name) {
+		ResourceLocationHolder.dump(c, new File(out, "bake_" + name + ".png"));
+	}
+
+	private static final class ResourceLocationHolder {
+		static void dump(SymbioteColours c, File f) {
+			var id = SymbioteSuitTint.suit(c);
+			SymbioteSuitTint.image(id).ifPresent(img -> {
+				try {
+					img.writeToFile(f);
+					// sample: the emblem centre on the chest (skin (20..28, 20..32) at 2x) and an eye texel
+					System.out.println("[HARNESS] bake " + f.getName() + " key=" + c.key());
+				} catch (Exception e) {
+					System.out.println("[HARNESS] dump failed " + e);
+				} finally {
+					img.close();
+				}
+			});
+		}
+	}
+
+	private static void pressButton(Minecraft mc, String label) {
+		if (mc.screen == null) {
+			return;
+		}
+		for (var w : mc.screen.children()) {
+			if (w instanceof Button b && b.getMessage().getString().equals(label)) {
+				b.onPress();
+				return;
+			}
+		}
+		System.out.println("[HARNESS] no button " + label);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.getWindow().setWindowed(854, 480);
+				mc.execute(SymbioteVfxHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 30) {
+			mc.options.fov().set(70);
+			mc.options.tutorialStep = net.minecraft.client.tutorial.TutorialSteps.NONE;
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(com.projecthero.mod.loot.finds.SupplyDrops.RULE).set(false, p.server);
+				BlockPos sp = p.blockPosition();
+				int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, sp.getX(), sp.getZ());
+				site = new BlockPos(sp.getX(), y - 1, sp.getZ());
+				for (int x = -14; x <= 14; x++) {
+					for (int z = -26; z <= 12; z++) {
+						for (int yy = -2; yy <= 14; yy++) {
+							BlockState st = yy < 0 ? Blocks.DIRT.defaultBlockState() : yy == 0 ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState();
+							level.setBlock(site.offset(x, yy, z), st, 2 | 16);
+						}
+					}
+				}
+				// a wall to grapple to and climb, off to the right
+				for (int z = -6; z <= -2; z++) {
+					for (int yy = 1; yy <= 6; yy++) {
+						level.setBlock(site.offset(-8, yy, z), Blocks.STONE_BRICKS.defaultBlockState(), 2 | 16);
+					}
+				}
+				p.setGameMode(GameType.SURVIVAL);
+				p.connection.teleport(site.getX() + 0.5, site.getY() + 1, site.getZ() + 0.5, 180f, 8f);
+				Symbiote.grant(p);
+				SymbioteSuitColours.setPreset(p, SymbioteColourPreset.CLASSIC);
+				p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 20 * 60 * 30, 4, false, false));
+				p.addEffect(new MobEffectInstance(MobEffects.SATURATION, 20 * 60 * 30, 4, false, false));
+			});
+		}
+		if (t == 46) {
+			buildPlan(mc);
+		}
+		if (t < 50 || site == null) {
+			return;
+		}
+		if (planTick < PLAN.size()) {
+			PLAN.get(planTick++).run();
+		}
+	}
+
+	private static final SymbioteColours[] FEET = {
+			SymbioteColourPreset.CLASSIC.colours(), SymbioteColourPreset.CARNAGE.colours(), SymbioteColourPreset.ANTI_VENOM.colours(),
+			new SymbioteColours(0x1FA34A, 0x000000, 0x000000), new SymbioteColours(0xFFFFFF, 0x000000, 0x000000),
+			new SymbioteColours(0x000000, 0xFFFFFF, 0xFFFFFF) };
+	private static final String[] FEET_NAMES = { "classic", "carnage", "anti_venom", "green", "pure_white", "pure_black" };
+
+	private static final SymbioteColours[] FACES = {
+			new SymbioteColours(0xB3121B, 0x000000, 0x000000), new SymbioteColours(0x000000, 0x000000, 0x000000, 0x000000),
+			new SymbioteColours(0xFFFFFF, 0x000000, 0x000000), new SymbioteColours(0x000000, 0xFFFFFF, 0xFFFFFF),
+			new SymbioteColours(0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF), new SymbioteColours(0x1E4FB8, 0xFFD400, 0x00FF66, 0x2F6FD6) };
+	private static final String[] FACE_NAMES = { "red_black_emblem_black_eyes", "all_black", "white_black_emblem_black_eyes",
+			"black_white_emblem_white_eyes", "all_white", "blue_yellow_emblem_green_eyes_blue_mouth" };
+
+	private static void buildPlan(Minecraft mc) {
+		int t = 10;
+		at(t, () -> {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.hideGui = true;
+		});
+		at(t + 5, SymbioteVfxHarness::toggle);
+
+		// (1) the soles from below: hover 3 blocks up (creative-style flight), camera under the feet looking up
+		int a = t + 90;
+		at(a, () -> server(mc, p -> {
+			p.getAbilities().mayfly = true;
+			p.getAbilities().flying = true;
+			p.onUpdateAbilities();
+			p.connection.teleport(site.getX() + 0.5, site.getY() + 4.5, site.getZ() + 0.5, 180f, 0f);
+		}));
+		at(a + 2, () -> cam(0.55, -1.25, -0.75, 0.1, 55));
+		for (int i = 0; i < FEET.length; i++) {
+			final int k = i;
+			at(a + 6 + i * 16, () -> colours(mc, FEET[k]));
+			at(a + 6 + i * 16 + 12, () -> shot(mc, "feet_below_" + String.format("%d_", k + 1) + FEET_NAMES[k]));
+		}
+		int b = a + 6 + FEET.length * 16 + 4;
+		at(b, () -> server(mc, p -> {
+			p.getAbilities().flying = false;
+			p.getAbilities().mayfly = false;
+			p.onUpdateAbilities();
+			p.connection.teleport(site.getX() + 0.5, site.getY() + 1, site.getZ() + 0.5, 180f, 0f);
+		}));
+
+		// (2) face close-ups of the colour extremes, and the baked textures
+		at(b + 10, () -> cam(0.9, 2.55, -2.3, 2.35, 50));
+		for (int i = 0; i < FACES.length; i++) {
+			final int k = i;
+			int s = b + 14 + i * 30;
+			at(s, () -> colours(mc, FACES[k]));
+			at(s + 12, () -> shot(mc, "face_" + String.format("%d_", k + 1) + FACE_NAMES[k]));
+			at(s + 13, () -> dumpBake(FACES[k], FACE_NAMES[k]));
+			key(s + 15, 5, 2); // C: the snarl / Maw Bite opens the mouth (tongue colour)
+			at(s + 19, () -> {
+				refill(mc);
+				shot(mc, "face_" + String.format("%d_", k + 1) + FACE_NAMES[k] + "_mouth_open");
+			});
+			at(s + 27, () -> face(mc, 0, 180f, 0f, 0));
+		}
+		int c = b + 14 + FACES.length * 30 + 4;
+
+		// (3) the colour screen: emblem black, then RGB mode, then the Mouth part
+		at(c, () -> {
+			colours(mc, new SymbioteColours(0xB3121B, 0x000000, 0x000000));
+			camOffset = null;
+			mc.options.hideGui = false;
+		});
+		at(c + 8, () -> mc.setScreen(new SymbioteColourScreen(null)));
+		at(c + 16, () -> shot(mc, "screen_1_body_hsb"));
+		at(c + 18, () -> pressButton(mc, "Emblem"));
+		at(c + 22, () -> shot(mc, "screen_2_emblem_black_hsb"));
+		at(c + 24, () -> pressButton(mc, "HSB"));
+		at(c + 28, () -> shot(mc, "screen_3_emblem_black_rgb"));
+		at(c + 30, () -> pressButton(mc, "Eyes"));
+		at(c + 34, () -> shot(mc, "screen_4_eyes_rgb"));
+		at(c + 36, () -> pressButton(mc, "Mouth"));
+		at(c + 40, () -> shot(mc, "screen_5_mouth_rgb"));
+		at(c + 42, () -> pressButton(mc, "RGB"));
+		at(c + 44, () -> mc.setScreen(null));
+
+		// (4) every move, the real keys, filmed every tick
+		int f0 = c + 60;
+		at(f0 - 10, () -> {
+			mc.options.hideGui = false;
+			colours(mc, SymbioteColourPreset.CLASSIC.colours().withSecondary(0xF2F4F8));
+			colours(mc, new SymbioteColours(0x1E4FB8, 0xF2F4F8, 0xF4F6FA));
+		});
+		List<int[]> film = new ArrayList<>();
+		int m = f0;
+		// R x3 on a golem: strikes then the Slam
+		at(m - 6, () -> {
+			refill(mc);
+			face(mc, 0, 180f, 4f, 0);
+			cam(-4.5, 2.6, 3.0, 1.0, 70);
+			spawn(mc, EntityType.IRON_GOLEM, 0, 7, 400, 400f);
+		});
+		key(m + 2, 0, 2);
+		at(m + 6, () -> shot(mc, "move_01_tendril_strike_impact"));
+		at(m + 32, () -> refill(mc));
+		key(m + 34, 0, 2);
+		at(m + 60, () -> refill(mc));
+		key(m + 62, 0, 2);
+		at(m + 66, () -> shot(mc, "move_02_tendril_slam_wrap"));
+		at(m + 70, () -> shot(mc, "move_03_tendril_slam_ground_burst"));
+		// Shift+R sweep, then the HUD with and without Shift (R still ready while the Sweep cools down)
+		m += 95;
+		at(m - 4, () -> refill(mc));
+		sneak(m, true);
+		key(m + 2, 0, 2);
+		at(m + 7, () -> shot(mc, "move_04_tendril_sweep_impacts"));
+		at(m + 12, () -> {
+			SymbioteHud.forceShift = true;
+			shot(mc, "hud_shift_held_sweep_cooling");
+		});
+		sneak(m + 13, false);
+		at(m + 14, () -> SymbioteHud.forceShift = false);
+		at(m + 24, () -> shot(mc, "hud_plain_r_ready"));
+		// hold R: the Spear grows in the fist, then the throw
+		m += 40;
+		at(m - 6, () -> {
+			clearTargets(mc);
+			refill(mc);
+			spawn(mc, EntityType.HUSK, 0, 4.5, 400, 400f);
+			spawn(mc, EntityType.HUSK, 0.2, 8, 400, 400f);
+			cam(-2.6, 2.4, 1.4, 1.6, 60);
+		});
+		key(m, 0, 30);
+		at(m + 18, () -> shot(mc, "move_05_spear_charging"));
+		at(m + 29, () -> shot(mc, "move_06_spear_full_charge"));
+		at(m + 34, () -> shot(mc, "move_07_spear_impacts"));
+		// G spike shot, Shift+G fan
+		m += 50;
+		at(m - 4, () -> refill(mc));
+		key(m, 1, 2);
+		at(m + 6, () -> shot(mc, "move_08_spike_shot_trail"));
+		at(m + 18, () -> refill(mc));
+		sneak(m + 20, true);
+		key(m + 21, 1, 2);
+		sneak(m + 24, false);
+		at(m + 26, () -> shot(mc, "move_09_spike_fan_impacts"));
+		// hold G: Spike Rain and its tendril circle
+		m += 45;
+		at(m - 6, () -> {
+			refill(mc);
+			face(mc, 0, 180f, 18f, 0);
+			cam(-7.0, 4.5, 3.0, 0.5, 70);
+		});
+		key(m, 1, 12);
+		at(m + 20, () -> shot(mc, "move_10_spike_rain_circle"));
+		// Z barrage
+		m += 70;
+		at(m - 4, () -> {
+			refill(mc);
+			face(mc, 0, 180f, 4f, 0);
+			cam(-4.5, 2.6, 3.0, 1.0, 70);
+		});
+		key(m, 3, 2);
+		at(m + 12, () -> shot(mc, "move_11_barrage_impacts"));
+		// hold Z: Ground Eruption
+		m += 40;
+		at(m - 4, () -> {
+			refill(mc);
+			face(mc, 0, 180f, 10f, 0);
+			cam(-5.5, 3.0, 1.5, 0.5, 70);
+		});
+		key(m, 3, 12);
+		at(m + 14, () -> shot(mc, "move_12_ground_eruption"));
+		// V Blade form, Z Blade Slash, V Thorns, V Normal
+		m += 40;
+		at(m - 4, () -> {
+			refill(mc);
+			face(mc, 0, 180f, 4f, 0);
+			cam(-3.2, 2.4, 1.0, 1.4, 60);
+			server(mc, p -> p.getInventory().clearContent());
+		});
+		key(m, 4, 2);
+		at(m + 3, () -> shot(mc, "move_13_form_blade_body_burst"));
+		at(m + 14, () -> refill(mc));
+		key(m + 16, 3, 2);
+		at(m + 20, () -> shot(mc, "move_14_blade_slash_crescent"));
+		key(m + 34, 4, 2);
+		at(m + 37, () -> shot(mc, "move_15_form_thorns_body_burst"));
+		key(m + 52, 4, 2);
+		// Shift+V shield up, held, down
+		m += 70;
+		at(m - 4, () -> {
+			refill(mc);
+			cam(-2.0, 2.3, -3.0, 1.7, 60);
+		});
+		sneak(m, true);
+		key(m + 1, 4, 2);
+		sneak(m + 4, false);
+		at(m + 3, () -> shot(mc, "move_16_shield_up_burst"));
+		at(m + 20, () -> shot(mc, "move_17_shield_woven_disc"));
+		sneak(m + 30, true);
+		key(m + 31, 4, 2);
+		sneak(m + 34, false);
+		// C Maw Bite on a husk, hold C Devour on a weakened husk
+		m += 50;
+		at(m - 8, () -> {
+			clearTargets(mc);
+			refill(mc);
+			face(mc, 0, 180f, 6f, 0);
+			spawn(mc, EntityType.HUSK, 1.2, 2.6, 400, 400f);
+			cam(-2.4, 2.3, -3.0, 1.6, 55);
+		});
+		key(m, 5, 2);
+		at(m + 3, () -> shot(mc, "move_18_maw_bite_jaws_open"));
+		at(m + 6, () -> shot(mc, "move_19_maw_bite_jaws_shut"));
+		m += 30;
+		at(m - 8, () -> {
+			clearTargets(mc);
+			refill(mc);
+			face(mc, 0, 180f, 6f, 0);
+			spawn(mc, EntityType.HUSK, 1.3, 3.2, 20, 4f);
+		});
+		key(m, 5, 12);
+		at(m + 13, () -> shot(mc, "move_20_devour_wrap"));
+		at(m + 24, () -> shot(mc, "move_21_devour_jaws"));
+		// Shift+C grab, C throw
+		m += 40;
+		at(m - 8, () -> {
+			clearTargets(mc);
+			refill(mc);
+			face(mc, 0, 180f, 4f, 0);
+			spawn(mc, EntityType.HUSK, 0, 6, 400, 400f);
+			cam(-4.0, 2.6, 2.0, 1.4, 65);
+		});
+		sneak(m, true);
+		key(m + 1, 5, 2);
+		sneak(m + 4, false);
+		at(m + 14, () -> shot(mc, "move_22_grab_wrap"));
+		key(m + 26, 5, 2);
+		at(m + 30, () -> shot(mc, "move_23_throw_impact"));
+		// Shift+X grapple to the wall
+		m += 50;
+		at(m - 6, () -> {
+			clearTargets(mc);
+			refill(mc);
+			face(mc, 0, 90f, -10f, 0);
+			cam(2.0, 2.6, 4.0, 1.2, 70);
+		});
+		sneak(m, true);
+		key(m + 1, 2, 2);
+		sneak(m + 4, false);
+		at(m + 5, () -> shot(mc, "move_24_grapple_latch"));
+		// Shift + hold Z: Onslaught (60-tick charge), release
+		m += 40;
+		at(m - 6, () -> {
+			refill(mc);
+			face(mc, 0, 180f, 10f, 0);
+			cam(-7.5, 6.0, 5.0, 0.5, 70);
+			spawn(mc, EntityType.HUSK, 3, 4, 400, 400f);
+			spawn(mc, EntityType.HUSK, -4, 2, 400, 400f);
+			spawn(mc, EntityType.IRON_GOLEM, 0, 6, 400, 400f);
+		});
+		sneak(m, true);
+		key(m + 1, 3, 64);
+		sneak(m + 66, false);
+		at(m + 30, () -> shot(mc, "move_25_onslaught_charge_ring"));
+		at(m + 69, () -> shot(mc, "move_26_onslaught_release"));
+		at(m + 74, () -> shot(mc, "move_27_onslaught_wraps"));
+		// X in the air: Dive Bomb
+		m += 100;
+		at(m - 6, () -> {
+			clearTargets(mc);
+			refill(mc);
+			spawn(mc, EntityType.HUSK, 0, 6.5, 400, 400f);
+			face(mc, 5.0, 180f, 40f, 8.0);
+			cam(-7.0, 1.0, 3.5, 0.0, 70);
+		});
+		key(m, 2, 2);
+		at(m + 2, () -> shot(mc, "move_28_dive_bomb_wake"));
+		at(m + 7, () -> shot(mc, "move_29_dive_bomb_ground_burst"));
+		// suit off and on again (the suit-up's own tendrils)
+		m += 40;
+		at(m - 4, () -> {
+			clearTargets(mc);
+			face(mc, 0, 180f, 4f, 0);
+			cam(-2.2, 2.2, -3.2, 1.3, 60);
+		});
+		at(m, SymbioteVfxHarness::toggle);
+		at(m + 50, SymbioteVfxHarness::toggle);
+		at(m + 55, () -> shot(mc, "move_30_suit_up_burst"));
+		int filmEnd = m + 110;
+		for (int f = f0 - 4; f < filmEnd; f++) {
+			final int n = f - (f0 - 4);
+			at(f, () -> shot(mc, String.format("film_moves_%04d", n)));
+		}
+
+		// (5) the Lunge close-up: slowed to a quarter (server tick rate 5), fixed camera beside the launch point
+		int l = filmEnd + 20;
+		at(l - 12, () -> {
+			refill(mc);
+			mc.options.hideGui = true;
+			face(mc, 0, 180f, -8f, 0);
+		});
+		at(l - 6, () -> {
+			camOffset = null;
+			Vec3 feet = new Vec3(site.getX() + 0.5, site.getY() + 1, site.getZ() + 0.5);
+			camFixed = feet.add(-6.5, 1.6, -2.5);
+			lookFixed = feet.add(0, 1.0, -3.5);
+			mc.options.fov().set(70);
+		});
+		key(l, 2, 3);
+		for (int f = 0; f < 70; f++) {
+			final int n = f;
+			at(l - 2 + f, () -> shot(mc, String.format("film_lunge_%04d", n)));
+		}
+		at(l + 3, () -> shot(mc, "lunge_1_legs_sprout"));
+		at(l + 8, () -> shot(mc, "lunge_2_planted_push"));
+		at(l + 16, () -> shot(mc, "lunge_3_stretching"));
+		at(l + 30, () -> shot(mc, "lunge_4_let_go"));
+		// and once more from behind, at a third of the speed
+		int l2 = l + 90;
+		at(l2 - 10, () -> {
+			refill(mc);
+			face(mc, 0, 180f, -8f, 0);
+			Vec3 feet = new Vec3(site.getX() + 0.5, site.getY() + 1, site.getZ() + 0.5);
+			camFixed = feet.add(1.1, 1.5, 2.4);
+			lookFixed = feet.add(0, 0.5, -1.5);
+		});
+		key(l2, 2, 3);
+		for (int f = 0; f < 60; f++) {
+			final int n = f;
+			at(l2 - 2 + f, () -> shot(mc, String.format("film_lungeback_%04d", n)));
+		}
+		at(l2 + 8, () -> shot(mc, "lunge_5_from_behind_planted"));
+		at(l2 + 62, () -> {
+			System.out.println("[HARNESS] done");
+		});
+		at(l2 + 70, () -> Runtime.getRuntime().halt(0));
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		rules.getRule(com.projecthero.mod.calling.SpawnCallings.RULE).set(false, null);
+		LevelSettings settings = new LevelSettings("SYMVFX_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.NORMAL, true,
+				rules, WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(17051L, true, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

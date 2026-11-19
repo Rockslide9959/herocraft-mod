@@ -25,13 +25,21 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
 
+import org.lwjgl.glfw.GLFW;
+
 /**
  * v0.17.5 (user: "make it so that youre able to change the colour"): the Symbiote suit colour screen, opened from the power's
- * own info page ("Your Power", I key -> Suit Colours). Three channels -- Body, Emblem, Eyes -- each set with Hue / Saturation /
- * Brightness bars or a hex field, plus seven preset swatches (Classic, Anti-Venom, Carnage, Scream, Agony, Riot, Toxin) and a
- * Classic reset. The left side previews the pending colours live: the 3D suit (always the Lethal Protector -- no style choice) while it is worn, else a front and
- * back paper doll. Apply sends {@link SymbioteColourPayload} (re-checked server side) and closes; Cancel / Esc closes unchanged.
- * Every line of prose is word-wrapped to the panel (the TooltipWrap rule) and the swatch tooltips wrap at 160 px.
+ * own info page ("Your Power", I key -> Suit Colours). The left side previews the pending colours live: the 3D suit while it is
+ * worn, else a front and back paper doll. Apply sends {@link SymbioteColourPayload} (re-checked server side) and closes; Cancel /
+ * Esc closes unchanged. Every line of prose is word-wrapped to the panel (the TooltipWrap rule) and tooltips wrap at 160 px.
+ *
+ * <p>v0.17.5 tendril-vfx round (user: "for symbiote customization you cant get the exact colours your want with the eyes and emblem
+ * ... make sure the symbiote suit is fully customizable"): four parts -- Body, Emblem, Eyes and <b>Mouth</b> (tongue and throat) --
+ * and exact input for each: the bars switch between Hue / Saturation / Brightness and <b>Red / Green / Blue</b> (0-255, the value
+ * shown beside each bar), the hovered bar nudges one step with the arrow keys or the mouse wheel, the hex field takes any
+ * {@code #RRGGBB}, and two chips set pure black / pure white in one click. The renderer now draws the emblem and eyes in exactly
+ * the picked colour ({@code SymbioteTintMath}), so black and white really are black and white. Presets set body / emblem / eyes
+ * and keep the mouth.
  */
 public final class SymbioteColourScreen extends Screen {
 	/** While rendering the 3D preview, the local player's suit is drawn in these colours ({@link SymbioteSuitTint#suit}). */
@@ -39,13 +47,17 @@ public final class SymbioteColourScreen extends Screen {
 
 	private static final int ACCENT = 0xFFE8ECF4;
 	private static final int ACCENT_DIM = 0xFF3A3F4C;
-	private static final int TEXT = 0xFFE6E8EE;
 	private static final int MUTED = 0xFF9AA0AE;
 	private static final int PANEL_TOP = 0xF2101218;
 	private static final int PANEL_BOTTOM = 0xF207080B;
 	private static final int BAR_H = 9;
 	private static final int BAR_STEP = 19;
 	private static final int SWATCH = 18;
+	private static final int CHIP = 12;
+	private static final String[] PARTS = { "body", "emblem", "eyes", "mouth" };
+
+	/** Remembered between openings (a view preference only). */
+	private static boolean rgbMode;
 
 	private final Screen parent;
 	private SymbioteColours pending;
@@ -57,9 +69,10 @@ public final class SymbioteColourScreen extends Screen {
 	private boolean syncingHex;
 
 	private int panelW, panelH, left, top, dollScale, dollW, rightX, rightW;
-	private int barsTop, hexY, presetsY, presetCols;
+	private int barsTop, hexY, presetsY, presetCols, chipsX;
 	private final List<FormattedCharSequence> hint = new ArrayList<>();
-	private final Button[] tabs = new Button[3];
+	private final Button[] tabs = new Button[PARTS.length];
+	private Button modeButton;
 	private EditBox hexBox;
 
 	public SymbioteColourScreen(Screen parent) {
@@ -76,7 +89,7 @@ public final class SymbioteColourScreen extends Screen {
 	@Override
 	protected void init() {
 		panelW = Math.min(this.width - 16, 400);
-		panelH = Math.min(this.height - 44, 260); // v0.17.5: the style row is gone again (Lethal Protector only)
+		panelH = Math.min(this.height - 44, 260);
 		left = (this.width - panelW) / 2;
 		top = Math.max(8, (this.height - 36 - panelH) / 2);
 		// the preview column: two dolls (16 x 32 skin px each) or the 3D figure, sized to the panel
@@ -92,23 +105,29 @@ public final class SymbioteColourScreen extends Screen {
 		}
 		hint.clear();
 		hint.addAll(this.font.split(Component.translatable("screen.projecthero.symbiote_colours.hint"), rightW));
-		// (v0.17.5: no suit style row any more -- every Normal host wears the Lethal Protector suit)
 		int y = top + 24;
-		int tabW = (rightW - 4) / 3;
-		String[] names = { "body", "emblem", "eyes" };
-		for (int i = 0; i < 3; i++) {
+		int tabW = (rightW - 2 * (PARTS.length - 1)) / PARTS.length;
+		for (int i = 0; i < PARTS.length; i++) {
 			final int ch = i;
-			final int ty = y;
-			tabs[i] = addRenderableWidget(Button.builder(Component.translatable("screen.projecthero.symbiote_colours." + names[i]),
-					b -> selectChannel(ch)).bounds(rightX + i * (tabW + 2), ty, tabW, 18).build());
+			Component label = Component.translatable("screen.projecthero.symbiote_colours." + PARTS[i]);
+			Button b = Button.builder(label, btn -> selectChannel(ch)).bounds(rightX + i * (tabW + 2), y, tabW, 18)
+					.tooltip(net.minecraft.client.gui.components.Tooltip.create(
+							Component.translatable("screen.projecthero.symbiote_colours." + PARTS[i] + ".tip")))
+					.build();
+			tabs[i] = addRenderableWidget(b);
 		}
 		barsTop = y + 22;
 		hexY = barsTop + 3 * BAR_STEP + 1;
-		hexBox = new EditBox(this.font, rightX + 22, hexY, Math.min(80, rightW - 22), 16,
-				Component.translatable("screen.projecthero.symbiote_colours.hex"));
+		int hexW = Math.min(64, rightW - 22);
+		hexBox = new EditBox(this.font, rightX + 20, hexY, hexW, 16, Component.translatable("screen.projecthero.symbiote_colours.hex"));
 		hexBox.setMaxLength(7);
 		hexBox.setResponder(this::hexTyped);
 		addRenderableWidget(hexBox);
+		int modeX = rightX + 20 + hexW + 4;
+		modeButton = addRenderableWidget(Button.builder(modeLabel(), b -> toggleMode()).bounds(modeX, hexY - 1, 30, 18)
+				.tooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("screen.projecthero.symbiote_colours.mode.tip")))
+				.build());
+		chipsX = modeX + 34;
 		presetsY = hexY + 28;
 		presetCols = Math.max(1, Math.min(SymbioteColourPreset.values().length, (rightW + 4) / (SWATCH + 4)));
 		int by = this.height - 28;
@@ -124,8 +143,12 @@ public final class SymbioteColourScreen extends Screen {
 		refreshWidgets();
 	}
 
+	private Component modeLabel() {
+		return Component.translatable(rgbMode ? "screen.projecthero.symbiote_colours.mode.rgb" : "screen.projecthero.symbiote_colours.mode.hsb");
+	}
+
 	private void refreshWidgets() {
-		for (int i = 0; i < 3; i++) {
+		for (int i = 0; i < PARTS.length; i++) {
 			if (tabs[i] != null) {
 				tabs[i].active = i != channel;
 			}
@@ -134,6 +157,9 @@ public final class SymbioteColourScreen extends Screen {
 			syncingHex = true;
 			hexBox.setValue(SymbioteColours.hex(pending.channel(channel)));
 			syncingHex = false;
+		}
+		if (modeButton != null) {
+			modeButton.setMessage(modeLabel());
 		}
 	}
 
@@ -155,6 +181,17 @@ public final class SymbioteColourScreen extends Screen {
 	private void setAll(SymbioteColours c) {
 		pending = c;
 		loadChannel();
+		refreshWidgets();
+	}
+
+	private void setChannel(int rgb) {
+		pending = pending.withChannel(channel, rgb & 0xFFFFFF);
+		loadChannel();
+		refreshWidgets();
+	}
+
+	private void toggleMode() {
+		rgbMode = !rgbMode;
 		refreshWidgets();
 	}
 
@@ -192,6 +229,48 @@ public final class SymbioteColourScreen extends Screen {
 		return false;
 	}
 
+	// ------------------------------------------------------------------ the bars (HSB or RGB)
+
+	/** Bar {@code bar}'s value, 0..1. */
+	private float barValue(int bar) {
+		if (rgbMode) {
+			return ((pending.channel(channel) >> (16 - 8 * bar)) & 0xFF) / 255f;
+		}
+		return bar == 0 ? hue : bar == 1 ? sat : val;
+	}
+
+	/** Bar {@code bar}'s value as the text beside its label (Hue in degrees, S / B in percent, R / G / B 0-255). */
+	private String barText(int bar) {
+		if (rgbMode) {
+			return Integer.toString((pending.channel(channel) >> (16 - 8 * bar)) & 0xFF);
+		}
+		return bar == 0 ? Math.round(hue * 360f) % 360 + "°" : Math.round((bar == 1 ? sat : val) * 100f) + "%";
+	}
+
+	private void setBar(int bar, float t) {
+		t = Mth.clamp(t, 0f, 1f);
+		if (rgbMode) {
+			int shift = 16 - 8 * bar;
+			int rgb = pending.channel(channel) & ~(0xFF << shift) | Math.round(t * 255f) << shift;
+			setChannel(rgb);
+			return;
+		}
+		if (bar == 0) {
+			hue = t;
+		} else if (bar == 1) {
+			sat = t;
+		} else {
+			val = t;
+		}
+		slidersChanged();
+	}
+
+	/** One exact step on bar {@code bar}: 1 of 255 in RGB, 1 degree / 1% in HSB. */
+	private void nudge(int bar, int dir) {
+		float step = rgbMode ? 1f / 255f : bar == 0 ? 1f / 360f : 0.01f;
+		setBar(bar, barValue(bar) + dir * step);
+	}
+
 	// ------------------------------------------------------------------ input
 
 	private int barAt(double mx, double my) {
@@ -205,15 +284,7 @@ public final class SymbioteColourScreen extends Screen {
 	}
 
 	private void dragBar(int bar, double mx) {
-		float t = (float) Mth.clamp((mx - rightX) / (double) rightW, 0.0, 1.0);
-		if (bar == 0) {
-			hue = t;
-		} else if (bar == 1) {
-			sat = t;
-		} else {
-			val = t;
-		}
-		slidersChanged();
+		setBar(bar, (float) ((mx - rightX) / (double) Math.max(1, rightW - 1)));
 	}
 
 	private int presetAt(double mx, double my) {
@@ -222,6 +293,20 @@ public final class SymbioteColourScreen extends Screen {
 			int x = rightX + (i % presetCols) * (SWATCH + 4);
 			int y = presetsY + (i / presetCols) * (SWATCH + 4);
 			if (mx >= x && mx < x + SWATCH && my >= y && my < y + SWATCH) {
+				return i;
+			}
+		}
+		return -1;
+	}
+
+	/** The black (0) / white (1) chip under the mouse, or -1 (only when both fit beside the hex field). */
+	private int chipAt(double mx, double my) {
+		if (chipsX + 2 * CHIP + 4 > rightX + rightW) {
+			return -1;
+		}
+		for (int i = 0; i < 2; i++) {
+			int x = chipsX + i * (CHIP + 4);
+			if (mx >= x && mx < x + CHIP && my >= hexY + 2 && my < hexY + 2 + CHIP) {
 				return i;
 			}
 		}
@@ -239,7 +324,12 @@ public final class SymbioteColourScreen extends Screen {
 			}
 			int preset = presetAt(mx, my);
 			if (preset >= 0) {
-				setAll(SymbioteColourPreset.values()[preset].colours());
+				setAll(SymbioteColourPreset.values()[preset].colours().withMouth(pending.mouth()));
+				return true;
+			}
+			int chip = chipAt(mx, my);
+			if (chip >= 0) {
+				setChannel(chip == 0 ? 0x000000 : 0xFFFFFF);
 				return true;
 			}
 		}
@@ -259,6 +349,31 @@ public final class SymbioteColourScreen extends Screen {
 	public boolean mouseReleased(double mx, double my, int button) {
 		dragging = -1;
 		return super.mouseReleased(mx, my, button);
+	}
+
+	@Override
+	public boolean mouseScrolled(double mx, double my, double scrollX, double scrollY) {
+		int bar = barAt(mx, my);
+		if (bar >= 0 && scrollY != 0) {
+			nudge(bar, scrollY > 0 ? 1 : -1);
+			return true;
+		}
+		return super.mouseScrolled(mx, my, scrollX, scrollY);
+	}
+
+	@Override
+	public boolean keyPressed(int key, int scan, int modifiers) {
+		if ((key == GLFW.GLFW_KEY_LEFT || key == GLFW.GLFW_KEY_RIGHT) && (hexBox == null || !hexBox.isFocused())) {
+			Minecraft mc = Minecraft.getInstance();
+			double mx = mc.mouseHandler.xpos() * this.width / mc.getWindow().getScreenWidth();
+			double my = mc.mouseHandler.ypos() * this.height / mc.getWindow().getScreenHeight();
+			int bar = barAt(mx, my);
+			if (bar >= 0) {
+				nudge(bar, key == GLFW.GLFW_KEY_RIGHT ? 1 : -1);
+				return true;
+			}
+		}
+		return super.keyPressed(key, scan, modifiers);
 	}
 
 	// ------------------------------------------------------------------ drawing
@@ -285,21 +400,31 @@ public final class SymbioteColourScreen extends Screen {
 			shownAt = now;
 		}
 		drawPreview(g, mouseX, mouseY);
-		// the three bars
-		String[] labels = { "hue", "saturation", "brightness" };
-		float[] values = { hue, sat, val };
+		// the three bars, each label with its exact value on the right
+		String[] labels = rgbMode ? new String[] { "red", "green", "blue" } : new String[] { "hue", "saturation", "brightness" };
 		for (int i = 0; i < 3; i++) {
 			int by = barsTop + i * BAR_STEP;
 			g.drawString(this.font, Component.translatable("screen.projecthero.symbiote_colours." + labels[i]), rightX, by, MUTED, false);
+			String v = barText(i);
+			g.drawString(this.font, v, rightX + rightW - this.font.width(v), by, ACCENT, false);
 			drawBar(g, i, rightX, by + 9, rightW);
-			int hx = rightX + Math.round(values[i] * (rightW - 1));
+			int hx = rightX + Math.round(barValue(i) * (rightW - 1));
 			g.fill(hx - 2, by + 7, hx + 3, by + 9 + BAR_H + 2, 0xFF000000);
 			g.fill(hx - 1, by + 8, hx + 2, by + 9 + BAR_H + 1, 0xFFFFFFFF);
 		}
 		// the current channel's swatch beside the hex field
 		int cur = pending.channel(channel);
-		g.fill(rightX, hexY, rightX + 16, hexY + 16, 0xFF000000);
+		g.fill(rightX, hexY, rightX + 16, hexY + 16, 0xFF5A6070);
 		g.fill(rightX + 1, hexY + 1, rightX + 15, hexY + 15, 0xFF000000 | cur);
+		// the black / white chips
+		int chipHover = chipAt(mouseX, mouseY);
+		if (chipsX + 2 * CHIP + 4 <= rightX + rightW) {
+			for (int i = 0; i < 2; i++) {
+				int x = chipsX + i * (CHIP + 4);
+				g.fill(x - 1, hexY + 1, x + CHIP + 1, hexY + 3 + CHIP, chipHover == i ? 0xFFFFFFFF : 0xFF5A6070);
+				g.fill(x, hexY + 2, x + CHIP, hexY + 2 + CHIP, i == 0 ? 0xFF000000 : 0xFFFFFFFF);
+			}
+		}
 		// presets
 		g.drawString(this.font, Component.translatable("screen.projecthero.symbiote_colours.presets"), rightX, presetsY - 11, MUTED, false);
 		SymbioteColourPreset[] all = SymbioteColourPreset.values();
@@ -328,18 +453,30 @@ public final class SymbioteColourScreen extends Screen {
 		}
 		if (hover >= 0) {
 			g.renderTooltip(this.font, this.font.split(Component.translatable(all[hover].langKey()), 160), mouseX, mouseY);
+		} else if (chipHover >= 0) {
+			g.renderTooltip(this.font, this.font.split(Component.translatable(chipHover == 0
+					? "screen.projecthero.symbiote_colours.black" : "screen.projecthero.symbiote_colours.white"), 160), mouseX, mouseY);
+		} else if (barAt(mouseX, mouseY) >= 0 && dragging < 0) {
+			g.renderTooltip(this.font, this.font.split(Component.translatable("screen.projecthero.symbiote_colours.bar.tip"), 160), mouseX, mouseY);
 		}
 	}
 
 	private void drawBar(GuiGraphics g, int bar, int x, int y, int w) {
 		g.fill(x - 1, y - 1, x + w + 1, y + BAR_H + 1, 0xFF000000);
+		int cur = pending.channel(channel);
 		for (int i = 0; i < w; i++) {
 			float t = i / (float) Math.max(1, w - 1);
-			int rgb = switch (bar) {
-				case 0 -> Mth.hsvToRgb(Math.min(t, 0.9999f), 1f, 1f);
-				case 1 -> Mth.hsvToRgb(Mth.clamp(hue, 0f, 0.9999f), t, Math.max(val, 0.15f));
-				default -> Mth.hsvToRgb(Mth.clamp(hue, 0f, 0.9999f), sat, t);
-			};
+			int rgb;
+			if (rgbMode) {
+				int shift = 16 - 8 * bar;
+				rgb = cur & ~(0xFF << shift) | Math.round(t * 255f) << shift;
+			} else {
+				rgb = switch (bar) {
+					case 0 -> Mth.hsvToRgb(Math.min(t, 0.9999f), 1f, 1f);
+					case 1 -> Mth.hsvToRgb(Mth.clamp(hue, 0f, 0.9999f), t, Math.max(val, 0.15f));
+					default -> Mth.hsvToRgb(Mth.clamp(hue, 0f, 0.9999f), sat, t);
+				};
+			}
 			g.fill(x + i, y, x + i + 1, y + BAR_H, 0xFF000000 | (rgb & 0xFFFFFF));
 		}
 	}
