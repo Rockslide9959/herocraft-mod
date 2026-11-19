@@ -650,6 +650,11 @@ public final class FeedbackKit extends AlienKit {
 	}
 
 	private void beamTick(ServerPlayer p, ServerLevel l, long now) {
+		if (com.projecthero.mod.beamclash.BeamClash.locked(p)) {
+			// v0.17.5: locked in a clash -- no drain, damage or timer
+			com.projecthero.mod.beamclash.BeamClash.report(p, p.getEyePosition(), p.getLookAngle(), BEAM_RANGE, 1.1f, 0x4FC8FF);
+			return;
+		}
 		if (!p.isShiftKeyDown()) {
 			endBeam(p); // the Shift half came up first
 			return;

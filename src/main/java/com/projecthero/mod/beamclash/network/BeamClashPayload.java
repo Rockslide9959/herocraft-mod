@@ -10,9 +10,11 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * Server to client, every tick of a beam clash, to everyone near it (v0.17.3): the two sides' entity ids, where each beam
- * starts, the struggle point, the colours, the balance (-1..1, a to b), and {@code over} on the last one.
+ * starts, the struggle point, the colours, the balance (-1..1, a to b), and {@code over} on the last one. v0.17.5: the ticks
+ * left before time is up, the winner's entity id on the last one (-1: none) and whether it ended by a forfeit.
  */
-public record BeamClashPayload(int id, int a, int b, Vec3 fromA, Vec3 fromB, Vec3 point, int rgbA, int rgbB, float balance, boolean over)
+public record BeamClashPayload(int id, int a, int b, Vec3 fromA, Vec3 fromB, Vec3 point, int rgbA, int rgbB, float balance, boolean over,
+		int ticksLeft, int winner, boolean forfeit)
 		implements CustomPacketPayload {
 	public static final CustomPacketPayload.Type<BeamClashPayload> TYPE =
 			new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(ProjectHeroMod.MOD_ID, "beam_clash"));
@@ -30,11 +32,14 @@ public record BeamClashPayload(int id, int a, int b, Vec3 fromA, Vec3 fromB, Vec
 		buf.writeInt(p.rgbB);
 		buf.writeFloat(p.balance);
 		buf.writeBoolean(p.over);
+		buf.writeVarInt(p.ticksLeft);
+		buf.writeInt(p.winner);
+		buf.writeBoolean(p.forfeit);
 	}
 
 	private static BeamClashPayload read(RegistryFriendlyByteBuf buf) {
 		return new BeamClashPayload(buf.readVarInt(), buf.readVarInt(), buf.readVarInt(), vec(buf), vec(buf), vec(buf), buf.readInt(), buf.readInt(),
-				buf.readFloat(), buf.readBoolean());
+				buf.readFloat(), buf.readBoolean(), buf.readVarInt(), buf.readInt(), buf.readBoolean());
 	}
 
 	private static void vec(RegistryFriendlyByteBuf buf, Vec3 v) {

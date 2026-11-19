@@ -186,6 +186,12 @@ public final class MindStoneBeam {
 	private static void tickEmpoweredBeam(ServerPlayer p, Hold h) {
 		ContagionConfig.MindBeam cfg = ContagionConfig.mindBeam();
 		ServerLevel level = p.serverLevel();
+		if (com.projecthero.mod.beamclash.BeamClash.locked(p)) {
+			// v0.17.5: locked in a clash -- no drain, damage or timer
+			Vec3 from = p.getEyePosition().add(p.getLookAngle().scale(0.5)).add(0, -0.3, 0);
+			com.projecthero.mod.beamclash.BeamClash.report(p, from, p.getLookAngle(), cfg.range, 1.5f, 0xFFD24A);
+			return;
+		}
 		boolean still = h.holding && Contagion.holdsMindStoneAny(p) && p.isShiftKeyDown();
 		if (!still || h.beamTicks >= cfg.beamTicks) {
 			h.beamTicks = -1;

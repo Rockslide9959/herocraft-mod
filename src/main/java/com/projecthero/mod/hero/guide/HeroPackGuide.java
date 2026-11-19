@@ -1993,7 +1993,7 @@ public final class HeroPackGuide {
 		out.add(chapter("projecthero.guide.beam_clash", lines -> {
 			para(lines, "projecthero.guide.beam_clash.body");
 			blank(lines);
-			for (String section : new String[]{"push", "end", "beams"}) {
+			for (String section : new String[]{"lock", "push", "end", "forfeit", "beams"} /* v0.17.5: lock + forfeit */) {
 				head(lines, "projecthero.guide.beam_clash." + section);
 				para(lines, "projecthero.guide.beam_clash." + section + ".body");
 				blank(lines);

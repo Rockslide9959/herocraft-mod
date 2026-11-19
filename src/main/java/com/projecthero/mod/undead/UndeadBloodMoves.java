@@ -481,6 +481,16 @@ public final class UndeadBloodMoves {
 			}
 			return;
 		}
+		if (p.isAlive() && com.projecthero.mod.beamclash.BeamClash.locked(p)) {
+			// v0.17.5: locked in a clash -- no drain, damage or timer (the start slides forward a tick)
+			UndeadState n = s.copy();
+			n.holdStart = s.holdStart + 1;
+			Undead.save(p, n);
+			Vec3 look = p.getLookAngle();
+			Vec3 from = stumpOrigin(p, deadlineArm(p, s), p.getEyePosition(), look);
+			com.projecthero.mod.beamclash.BeamClash.report(p, from, deadlineDir(p, from, p.getEyePosition(), look), UndeadEjectConfig.DEADLINE_RANGE, 1.0f, 0xC0101A);
+			return;
+		}
 		long age = now - s.holdStart;
 		int arm = deadlineArm(p, s);
 		if (age >= UndeadEjectConfig.DEADLINE_MAX || s.broken(arm) || !p.isAlive() || s.reformUntil > now) {

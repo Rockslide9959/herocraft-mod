@@ -442,7 +442,9 @@ public final class PowerArmourWeapons {
 		if (beam != null) {
 			com.projecthero.mod.beamclash.BeamClash.report(player, player.getEyePosition(), player.getLookAngle(), PowerArmourConfig.RAIL_RANGE,
 					1.2f, s.suit.glowColour());
-			if (beam <= 1) {
+			if (com.projecthero.mod.beamclash.BeamClash.locked(player)) {
+				// v0.17.5: locked in a clash -- no drain, damage or timer
+			} else if (beam <= 1) {
 				PowerArmourAbilities.RAIL.remove(player.getUUID());
 			} else {
 				PowerArmourAbilities.RAIL.put(player.getUUID(), beam - 1);

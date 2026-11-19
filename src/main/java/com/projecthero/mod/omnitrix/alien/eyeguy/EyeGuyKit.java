@@ -589,6 +589,9 @@ public final class EyeGuyKit extends AlienKit {
 		Vec3 look = p.getLookAngle();
 		Vec3 end = RecalKitMath.beamEnd(p, look, MEGA_RANGE);
 		for (LivingEntity e : RecalKitMath.line(p, look, end.distanceTo(p.getEyePosition()), 1.0)) {
+			if (com.projecthero.mod.beamclash.BeamClash.locked(p)) {
+				break; // v0.17.5: locked in a clash -- no damage
+			}
 			if (zap(p, e, MEGA_DAMAGE, false)) {
 				shove(e, p.position(), 1.2, 0.3);
 			}
@@ -703,6 +706,13 @@ public final class EyeGuyKit extends AlienKit {
 	}
 
 	private void sweepTick(ServerPlayer p, ServerLevel l, long now) {
+		if (com.projecthero.mod.beamclash.BeamClash.locked(p)) {
+			// v0.17.5: locked in a clash -- no drain, damage or timer (the start slides forward a tick)
+			setTimer(p, SWEEP_AT, timer(p, SWEEP_AT) + 1);
+			steer(p, SWEEP_RANGE);
+			com.projecthero.mod.beamclash.BeamClash.report(p, p.getEyePosition(), p.getLookAngle(), SWEEP_RANGE, 0.8f, LASER);
+			return;
+		}
 		long age = now - timer(p, SWEEP_AT);
 		if (age >= SWEEP_MAX) {
 			endSweep(p);
@@ -761,6 +771,13 @@ public final class EyeGuyKit extends AlienKit {
 	}
 
 	private void thermalTick(ServerPlayer p, ServerLevel l, long now) {
+		if (com.projecthero.mod.beamclash.BeamClash.locked(p)) {
+			// v0.17.5: locked in a clash -- no drain, damage or timer (the start slides forward a tick)
+			setTimer(p, THERMAL_AT, timer(p, THERMAL_AT) + 1);
+			steer(p, BEAM_RANGE);
+			com.projecthero.mod.beamclash.BeamClash.report(p, p.getEyePosition(), p.getLookAngle(), BEAM_RANGE, 1.2f, MEGA);
+			return;
+		}
 		long age = now - timer(p, THERMAL_AT);
 		if (age >= THERMAL_MAX) {
 			endThermal(p);

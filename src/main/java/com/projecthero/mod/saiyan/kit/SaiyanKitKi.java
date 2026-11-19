@@ -245,6 +245,15 @@ final class SaiyanKitKi {
 			}
 			return;
 		}
+		if (BeamClash.locked(p)) {
+			// v0.17.5: locked in a clash -- the 1.5 s beam holds out for the whole clash (its clock stops), no Ki, no pulses
+			r.fired++;
+			p.setDeltaMovement(p.getDeltaMovement().multiply(0.15, 0.6, 0.15));
+			p.hurtMarked = true;
+			p.resetFallDistance();
+			BeamClash.report(p, beamFrom(p), p.getLookAngle(), SaiyanKitConfig.BEAM_RANGE, beamPower(p, r.charge), rgb);
+			return;
+		}
 		long fireAge = now - r.fired;
 		if (fireAge >= SaiyanKitConfig.BEAM_FIRE_TICKS) {
 			beamEnd(p, r, true);

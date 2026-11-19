@@ -957,6 +957,12 @@ public final class FrankenstrikeKit extends AlienKit {
 	}
 
 	private void arcTick(ServerPlayer p, ServerLevel l, long now) {
+		if (com.projecthero.mod.beamclash.BeamClash.locked(p)) {
+			// v0.17.5: locked in a clash -- no drain, damage or timer (the start slides forward a tick)
+			setTimer(p, ARC_AT, timer(p, ARC_AT) + 1);
+			com.projecthero.mod.beamclash.BeamClash.report(p, p.getEyePosition(), p.getLookAngle(), ARC_RANGE, 1f, COLOUR);
+			return;
+		}
 		long age = now - timer(p, ARC_AT);
 		if (age >= ARC_MAX || p.isInWater()) {
 			endArc(p);

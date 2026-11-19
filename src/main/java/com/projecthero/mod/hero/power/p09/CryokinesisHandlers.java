@@ -633,6 +633,11 @@ public final class CryokinesisHandlers {
 		if (res(p, "beaming") < 0.5f) {
 			return;
 		}
+		if (p.isAlive() && com.projecthero.mod.beamclash.BeamClash.locked(p)) {
+			// v0.17.5: locked in a clash -- no drain, damage or timer
+			com.projecthero.mod.beamclash.BeamClash.report(p, p.getEyePosition(), p.getLookAngle(), BEAM_RANGE, 0.8f, 0x9FE8FF);
+			return;
+		}
 		if (!p.isAlive() || res(p, "cold") <= 0.01f) {
 			endBeam(p);
 			if (p.isAlive()) {

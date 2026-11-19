@@ -337,6 +337,11 @@ public final class InvisibilityLightHandlers {
 				if (t <= 0) {
 					return;
 				}
+				if (com.projecthero.mod.beamclash.BeamClash.locked(p)) {
+					// v0.17.5: locked in a clash -- no drain, damage or timer
+					com.projecthero.mod.beamclash.BeamClash.report(p, p.getEyePosition().add(p.getLookAngle().scale(0.3)), p.getLookAngle(), 40.0, 1.5f, 0xFFF0A0);
+					return;
+				}
 				ctx.setResource("holy_ticks", t - 1, 60);
 				if (t - 1 <= 0) {
 					MutationVisuals.stopIf(p, "channel_two_hand");

@@ -213,6 +213,12 @@ public final class VisionMoves {
 		if (!Vision.beaming(p)) {
 			return;
 		}
+		if (BeamClash.locked(p)) {
+			// v0.17.5: locked in a clash -- no drain, damage or timer (the start slides forward a tick)
+			r.beamStart++;
+			BeamClash.report(p, Vision.stonePos(p), p.getLookAngle(), VisionConfig.BEAM_RANGE, 1.1f, Vision.GOLD);
+			return;
+		}
 		if (!Vision.drain(p, VisionConfig.BEAM_COST_PER_SECOND) || now - r.beamStart > VisionConfig.BEAM_MAX_TICKS) {
 			stopBeam(p);
 			return;
@@ -494,7 +500,13 @@ public final class VisionMoves {
 			return;
 		}
 		long age = now - s.unleashStart;
-		if (age >= VisionConfig.UNLEASH_TICKS) {
+		boolean locked = BeamClash.locked(p);
+		if (locked) {
+			// v0.17.5: locked in a clash -- no drain, damage or timer (the start slides forward a tick; he stays rooted)
+			VisionState n = s.copy();
+			n.unleashStart = s.unleashStart + 1;
+			Vision.save(p, n);
+		} else if (age >= VisionConfig.UNLEASH_TICKS) {
 			endUnleash(p, r);
 			return;
 		}
@@ -510,6 +522,9 @@ public final class VisionMoves {
 		Vec3 from = Vision.stonePos(p);
 		Vec3 look = p.getLookAngle();
 		BeamClash.report(p, from, look, VisionConfig.UNLEASH_RANGE, 2.5f, Vision.GOLD);
+		if (locked) {
+			return;
+		}
 		ServerLevel level = (ServerLevel) p.level();
 		Vec3 end = beamEnd(p, from, look, VisionConfig.UNLEASH_RANGE);
 		if (age % VisionConfig.UNLEASH_HIT_INTERVAL == 0 && !BeamClash.inClash(p)) {

@@ -163,6 +163,10 @@ public final class GreenLanternCombat {
 		if (ticks == null) {
 			return;
 		}
+		com.projecthero.mod.beamclash.BeamClash.report(player, player.getEyePosition(), player.getLookAngle(), GreenLanternConfig.BEAM_RANGE, com.projecthero.mod.greenlantern.GreenLanternRanks.power(player), 0x3EE06A);
+		if (com.projecthero.mod.beamclash.BeamClash.locked(player)) {
+			return; // v0.17.5: locked in a clash -- no drain, damage or timer
+		}
 		if (ticks >= GreenLanternConfig.BEAM_MAX_CHANNEL_TICKS) {
 			beamStop(player);
 			GreenLantern.triggerCooldown(player, BEAM_CD, GreenLanternConfig.BEAM_FORCED_COOLDOWN_TICKS);

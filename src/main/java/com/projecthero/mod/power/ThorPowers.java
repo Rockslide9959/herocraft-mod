@@ -1064,6 +1064,11 @@ public final class ThorPowers {
 			ThorVisuals.channel(player, ThorFx.CH_BEAM, false);
 			return;
 		}
+		if (com.projecthero.mod.beamclash.BeamClash.locked(player)) {
+			// v0.17.5: locked in a clash -- no drain, damage or timer
+			com.projecthero.mod.beamclash.BeamClash.report(player, player.getEyePosition(), player.getLookAngle(), LASER_RANGE, 1.4f, 0x9FD8FF);
+			return;
+		}
 		if (!Worthiness.isWorthy(player) || !isHoldingThorWeapon(player)
 				|| !StormEnergy.has(player, StormEnergy.LASER_DRAIN_PER_SECOND / 20.0f)) {
 			player.setAttached(ModAttachments.LASER_ACTIVE, false);

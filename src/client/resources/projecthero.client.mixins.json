@@ -168,6 +168,7 @@
 		"BlackPantherFlipMixin",
 		"ItemInHandRendererBlackPantherMixin",
 		"BeamClashInputMixin",
+		"BeamClashKeyMixin",
 		"RyukoFirstPersonArmMixin",
 		"RyukoArmorMixin",
 		"UndeadPlayerModelMixin",

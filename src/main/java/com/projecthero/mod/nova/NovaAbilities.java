@@ -361,6 +361,11 @@ public final class NovaAbilities {
 			stopBlast(p);
 			return;
 		}
+		if (com.projecthero.mod.beamclash.BeamClash.locked(p)) {
+			// v0.17.5: locked in a clash -- no drain, damage or timer
+			com.projecthero.mod.beamclash.BeamClash.report(p, p.getEyePosition(), p.getLookAngle(), 32.0, 1.1f, 0xFFC83C);
+			return;
+		}
 		// 6 a second, paid 3 at a time every half-second (from the first half-second on)
 		if (age % 10 == 5 && !Nova.spendForce(p, NovaConfig.BLAST_COST_PER_SECOND * 0.5f)) {
 			Nova.say(p, "message.projecthero.nova.blast_empty", ChatFormatting.YELLOW);
