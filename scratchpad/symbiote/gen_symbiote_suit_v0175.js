@@ -434,11 +434,7 @@ const bones = [
 	{ name: 'armorBody', pivot: [0, 24, 0], cubes: [cube('body_base', [-4, 12, -2], [8, 12, 4], [16, 16], 0.3), cube('body_shell', [-4, 12, -2], [8, 12, 4], [16, 32], 0.55)] },
 	// raised chest: the pecs + emblem stand proud of the body, wrapped in the body-front texels behind them (skin 20..28, 20..24)
 	{ name: 'sym_chest', parent: 'armorBody', pivot: [0, 24, 0], cubes: [{ name: 'chest_plate', origin: [-3.75, 18.5, -2.62], size: [7.5, 3.9, 0.6], inflate: 0.12, uv: plateUv(20.25, 21.6, 7.5, 3.9, 0.6) }] },
-	// spine nodes below the back emblem
-	{ name: 'sym_spine', parent: 'armorBody', pivot: [0, 15, 2.4], cubes: [
-		{ name: 'spine_1', origin: [-0.55, 15.6, 2.1], size: [1.1, 0.9, 0.7], uv: dripFaces(1.1, 0.9, 0.7) },
-		{ name: 'spine_2', origin: [-0.5, 14.1, 2.1], size: [1.0, 0.85, 0.65], uv: dripFaces(1.0, 0.85, 0.65) },
-		{ name: 'spine_3', origin: [-0.45, 12.7, 2.1], size: [0.9, 0.8, 0.6], uv: dripFaces(0.9, 0.8, 0.6) }] },
+	// (v0.17.5 round 4: the spine nodes are gone -- user: "3 little ribs are poking out the back")
 	{ name: 'armorRightArm', pivot: [-5, 22, 0], cubes: [cube('right_arm_base', [-8, 12, -2], [4, 12, 4], [40, 16], 0.3), cube('right_arm_shell', [-8, 12, -2], [4, 12, 4], [40, 32], 0.55)] },
 	{ name: 'armorLeftArm', pivot: [5, 22, 0], cubes: [cube('left_arm_base', [4, 12, -2], [4, 12, 4], [32, 48], 0.3), cube('left_arm_shell', [4, 12, -2], [4, 12, 4], [48, 48], 0.55)] },
 	{ name: 'armorRightLeg', pivot: [-1.9, 12, 0], cubes: [cube('right_leg_base', [-3.9, 0, -2], [4, 12, 4], [0, 16], 0.3), cube('right_leg_shell', [-3.9, 0, -2], [4, 12, 4], [0, 32], 0.55)] },

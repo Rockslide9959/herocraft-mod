@@ -88,7 +88,8 @@ function composite(x, y) { // the skin as seen: hat over base
 }
 
 // ---------------------------------------------------------------- the mouth: geometry shared by the texture and the geo
-const JAW = { x0: -4.74, x1: 4.74, y0: 23.32, y1: 25.1, z0: -4.76, z1: -0.8 };
+// v0.17.5 round 4 (user: the jaw looked a little wide): just inside the head shell (+-4.62), was +-4.74
+const JAW = { x0: -4.58, x1: 4.58, y0: 23.32, y1: 25.1, z0: -4.76, z1: -0.8 };
 // v0.17.5 round 3 (user: "the top of the mouth is kinda going into the eyes of the suit"): the mouth's top edge was 27.55, level with
 // the bottom of the lenses (they reach down to y 27.0 at the sides, face rows 8-9). Now 26.0 (the top of face row 12): the skin's black
 // between the lenses and its painted top teeth (rows 8-11) are painted over as suit, so a full pixel of suit (rows 10-11) always separates
@@ -378,13 +379,7 @@ const bones = [];
 		cubes.push(box('ut' + k, [x - 0.26, MOUTH_TOP - l * 0.6, -4.97], [0.52, l * 0.6, 0.34], uvAll(M.u, M.v, 0.5, 1.2)));
 		cubes.push(box('ut' + k + '_tip', [x - 0.13, MOUTH_TOP - l, -4.92], [0.26, l * 0.4, 0.24], uvAll(M.u, M.v + 1.2, 0.5, 0.8)));
 	}
-	for (const sg of [-1, 1]) { // round the corners of the grin, along the cheeks
-		[[-4.3, 0.95], [-3.6, 0.75], [-2.95, 0.55]].map(([z, l]) => [z, l * UPPER_SCALE]).forEach(([z, l], k) => {
-			const x0 = sg > 0 ? 4.64 : -4.98;
-			cubes.push(box('uts' + (sg > 0 ? 'l' : 'r') + k, [x0, MOUTH_TOP - 0.15 - l * 0.6, z - 0.26], [0.34, l * 0.6, 0.52], uvAll(M.u, M.v, 0.5, 1.2)));
-			cubes.push(box('uts' + (sg > 0 ? 'l' : 'r') + k + '_tip', [x0 + 0.05, MOUTH_TOP - 0.15 - l, z - 0.13], [0.24, l * 0.4, 0.26], uvAll(M.u, M.v + 1.2, 0.5, 0.8)));
-		});
-	}
+	// v0.17.5 round 4 (user): no teeth round the cheeks -- they poked out past the sides of the head
 	bones.push({ name: 'lp_upper', parent: 'armorHead', pivot: [0, MOUTH_TOP, -4.8], cubes });
 }
 // lp_jaw: the lower jaw, hinged back inside the head; carries the lower teeth and the tongue
@@ -399,13 +394,6 @@ const JAW_PIVOT = [0, 26.6, 0.2];
 		const x = -3.15 + 0.7 * k, l = L[k];
 		cubes.push(box('lt' + k, [x - 0.25, JAW.y1, -4.94], [0.5, l * 0.6, 0.33], uvAll(M.u + 0.5, M.v + 0.8, 0.5, 1.2)));
 		cubes.push(box('lt' + k + '_tip', [x - 0.12, JAW.y1 + l * 0.6, -4.9], [0.24, l * 0.4, 0.24], uvAll(M.u + 0.5, M.v, 0.5, 0.8)));
-	}
-	for (const sg of [-1, 1]) {
-		[[-4.25, 0.8], [-3.55, 0.65], [-2.85, 0.5]].map(([z, l]) => [z, l * LOWER_SCALE]).forEach(([z, l], k) => {
-			const x0 = sg > 0 ? 4.66 : -4.98;
-			cubes.push(box('lts' + (sg > 0 ? 'l' : 'r') + k, [x0, JAW.y1, z - 0.25], [0.32, l * 0.6, 0.5], uvAll(M.u + 0.5, M.v + 0.8, 0.5, 1.2)));
-			cubes.push(box('lts' + (sg > 0 ? 'l' : 'r') + k + '_tip', [x0 + 0.04, JAW.y1 + l * 0.6, z - 0.12], [0.24, l * 0.4, 0.24], uvAll(M.u + 0.5, M.v, 0.5, 0.8)));
-		});
 	}
 	bones.push({ name: 'lp_jaw', parent: 'armorHead', pivot: JAW_PIVOT, cubes });
 }
