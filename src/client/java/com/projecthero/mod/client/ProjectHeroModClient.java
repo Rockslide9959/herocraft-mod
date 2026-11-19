@@ -351,6 +351,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 						registrationHelper.register(new com.projecthero.mod.client.spider.SpiderSuitLayer(playerRenderer)); // v0.16.1 skin-tight suit
 						registrationHelper.register(new com.projecthero.mod.client.spider.SpiderHandTrackerLayer(playerRenderer));
 						registrationHelper.register(new com.projecthero.mod.client.symbiote.SymbioteBladeRenderer.Layer(playerRenderer));
+						registrationHelper.register(new com.projecthero.mod.client.symbiote.SymbioteWingsRenderer.Layer(playerRenderer)); // v0.17.5
 						registrationHelper.register(new com.projecthero.mod.client.moonknight.MoonKnightCapeLayer(playerRenderer));
 						// v0.13.22: mutation overlays (stone skin, frost armour, glowing eyes, ...)
 						registrationHelper.register(new com.projecthero.mod.client.mutation.MutationOverlayLayer(playerRenderer));
@@ -514,6 +515,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				com.projecthero.mod.client.firearm.FirearmClient.clientTick(client));
 		com.projecthero.mod.client.punisher.PunisherLockOnClient.register(); // v0.15.18: Shift+V lock-on camera
 		ClientTickEvents.END_CLIENT_TICK.register(ProjectHeroModClient::handleKeyBinds);
+		// v0.17.5: the Symbiote Wings fly the local player (before it moves this tick)
+		ClientTickEvents.START_CLIENT_TICK.register(com.projecthero.mod.client.symbiote.SymbioteWingsClient::tick);
 		ClientTickEvents.END_CLIENT_TICK.register(MagneticSenseClient::clientTick);
 		ClientTickEvents.END_CLIENT_TICK.register(com.projecthero.mod.client.ironman.GantryClient::tick); // v0.15.4 (was v0.15.3 PlatformFacingLock)
 		ClientTickEvents.END_CLIENT_TICK.register(SonicMotionClient::clientTick);
@@ -628,6 +631,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		boolean inSymbiote = !inArmour && com.projecthero.mod.symbiote.Symbiote.ownsKeysOverPrimary(client.player);
 		if (inSymbiote) {
 			handleSymbioteSuitH(client);
+			handleSymbioteDoubleJump(client, client.player); // v0.17.5: the Symbiote Wings (the Primary's own gesture waits)
 		}
 		boolean inFalcon = !inArmour && !inSymbiote && com.projecthero.mod.client.falcon.FalconClient.swallowHeroKeys(client);
 		if (!inArmour && !inSymbiote) {
@@ -1515,6 +1519,28 @@ public class ProjectHeroModClient implements ClientModInitializer {
 	 * Thor flight -- unchanged: double-tap the vanilla jump key while holding Mjolnir. See the long
 	 * note this method carried before the universal-input refactor; nothing about it changed.
 	 */
+	/**
+	 * v0.17.5: while the Symbiote suit owns the keys over a Primary, the double-tap jump only means the Symbiote Wings (the Primary's
+	 * flights wait until the suit is off, as its other keys do).
+	 */
+	private static void handleSymbioteDoubleJump(Minecraft client, LocalPlayer player) {
+		if (ticksSinceJumpPress != Integer.MAX_VALUE) {
+			ticksSinceJumpPress++;
+		}
+		boolean jumpDown = client.options.keyJump.isDown();
+		boolean pressed = jumpDown && !jumpWasDown;
+		jumpWasDown = jumpDown;
+		if (!pressed) {
+			return;
+		}
+		boolean doubleTap = ticksSinceJumpPress <= DOUBLE_JUMP_WINDOW_TICKS;
+		ticksSinceJumpPress = 0;
+		if (doubleTap && com.projecthero.mod.client.symbiote.SymbioteWingsClient.wantsWings(player)) {
+			ticksSinceJumpPress = Integer.MAX_VALUE;
+			com.projecthero.mod.client.symbiote.SymbioteWingsClient.requestWings();
+		}
+	}
+
 	private static void handleDoubleJump(Minecraft client, LocalPlayer player) {
 		if (ticksSinceJumpPress != Integer.MAX_VALUE) {
 			ticksSinceJumpPress++;
@@ -1541,6 +1567,15 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				ticksSinceJumpPress = Integer.MAX_VALUE;
 				com.projecthero.mod.client.falcon.FalconFlightClient.takeOff();
 			}
+			return;
+		}
+
+		// v0.17.5 (user): the Symbiote Wings -- a Normal host with the suit on double-taps Space in the air (server re-validates). The
+		// suit is on, so this host's own flights (if any) are the Primary's, and those wait while the suit owns the keys anyway.
+		if (com.projecthero.mod.client.symbiote.SymbioteWingsClient.wantsWings(player)
+				&& com.projecthero.mod.symbiote.Symbiote.hasSymbiote(player)) {
+			ticksSinceJumpPress = Integer.MAX_VALUE;
+			com.projecthero.mod.client.symbiote.SymbioteWingsClient.requestWings();
 			return;
 		}
 

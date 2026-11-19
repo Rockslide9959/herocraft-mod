@@ -15,13 +15,19 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
  *       are unusable; it clears again once {@link #hp} climbs back to
  *       {@link SymbioteVitalsManager#RECOVER_FRACTION} of the maximum.</li>
  *   <li>{@link #bladeActive} -- Symbiote Blade (V). v0.13.19: no time limit any more, it drains Biomass
- *       instead; {@link #bladeCharge} is kept only so old saves still decode.</li>
+ *       instead; {@link #bladeCharge} is kept only so old saves still decode. v0.17.5 weapons: set while ANY weapon Form is out
+ *       (the hand-empty rule and the Biomass drain cover them all); {@link #weapon} says which.</li>
  *   <li>{@link #thornsMode} -- Symbiote Spikes (C): a toggle that reflects melee damage like Thorns IV.</li>
  *   <li>{@link #resurrectReadyAt} -- v0.13.19: game time the Symbiote can next pull its host back from death
  *       (a flat 10-minute cooldown, no Biomass cost). Persistent, so a relog or a restart cannot reset it.</li>
  *   <li>{@link #spikeConeReadyAt} -- v0.13.19: game time the Shift+G spike fan is ready again.</li>
  *   <li>{@link #animId} / {@link #animStart} -- v0.13.19: the move the host is animating and when it started
  *       ({@code SymbioteAnim}), synced so every viewer poses the host the same way.</li>
+ *   <li>{@link #weapon} -- v0.17.5 weapons: the {@link SymbioteWeapon} ordinal (Blade, Axe, Mace, Whip) the arm grows while
+ *       {@link #bladeActive} is set. {@link #formSince} / {@link #prevForm}: when the Form last changed and what it was
+ *       ({@code SymbioteVitalsManager.FORM_*}), so every viewer plays the new weapon growing and the old one melting back.</li>
+ *   <li>{@link #wingsStart} / {@link #wingsLanded} -- v0.17.5 Symbiote Wings: game time the wings grew (0 = none) and the game time
+ *       the host touched down (0 = still in the air); {@link SymbioteWings} derives grow / fly / glide / dissolve from them.</li>
  * </ul>
  *
  * <p>Persistent (the bar must not silently refill across a relog or a death) and synced to everyone so
@@ -43,6 +49,11 @@ public final class SymbioteVitals {
 	public long spikeConeReadyAt;
 	public int animId;
 	public long animStart;
+	public int weapon;
+	public long formSince;
+	public int prevForm;
+	public long wingsStart;
+	public long wingsLanded;
 
 	public SymbioteVitals() {
 		this(SymbioteVitalsManager.MAX_HP, false, false, SymbioteVitalsManager.BLADE_MAX, false, 0L, 0L, 0L, 0, 0L);
@@ -50,6 +61,13 @@ public final class SymbioteVitals {
 
 	public SymbioteVitals(float hp, boolean broken, boolean bladeActive, float bladeCharge, boolean thornsMode,
 			long bondingUntil, long resurrectReadyAt, long spikeConeReadyAt, int animId, long animStart) {
+		this(hp, broken, bladeActive, bladeCharge, thornsMode, bondingUntil, resurrectReadyAt, spikeConeReadyAt, animId, animStart,
+				0, 0L, 0, 0L, 0L);
+	}
+
+	public SymbioteVitals(float hp, boolean broken, boolean bladeActive, float bladeCharge, boolean thornsMode,
+			long bondingUntil, long resurrectReadyAt, long spikeConeReadyAt, int animId, long animStart,
+			int weapon, long formSince, int prevForm, long wingsStart, long wingsLanded) {
 		this.hp = hp;
 		this.broken = broken;
 		this.bladeActive = bladeActive;
@@ -60,11 +78,16 @@ public final class SymbioteVitals {
 		this.spikeConeReadyAt = spikeConeReadyAt;
 		this.animId = animId;
 		this.animStart = animStart;
+		this.weapon = weapon;
+		this.formSince = formSince;
+		this.prevForm = prevForm;
+		this.wingsStart = wingsStart;
+		this.wingsLanded = wingsLanded;
 	}
 
 	public SymbioteVitals copy() {
 		return new SymbioteVitals(hp, broken, bladeActive, bladeCharge, thornsMode, bondingUntil, resurrectReadyAt,
-				spikeConeReadyAt, animId, animStart);
+				spikeConeReadyAt, animId, animStart, weapon, formSince, prevForm, wingsStart, wingsLanded);
 	}
 
 	public static final Codec<SymbioteVitals> CODEC = RecordCodecBuilder.create(instance -> instance.group(
@@ -77,6 +100,11 @@ public final class SymbioteVitals {
 			Codec.LONG.optionalFieldOf("resurrect_ready_at", 0L).forGetter(s -> s.resurrectReadyAt),
 			Codec.LONG.optionalFieldOf("spike_cone_ready_at", 0L).forGetter(s -> s.spikeConeReadyAt),
 			Codec.INT.optionalFieldOf("anim_id", 0).forGetter(s -> s.animId),
-			Codec.LONG.optionalFieldOf("anim_start", 0L).forGetter(s -> s.animStart)
+			Codec.LONG.optionalFieldOf("anim_start", 0L).forGetter(s -> s.animStart),
+			Codec.INT.optionalFieldOf("weapon", 0).forGetter(s -> s.weapon),
+			Codec.LONG.optionalFieldOf("form_since", 0L).forGetter(s -> s.formSince),
+			Codec.INT.optionalFieldOf("prev_form", 0).forGetter(s -> s.prevForm),
+			Codec.LONG.optionalFieldOf("wings_start", 0L).forGetter(s -> s.wingsStart),
+			Codec.LONG.optionalFieldOf("wings_landed", 0L).forGetter(s -> s.wingsLanded)
 	).apply(instance, SymbioteVitals::new));
 }

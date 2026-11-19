@@ -38,6 +38,10 @@ public final class SymbioteAnim {
 	public static final int ERUPTION = 22;
 	public static final int MAW_BITE = 23;
 	public static final int DEVOUR = 24;
+	// v0.17.5 weapons: each weapon's Z swing
+	public static final int AXE_CLEAVE = 25;
+	public static final int MACE_SMASH = 26;
+	public static final int WHIP_LASH = 27;
 
 	private SymbioteAnim() {
 	}

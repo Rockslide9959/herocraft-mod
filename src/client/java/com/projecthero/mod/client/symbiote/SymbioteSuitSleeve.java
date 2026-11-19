@@ -68,6 +68,32 @@ public final class SymbioteSuitSleeve {
 		ModelPart arm = rightSide ? right : left;
 		arm.copyFrom(vanillaArm);
 		arm.visible = true;
+		// v0.17.5: slim (3 px) arms -- the same boxes squeezed one pixel narrower on the outer side, every texel kept (as the
+		// third-person suit does in SuperheroArmorRenderer#renderCube)
+		boolean slim = player instanceof net.minecraft.client.player.AbstractClientPlayer cp
+				&& cp.getSkin().model() == net.minecraft.client.resources.PlayerSkin.Model.SLIM;
+		if (slim) {
+			pose.pushPose();
+			vanillaArm.translateAndRotate(pose);
+			// the boxes run x -3..1 (right) / -1..3 (left) from the pivot; the base box's inflated inner edge (+-1.3 px) stays and its 4.6 px
+			// inflated width becomes 3.6 (so the 0.3 px clearance over the slim skin and its sleeve layer is kept)
+			float inner = (rightSide ? 1.3f : -1.3f) / 16f;
+			pose.translate(inner, 0f, 0f);
+			pose.scale(3.6f / 4.6f, 1f, 1f);
+			pose.translate(-inner, 0f, 0f);
+			arm.setPos(0f, 0f, 0f);
+			arm.setRotation(0f, 0f, 0f);
+			try {
+				renderArm(pose, buffers, light, arm, rightSide, player);
+			} finally {
+				pose.popPose();
+			}
+			return;
+		}
+		renderArm(pose, buffers, light, arm, rightSide, player);
+	}
+
+	private static void renderArm(PoseStack pose, MultiBufferSource buffers, int light, ModelPart arm, boolean rightSide, Player player) {
 		ResourceLocation base = SymbioteSuitTint.suit(player);
 		if (SymbioteEmerge.applies(player)) {
 			// v0.17.5 round 2: the goo crawling down the arm and over the hand, with its raised wet rim
@@ -77,7 +103,7 @@ public final class SymbioteSuitSleeve {
 			ResourceLocation rim = SymbioteEmerge.rimTexture(player, base, pt);
 			if (rim != null) {
 				ModelPart r = rightSide ? rimRight : rimLeft;
-				r.copyFrom(vanillaArm);
+				r.copyFrom(arm);
 				r.visible = true;
 				r.render(pose, buffers.getBuffer(RenderType.armorCutoutNoCull(rim)), light, OverlayTexture.NO_OVERLAY);
 			}

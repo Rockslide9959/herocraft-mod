@@ -29,10 +29,29 @@ final class GooMesh {
 		vertex(vc, pose, light, d, u0, v1, nx, ny, nz);
 	}
 
+	/** v0.17.5 weapons: {@link #quad} with a vertex colour ({@code 0xRRGGBB}) multiplied into the texture. */
+	static void quad(VertexConsumer vc, PoseStack.Pose pose, int light, int rgb,
+			Vec3 a, Vec3 b, Vec3 c, Vec3 d, float u0, float v0, float u1, float v1) {
+		Vec3 n = b.subtract(a).cross(d.subtract(a));
+		double len = n.length();
+		float nx = len < 1.0e-6 ? 0f : (float) (n.x / len);
+		float ny = len < 1.0e-6 ? 1f : (float) (n.y / len);
+		float nz = len < 1.0e-6 ? 0f : (float) (n.z / len);
+		vertex(vc, pose, light, a, u0, v0, nx, ny, nz, rgb);
+		vertex(vc, pose, light, b, u1, v0, nx, ny, nz, rgb);
+		vertex(vc, pose, light, c, u1, v1, nx, ny, nz, rgb);
+		vertex(vc, pose, light, d, u0, v1, nx, ny, nz, rgb);
+	}
+
 	private static void vertex(VertexConsumer vc, PoseStack.Pose pose, int light, Vec3 p, float u, float v,
 			float nx, float ny, float nz) {
+		vertex(vc, pose, light, p, u, v, nx, ny, nz, 0xFFFFFF);
+	}
+
+	private static void vertex(VertexConsumer vc, PoseStack.Pose pose, int light, Vec3 p, float u, float v,
+			float nx, float ny, float nz, int rgb) {
 		vc.addVertex(pose, (float) p.x, (float) p.y, (float) p.z)
-				.setColor(255, 255, 255, 255)
+				.setColor((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF, 255)
 				.setUv(u, v)
 				.setOverlay(OverlayTexture.NO_OVERLAY)
 				.setLight(light)
@@ -44,6 +63,12 @@ final class GooMesh {
 	 * oriented by a frame carried along the curve (so it doesn't twist or pinch at bends).
 	 */
 	static void tube(VertexConsumer vc, PoseStack.Pose pose, int light, Vec3[] points, float[] radii, int sides,
+			float uvTwist) {
+		tube(vc, pose, light, 0xFFFFFF, points, radii, sides, uvTwist);
+	}
+
+	/** v0.17.5 weapons: {@link #tube} with a vertex colour. */
+	static void tube(VertexConsumer vc, PoseStack.Pose pose, int light, int rgb, Vec3[] points, float[] radii, int sides,
 			float uvTwist) {
 		int n = points.length;
 		if (n < 2) {
@@ -80,7 +105,7 @@ final class GooMesh {
 				int k2 = (k + 1) % sides;
 				float u0 = ((float) k / sides + uvTwist * v0) % 1.0f;
 				float u1 = u0 + 1.0f / sides;
-				quad(vc, pose, light, rings[i][k], rings[i][k2], rings[i + 1][k2], rings[i + 1][k], u0, v0, u1, v1);
+				quad(vc, pose, light, rgb, rings[i][k], rings[i][k2], rings[i + 1][k2], rings[i + 1][k], u0, v0, u1, v1);
 			}
 		}
 	}

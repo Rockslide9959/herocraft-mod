@@ -41,13 +41,9 @@ public final class SymbioteBladeRenderer {
 	private SymbioteBladeRenderer() {
 	}
 
-	/** Blade out? (bonded, the toggle on, not invisible.) */
+	/** A weapon out (or melting back)? (bonded, not invisible.) v0.17.5 weapons: the meshes are {@link SymbioteWeaponRenderer}'s. */
 	public static boolean visible(Player player) {
-		if (player.isInvisible() || !Symbiote.hasSymbiote(player)) {
-			return false;
-		}
-		SymbioteVitals v = player.getAttachedOrElse(ModAttachments.SYMBIOTE_VITALS, null);
-		return v != null && v.bladeActive;
+		return SymbioteWeaponRenderer.visible(player);
 	}
 
 	/** First person: {@code arm} is the arm being drawn; only the main arm grows the blade. */
@@ -58,12 +54,12 @@ public final class SymbioteBladeRenderer {
 		}
 		pose.pushPose();
 		arm.translateAndRotate(pose);
-		draw(pose, buffers, light, player, rightArm, player.getSkin().model() == PlayerSkin.Model.SLIM, 1.05);
+		SymbioteWeaponRenderer.draw(pose, buffers, light, player, rightArm, player.getSkin().model() == PlayerSkin.Model.SLIM, true);
 		pose.popPose();
 	}
 
-	/** One blade in arm-bone space. */
-	static void draw(PoseStack pose, MultiBufferSource buffers, int light, Player owner, boolean rightArm, boolean slim, double length) {
+	/** The v0.13.19 blade (one slim curved plate), kept for reference; v0.17.5 draws {@link SymbioteWeaponRenderer} instead. */
+	static void drawLegacy(PoseStack pose, MultiBufferSource buffers, int light, Player owner, boolean rightArm, boolean slim, double length) {
 		double xc = (rightArm ? -1.0 : 1.0) * (slim ? 0.5 : 1.0) / 16.0;
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(SymbioteSuitTint.goo(owner, TEXTURE))); // v0.17.5: host colours
 		PoseStack.Pose last = pose.last();
@@ -110,7 +106,7 @@ public final class SymbioteBladeRenderer {
 			boolean slim = player.getSkin().model() == PlayerSkin.Model.SLIM;
 			pose.pushPose();
 			(right ? getParentModel().rightArm : getParentModel().leftArm).translateAndRotate(pose);
-			draw(pose, buffers, packedLight, player, right, slim, 0.8);
+			SymbioteWeaponRenderer.draw(pose, buffers, packedLight, player, right, slim, false);
 			pose.popPose();
 		}
 	}

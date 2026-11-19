@@ -346,9 +346,14 @@ public class SymbioteMovesetV2GameTests implements FabricGameTest {
 		helper.assertTrue(SymbioteVitalsManager.form(p) == SymbioteVitalsManager.FORM_NORMAL, "starts Normal");
 		tap(p, AbilitySlot.SLOT_5);
 		helper.assertTrue(SymbioteVitalsManager.form(p) == SymbioteVitalsManager.FORM_BLADE && SymbioteVitalsManager.bladeActive(p), "-> Blade");
+		// v0.17.5 weapons: Axe, Mace and Whip come between the Blade and Thorns (SymbioteWeaponGameTests checks each one)
+		tap(p, AbilitySlot.SLOT_5);
+		tap(p, AbilitySlot.SLOT_5);
+		tap(p, AbilitySlot.SLOT_5);
+		helper.assertTrue(SymbioteVitalsManager.form(p) == SymbioteVitalsManager.FORM_WHIP, "-> Axe -> Mace -> Whip");
 		tap(p, AbilitySlot.SLOT_5);
 		helper.assertTrue(SymbioteVitalsManager.form(p) == SymbioteVitalsManager.FORM_THORNS && !SymbioteVitalsManager.bladeActive(p)
-				&& SymbioteVitalsManager.thornsMode(p), "-> Thorns (blade gone)");
+				&& SymbioteVitalsManager.thornsMode(p), "-> Thorns (weapon gone)");
 		tap(p, AbilitySlot.SLOT_5);
 		helper.assertTrue(SymbioteVitalsManager.form(p) == SymbioteVitalsManager.FORM_NORMAL && !SymbioteVitalsManager.thornsMode(p), "-> Normal");
 		// with something in the hand there is no Blade: Normal goes straight to Thorns
@@ -432,7 +437,7 @@ public class SymbioteMovesetV2GameTests implements FabricGameTest {
 		p.setAttached(ModAttachments.SYMBIOTE_STATE, c);
 		helper.assertTrue(!SymbioteAbilityManager.grappleReady(p, p.level().getGameTime()), "Grapple reads its own entry");
 		helper.assertTrue(SymbioteAbilityManager.leapReady(p, p.level().getGameTime()), "the Lunge is still ready");
-		helper.assertTrue(SymbioteState.COOLDOWN_SLOTS == 15 && Symbiote.state(p).abilityCooldowns.size() == 15, "15 cooldown entries");
+		helper.assertTrue(SymbioteState.COOLDOWN_SLOTS == 16 && Symbiote.state(p).abilityCooldowns.size() == 16, "16 cooldown entries (v0.17.5: 15 = Symbiote Wings)");
 		helper.succeed();
 	}
 

@@ -188,6 +188,8 @@ public final class SymbioteAbilityManager {
 		ERUPTION.clear();
 		DEVOUR.clear();
 		PUNCH_CHAIN.clear();
+		SymbioteWeaponMoves.clearAll();
+		SymbioteWings.clearSessionState();
 	}
 
 	public static void clearFor(ServerPlayer player) {
@@ -215,6 +217,7 @@ public final class SymbioteAbilityManager {
 		}
 		ERUPTION.remove(id);
 		PUNCH_CHAIN.remove(id);
+		SymbioteWeaponMoves.clear(player);
 		releaseDevour(player);
 	}
 
@@ -361,7 +364,10 @@ public final class SymbioteAbilityManager {
 			case SLOT_2 -> tryWithCooldown(player, AbilitySlot.SLOT_2.index(), now, CD_SPIKE_SHOT, () -> spikeShot(player));
 			case SLOT_4 -> {
 				if (SymbioteVitalsManager.bladeActive(player)) {
-					tryWithCooldown(player, 3, now, CD_BARRAGE, () -> bladeSlash(player));
+					// v0.17.5 weapons: each weapon's Z, all on Z's tap entry (3) so a weapon swap never hands out a fresh Z
+					SymbioteWeapon w = SymbioteVitalsManager.weapon(player);
+					tryWithCooldown(player, 3, now, w.zCooldown,
+							() -> w == SymbioteWeapon.BLADE ? bladeSlash(player) : SymbioteWeaponMoves.start(player, w, now));
 				} else {
 					tryWithCooldown(player, 3, now, CD_BARRAGE, () -> startBarrage(player, now));
 				}
@@ -444,7 +450,7 @@ public final class SymbioteAbilityManager {
 	 * What a tendril flying from the eyes along {@code dir} runs into first, within {@code range}: the first
 	 * living thing, else the block face, else the end of its reach. Blocks stop it -- nothing through walls.
 	 */
-	private static Vec3 traceTendril(ServerPlayer player, Vec3 dir, double range, LivingEntity[] hitOut) {
+	static Vec3 traceTendril(ServerPlayer player, Vec3 dir, double range, LivingEntity[] hitOut) {
 		ServerLevel level = AbilityHelpers.level(player);
 		Vec3 eye = player.getEyePosition();
 		Vec3 far = eye.add(dir.scale(range));
@@ -1034,7 +1040,7 @@ public final class SymbioteAbilityManager {
 	}
 
 	/** The ground under {@code p}: the first solid block surface within a few blocks up or down. */
-	private static Vec3 groundPoint(ServerLevel level, Vec3 p) {
+	static Vec3 groundPoint(ServerLevel level, Vec3 p) {
 		BlockPos pos = BlockPos.containing(p.x, p.y + 1.0, p.z);
 		for (int i = 0; i < 5 && level.getBlockState(pos.below()).getCollisionShape(level, pos.below()).isEmpty(); i++) {
 			pos = pos.below();
@@ -1850,6 +1856,7 @@ public final class SymbioteAbilityManager {
 	// ---------------- per-tick upkeep ----------------
 
 	public static void serverTick(ServerPlayer player) {
+		SymbioteWings.tick(player);
 		if (!Symbiote.hasSymbiote(player)) {
 			if (KEY_DOWN.containsKey(player.getId()) || DEVOUR.containsKey(player.getId())) {
 				stopMovesV2(player);
@@ -1881,6 +1888,8 @@ public final class SymbioteAbilityManager {
 			tickDive(player, now);
 			tickEruption(player, now);
 			tickDevour(player, now);
+			// v0.17.5 weapons + wings
+			SymbioteWeaponMoves.tick(player, now);
 		} else {
 			stopMovesV2(player);
 			SymbioteState held = Symbiote.state(player);

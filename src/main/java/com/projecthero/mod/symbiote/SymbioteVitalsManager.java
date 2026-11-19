@@ -98,6 +98,10 @@ public final class SymbioteVitalsManager {
 
 	private static final ResourceLocation BLADE_ATTACK = ProjectHeroMod.id("symbiote_blade_attack");
 	private static final ResourceLocation BLADE_SPEED = ProjectHeroMod.id("symbiote_blade_speed");
+	/** v0.17.5 weapons: the Blade's and the Whip's extra reach. */
+	private static final ResourceLocation BLADE_REACH = ProjectHeroMod.id("symbiote_weapon_reach");
+	/** v0.17.5 weapons: the Mace's knockback on a punch. */
+	public static final double MACE_PUNCH_KNOCKBACK = 0.8;
 
 	private static final String[] LOW_WARNINGS = {
 			"message.projecthero.symbiote.warn_1", "message.projecthero.symbiote.warn_2",
@@ -139,13 +143,22 @@ public final class SymbioteVitalsManager {
 				markCombat(attackerPlayer);
 			}
 
-			// Symbiote Blade: an extra armour-bypassing bite on a melee hit while it is out.
+			// Symbiote Blade: an extra armour-bypassing bite on a melee hit while it is out. v0.17.5 weapons: the Blade's alone; the
+			// Mace throws what it hits back instead (the Axe's shield break runs before the hit, in the attack callback below)
 			if (source.getEntity() instanceof ServerPlayer sp && entity instanceof LivingEntity living
 					&& living != sp && taken > 0.0f && bladeActive(sp) && !Squads.areAllies(sp, living)
 					&& source.is(net.minecraft.world.damagesource.DamageTypes.PLAYER_ATTACK)) {
-				living.invulnerableTime = 0;
-				living.hurt(sp.damageSources().magic(), 2.0f);
-				SymbioteVfx.impact(sp, living, 0.6f); // v0.17.5 tendril-vfx (was ink)
+				SymbioteWeapon w = weapon(sp);
+				if (w == SymbioteWeapon.BLADE) {
+					living.invulnerableTime = 0;
+					living.hurt(sp.damageSources().magic(), 2.0f);
+					SymbioteVfx.impact(sp, living, 0.6f); // v0.17.5 tendril-vfx (was ink)
+				} else if (w == SymbioteWeapon.MACE && !SymbioteAbilityManager.isBoss(living)) {
+					com.projecthero.mod.hero.power.AbilityHelpers.knockbackFrom(living, sp.position(), MACE_PUNCH_KNOCKBACK);
+					SymbioteVfx.impact(sp, living, 0.7f);
+				} else {
+					SymbioteVfx.impact(sp, living, 0.5f);
+				}
 			}
 
 			// Symbiote Spikes (C): reflect melee damage like Thorns IV.
@@ -163,6 +176,14 @@ public final class SymbioteVitalsManager {
 		// v0.13.21: nothing can be used from the blade hand while the Symbiote Blade is out. The server keeps the
 		// hand empty every tick (keepBladeHandEmpty); this closes the one-tick window before it does. Runs on both
 		// sides -- the vitals attachment is synced.
+		// v0.17.5 weapons: an Axe punch knocks a raised shield out of a player's hands, like a vanilla axe
+		net.fabricmc.fabric.api.event.player.AttackEntityCallback.EVENT.register((p, world, hand, target, hit) -> {
+			if (!world.isClientSide && p instanceof ServerPlayer sp && target instanceof Player victim && victim.isBlocking()
+					&& bladeActive(sp) && weapon(sp) == SymbioteWeapon.AXE && !Squads.areAllies(sp, victim)) {
+				victim.disableShield();
+			}
+			return net.minecraft.world.InteractionResult.PASS;
+		});
 		UseItemCallback.EVENT.register((player, world, hand) -> {
 			ItemStack stack = player.getItemInHand(hand);
 			if (hand == InteractionHand.MAIN_HAND && !stack.isEmpty() && bladeOut(player)) {
@@ -220,6 +241,12 @@ public final class SymbioteVitalsManager {
 
 	public static boolean bladeActive(ServerPlayer player) {
 		return bladeOut(player);
+	}
+
+	/** v0.17.5 weapons: the weapon the arm grows while a weapon Form is out (Blade when none is). Client-safe (synced vitals). */
+	public static SymbioteWeapon weapon(Player player) {
+		SymbioteVitals v = player.getAttachedOrElse(ModAttachments.SYMBIOTE_VITALS, null);
+		return v == null ? SymbioteWeapon.BLADE : SymbioteWeapon.byOrdinal(v.weapon);
 	}
 
 	/** {@link #bladeActive} for either side (the attachment is synced) -- the client-side item-use guard needs it. */
@@ -361,6 +388,8 @@ public final class SymbioteVitalsManager {
 			return;
 		}
 		SymbioteVitals c = v.copy();
+		c.prevForm = form(player);
+		c.formSince = player.level().getGameTime();
 		c.bladeActive = false;
 		c.thornsMode = false;
 		save(player, c);
@@ -407,15 +436,24 @@ public final class SymbioteVitalsManager {
 		reconcileBlade(player, on);
 	}
 
+	/** v0.17.5 weapons: the out weapon's damage / attack speed / reach (the old Blade's +5 / +50% stay the Blade's). */
 	private static void reconcileBlade(ServerPlayer player, boolean on) {
 		if (on) {
-			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, BLADE_ATTACK, BLADE_BONUS_DAMAGE,
+			SymbioteWeapon w = weapon(player);
+			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, BLADE_ATTACK, w.bonusDamage,
 					AttributeModifier.Operation.ADD_VALUE);
-			PowerToggles.modifier(player, Attributes.ATTACK_SPEED, BLADE_SPEED, 0.5,
+			PowerToggles.modifier(player, Attributes.ATTACK_SPEED, BLADE_SPEED, w.attackSpeed,
 					AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+			if (w.reach > 0.0) {
+				PowerToggles.modifier(player, Attributes.ENTITY_INTERACTION_RANGE, BLADE_REACH, w.reach,
+						AttributeModifier.Operation.ADD_VALUE);
+			} else {
+				PowerToggles.clearModifier(player, Attributes.ENTITY_INTERACTION_RANGE, BLADE_REACH);
+			}
 		} else {
 			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, BLADE_ATTACK);
 			PowerToggles.clearModifier(player, Attributes.ATTACK_SPEED, BLADE_SPEED);
+			PowerToggles.clearModifier(player, Attributes.ENTITY_INTERACTION_RANGE, BLADE_REACH);
 		}
 	}
 
@@ -439,61 +477,128 @@ public final class SymbioteVitalsManager {
 	public static final int FORM_NORMAL = 0;
 	public static final int FORM_BLADE = 1;
 	public static final int FORM_THORNS = 2;
+	/** v0.17.5 weapons. */
+	public static final int FORM_AXE = 3;
+	public static final int FORM_MACE = 4;
+	public static final int FORM_WHIP = 5;
+	/** v0.17.5 weapons: V's cycle order (user-approved: Normal -> Blade -> Axe -> Mace -> Whip -> Thorns -> Normal). */
+	public static final int[] FORM_CYCLE = { FORM_NORMAL, FORM_BLADE, FORM_AXE, FORM_MACE, FORM_WHIP, FORM_THORNS };
 
-	/** The host's Form: Blade (the blade is out), Thorns (the spikes are up) or Normal. Client-safe (synced vitals). */
+	/** The host's Form: a weapon (Blade / Axe / Mace / Whip -- the arm grows it), Thorns (the spikes are up) or Normal. Client-safe. */
 	public static int form(Player player) {
 		SymbioteVitals v = player.getAttachedOrElse(ModAttachments.SYMBIOTE_VITALS, null);
 		if (v == null) {
 			return FORM_NORMAL;
 		}
-		return v.bladeActive ? FORM_BLADE : v.thornsMode ? FORM_THORNS : FORM_NORMAL;
+		return v.bladeActive ? formOf(SymbioteWeapon.byOrdinal(v.weapon)) : v.thornsMode ? FORM_THORNS : FORM_NORMAL;
+	}
+
+	public static int formOf(SymbioteWeapon w) {
+		return switch (w) {
+			case BLADE -> FORM_BLADE;
+			case AXE -> FORM_AXE;
+			case MACE -> FORM_MACE;
+			case WHIP -> FORM_WHIP;
+		};
+	}
+
+	/** The weapon a Form grows, or null for Normal / Thorns. */
+	public static SymbioteWeapon weaponOf(int form) {
+		return switch (form) {
+			case FORM_BLADE -> SymbioteWeapon.BLADE;
+			case FORM_AXE -> SymbioteWeapon.AXE;
+			case FORM_MACE -> SymbioteWeapon.MACE;
+			case FORM_WHIP -> SymbioteWeapon.WHIP;
+			default -> null;
+		};
+	}
+
+	/** Lang fragment of a Form ({@code projecthero.symbiote.form.<name>}). */
+	public static String formName(int form) {
+		SymbioteWeapon w = weaponOf(form);
+		return w != null ? w.id : form == FORM_THORNS ? "thorns" : "normal";
 	}
 
 	/**
-	 * V (user-approved moveset v2: "one button instead of two toggles"): Normal -> Blade -> Thorns -> Normal. The Blade needs an
-	 * empty main hand and some Biomass, as before; with a full hand Normal goes straight to Thorns. An old save with both on drops
-	 * back to Normal. The Blade's and the Thorns' own rules (the blade's Biomass drain, Thorns IV reflection) are unchanged.
+	 * V (user-approved moveset v2: "one button instead of two toggles"; v0.17.5 weapons: "create other weapons like axes and stuff"):
+	 * Normal -> Blade -> Axe -> Mace -> Whip -> Thorns -> Normal ({@link #FORM_CYCLE}). A weapon needs an empty main hand and some
+	 * Biomass, as the Blade always did; with a full hand the weapons are skipped (Normal goes straight to Thorns). An old save with a
+	 * weapon and Thorns both on drops back to Normal. Every weapon keeps the Blade's rules (the Biomass drain, the empty hand); Thorns
+	 * IV reflection is unchanged. The weapon grows from the forearm and the old one melts back ({@link SymbioteVitals#formSince}).
 	 */
 	public static void cycleForm(ServerPlayer player) {
 		SymbioteVitals v = vitals(player);
+		int from = form(player);
 		if (v.bladeActive && v.thornsMode) {
 			SymbioteVitals c = v.copy();
 			c.thornsMode = false;
 			save(player, c);
 			setBlade(player, vitals(player), false);
+			stampForm(player, from);
 			formMessage(player, FORM_NORMAL);
 			return;
 		}
-		if (v.bladeActive) {
+		int idx = 0;
+		for (int i = 0; i < FORM_CYCLE.length; i++) {
+			if (FORM_CYCLE[i] == from) {
+				idx = i;
+			}
+		}
+		int next = FORM_CYCLE[(idx + 1) % FORM_CYCLE.length];
+		SymbioteWeapon nextWeapon = weaponOf(next);
+		if (nextWeapon != null) {
+			if (from == FORM_NORMAL && (v.broken || v.hp <= 0.0f)) {
+				player.displayClientMessage(Component.translatable("message.projecthero.symbiote.spent"), true);
+				return;
+			}
+			if (!player.getMainHandItem().isEmpty() || v.broken || v.hp <= 0.0f) {
+				// a full hand (or a spent bar mid-cycle): no weapon can grow -- straight on to Thorns
+				if (v.bladeActive) {
+					setBlade(player, v, false);
+				}
+				setThorns(player, true);
+				stampForm(player, from);
+				player.displayClientMessage(Component.translatable("message.projecthero.symbiote.form.blade_skipped")
+						.withStyle(ChatFormatting.DARK_PURPLE), true);
+				return;
+			}
+			SymbioteVitals c = vitals(player).copy();
+			c.weapon = nextWeapon.ordinal();
+			save(player, c);
+			setBlade(player, vitals(player), true);
+			BLADE_SLOT.put(player.getId(), player.getInventory().selected);
+			stampForm(player, from);
+			SymbioteAnim.play(player, SymbioteAnim.BLADE_FORM);
+			SymbioteVfx.bodyBurst(player, 0.6f); // v0.17.5 tendril-vfx: tendrils lash out as the weapon forms
+			formMessage(player, next);
+			if (player.level() instanceof ServerLevel level) {
+				SymbioteSounds.organic(level, player.getX(), player.getY(), player.getZ(), 0.9f, nextWeapon == SymbioteWeapon.MACE ? 0.3f : 0.4f);
+				SymbioteSounds.lash(player, 0.8f, nextWeapon == SymbioteWeapon.WHIP ? 1.5f : 1.2f);
+			}
+			return;
+		}
+		if (next == FORM_THORNS) {
 			setBlade(player, v, false);
 			setThorns(player, true);
+			stampForm(player, from);
 			formMessage(player, FORM_THORNS);
 			return;
 		}
-		if (v.thornsMode) {
-			setThorns(player, false);
-			formMessage(player, FORM_NORMAL);
-			return;
+		// back to Normal
+		if (v.bladeActive) {
+			setBlade(player, v, false);
 		}
-		if (v.broken || v.hp <= 0.0f) {
-			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.spent"), true);
-			return;
-		}
-		if (!player.getMainHandItem().isEmpty()) {
-			setThorns(player, true);
-			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.form.blade_skipped")
-					.withStyle(ChatFormatting.DARK_PURPLE), true);
-			return;
-		}
-		setBlade(player, v, true);
-		BLADE_SLOT.put(player.getId(), player.getInventory().selected);
-		SymbioteAnim.play(player, SymbioteAnim.BLADE_FORM);
-		SymbioteVfx.bodyBurst(player, 0.6f); // v0.17.5 tendril-vfx: tendrils lash out as the blade forms
-		formMessage(player, FORM_BLADE);
-		if (player.level() instanceof ServerLevel level) {
-			SymbioteSounds.organic(level, player.getX(), player.getY(), player.getZ(), 0.9f, 0.4f);
-			SymbioteSounds.lash(player, 0.8f, 1.2f);
-		}
+		setThorns(player, false);
+		stampForm(player, from);
+		formMessage(player, FORM_NORMAL);
+	}
+
+	/** v0.17.5 weapons: notes when the Form changed and what it was (every viewer animates the growth / melt from it). */
+	private static void stampForm(ServerPlayer player, int previous) {
+		SymbioteVitals c = vitals(player).copy();
+		c.prevForm = previous;
+		c.formSince = player.level().getGameTime();
+		save(player, c);
 	}
 
 	private static void setThorns(ServerPlayer player, boolean on) {
@@ -510,7 +615,7 @@ public final class SymbioteVitalsManager {
 	}
 
 	private static void formMessage(ServerPlayer player, int form) {
-		String name = form == FORM_BLADE ? "blade" : form == FORM_THORNS ? "thorns" : "normal";
+		String name = formName(form);
 		player.displayClientMessage(Component.translatable("message.projecthero.symbiote.form",
 				Component.translatable("projecthero.symbiote.form." + name)).withStyle(ChatFormatting.DARK_PURPLE), true);
 	}
@@ -814,6 +919,8 @@ public final class SymbioteVitalsManager {
 		c.bladeCharge = BLADE_MAX;
 		c.thornsMode = false;
 		c.animId = SymbioteAnim.NONE;
+		c.wingsStart = 0L; // v0.17.5: the wings never survive a death / relog / dimension change
+		c.wingsLanded = 0L;
 		save(player, c);
 	}
 

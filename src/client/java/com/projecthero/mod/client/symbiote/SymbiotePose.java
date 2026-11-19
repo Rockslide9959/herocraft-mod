@@ -108,6 +108,29 @@ public final class SymbiotePose {
 			f(16, -0.45f, 0, 1.8f, -0.45f, 0, -1.8f, -0.2f, 0, 0, 0, -0.55f),
 			rest(24) }, false, false);
 
+	// ---- v0.17.5 weapons: each weapon's Z ----
+	/** Cleave: the axe arm thrown high over the head, then chopped straight down (lands at tick 4), the body following through. */
+	private static final Pose AXE_CLEAVE = new Pose(new float[][] {
+			rest(0),
+			f(2, -3.05f, 0.1f, -0.15f, -0.6f, 0, 0.1f, -0.22f, 0.1f, 0.1f, -0.1f, -0.15f),
+			f(4, -0.45f, 0.05f, 0, 0.25f, 0, 0, 0.42f, 0, -0.4f, 0.3f, 0.25f),
+			f(9, -0.5f, 0.05f, 0, 0.25f, 0, 0, 0.38f, 0, -0.35f, 0.3f, 0.22f),
+			rest(14) }, false, false);
+	/** Ground Smash: the mace swung up and back over the shoulder, then slammed into the ground ahead (lands at tick 6), a deep crouch. */
+	private static final Pose MACE_SMASH = new Pose(new float[][] {
+			rest(0),
+			f(3, -2.8f, -0.35f, -0.3f, -0.5f, 0, 0.2f, -0.25f, -0.3f, 0.15f, -0.15f, -0.2f),
+			f(6, -0.25f, 0.1f, 0, 0.35f, 0, -0.2f, 0.6f, 0.1f, -0.55f, 0.45f, 0.35f),
+			f(11, -0.3f, 0.1f, 0, 0.3f, 0, -0.2f, 0.55f, 0.1f, -0.5f, 0.4f, 0.3f),
+			rest(17) }, false, false);
+	/** Lash: the whip arm drawn back over the shoulder, then cracked forward down the aim (cracks at tick 3) and held while it recoils. */
+	private static final Pose WHIP_LASH = new Pose(new float[][] {
+			rest(0),
+			f(2, -2.6f, 0.35f, 0, 0.2f, 0, 0, -0.12f, 0.3f, 0, 0, 0),
+			f(4, -1.5f, -0.05f, 0, 0.3f, 0, 0, 0.12f, -0.3f, -0.15f, 0.15f, 0),
+			f(10, -1.45f, -0.05f, 0, 0.3f, 0, 0, 0.1f, -0.25f, -0.1f, 0.1f, 0),
+			rest(15) }, true, false);
+
 	// ---- v0.17.5 moveset v2 ----
 	/** Tendril Slam: the arm reaches out, then hauls back and down hard (the target is yanked in and smashed). */
 	private static final Pose TENDRIL_SLAM = new Pose(new float[][] {
@@ -243,6 +266,9 @@ public final class SymbiotePose {
 			case SymbioteAnim.ERUPTION -> ERUPTION;
 			case SymbioteAnim.MAW_BITE -> MAW_BITE;
 			case SymbioteAnim.DEVOUR -> DEVOUR;
+			case SymbioteAnim.AXE_CLEAVE -> AXE_CLEAVE;
+			case SymbioteAnim.MACE_SMASH -> MACE_SMASH;
+			case SymbioteAnim.WHIP_LASH -> WHIP_LASH;
 			default -> null;
 		};
 	}
@@ -296,6 +322,18 @@ public final class SymbiotePose {
 			if (p != null && blend(m, p.frames(), gameTime - v.animStart + partial, p.aimRight(), p.aimLeft())) {
 				return;
 			}
+		}
+		// v0.17.5 Symbiote Wings: in the air on the wings, arms swept back and out, legs trailing (the wings themselves beat)
+		if (com.projecthero.mod.symbiote.SymbioteWings.airborne(player)) {
+			float t = (gameTime + partial) * 0.63f;
+			float beat = (float) Math.sin(t) * 0.08f;
+			m.rightArm.xRot = 0.35f + beat;
+			m.rightArm.zRot = 0.32f;
+			m.leftArm.xRot = 0.35f + beat;
+			m.leftArm.zRot = -0.32f;
+			m.rightLeg.xRot = 0.22f + beat * 0.5f;
+			m.leftLeg.xRot = 0.32f - beat * 0.5f;
+			return;
 		}
 		// the shield: both forearms crossed in front of the chest while it is up
 		if (s.shieldHeld) {

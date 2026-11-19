@@ -109,6 +109,7 @@
       "com.projecthero.mod.gametest.SymbioteSecondaryGameTests",
       "com.projecthero.mod.gametest.SymbioteSuitUpGameTests",
       "com.projecthero.mod.gametest.SymbioteMovesetV2GameTests",
+      "com.projecthero.mod.gametest.SymbioteWeaponWingsGameTests",
       "com.projecthero.mod.gametest.SymbioteExactColourGameTests",
       "com.projecthero.mod.gametest.SymbioteTendrilVfxGameTests",
       "com.projecthero.mod.gametest.MaxSteelGameTests",

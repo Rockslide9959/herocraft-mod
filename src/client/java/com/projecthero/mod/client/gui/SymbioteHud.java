@@ -199,6 +199,18 @@ public final class SymbioteHud {
 					secs = VanillaHud.seconds(maw);
 					other = Math.max(cdFrac, holdCd);
 				}
+			} else if (o == 2) {
+				// X: Grapple's own cooldown with Shift; v0.17.5 the strip carries Dive Bomb and the Symbiote Wings (whichever is longer)
+				int scd = s.abilityCooldowns.size() > 14 ? (int) Math.max(0L, s.abilityCooldowns.get(14) - now) : 0;
+				float shiftFrac = VanillaHudExtras.frac("symbiote/shift" + o, scd);
+				float wings = wingsCooldownFrac(s, now);
+				if (shift) {
+					shown = shiftFrac;
+					secs = VanillaHud.seconds(scd);
+					other = Math.max(cdFrac, wings);
+				} else {
+					other = Math.max(Math.max(holdCd, shiftFrac), wings);
+				}
 			} else if (SHIFT_CD_INDEX[o] >= 0) {
 				// R / X / Z: the plain move's cooldown, and the Shift move's while Shift is held (the same rule as G and C)
 				int idx = SHIFT_CD_INDEX[o];
@@ -244,12 +256,27 @@ public final class SymbioteHud {
 		if (v.broken) {
 			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.symbiote.hp_broken").getString(), VanillaHud.RED));
 		}
-		// v0.17.5: the Form V cycles to (Normal shows nothing)
+		// v0.17.5: the Form V cycles to (Normal shows nothing) -- Blade / Axe / Mace / Whip / Thorns
 		int form = SymbioteVitalsManager.form(player);
 		if (form != SymbioteVitalsManager.FORM_NORMAL) {
 			tags.add(new VanillaHud.Tag(Component.translatable("message.projecthero.symbiote.form",
-					Component.translatable(form == SymbioteVitalsManager.FORM_BLADE ? "projecthero.symbiote.form.blade"
-							: "projecthero.symbiote.form.thorns")).getString(), COLOR_LABEL));
+					Component.translatable("projecthero.symbiote.form." + SymbioteVitalsManager.formName(form))).getString(), COLOR_LABEL));
+		}
+		// v0.17.5 Symbiote Wings: flight time left while flying, "Gliding", or the cooldown (no new key, no new box)
+		com.projecthero.mod.symbiote.SymbioteWings.Phase wp = com.projecthero.mod.symbiote.SymbioteWings.phase(v, now);
+		if (wp == com.projecthero.mod.symbiote.SymbioteWings.Phase.FLYING) {
+			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.symbiote.wings.flying",
+					String.format(java.util.Locale.ROOT, "%.1f", com.projecthero.mod.symbiote.SymbioteWings.flightTicksLeft(player) / 20.0f))
+					.getString(), COLOR_LABEL));
+		} else if (wp == com.projecthero.mod.symbiote.SymbioteWings.Phase.GLIDING) {
+			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.symbiote.wings.gliding").getString(), COLOR_LABEL));
+		} else {
+			int wcd = s.abilityCooldowns.size() > com.projecthero.mod.symbiote.SymbioteWings.CDI_WINGS
+					? (int) Math.max(0L, s.abilityCooldowns.get(com.projecthero.mod.symbiote.SymbioteWings.CDI_WINGS) - now) : 0;
+			if (wcd > 0) {
+				tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.symbiote.wings.cooldown", VanillaHud.seconds(wcd))
+						.getString(), VanillaHud.GREY));
+			}
 		}
 		st.tags(tags);
 		if (MoveListOverlay.held()) {
@@ -262,8 +289,14 @@ public final class SymbioteHud {
 					extra = Component.translatable("hud.projecthero.move_list.hold",
 							Component.translatable("projecthero.symbiote.ability." + NORMAL_HOLD_ABILITIES[o]));
 				} else if (o == AbilitySlot.SLOT_3.ordinal()) {
-					extra = Component.translatable("hud.projecthero.symbiote.move_list.air",
+					// v0.17.5: + double-tap Space in the air for the Symbiote Wings
+					extra = Component.translatable("hud.projecthero.symbiote.move_list.air_wings",
 							Component.translatable("projecthero.symbiote.ability.dive_bomb"));
+				}
+				if (o == AbilitySlot.SLOT_4.ordinal()) {
+					// v0.17.5 weapons: Z with a weapon out is that weapon's move
+					extra = Component.translatable("hud.projecthero.symbiote.move_list.weapon_z",
+							Component.translatable("projecthero.symbiote.ability." + NORMAL_HOLD_ABILITIES[o]));
 				}
 				rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot),
 						Component.translatable("projecthero.symbiote.ability." + NORMAL_SLOT_ABILITIES[o]),
@@ -271,6 +304,16 @@ public final class SymbioteHud {
 			}
 			st.moveList(rows);
 		}
+	}
+
+	/** v0.17.5 Symbiote Wings: the wings' remaining cooldown, 0..1 of its full length. */
+	private static float wingsCooldownFrac(SymbioteState s, long now) {
+		int idx = com.projecthero.mod.symbiote.SymbioteWings.CDI_WINGS;
+		if (idx >= s.abilityCooldowns.size()) {
+			return 0f;
+		}
+		long left = Math.max(0L, s.abilityCooldowns.get(idx) - now);
+		return Math.min(1f, left / (float) com.projecthero.mod.symbiote.SymbioteWings.COOLDOWN_TICKS);
 	}
 
 	/** v0.17.5: the hold move's (or Dive Bomb's) remaining cooldown on key {@code o}, 0..1 of its full length. */

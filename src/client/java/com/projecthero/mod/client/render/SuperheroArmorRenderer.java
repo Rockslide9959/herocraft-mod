@@ -187,9 +187,64 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 	 * centre line, each half swung open on a hinge at its back corner ({@link com.projecthero.mod.client.ironman.IronManBraceletClient}).
 	 * Same transforms as GeckoLib's own {@code renderCube}; nothing is added to the model.
 	 */
+	/**
+	 * v0.17.5 (user: "if the players model is a thin arm player model make their symbiote form also have thin arms"): set while the
+	 * Normal host's suit draws an arm bone for a wearer with slim (3 px) arms -- {@link #renderCube} then narrows each arm box by one
+	 * pixel on its outer side, keeping the inner edge (where vanilla's slim arm keeps it too) and every texel: the 4 px wide faces are
+	 * squeezed into 3 px instead of cropped, so every texture the suit draws with (the colour bake, the suit-up spread, the rim, the FX
+	 * passes) lines up unchanged.
+	 */
+	private boolean slimArmCubes;
+
+	private boolean slimSymbioteArm(software.bernie.geckolib.cache.object.GeoBone bone) {
+		if (!(getAnimatable() instanceof com.projecthero.mod.symbiote.item.SymbioteHostArmorItem)) {
+			return false;
+		}
+		String n = bone.getName();
+		return ("armorRightArm".equals(n) || "armorLeftArm".equals(n))
+				&& getCurrentEntity() instanceof net.minecraft.client.player.AbstractClientPlayer cp
+				&& cp.getSkin().model() == net.minecraft.client.resources.PlayerSkin.Model.SLIM;
+	}
+
+	@Override
+	public void renderCube(PoseStack poseStack, software.bernie.geckolib.cache.object.GeoCube cube, VertexConsumer buffer, int packedLight,
+			int packedOverlay, int colour) {
+		if (slimArmCubes) {
+			float min = Float.MAX_VALUE, max = -Float.MAX_VALUE;
+			for (software.bernie.geckolib.cache.object.GeoQuad q : cube.quads()) {
+				if (q == null) {
+					continue;
+				}
+				for (software.bernie.geckolib.cache.object.GeoVertex vx : q.vertices()) {
+					min = Math.min(min, vx.position().x());
+					max = Math.max(max, vx.position().x());
+				}
+			}
+			float width = max - min;
+			if (width > 1.5f / 16f) {
+				// the inner edge is the one nearer the body's centre line
+				float inner = Math.abs(min) < Math.abs(max) ? min : max;
+				float f = (width - 1f / 16f) / width;
+				poseStack.translate(inner, 0f, 0f);
+				poseStack.scale(f, 1f, 1f);
+				poseStack.translate(-inner, 0f, 0f);
+			}
+		}
+		super.renderCube(poseStack, cube, buffer, packedLight, packedOverlay, colour);
+	}
+
 	@Override
 	public void renderCubesOfBone(PoseStack poseStack, software.bernie.geckolib.cache.object.GeoBone bone, VertexConsumer buffer,
 			int packedLight, int packedOverlay, int colour) {
+		if (!slimArmCubes && slimSymbioteArm(bone)) {
+			slimArmCubes = true;
+			try {
+				renderCubesOfBone(poseStack, bone, buffer, packedLight, packedOverlay, colour);
+			} finally {
+				slimArmCubes = false;
+			}
+			return;
+		}
 		// v0.17.5 round 2: the Normal host's suit coming on / off -- the bone's cubes, then the goo tendrils bursting out of the chest
 		// and reaching ahead of the spreading front (SymbioteEmerge)
 		if (getAnimatable() instanceof com.projecthero.mod.symbiote.item.SymbioteHostArmorItem && getCurrentEntity() instanceof Player sp

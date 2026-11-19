@@ -20,7 +20,7 @@ import net.minecraft.world.entity.Entity;
 public abstract class UndeadFlightKickMixin {
 	@Inject(method = "getMaximumFlyingTicks", at = @At("HEAD"), cancellable = true)
 	private void projecthero$undeadFlightNoKick(Entity entity, CallbackInfoReturnable<Integer> cir) {
-		if (entity instanceof ServerPlayer p && UndeadFlight.isFlying(p)) {
+		if (entity instanceof ServerPlayer p && (UndeadFlight.isFlying(p) || com.projecthero.mod.symbiote.SymbioteWings.airborne(p))) { // v0.17.5: + the Symbiote Wings
 			cir.setReturnValue(Integer.MAX_VALUE / 2);
 		}
 	}

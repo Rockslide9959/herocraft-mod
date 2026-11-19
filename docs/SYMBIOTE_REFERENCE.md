@@ -734,3 +734,95 @@ soles (`feet_below_*`), faces in extreme colours with the mouth open (`face_*`; 
 the HUD with / without Shift (`hud_*`), `symbiote_tendril_vfx_all_moves.mp4` + `_sheet.png`, the Lunge close-ups
 `symbiote_lunge_leg_tendrils_closeup.mp4` / `_from_behind.mp4` (quarter speed) + sheets. Harness `scratchpad/SymbioteVfxHarness.v0175.java.txt`
 (+ `SymbioteVfxHarnessCameraMixin.v0175.java.txt`), films via `scratchpad/symbiote/films_tendril_vfx_v0175.js`.
+
+
+## v0.17.5 -- weapons (Blade, Axe, Mace, Whip), Symbiote Wings, slim arms
+
+User: "improve the symbiote blade model ... create an actual blade model and create other weapons like axes and stuff ... an axe model
+and another one, maybe a mace ... also i want the symbiote to be able to fly for a short amount of time by creating giant symbiote wings",
+and "if the players model is a thin arm player model make their symbiote form also have thin arms". Normal host (Lethal Protector suit)
+only. Reference images: `docs/reference/symbiote_weapons/` (12-21: Carnage clawed arms, the Venom-film crescent scythe arm-blades with
+lattice holes, a comic blade, bat-like symbiote wings).
+
+### The Form cycle (V)
+
+Normal -> **Blade -> Axe -> Mace -> Whip** -> Thorns -> Normal (`SymbioteVitalsManager.FORM_CYCLE`; was Normal -> Blade -> Thorns). The four
+weapons are one state: `SymbioteVitals.bladeActive` (a weapon is out -- the empty-hand rule, the 0.3 Biomass/s drain, `keepBladeHandEmpty`
+and the sound-attack sheathe all cover every weapon, unchanged) plus `SymbioteVitals.weapon` (`SymbioteWeapon` ordinal). A full hand skips
+every weapon (Normal -> Thorns, "Your hand is full: no weapon -- Thorns form"); a spent bar refuses from Normal. `formSince` / `prevForm`
+(synced) stamp each change so every viewer plays the growth and the melt. HUD: the "Form: ..." tag names the weapon; the action bar says
+it on every switch. Shift+V is still the Shield. Old saves read `weapon` 0 (Blade).
+
+### Numbers (`SymbioteWeapon`, `SymbioteWeaponMoves`)
+
+| Weapon | Punch damage | Attack speed | Extra reach | On a punch | Z move (lands at) | Z numbers | Z cooldown |
+|---|---|---|---|---|---|---|---|
+| Blade | +5 | +50% | +0.5 | 2-damage armour-bypassing bite (as before) | Blade Slash (at once) | 8 + 2, 5-block cone, knockback 0.6 (unchanged) | 15 s |
+| Axe | +8 | -25% | 0 | knocks a raised player shield away (`disableShield`, attack callback) | Cleave (tick 4) | 16 + 4 armour-bypassing on a 4.5-block line ahead, 1.3 either side; raised shields knocked away first; small downward knock | 14 s |
+| Mace | +6 | -15% | 0 | knockback 0.8 (not bosses) | Ground Smash (tick 6) | 14 to everything within 4 blocks of a point 2.2 ahead, thrown out 1.2 + up 0.5 (not bosses), Slowness II 2 s | 16 s |
+| Whip | +3 | +10% | +2.5 | -- | Lash (tick 3) | 12 to the first living thing within 7 blocks of the aim (blocks stop it), Slowness I 1 s, yanked toward a point 2 blocks in front (not bosses / dummies / grab-rule refusals) | 10 s |
+
+Reach stacks with the suit's own +1. Every Z shares **Z's tap entry (3)** with Barrage, each setting its own length -- swapping weapon never
+hands out a fresh Z (the existing intentional rule). Swings pose at once (`SymbioteAnim` 25 AXE_CLEAVE / 26 MACE_SMASH / 27 WHIP_LASH) and land
+from `SymbioteWeaponMoves.tick` (static `PENDING`: player id -> {weapon, tick}; cleared by `clearFor` / `disrupt` / `clearSessionState`); a
+weapon melted back mid-swing cancels it. Balance: the frequent hits sit with Tendril Strike / Maw Bite (12-18), the slow ones under the Spear
+(26) and Onslaught.
+
+### The models (`client/symbiote/SymbioteWeaponRenderer`)
+
+Procedural living meshes (the `GooMesh` technique of the tendrils), drawn in the arm bone's space on the **main arm** (the right by default --
+the arm that swings; the other stays the clawed suit hand), third person for every viewer (`SymbioteBladeRenderer.Layer`) and first person
+(`PlayerRendererSymbioteBladeMixin`, drawn at 85%). Textures: `textures/entity/symbiote_weapon.png` (wet goo with a vein network, tinted to the
+body colour by `SymbioteSuitTint.goo`) and `symbiote_weapon_edge.png` (pale; vertex-coloured with the emblem colour mixed 60% into the body
+colour) -- both painted by `scratchpad/symbiote/gen_symbiote_weapons_v0175.js`.
+
+- **Blade**: the film's crescent scythe -- a lens-section plate ~1.6 blocks round its arc (centre 0.5 down / 0.45 ahead of the shoulder,
+  radius 0.56, 102 -> -74 degrees), rooted on the outer forearm, sweeping down past the fist and hooking forward to a point. The half by the
+  arm is an organic lattice (ten elliptical holes with walled rims, three tendril strands running through it); the outer edge band is the
+  pale cutting edge; four spines rake back up the arm.
+- **Axe**: a 0.66-long tendril haft over the fist (two helix strands, a knot), a heavy bearded bit (0.56 deep, flaring to 0.8 tall, convex
+  edge, edge band pale), four lattice holes by the haft, veins across both faces, a spine spike behind and a smaller one under it.
+- **Mace**: a thick tendril cord (three wrapping strands) to a lumpy ball (radius 0.23) with sixteen conical spikes with pale tips.
+- **Whip**: a barbed tendril coiled twice round the forearm, a 1.55-long swaying tail with alternating barbs and a three-barbed pale head;
+  Lash curls it back over the shoulder, cracks it out to 7 blocks down the aim (the pose aims the arm) and recoils.
+- Every weapon: three binding tendrils spiral round the forearm first; then the shape fills in from the root while three thin tendrils race
+  ahead to the growth front (6 ticks); the old weapon melts back the same way at the same time.
+
+### Symbiote Wings (`SymbioteWings`, `SymbioteWingsPayload`, `client/symbiote/SymbioteWingsClient` / `SymbioteWingsRenderer`)
+
+| | |
+|---|---|
+| Start | **double-tap Space in the air** (the mod's usual 7-tick window, `ProjectHeroModClient.handleDoubleJump`; while the suit owns the keys over a Primary, `handleSymbioteDoubleJump`). Suit on, Normal host with the kit, not on the ground / in water or lava / riding / on an elytra / in creative flight. No new key; H and N untouched. |
+| Cost | 10 Biomass; cooldown entry **15** (`COOLDOWN_SLOTS` 15 -> 16), 20 s from take-off; a new pair can't grow until the last has dissolved |
+| Grow | 8 ticks: bones reach out from between the shoulder blades, then the membrane fills in from the wrist outward |
+| Fly | up to 6 s (120 ticks): toward the look at 0.72 b/t, a strong lift on the first beat, a small one each beat (every 10 ticks, with a flap sound), Space +0.38 rise, Shift -0.6 dive (client-driven, `START_CLIENT_TICK`, like every mod flight) |
+| Glide | when the time is up, until landing: forward speed kept (0.45-0.8 b/t along the look), sinks ~0.14 b/t, Shift dives |
+| End | touching the ground (after 3 ticks), water / lava, a mount, the suit coming off or losing the kit: the wings dissolve back in over 12 ticks (membrane first, then bones). No fall damage (a bonded host never takes any; the server also resets the fall distance while the wings are out). The server's "flying" kick limit is lifted while airborne on the wings (`UndeadFlightKickMixin`). |
+| HUD | a tag: "Wings 4.2s" while flying, "Gliding", "Wings 12s" while cooling; the X box's thin strip carries the larger of Dive Bomb's, Grapple's and the wings' cooldowns. Left-Alt list: X's line adds "Space x2: Wings". |
+
+State: `SymbioteVitals.wingsStart` / `wingsLanded` (synced, persistent; cleared by `clearTransient` on death / relog / dimension change). No
+static collections. The look: two bat wings in the body bone's frame, mounted outside a worn backpack (`BackpackLayer.backClearance(p, 2)`):
+upper arm and forearm (thick tendrils) to a wrist, four finger bones fanning out (up-out, out, down-out, down) plus the hip line; membrane
+panels between them (`symbiote_wing_membrane.png`: pale fill vertex-coloured `0.78 x mix(body, emblem, 0.3)`, dark web veins, a ragged
+scalloped trailing edge and tears), billowing back and rippling; leading-edge spikes and a top claw in the edge colour. Span ~4.6 blocks at
+scale 1. Flap: the whole wing rotates about its root (+-0.55 rad, 1.5x on the first beats), fingers spread on the down-stroke and fold on the
+up-stroke; glide: a slight dihedral with a flutter. Pose (`SymbiotePose`): arms swept back and out, legs trailing.
+
+### Slim (3 px) arms
+
+A wearer with the slim skin model gets slim suit arms: `SuperheroArmorRenderer#renderCube` narrows each `armorRightArm` / `armorLeftArm` box of
+the Normal host's suit by one pixel on its outer side, keeping the inner edge (where vanilla's slim arm keeps it) and every texel -- the 4 px
+faces are squeezed into 3 px rather than cropped, so the colour bake, the suit-up spread and rim, the FX passes and the Lethal Protector art all
+line up with no new textures (the held-back textures need no slim bake). First person: `SymbioteSuitSleeve` squeezes the same boxes about the
+base box's inflated inner edge (4.6 -> 3.6 px, keeping the 0.3 px clearance over the slim skin's sleeve layer). The weapons sit on the slim
+arm's centre line (half a pixel in); the hand anchor of the tendril VFX (`handOf`, 5 px out, the arm pivot) already lies inside both arm widths.
+
+### Tests
+
+`SymbioteWeaponWingsGameTests`: V cycles Normal -> Blade -> Axe -> Mace -> Whip -> Thorns -> Normal with each weapon's damage and reach on the
+attributes and the change stamped; a full hand skips the weapons; Blade Slash cuts and cools entry 3 for 15 s; Cleave poses, lands 4 ticks later
+on the golem in line and not on one off to the side; Ground Smash hits and slows both husks in the ring; Lash hits a golem 5 blocks off and yanks
+it in; a weapon swap (and Normal's Barrage) is refused while another weapon's Z cools; the wings refuse on the ground, grow in the air (10
+Biomass, entry 15 for 20 s, nothing else touched, no second pair), fly 6 s then glide, dissolve on landing and are gone 12 ticks later, still
+cooling; under 10 Biomass / cooling down refused; the suit coming off dissolves them. `SymbioteMovesetV2GameTests`: the V cycle and the cooldown
+list size (16) updated.

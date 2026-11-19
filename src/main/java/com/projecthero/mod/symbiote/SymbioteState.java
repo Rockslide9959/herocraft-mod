@@ -59,7 +59,7 @@ public final class SymbioteState {
 	 * variant has its own entry too -- 12 Tendril Sweep (Shift+R), 13 Onslaught (Shift + hold Z), 14 Grapple (Shift+X) -- so one
 	 * variant's cooldown never blocks another. Saves with 12 entries read the new ones as ready.
 	 */
-	public static final int COOLDOWN_SLOTS = 15;
+	public static final int COOLDOWN_SLOTS = 16; // v0.17.5: 15 = Symbiote Wings
 
 	public boolean hasSymbiote;
 	public boolean active;

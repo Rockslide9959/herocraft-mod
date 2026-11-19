@@ -546,7 +546,17 @@ public final class HeroPackGuide {
 		symbioteRow(lines, "C", "maw_bite", "5");
 		symbioteRow(lines, "V", "form", null);
 		symbioteRow(lines, "", "blade", null);
+		// v0.17.5 weapons: Axe, Mace and Whip come after the Blade in V's cycle, each with its own Z
+		symbioteRow(lines, "", "axe", null);
+		symbioteRow(lines, "", "mace", null);
+		symbioteRow(lines, "", "whip", null);
 		symbioteRow(lines, "", "spikes", null);
+		symbioteRow(lines, "Z (Blade)", "blade_slash", "15");
+		symbioteRow(lines, "Z (Axe)", "cleave", "14");
+		symbioteRow(lines, "Z (Mace)", "ground_smash", "16");
+		symbioteRow(lines, "Z (Whip)", "lash", "10");
+		// v0.17.5 Symbiote Wings: double-tap Space in the air
+		symbioteRow(lines, "Space x2 (air)", "wings", "20");
 		blank(lines);
 		// v0.17.5: the hold moves -- a tap fires on release, holding the key 0.4 s is the hold move
 		head(lines, "projecthero.guide.symbiote.s.holds");
