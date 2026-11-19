@@ -55,9 +55,11 @@ public final class SymbioteState {
 	/**
 	 * v0.17.5 (moveset v2): {@link #abilityCooldowns} holds the six key slots (0-5) plus the new moves' own cooldowns:
 	 * 6 Impaling Spear, 7 Spike Rain, 8 Dive Bomb, 9 Ground Eruption, 10 Maw Bite, 11 Devour. Old saves with six entries
-	 * read the rest as ready.
+	 * read the rest as ready. v0.17.5 (user: "if i use shift+R ... i cant use regular R while Shift+R is on cooldown"): every Shift
+	 * variant has its own entry too -- 12 Tendril Sweep (Shift+R), 13 Onslaught (Shift + hold Z), 14 Grapple (Shift+X) -- so one
+	 * variant's cooldown never blocks another. Saves with 12 entries read the new ones as ready.
 	 */
-	public static final int COOLDOWN_SLOTS = 12;
+	public static final int COOLDOWN_SLOTS = 15;
 
 	public boolean hasSymbiote;
 	public boolean active;

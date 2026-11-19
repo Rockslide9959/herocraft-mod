@@ -113,9 +113,11 @@ public class SymbioteSpikeEntity extends ThrowableProjectile {
 			discard();
 			return;
 		}
-		if (level().isClientSide && tickCount % 2 == 0) {
-			level().addParticle(crimson() ? new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(0.8f, 0.05f, 0.08f), 0.9f)
-					: ParticleTypes.SQUID_INK, getX(), getY(), getZ(), 0.0, 0.0, 0.0);
+		// v0.17.5 tendril-vfx round: a host's spike trails a rendered goo strand (SymbioteSpikeRenderer) instead of squid ink;
+		// Carnage's crimson spikes keep their dust trail
+		if (level().isClientSide && crimson() && tickCount % 2 == 0) {
+			level().addParticle(new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(0.8f, 0.05f, 0.08f), 0.9f),
+					getX(), getY(), getZ(), 0.0, 0.0, 0.0);
 		}
 	}
 
@@ -151,10 +153,16 @@ public class SymbioteSpikeEntity extends ThrowableProjectile {
 				target.knockback(knock, -v.x / len, -v.z / len);
 			}
 		}
-		level.sendParticles(ParticleTypes.SQUID_INK, target.getX(), target.getY() + target.getBbHeight() * 0.5,
-				target.getZ(), 12, 0.25, 0.3, 0.25, 0.04);
-		level.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + target.getBbHeight() * 0.5,
-				target.getZ(), 6, 0.2, 0.2, 0.2, 0.2);
+		if (owner instanceof ServerPlayer player && !crimson()) {
+			// v0.17.5 tendril-vfx round: tendrils burst out of the wound (the host's colours) instead of ink and crits
+			com.projecthero.mod.symbiote.SymbioteVfx.send(player, com.projecthero.mod.symbiote.SymbioteVfx.IMPACT, target.getId(),
+					target.position().add(0, target.getBbHeight() * 0.5, 0), getDeltaMovement(), 0.8f, 10);
+		} else {
+			level.sendParticles(ParticleTypes.SQUID_INK, target.getX(), target.getY() + target.getBbHeight() * 0.5,
+					target.getZ(), 12, 0.25, 0.3, 0.25, 0.04);
+			level.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + target.getBbHeight() * 0.5,
+					target.getZ(), 6, 0.2, 0.2, 0.2, 0.2);
+		}
 		SymbioteSounds.organic(level, getX(), getY(), getZ(), 0.7f, 1.3f);
 	}
 
@@ -163,7 +171,12 @@ public class SymbioteSpikeEntity extends ThrowableProjectile {
 		super.onHitBlock(result);
 		if (level() instanceof ServerLevel level) {
 			Vec3 p = result.getLocation();
-			level.sendParticles(ParticleTypes.SQUID_INK, p.x, p.y, p.z, 6, 0.1, 0.1, 0.1, 0.02);
+			if (getOwner() instanceof ServerPlayer player && !crimson()) {
+				// v0.17.5 tendril-vfx round: the spike splats into the block as a small burst of tendrils
+				com.projecthero.mod.symbiote.SymbioteVfx.impact(player, p, Vec3.atLowerCornerOf(result.getDirection().getNormal()), 0.5f);
+			} else {
+				level.sendParticles(ParticleTypes.SQUID_INK, p.x, p.y, p.z, 6, 0.1, 0.1, 0.1, 0.02);
+			}
 		}
 	}
 

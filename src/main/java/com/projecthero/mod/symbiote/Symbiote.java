@@ -342,8 +342,7 @@ public final class Symbiote {
 		}
 		beginSuitDown(player);
 		ServerLevel level = player.serverLevel();
-		level.sendParticles(net.minecraft.core.particles.ParticleTypes.SQUID_INK,
-				player.getX(), player.getY() + 1, player.getZ(), 50, 0.5, 0.8, 0.5, 0.06);
+		SymbioteVfx.bodyBurst(player, 1.2f); // v0.17.5 tendril-vfx (was ink)
 		level.playSound(null, player.getX(), player.getY(), player.getZ(),
 				SoundEvents.WARDEN_DEATH, SoundSource.PLAYERS, 0.5f, 1.8f);
 		player.displayClientMessage(Component.translatable("message.projecthero.symbiote.suit_collapsed")
@@ -607,9 +606,8 @@ public final class Symbiote {
 			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.fire_recoil")
 					.withStyle(ChatFormatting.RED), true);
 		}
-		if (player.tickCount % 2 == 0) {
-			player.serverLevel().sendParticles(net.minecraft.core.particles.ParticleTypes.SQUID_INK,
-					player.getX(), player.getY() + 1, player.getZ(), 6, 0.4, 0.7, 0.4, 0.02);
+		if (player.tickCount % 10 == 0) {
+			SymbioteVfx.bodyBurst(player, 0.6f); // v0.17.5 tendril-vfx: the suit writhes off the hazard (was ink every other tick)
 		}
 		if (ticks < HAZARD_RETRACT_TICKS) {
 			return;
@@ -633,8 +631,7 @@ public final class Symbiote {
 		save(player, c);
 
 		ServerLevel level = player.serverLevel();
-		level.sendParticles(net.minecraft.core.particles.ParticleTypes.SQUID_INK,
-				player.getX(), player.getY() + 1, player.getZ(), 60, 0.5, 0.8, 0.5, 0.1);
+		SymbioteVfx.bodyBurst(player, 1.3f); // v0.17.5 tendril-vfx (was ink)
 		level.playSound(null, player.getX(), player.getY(), player.getZ(),
 				SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 1.0f, 0.5f);
 		player.displayClientMessage(Component.translatable("message.projecthero.symbiote.hazard_retreat")
@@ -672,8 +669,7 @@ public final class Symbiote {
 		SymbioteVitalsManager.disruptToggles(player);
 
 		ServerLevel level = player.serverLevel();
-		level.sendParticles(net.minecraft.core.particles.ParticleTypes.SQUID_INK,
-				player.getX(), player.getY() + 1, player.getZ(), 50, 0.5, 0.8, 0.5, 0.12);
+		SymbioteVfx.bodyBurst(player, 1.4f); // v0.17.5 tendril-vfx: the sound tears the tendrils loose (was ink)
 		level.playSound(null, player.getX(), player.getY(), player.getZ(),
 				SoundEvents.WARDEN_HURT, SoundSource.PLAYERS, 1.0f, 1.6f);
 		SymbioteDialogue.say(player, wasSuited ? "sonic_stunned" : "sonic_stunned_bare");

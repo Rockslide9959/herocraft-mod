@@ -123,9 +123,10 @@ public class SymbioteSuitColourGameTests implements FabricGameTest {
 		junk.writeInt(0xFF00FF00);
 		junk.writeInt(0x80FFFFFF);
 		junk.writeInt(-1);
+		junk.writeInt(0x7F000000); // v0.17.5: the mouth colour
 		SymbioteColours decoded = SymbioteColourPayload.CODEC.decode(junk).colours();
-		helper.assertTrue(decoded.primary() == 0x00FF00 && decoded.secondary() == 0xFFFFFF && decoded.eyes() == 0xFFFFFF,
-				"junk packet clamped");
+		helper.assertTrue(decoded.primary() == 0x00FF00 && decoded.secondary() == 0xFFFFFF && decoded.eyes() == 0xFFFFFF
+				&& decoded.mouth() == 0x000000, "junk packet clamped");
 		helper.succeed();
 	}
 

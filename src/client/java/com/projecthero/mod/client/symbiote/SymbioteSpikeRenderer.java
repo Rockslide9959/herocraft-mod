@@ -69,6 +69,22 @@ public class SymbioteSpikeRenderer extends EntityRenderer<SymbioteSpikeEntity> {
 			Vec3 tip = new Vec3(0.02, Math.cos(ang) * 0.14, Math.sin(ang) * 0.14);
 			GooMesh.tube(vc, last, light, new Vec3[]{root, tip}, new float[]{0.03f, 0.003f}, 4, 0.0f);
 		}
+		if (!e.crimson()) {
+			// v0.17.5 tendril-vfx round: a living strand of goo trails behind the spike (it used to drop squid ink), longest just
+			// after the throw, whipping as it flies
+			float age = e.tickCount + partialTick;
+			double len = 0.5 + 0.7 * Math.min(1.0, age / 4.0);
+			int n = 9;
+			Vec3[] tail = new Vec3[n];
+			float[] tr = new float[n];
+			for (int i = 0; i < n; i++) {
+				double s = (double) i / (n - 1);
+				double w = Math.sin(s * Math.PI * 2.0 - age * 1.4) * 0.06 * s;
+				tail[i] = new Vec3(-0.5 - len * s, w, Math.cos(s * Math.PI * 1.5 - age * 1.1) * 0.05 * s);
+				tr[i] = (float) (0.03 * (1.0 - s) + 0.003);
+			}
+			GooMesh.tube(vc, last, light, tail, tr, 5, 0.3f);
+		}
 		// a ragged tail: two short strands trailing behind
 		for (int k = 0; k < 2; k++) {
 			double s = k == 0 ? 1 : -1;

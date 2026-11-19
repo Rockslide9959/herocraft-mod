@@ -145,10 +145,7 @@ public final class SymbioteVitalsManager {
 					&& source.is(net.minecraft.world.damagesource.DamageTypes.PLAYER_ATTACK)) {
 				living.invulnerableTime = 0;
 				living.hurt(sp.damageSources().magic(), 2.0f);
-				if (sp.level() instanceof ServerLevel level) {
-					level.sendParticles(ParticleTypes.SQUID_INK, living.getX(),
-							living.getY() + living.getBbHeight() * 0.5, living.getZ(), 10, 0.2, 0.3, 0.2, 0.02);
-				}
+				SymbioteVfx.impact(sp, living, 0.6f); // v0.17.5 tendril-vfx (was ink)
 			}
 
 			// Symbiote Spikes (C): reflect melee damage like Thorns IV.
@@ -159,10 +156,7 @@ public final class SymbioteVitalsManager {
 					&& player.distanceToSqr(attacker) < 36.0 && player.getRandom().nextFloat() < 0.66f) {
 				float reflect = 2.0f + player.getRandom().nextFloat() * 2.0f;
 				attacker.hurt(player.damageSources().thorns(player), reflect);
-				if (player.level() instanceof ServerLevel level) {
-					level.sendParticles(ParticleTypes.SQUID_INK, attacker.getX(),
-							attacker.getY() + attacker.getBbHeight() * 0.5, attacker.getZ(), 8, 0.25, 0.3, 0.25, 0.01);
-				}
+				SymbioteVfx.impact(player, attacker, 0.7f); // v0.17.5 tendril-vfx: the thorns stab back (was ink)
 			}
 		});
 
@@ -281,8 +275,9 @@ public final class SymbioteVitalsManager {
 			LAST_BIG_HIT.put(player.getId(), player.level().getGameTime());
 		}
 		if (player.level() instanceof ServerLevel level) {
-			level.sendParticles(ParticleTypes.SQUID_INK, player.getX(), player.getY() + 1.0, player.getZ(),
-					10, 0.35, 0.6, 0.35, 0.02);
+			// v0.17.5 tendril-vfx: the hit tears a few tendrils loose on the host (was an ink puff)
+			SymbioteVfx.send(player, SymbioteVfx.IMPACT, player.getId(), player.position().add(0, player.getBbHeight() * 0.55, 0),
+					net.minecraft.world.phys.Vec3.ZERO, 0.5f, 8);
 			if (nowBroken) {
 				level.playSound(null, player.getX(), player.getY(), player.getZ(),
 						SoundEvents.WARDEN_DEATH, SoundSource.PLAYERS, 0.6f, 1.6f);
@@ -436,10 +431,7 @@ public final class SymbioteVitalsManager {
 		player.displayClientMessage(Component.translatable(c.thornsMode
 						? "message.projecthero.symbiote.spikes_on" : "message.projecthero.symbiote.spikes_off")
 				.withStyle(ChatFormatting.DARK_PURPLE), true);
-		if (player.level() instanceof ServerLevel level) {
-			level.sendParticles(ParticleTypes.SQUID_INK, player.getX(), player.getY() + 1.0, player.getZ(),
-					16, 0.4, 0.5, 0.4, 0.02);
-		}
+		SymbioteVfx.bodyBurst(player, 0.8f); // v0.17.5 tendril-vfx (was ink)
 	}
 
 	// ---------------- v0.17.5 moveset v2: one Form cycle on V ----------------
@@ -496,6 +488,7 @@ public final class SymbioteVitalsManager {
 		setBlade(player, v, true);
 		BLADE_SLOT.put(player.getId(), player.getInventory().selected);
 		SymbioteAnim.play(player, SymbioteAnim.BLADE_FORM);
+		SymbioteVfx.bodyBurst(player, 0.6f); // v0.17.5 tendril-vfx: tendrils lash out as the blade forms
 		formMessage(player, FORM_BLADE);
 		if (player.level() instanceof ServerLevel level) {
 			SymbioteSounds.organic(level, player.getX(), player.getY(), player.getZ(), 0.9f, 0.4f);
@@ -509,9 +502,8 @@ public final class SymbioteVitalsManager {
 		save(player, c);
 		if (on) {
 			SymbioteAnim.play(player, SymbioteAnim.SPIKES_FLEX);
+			SymbioteVfx.bodyBurst(player, 0.9f); // v0.17.5 tendril-vfx: Thorns bursts out of the body (was ink)
 			if (player.level() instanceof ServerLevel level) {
-				level.sendParticles(ParticleTypes.SQUID_INK, player.getX(), player.getY() + 1.0, player.getZ(),
-						16, 0.4, 0.5, 0.4, 0.02);
 				SymbioteSounds.organic(level, player.getX(), player.getY(), player.getZ(), 0.8f, 0.7f);
 			}
 		}
@@ -703,9 +695,8 @@ public final class SymbioteVitalsManager {
 			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.bond_complete")
 					.withStyle(ChatFormatting.DARK_PURPLE, ChatFormatting.BOLD), false);
 			if (player.level() instanceof ServerLevel level) {
-				level.sendParticles(ParticleTypes.REVERSE_PORTAL, player.getX(), player.getY() + 1.0, player.getZ(),
-						60, 0.4, 0.9, 0.4, 0.08);
-				level.sendParticles(ParticleTypes.FLASH, player.getX(), player.getY() + 1.0, player.getZ(), 1, 0, 0, 0, 0);
+				// v0.17.5 tendril-vfx: the bond takes hold in a burst of tendrils (was portal particles and a flash)
+				SymbioteVfx.bodyBurst(player, 1.8f);
 				// v0.10.10: the bond completing is the Symbiote taking hold, not an achievement chime --
 				// a layered roar (Warden bellow + a pitched-down Ravager snarl) over the wet writhing of
 				// the suit settling, instead of the old beacon/level-up "ding".
@@ -727,10 +718,9 @@ public final class SymbioteVitalsManager {
 			player.addEffect(new MobEffectInstance(MobEffects.HUNGER, 40, 0, false, false, false));
 		}
 		if (player.level() instanceof ServerLevel level) {
-			if (player.tickCount % 4 == 0) {
-				level.sendParticles(ParticleTypes.SQUID_INK,
-						player.getX(), player.getY() + player.getBbHeight() * player.getRandom().nextFloat(), player.getZ(),
-						3, 0.35, 0.4, 0.35, 0.01);
+			if (player.tickCount % 20 == 0) {
+				// v0.17.5 tendril-vfx: tendrils keep breaking out of the host while the bond settles (was ink every 4 ticks)
+				SymbioteVfx.send(player, SymbioteVfx.WRAP, player.getId(), player.position(), net.minecraft.world.phys.Vec3.ZERO, 0.7f, 16);
 			}
 			Long lastFx = LAST_BOND_FX.get(player.getId());
 			if (lastFx == null || now - lastFx >= 40L) {
@@ -757,8 +747,7 @@ public final class SymbioteVitalsManager {
 		if (now - start >= SNEAK_INVIS_TICKS) {
 			player.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 30, 0, true, false, false));
 			if (now - start == SNEAK_INVIS_TICKS && player.level() instanceof ServerLevel level) {
-				level.sendParticles(ParticleTypes.SQUID_INK, player.getX(), player.getY() + 1.0, player.getZ(),
-						20, 0.3, 0.5, 0.3, 0.02);
+				SymbioteVfx.bodyBurst(player, 0.6f); // v0.17.5 tendril-vfx (was ink)
 				player.displayClientMessage(Component.translatable("message.projecthero.symbiote.cloaked")
 						.withStyle(ChatFormatting.DARK_GRAY), true);
 			}
@@ -786,8 +775,7 @@ public final class SymbioteVitalsManager {
 			arrow.discard();
 			hp = Math.max(0.0f, hp - ARROW_CATCH_HP_COST);
 			caught = true;
-			level.sendParticles(ParticleTypes.SQUID_INK, arrow.getX(), arrow.getY(), arrow.getZ(),
-					14, 0.2, 0.2, 0.2, 0.03);
+			SymbioteVfx.impact(player, arrow.position(), arrow.getDeltaMovement(), 0.6f); // v0.17.5 tendril-vfx: tendrils snatch it
 			SymbioteSounds.organic(level, player.getX(), player.getY(), player.getZ(), 0.7f, 1.4f);
 			if (hp <= 0.0f) {
 				break;

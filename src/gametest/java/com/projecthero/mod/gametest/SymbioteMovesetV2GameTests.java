@@ -375,7 +375,7 @@ public class SymbioteMovesetV2GameTests implements FabricGameTest {
 		clearCooldowns(p);
 		p.setShiftKeyDown(true);
 		press(p, AbilitySlot.SLOT_1, true);
-		helper.assertTrue(cd(p, 0) > 100L, "Shift+R fires on the press: Tendril Sweep (10 s)");
+		helper.assertTrue(cd(p, SymbioteAbilityManager.CDI_SWEEP) > 100L, "Shift+R fires on the press: Tendril Sweep (10 s)");
 		press(p, AbilitySlot.SLOT_1, false);
 		press(p, AbilitySlot.SLOT_2, true);
 		helper.assertTrue(SymbioteVitalsManager.vitals(p).spikeConeReadyAt > p.level().getGameTime(), "Shift+G: Spike Fan");
@@ -387,6 +387,52 @@ public class SymbioteMovesetV2GameTests implements FabricGameTest {
 		helper.assertTrue(SymbioteAbilityManager.onslaughtCharging(p), "Shift + hold Z charges Onslaught");
 		press(p, AbilitySlot.SLOT_4, false);
 		helper.assertTrue(!SymbioteAbilityManager.onslaughtCharging(p), "an early release cancels it");
+		helper.succeed();
+	}
+
+	// ---------------- v0.17.5: every variant on its own cooldown ----------------
+
+	/** User: "if i use shift+R on symbiote i cant use regular R while Shift+R is on cooldown". */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void shiftVariantsNeverBlockThePlainMove(GameTestHelper helper) {
+		ServerPlayer p = host(helper);
+		husk(helper, 3.5, 4.5);
+		// Shift+R (Tendril Sweep) goes on cooldown ...
+		p.setShiftKeyDown(true);
+		press(p, AbilitySlot.SLOT_1, true);
+		press(p, AbilitySlot.SLOT_1, false);
+		helper.assertTrue(cd(p, SymbioteAbilityManager.CDI_SWEEP) > 100L, "Tendril Sweep cooling down");
+		helper.assertTrue(cd(p, 0) == 0L, "Tendril Strike's own cooldown untouched by the Sweep");
+		// ... and a plain R tap still fires Tendril Strike
+		p.setShiftKeyDown(false);
+		tap(p, AbilitySlot.SLOT_1);
+		helper.assertTrue(cd(p, 0) > 0L, "R still fires while Shift+R is on cooldown");
+		// and the other way round: R cooling down, Shift+R is refused only by its own entry
+		long sweep = cd(p, SymbioteAbilityManager.CDI_SWEEP);
+		clearCooldowns(p);
+		tap(p, AbilitySlot.SLOT_1);
+		p.setShiftKeyDown(true);
+		press(p, AbilitySlot.SLOT_1, true);
+		press(p, AbilitySlot.SLOT_1, false);
+		helper.assertTrue(sweep > 0L && cd(p, SymbioteAbilityManager.CDI_SWEEP) > 100L, "Shift+R fires while R is on cooldown");
+		// Onslaught (Shift + hold Z) vs Barrage (Z tap): separate entries
+		clearCooldowns(p);
+		SymbioteState c = Symbiote.state(p).copy();
+		c.abilityCooldowns.set(SymbioteAbilityManager.CDI_ONSLAUGHT, p.level().getGameTime() + 1000L);
+		p.setAttached(ModAttachments.SYMBIOTE_STATE, c);
+		p.setShiftKeyDown(false);
+		tap(p, AbilitySlot.SLOT_4);
+		helper.assertTrue(cd(p, 3) > 0L, "Z still fires a Barrage while Onslaught is on cooldown");
+		helper.assertTrue(cd(p, SymbioteAbilityManager.CDI_ONSLAUGHT) > 900L, "and Onslaught's own entry is unchanged");
+		helper.assertTrue(SymbioteAbilityManager.onslaughtReady(p, p.level().getGameTime()) == false, "Onslaught reads its own entry");
+		// Grapple (Shift+X) on its own synced entry, not the Lunge's
+		clearCooldowns(p);
+		c = Symbiote.state(p).copy();
+		c.abilityCooldowns.set(SymbioteAbilityManager.CDI_GRAPPLE, p.level().getGameTime() + 1000L);
+		p.setAttached(ModAttachments.SYMBIOTE_STATE, c);
+		helper.assertTrue(!SymbioteAbilityManager.grappleReady(p, p.level().getGameTime()), "Grapple reads its own entry");
+		helper.assertTrue(SymbioteAbilityManager.leapReady(p, p.level().getGameTime()), "the Lunge is still ready");
+		helper.assertTrue(SymbioteState.COOLDOWN_SLOTS == 15 && Symbiote.state(p).abilityCooldowns.size() == 15, "15 cooldown entries");
 		helper.succeed();
 	}
 
