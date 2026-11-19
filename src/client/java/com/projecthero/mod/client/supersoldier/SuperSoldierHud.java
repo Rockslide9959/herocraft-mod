@@ -8,6 +8,7 @@ import com.projecthero.mod.client.gui.MoveListOverlay;
 import com.projecthero.mod.client.gui.VanillaHud;
 import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.hero.data.ExperimentalState;
+import com.projecthero.mod.supersoldier.CapShieldSlot;
 import com.projecthero.mod.supersoldier.SuperSoldier;
 import com.projecthero.mod.supersoldier.SuperSoldierAbilities;
 import com.projecthero.mod.supersoldier.SuperSoldierAbilityManager;
@@ -53,7 +54,8 @@ public final class SuperSoldierHud {
 			return;
 		}
 		long now = mc.level.getGameTime();
-		boolean shield = SuperSoldierAbilities.shieldHand(p) != null;
+		// v0.17.5: a shield in the Battle Suit's slot always counts as held
+		boolean shield = SuperSoldierAbilities.shieldHand(p) != null || CapShieldSlot.hasThrowable(p);
 		boolean shift = p.isShiftKeyDown();
 		VanillaHud.Stack st = VanillaHud.Stack.bottomRight(g, VanillaHud.ORDER.length).keys(VanillaHud.ORDER.length);
 		for (int i = 0; i < VanillaHud.ORDER.length; i++) {
@@ -73,15 +75,27 @@ public final class SuperSoldierHud {
 			st.slot(i, VanillaHud.keyLabel(slot), usable, shift, Math.min(1f, frac), VanillaHud.seconds(cd), Math.min(1f, otherFrac), active);
 		}
 		st.title(Component.translatable("hud.projecthero.super_soldier.title"), NAME);
+		// v0.17.5: the Battle Suit's shield slot -- a status word instead of an N box (no H / N boxes)
+		boolean slot = CapShieldSlot.hasSlot(p);
+		if (slot) {
+			boolean full = !CapShieldSlot.slotted(p).isEmpty();
+			String word = Component.translatable(CapShieldSlot.isGuarding(p) ? "hud.projecthero.super_soldier.slot_raised"
+					: full ? "hud.projecthero.super_soldier.slot_full" : "hud.projecthero.super_soldier.slot_empty").getString();
+			st.tags(List.of(new VanillaHud.Tag(word, full ? 0xFF7FB2FF : 0xFF8A8A8A)));
+		}
 
 		if (MoveListOverlay.held()) {
 			List<MoveListOverlay.Row> rows = new ArrayList<>();
-			for (AbilitySlot slot : VanillaHud.ORDER) {
-				String[] ids = SuperSoldierAbilityManager.idsOf(slot);
+			for (AbilitySlot slotKey : VanillaHud.ORDER) {
+				String[] ids = SuperSoldierAbilityManager.idsOf(slotKey);
 				if (ids.length > 0) {
-					rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot), Component.translatable("projecthero.super_soldier.ability." + ids[0]),
+					rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slotKey), Component.translatable("projecthero.super_soldier.ability." + ids[0]),
 							ids.length > 1 ? Component.translatable("projecthero.super_soldier.ability." + ids[1]) : null));
 				}
+			}
+			if (slot) {
+				rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(AbilitySlot.SLOT_8), Component.translatable("projecthero.super_soldier.ability.shield_slot"),
+						null));
 			}
 			st.moveList(rows);
 		}

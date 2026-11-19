@@ -73,6 +73,8 @@ public final class SuperSoldierItems {
 		CHESTPLATE = piece("captain_america_chestplate", ArmorItem.Type.CHESTPLATE);
 		LEGGINGS = piece("captain_america_leggings", ArmorItem.Type.LEGGINGS);
 		BOOTS = piece("captain_america_boots", ArmorItem.Type.BOOTS);
+		// v0.17.5: the Captain America Battle Suit (the user's NameMC skin) with the Super Soldier's shield slot on the top
+		CapBattleSuitItem.register();
 		SuperheroArmorVisuals.register(SuperSoldierArmorItem.SET_ID, new ArmorVisualDefinition(
 				ProjectHeroMod.id("geo/captain_america.geo.json"),
 				ProjectHeroMod.id("textures/armor/captain_america.png"),
@@ -93,5 +95,9 @@ public final class SuperSoldierItems {
 		output.accept(CHESTPLATE);
 		output.accept(LEGGINGS);
 		output.accept(BOOTS);
+		output.accept(CapBattleSuitItem.COWL);
+		output.accept(CapBattleSuitItem.TOP);
+		output.accept(CapBattleSuitItem.TROUSERS);
+		output.accept(CapBattleSuitItem.BOOTS);
 	}
 }

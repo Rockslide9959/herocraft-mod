@@ -92,6 +92,11 @@ public final class AbilityRouter {
 				com.projecthero.mod.blackpanther.BlackPantherAbilityManager.handle(player, slot, pressed);
 				return;
 			}
+			// v0.17.5 (user): a Super Soldier in the Captain America Battle Suit top -- N puts the shield in the suit's slot / takes it out
+			if (slot == AbilitySlot.SLOT_8 && com.projecthero.mod.supersoldier.SuperSoldierAbilityManager.ownsN(player)) {
+				com.projecthero.mod.supersoldier.SuperSoldierAbilityManager.handleN(player, pressed);
+				return;
+			}
 			// Sneak + N fires a power combo when the player owns a matching pair of mutations (v0.13.22)
 			if (slot == AbilitySlot.SLOT_8 && player.isShiftKeyDown()
 					&& com.projecthero.mod.hero.power.ComboMoves.available(player) != null) {

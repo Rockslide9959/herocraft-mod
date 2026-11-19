@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "B B",
+    "WHW",
+    "RLR"
+  ],
+  "key": {
+    "B": {
+      "item": "minecraft:blue_wool"
+    },
+    "W": {
+      "item": "minecraft:white_dye"
+    },
+    "H": {
+      "item": "projecthero:hero_alloy_ingot"
+    },
+    "R": {
+      "item": "minecraft:red_dye"
+    },
+    "L": {
+      "item": "minecraft:leather"
+    }
+  },
+  "result": {
+    "id": "projecthero:cap_battle_suit_top",
+    "count": 1
+  }
+}

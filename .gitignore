@@ -70,3 +70,8 @@ src/main/resources/assets/projecthero/textures/entity/sentry/sentry_void_*.png
 src/main/resources/assets/projecthero/textures/armor/symbiote_host_lethal.png
 src/main/resources/assets/projecthero/textures/armor/symbiote_host_lethal_tint.png
 src/main/resources/assets/projecthero/textures/armor/symbiote_host_lethal_fx.png
+# v0.17.5 Captain America Battle Suit: textures made from the user's NameMC skin (https://namemc.com/skin/63b230543038f21b; author unknown,
+# no licence stated) -- local builds only until the licence is checked; the game draws cap_battle_suit_original_* without them.
+# Re-make with: node scratchpad/supersoldier/make_cap_suit_textures.js   (reads docs/reference/supersoldier/cap_suit.png)
+src/main/resources/assets/projecthero/textures/entity/supersoldier/cap_battle_suit_wide.png
+src/main/resources/assets/projecthero/textures/entity/supersoldier/cap_battle_suit_slim.png

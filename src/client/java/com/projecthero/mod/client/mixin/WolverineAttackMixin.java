@@ -28,14 +28,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class WolverineAttackMixin {
 	@Inject(method = "startAttack", at = @At("HEAD"), cancellable = true)
 	private void projecthero$wolverineGuardNoAttack(CallbackInfoReturnable<Boolean> cir) {
-		if (ProjectHeroModClient.wolverineGuardSent) {
+		// v0.17.5: likewise while the Battle Suit's slotted shield is raised
+		if (ProjectHeroModClient.wolverineGuardSent || com.projecthero.mod.client.supersoldier.CapSuitClient.guardSent) {
 			cir.setReturnValue(false);
 		}
 	}
 
 	@Inject(method = "continueAttack", at = @At("HEAD"), cancellable = true)
 	private void projecthero$wolverineGuardNoMining(boolean leftClick, CallbackInfo ci) {
-		if (ProjectHeroModClient.wolverineGuardSent) {
+		if (ProjectHeroModClient.wolverineGuardSent || com.projecthero.mod.client.supersoldier.CapSuitClient.guardSent) {
 			ci.cancel();
 		}
 	}

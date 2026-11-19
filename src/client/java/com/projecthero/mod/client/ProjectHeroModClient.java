@@ -1192,6 +1192,16 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			maxSteelTransformWasDown = down;
 			return;
 		}
+		// v0.17.5 (user): a Super Soldier in the Captain America Battle Suit top -- N stores the shield in the suit's slot / takes it out
+		if (client.player != null && com.projecthero.mod.supersoldier.CapShieldSlot.hasSlot(client.player) && !mutationSelected(client)) {
+			if (down && !maxSteelTransformWasDown && client.screen == null) {
+				ClientPlayNetworking.send(new AbilityInputPayload(8, true));
+			} else if (!down && maxSteelTransformWasDown) {
+				ClientPlayNetworking.send(new AbilityInputPayload(8, false));
+			}
+			maxSteelTransformWasDown = down;
+			return;
+		}
 		// v0.17.1 (user): Shift+N toggles Ground-Stick for a speedster (before N's own utility move can take it)
 		if (client.player != null && Screen.hasShiftDown()
 				&& com.projecthero.mod.client.speed.SpeedsterGroundStick.isSpeedster(client.player)) {

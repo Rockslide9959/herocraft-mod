@@ -9,8 +9,8 @@ import net.minecraft.server.level.ServerPlayer;
 /**
  * Bridges the universal ability slots to the Super Soldier kit and runs the power's per-player server tick (v0.14.8).
  * {@link com.projecthero.mod.hero.AbilityRouter} hands him the slots when {@link #hasContext} is true (he has the power
- * and no experimental mutation is selected). Ability 3 = X, 4 = Z, 5 = V, 6 = C. Shift is read on the server. H and N
- * are not his: H stays the power selector.
+ * and no experimental mutation is selected). Ability 3 = X, 4 = Z, 5 = V, 6 = C. Shift is read on the server. H is not his:
+ * H stays the power selector. N (v0.17.5, user-assigned) only in the Battle Suit top: the shield slot ({@link #ownsN}).
  *
  * <pre>
  *   R  Combo Strike      / Shift+R  Uppercut Launcher
@@ -36,6 +36,20 @@ public final class SuperSoldierAbilityManager {
 		}
 		ExperimentalState st = player.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
 		return st == null || st.activePower.isEmpty();
+	}
+
+	/**
+	 * v0.17.5 (user-assigned N): a Super Soldier in the Captain America Battle Suit top owns N -- it stores / retrieves the shield in the
+	 * suit's shield slot ({@link CapShieldSlot#toggle}). Routed from the H / N branch of {@code AbilityRouter}.
+	 */
+	public static boolean ownsN(ServerPlayer player) {
+		return hasContext(player) && CapShieldSlot.hasSlot(player);
+	}
+
+	public static void handleN(ServerPlayer player, boolean pressed) {
+		if (pressed) {
+			CapShieldSlot.toggle(player);
+		}
 	}
 
 	public static void handle(ServerPlayer player, AbilitySlot slot, boolean pressed) {
@@ -89,6 +103,7 @@ public final class SuperSoldierAbilityManager {
 	/** Runs for every player every server tick, whichever power currently holds the slots. Cheap when he has no power. */
 	public static void serverTick(ServerPlayer player) {
 		SuperSoldierArmorGate.enforce(player); // v0.14.9: only a Super Soldier may wear the suit -- checked for everyone
+		CapShieldSlot.tick(player); // v0.17.5: the Battle Suit's shield slot (guard upkeep; a slotted shield off a top without a slot)
 		if (!SuperSoldier.hasPower(player)) {
 			return;
 		}

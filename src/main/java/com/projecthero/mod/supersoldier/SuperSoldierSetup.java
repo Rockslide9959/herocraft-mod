@@ -25,5 +25,6 @@ public final class SuperSoldierSetup {
 		SuperSoldierEntities.initialize();
 		SuperSoldierDamage.initialize();
 		CapShieldStow.initialize(); // v0.17.5: a carried, unheld Captain America shield is slung on the back
+		CapShieldSlot.initialize(); // v0.17.5: the Battle Suit top's shield slot (N) and the slotted-shield guard packet
 	}
 }

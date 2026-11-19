@@ -196,6 +196,12 @@ public final class QuirkCostume {
 		if (com.projecthero.mod.spin.GyroSuitItem.wornIn(entity, slot)) {
 			return tex(com.projecthero.mod.spin.GyroSuitItem.texture(slim(entity)));
 		}
+		// v0.17.5: the Captain America Battle Suit -- the user's (held-back) NameMC skin when the build has it, else the original suit
+		if (com.projecthero.mod.supersoldier.item.CapBattleSuitItem.wornIn(entity, slot)) {
+			boolean slim = slim(entity);
+			Tex borrowed = tex(com.projecthero.mod.supersoldier.item.CapBattleSuitItem.texture(slim));
+			return borrowed != null ? borrowed : tex(com.projecthero.mod.supersoldier.item.CapBattleSuitItem.originalTexture(slim));
+		}
 		Quirk q = QuirkSuits.wornIn(entity, slot);
 		return q == null ? null : tex(q, slim(entity));
 	}
@@ -340,7 +346,8 @@ public final class QuirkCostume {
 		}
 		boolean bird = birdHead(entity);
 		if (!bird && !QuirkSuits.anyWorn(entity) && !com.projecthero.mod.undead.item.UndeadSuitItem.anyWorn(entity)
-				&& !com.projecthero.mod.spin.GyroSuitItem.anyWorn(entity)) {
+				&& !com.projecthero.mod.spin.GyroSuitItem.anyWorn(entity)
+				&& !com.projecthero.mod.supersoldier.item.CapBattleSuitItem.anyWorn(entity)) {
 			return;
 		}
 		beginUndead(entity);

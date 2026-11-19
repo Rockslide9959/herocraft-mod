@@ -73,6 +73,8 @@ public class SoldierShieldEntity extends Entity {
 	private float damage = SuperSoldierConfig.SHIELD_DAMAGE;
 	private double range = SuperSoldierConfig.SHIELD_RANGE;
 	private InteractionHand hand = InteractionHand.MAIN_HAND;
+	/** v0.17.5: thrown from the Battle Suit's shield slot -- it goes back into the slot (the hand only if the slot is gone). */
+	private boolean toSlot;
 	/** The thrown shield itself. Empty once it has been handed back or dropped. */
 	private ItemStack stack = ItemStack.EMPTY;
 	private final Set<Integer> hit = new HashSet<>();
@@ -107,6 +109,16 @@ public class SoldierShieldEntity extends Entity {
 		shield.setDeltaMovement(aim.normalize().scale(SuperSoldierConfig.SHIELD_SPEED));
 		owner.level().addFreshEntity(shield);
 		return shield;
+	}
+
+	/** v0.17.5: this throw came from the Battle Suit's shield slot and goes home into it. */
+	public void returnToSlot() {
+		this.toSlot = true;
+	}
+
+	/** v0.17.5: thrown from (and going back to) the shield slot (server only). */
+	public boolean returnsToSlot() {
+		return toSlot;
 	}
 
 	/** v0.16.1: a stronger shield (the Vibranium Shield): its own damage, bounces and range. */
@@ -384,7 +396,9 @@ public class SoldierShieldEntity extends Entity {
 	private void deliver(ServerPlayer owner) {
 		ItemStack give = takeStack();
 		if (!give.isEmpty()) {
-			if (owner.getItemInHand(hand).isEmpty()) {
+			if (toSlot && com.projecthero.mod.supersoldier.CapShieldSlot.putBack(owner, give)) {
+				// v0.17.5: home into the shield slot
+			} else if (owner.getItemInHand(hand).isEmpty()) {
 				owner.setItemInHand(hand, give);
 			} else if (!owner.getInventory().add(give) || !give.isEmpty()) {
 				spawnItem((ServerLevel) owner.level(), owner.position(), give);
@@ -447,6 +461,7 @@ public class SoldierShieldEntity extends Entity {
 			ownerId = tag.getUUID("Owner");
 		}
 		hand = tag.getBoolean("OffHand") ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND;
+		toSlot = tag.getBoolean("ToSlot");
 		hitsLeft = tag.getInt("HitsLeft");
 		damage = tag.getFloat("Damage");
 		range = tag.getDouble("Range");
@@ -463,6 +478,7 @@ public class SoldierShieldEntity extends Entity {
 			tag.putUUID("Owner", ownerId);
 		}
 		tag.putBoolean("OffHand", hand == InteractionHand.OFF_HAND);
+		tag.putBoolean("ToSlot", toSlot);
 		tag.putInt("HitsLeft", hitsLeft);
 		tag.putFloat("Damage", damage);
 		tag.putDouble("Range", range);

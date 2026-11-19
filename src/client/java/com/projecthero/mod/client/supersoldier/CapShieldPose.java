@@ -11,6 +11,7 @@ import org.joml.Vector3f;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 
+import com.projecthero.mod.supersoldier.CapShieldSlot;
 import com.projecthero.mod.supersoldier.entity.SoldierShieldEntity;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -119,7 +120,7 @@ public final class CapShieldPose {
 		for (Player p : level.players()) {
 			float[] b = BLOCK.computeIfAbsent(p.getId(), k -> new float[2]);
 			b[0] = b[1];
-			boolean up = p.isUsingItem() && CapShieldModel.isCapShield(p.getUseItem());
+			boolean up = raised(p);
 			b[1] = up ? Math.min(1f, b[1] + 1f / RAISE_TICKS) : Math.max(0f, b[1] - 1f / LOWER_TICKS);
 		}
 		BLOCK.keySet().removeIf(k -> !(level.getEntity(k) instanceof Player));
@@ -180,11 +181,19 @@ public final class CapShieldPose {
 		float[] b = BLOCK.get(e.getId());
 		float v;
 		if (b == null) {
-			v = e.isUsingItem() && CapShieldModel.isCapShield(e.getUseItem()) ? 1f : 0f;
+			v = raised(e) ? 1f : 0f;
 		} else {
 			v = Mth.lerp(partial, b[0], b[1]);
 		}
 		return smooth(v);
+	}
+
+	/**
+	 * A Captain America shield raised right now: one in use (blocking) in a hand, or (v0.17.5) the Battle Suit's slotted shield raised
+	 * with right-click ({@link CapShieldSlot#isGuarding}; it is drawn on the off-hand forearm, so the off-hand arm takes the block pose).
+	 */
+	private static boolean raised(LivingEntity e) {
+		return (e.isUsingItem() && CapShieldModel.isCapShield(e.getUseItem())) || (e instanceof Player p && CapShieldSlot.isGuarding(p));
 	}
 
 	private static float since(long[] at, float partial) {
