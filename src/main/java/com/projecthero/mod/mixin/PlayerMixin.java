@@ -119,7 +119,9 @@ public abstract class PlayerMixin {
 	@Inject(method = "getDestroySpeed", at = @At("RETURN"), cancellable = true)
 	private void projecthero$waterMining(BlockState state, CallbackInfoReturnable<Float> cir) {
 		Player self = (Player) (Object) this;
-		if (!self.onGround() && self.isInWater() && com.projecthero.mod.hero.power.p25.WaterHandlers.owns(self)) {
+		// v0.17.5: Beast Boy's sea animals too
+		if (!self.onGround() && self.isInWater() && (com.projecthero.mod.hero.power.p25.WaterHandlers.owns(self)
+				|| com.projecthero.mod.beastboy.BeastBoyForms.waterBody(self))) {
 			cir.setReturnValue(cir.getReturnValue() * 5.0f);
 		}
 	}

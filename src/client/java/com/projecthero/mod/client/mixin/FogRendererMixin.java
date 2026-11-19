@@ -88,7 +88,8 @@ public class FogRendererMixin {
 		// when you have just gone under) is pushed out to most of the render distance
 		if (camera.getFluidInCamera() == net.minecraft.world.level.material.FogType.WATER
 				&& camera.getEntity() instanceof net.minecraft.world.entity.player.Player viewer
-				&& com.projecthero.mod.hero.power.p25.WaterHandlers.owns(viewer)) {
+				&& (com.projecthero.mod.hero.power.p25.WaterHandlers.owns(viewer)
+						|| com.projecthero.mod.beastboy.BeastBoyForms.waterBody(viewer))) { // v0.17.5: Beast Boy's sea animals too
 			float end = Math.max(96.0f, farPlaneDistance * 0.9f);
 			RenderSystem.setShaderFogStart(end * 0.35f);
 			RenderSystem.setShaderFogEnd(end);

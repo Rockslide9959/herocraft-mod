@@ -1,0 +1,335 @@
+// TEMP-HARNESS copy (v0.17.5 Beast Boy fish form). Usage: see scratchpad/beastboy/beast_fish_films.sh (copy back into src/client/java/com/projecthero/mod/client/BeastFishHarness.java,
+// call BeastFishHarness.init() after ModKeyBindings.initialize() in ProjectHeroModClient, run/beastfish.flag ("mine" = mining scenes only)). Remove it again afterwards.
+
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.beastboy.BeastBoy;
+import com.projecthero.mod.beastboy.BeastForm;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped), v0.17.5 Beast Boy fish form: (1) the underwater view from one spot deep in a big glass tank of water
+ * with coloured marker pillars every 16 blocks, as a human (vanilla water fog, his night vision: what the sea forms saw before) and
+ * as a shark (after), at noon and at midnight; (2) mining a dirt wall underwater, floating, as a human and as a shark, with the real
+ * client mining path (MultiPlayerGameMode start/continueDestroyBlock on the crosshair block). Enabled by run/beastfish.flag.
+ * Frames: run/screenshots/bf_<scene>_NNN.png.
+ */
+public final class BeastFishHarness {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks, t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String recording;
+	private static int recFrame, recUntil;
+	private static Vec3 origin;
+	private static Float lookYaw, lookPitch;
+	private static float yawSpin, pitchSpin;
+	private static boolean mining, onlyMine;
+	private static int broken;
+
+	private BeastFishHarness() {
+	}
+
+	private static void grabbed(Minecraft mc, boolean on) {
+		try {
+			java.lang.reflect.Field f = net.minecraft.client.MouseHandler.class.getDeclaredField("mouseGrabbed");
+			f.setAccessible(true);
+			f.setBoolean(mc.mouseHandler, on);
+		} catch (ReflectiveOperationException e) {
+			System.out.println("[HARNESS] grab failed " + e);
+		}
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("beastfish.flag"))) {
+			return;
+		}
+		try {
+			onlyMine = Files.readString(Path.of("beastfish.flag")).contains("mine");
+		} catch (Exception e) {
+			onlyMine = false;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(BeastFishHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "bf-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(BeastFishHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 80) {
+			mc.options.hideGui = true;
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			mc.options.fov().set(70);
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			mc.options.renderDistance().set(8); // the marker pillars go out to 80 blocks
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.resizeDisplay();
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				p.setGameMode(GameType.SURVIVAL);
+				p.removeAllEffects();
+				BeastBoy.grant(p);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+				buildTank(level);
+			});
+		}
+		if (inWorldTicks == 400) {
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			if (lookYaw != null && mc.player != null) {
+				lookYaw += yawSpin;
+				lookPitch = Math.max(-89f, Math.min(89f, lookPitch + pitchSpin));
+				mc.player.setYRot(lookYaw);
+				mc.player.setXRot(lookPitch);
+				mc.player.setYHeadRot(lookYaw);
+			}
+			if (mining && mc.player.tickCount % 20 == 0) {
+				System.out.println("[HARNESS] mine dbg hit=" + (mc.hitResult == null ? "null" : mc.hitResult.getType() + " " + mc.hitResult.getLocation())
+						+ " eye=" + mc.player.getEyePosition() + " destroying=" + (mc.gameMode != null && mc.gameMode.isDestroying())
+						+ " cam=" + mc.gameRenderer.getMainCamera().getPosition() + " range=" + mc.player.blockInteractionRange());
+			}
+			if (mining) {
+				// vanilla's own mining (Minecraft#continueAttack): the attack key held, the mouse counted as grabbed (the window is unfocused)
+				grabbed(mc, true);
+				mc.options.keyAttack.setDown(true);
+			}
+			if (recording != null) {
+				String name = String.format("bf_%s_%03d.png", recording, recFrame++);
+				Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), c -> {
+				});
+				if (inWorldTicks - t0 >= recUntil) {
+					System.out.println("[HARNESS] recorded " + recording + " frames=" + recFrame);
+					recording = null;
+				}
+			}
+			if (AT.isEmpty() && recording == null) {
+				System.out.println("[HARNESS] DONE");
+				t0 = -1;
+				mc.execute(() -> Runtime.getRuntime().halt(0));
+			}
+		}
+	}
+
+	/** Glass tank 100 long (+X), 31 wide, 26 deep, full of water; marker pillars every 16 blocks ahead; a dirt wall behind (-X). */
+	private static void buildTank(ServerLevel level) {
+		BlockPos o = BlockPos.containing(origin);
+		int x0 = o.getX() - 12, x1 = o.getX() + 96, z0 = o.getZ() - 15, z1 = o.getZ() + 15, y0 = o.getY(), y1 = o.getY() + 26;
+		for (int x = x0; x <= x1; x++) {
+			for (int z = z0; z <= z1; z++) {
+				level.setBlock(new BlockPos(x, y0 - 1, z), Blocks.SAND.defaultBlockState(), 2);
+				for (int y = y0; y <= y1; y++) {
+					boolean wall = x == x0 || x == x1 || z == z0 || z == z1;
+					BlockPos p = new BlockPos(x, y, z);
+					if (wall) {
+						level.setBlock(p, y == y1 ? Blocks.AIR.defaultBlockState() : Blocks.GLASS.defaultBlockState(), 2);
+					} else if (y < y1 - 1) {
+						level.setBlock(p, Blocks.WATER.defaultBlockState(), 2);
+					}
+				}
+			}
+		}
+		BlockState[] marks = { Blocks.RED_CONCRETE.defaultBlockState(), Blocks.YELLOW_CONCRETE.defaultBlockState(),
+				Blocks.LIME_CONCRETE.defaultBlockState(), Blocks.LIGHT_BLUE_CONCRETE.defaultBlockState(), Blocks.MAGENTA_CONCRETE.defaultBlockState() };
+		for (int i = 0; i < marks.length; i++) {
+			int x = o.getX() + 16 * (i + 1);
+			for (int dz : new int[] { -6, 6 }) {
+				for (int y = y0; y < y0 + 20; y++) {
+					level.setBlock(new BlockPos(x, y, o.getZ() + dz), marks[i], 2);
+				}
+			}
+		}
+		wall(level);
+	}
+
+	/** The dirt wall to mine: one layer, 4 blocks behind the start, 7 wide, 5 high around eye height, framed with sea lanterns. */
+	private static void wall(ServerLevel level) {
+		BlockPos o = BlockPos.containing(origin);
+		int y0 = o.getY();
+		for (int z = o.getZ() - 4; z <= o.getZ() + 4; z++) {
+			for (int y = y0 + 9; y <= y0 + 15; y++) {
+				boolean frame = z == o.getZ() - 4 || z == o.getZ() + 4 || y == y0 + 9 || y == y0 + 15;
+				level.setBlock(new BlockPos(o.getX() - 4, y, z), frame ? Blocks.SEA_LANTERN.defaultBlockState() : Blocks.DIRT.defaultBlockState(), 2);
+			}
+		}
+	}
+
+	private static void record(int start, String name, int ticks) {
+		at(start, () -> {
+			recording = name;
+			recFrame = 0;
+			recUntil = start + ticks;
+		});
+	}
+
+	private static void look(int t, float yaw, float pitch, float ySpin, float pSpin) {
+		at(t, () -> {
+			lookYaw = yaw;
+			lookPitch = pitch;
+			yawSpin = ySpin;
+			pitchSpin = pSpin;
+		});
+	}
+
+	/** Puts him (form f) with his eyes at the same spot 12 blocks under the surface, floating still. */
+	private static void place(Minecraft mc, int t, BeastForm f, long time, double dx, float yaw) {
+		look(t, yaw, 0f, 0f, 0f);
+		at(t, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			level.setDayTime(time);
+			p.removeAllEffects();
+			BeastBoy.setForm(p, BeastForm.HUMAN);
+			BeastBoy.clearTransient(p);
+			BeastBoy.clearCooldowns(p);
+			BeastBoy.setStamina(p, 100f);
+			if (f != BeastForm.HUMAN) {
+				BeastBoy.setForm(p, f);
+			}
+			BeastBoy.tick(p); // his night vision
+			p.setNoGravity(true);
+			double eye = p.getEyeHeight();
+			p.teleportTo(level, origin.x + dx, origin.y + 12.0 - eye, origin.z, yaw, 0f);
+			p.setDeltaMovement(Vec3.ZERO);
+			p.setYHeadRot(yaw);
+			p.yBodyRot = yaw;
+			p.setAirSupply(p.getMaxAirSupply());
+		}));
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		// (1) the view down the tank (+X is yaw -90), 5 s under, noon and midnight
+		String[] when = { "noon", "midnight" };
+		long[] times = { 6000L, 18000L };
+		for (int i = 0; i < (onlyMine ? 0 : 2); i++) {
+			place(mc, t, BeastForm.HUMAN, times[i], 0.0, -90f);
+			record(t + 100, "view_before_" + when[i], 1);
+			t += 115;
+			place(mc, t, BeastForm.SHARK, times[i], 0.0, -90f);
+			record(t + 100, "view_after_" + when[i], 1);
+			t += 115;
+		}
+		// (2) mining the dirt wall, floating: 2 blocks in front of it (yaw 90 = -X), sweeping across it
+		for (BeastForm f : new BeastForm[] { BeastForm.HUMAN, BeastForm.SHARK }) {
+			String n = f == BeastForm.HUMAN ? "mine_before_human" : "mine_after_shark";
+			place(mc, t, f, 6000L, -0.5, 90f);
+			at(t + 20, () -> {
+				mining = true;
+				broken = 0;
+			});
+			// across the middle row (to +35 degrees, back to -35), then the row above going back
+			at(t + 20, () -> yawSpin = 0.6f);
+			at(t + 78, () -> yawSpin = -0.6f);
+			at(t + 195, () -> yawSpin = 0f);
+			record(t + 15, n, 200);
+			at(t + 220, () -> {
+				mining = false;
+				mc.options.keyAttack.setDown(false);
+				grabbed(mc, false);
+				System.out.println("[HARNESS] " + n + " done");
+			});
+			// rebuild the wall for the next scene
+			at(t + 225, () -> server(mc, p -> {
+				wall(p.serverLevel());
+				System.out.println("[HARNESS] destroy speed check: " + p.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.SUBMERGED_MINING_SPEED)
+						+ " form=" + BeastBoy.form(p) + " inWater=" + p.isInWater() + " eyeInWater=" + p.isEyeInFluid(net.minecraft.tags.FluidTags.WATER)
+						+ " onGround=" + p.onGround() + " speed=" + p.getDestroySpeed(Blocks.DIRT.defaultBlockState()));
+			}));
+			t += 235;
+		}
+		at(t, () -> lookYaw = null);
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("BF_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false,
+				Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}
