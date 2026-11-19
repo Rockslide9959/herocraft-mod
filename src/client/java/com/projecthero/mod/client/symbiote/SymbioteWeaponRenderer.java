@@ -119,8 +119,11 @@ public final class SymbioteWeaponRenderer {
 
 	private static final class Ctx {
 		final PoseStack.Pose pose;
-		final VertexConsumer body;
-		final VertexConsumer edge;
+		// v0.17.5 fix: the buffers are fetched right before each write -- asking a MultiBufferSource for another render type ends the
+		// previous one ("Not building!" crash when a held VertexConsumer is written to after another type was fetched)
+		final MultiBufferSource buffers;
+		final RenderType bodyType;
+		final RenderType edgeType;
 		final int light;
 		final int edgeRgb;
 		final double xc;
@@ -131,8 +134,9 @@ public final class SymbioteWeaponRenderer {
 
 		Ctx(PoseStack pose, MultiBufferSource buffers, int light, Player owner, boolean rightArm, boolean slim, float time, SymbioteVitals v) {
 			this.pose = pose.last();
-			this.body = buffers.getBuffer(RenderType.entityCutoutNoCull(SymbioteSuitTint.goo(owner, TEXTURE)));
-			this.edge = buffers.getBuffer(RenderType.entityCutoutNoCull(EDGE));
+			this.buffers = buffers;
+			this.bodyType = RenderType.entityCutoutNoCull(SymbioteSuitTint.goo(owner, TEXTURE));
+			this.edgeType = RenderType.entityCutoutNoCull(EDGE);
 			this.light = light;
 			this.side = rightArm ? -1.0 : 1.0;
 			this.xc = side * (slim ? 0.5 : 1.0) / 16.0;
@@ -156,12 +160,20 @@ public final class SymbioteWeaponRenderer {
 			}
 		}
 
+		VertexConsumer body() {
+			return buffers.getBuffer(bodyType);
+		}
+
+		VertexConsumer edge() {
+			return buffers.getBuffer(edgeType);
+		}
+
 		Vec3 p(double x, double y, double z) {
 			return new Vec3(x, y, z);
 		}
 
 		void tube(Vec3[] pts, float[] radii, int sides, boolean edgeTex) {
-			GooMesh.tube(edgeTex ? edge : body, pose, light, edgeTex ? edgeRgb : 0xFFFFFF, pts, radii, sides, 0.3f);
+			GooMesh.tube(edgeTex ? edge() : body(), pose, light, edgeTex ? edgeRgb : 0xFFFFFF, pts, radii, sides, 0.3f);
 		}
 
 		/** A tapering tube along {@code pts} from radius {@code r0} to {@code r1}. */
@@ -262,6 +274,8 @@ public final class SymbioteWeaponRenderer {
 					solid[i][j] = !sf.hole((i + 0.5) / ns, (j + 0.5) / nu);
 				}
 			}
+			for (int pass = 0; pass < 2; pass++) {
+			VertexConsumer vc = pass == 0 ? body() : edge();
 			for (int i = 0; i < is; i++) {
 				float v0 = (float) i / ns, v1 = (float) (i + 1) / ns;
 				for (int j = 0; j < nu; j++) {
@@ -270,32 +284,35 @@ public final class SymbioteWeaponRenderer {
 					}
 					float u0 = (float) j / nu, u1 = (float) (j + 1) / nu;
 					boolean e = (j + 0.5) / nu > 1.0 - edgeBand;
-					VertexConsumer vc = e ? edge : body;
+					if (e != (pass == 1)) {
+						continue;
+					}
 					int rgb = e ? edgeRgb : 0xFFFFFF;
 					GooMesh.quad(vc, pose, light, rgb, top[i][j], top[i][j + 1], top[i + 1][j + 1], top[i + 1][j], u0, v0, u1, v1);
 					GooMesh.quad(vc, pose, light, rgb, bot[i][j], bot[i + 1][j], bot[i + 1][j + 1], bot[i][j + 1], u0, v0, u1, v1);
 					// rims: wherever the neighbour is a hole (or the sheet ends), close the gap between the faces
 					if (j == 0 || !solid[i][j - 1]) {
-						wall(top[i][j], top[i + 1][j], bot[i + 1][j], bot[i][j], v0, v1);
+						wall(vc, top[i][j], top[i + 1][j], bot[i + 1][j], bot[i][j], v0, v1);
 					}
 					if (j == nu - 1 || !solid[i][j + 1]) {
-						wall(top[i + 1][j + 1], top[i][j + 1], bot[i][j + 1], bot[i + 1][j + 1], v0, v1);
+						wall(vc, top[i + 1][j + 1], top[i][j + 1], bot[i][j + 1], bot[i + 1][j + 1], v0, v1);
 					}
 					if (i == 0 || !solid[i - 1][j]) {
-						wall(top[i][j + 1], top[i][j], bot[i][j], bot[i][j + 1], u0, u1);
+						wall(vc, top[i][j + 1], top[i][j], bot[i][j], bot[i][j + 1], u0, u1);
 					}
 					if (i == is - 1 || !solid[i + 1][j]) {
-						wall(top[i + 1][j], top[i + 1][j + 1], bot[i + 1][j + 1], bot[i + 1][j], u0, u1);
+						wall(vc, top[i + 1][j], top[i + 1][j + 1], bot[i + 1][j + 1], bot[i + 1][j], u0, u1);
 					}
 				}
 			}
+			}
 		}
 
-		void wall(Vec3 a, Vec3 b, Vec3 c, Vec3 d, float t0, float t1) {
+		void wall(VertexConsumer vc, Vec3 a, Vec3 b, Vec3 c, Vec3 d, float t0, float t1) {
 			if (a.distanceToSqr(d) < 1.0e-7 && b.distanceToSqr(c) < 1.0e-7) {
 				return;
 			}
-			GooMesh.quad(body, pose, light, 0x9A9A9A, a, b, c, d, t0, 0.2f, t1, 0.28f);
+			GooMesh.quad(vc, pose, light, 0x9A9A9A, a, b, c, d, t0, 0.2f, t1, 0.28f);
 		}
 
 		// ---------------- Blade: the crescent scythe ----------------
@@ -500,9 +517,10 @@ public final class SymbioteWeaponRenderer {
 					sph[i][j] = c.add(d.scale(R * lump));
 				}
 			}
+			VertexConsumer ball = body();
 			for (int i = 0; i < rings; i++) {
 				for (int j = 0; j < segs; j++) {
-					GooMesh.quad(body, pose, light, 0xFFFFFF, sph[i][j], sph[i][j + 1], sph[i + 1][j + 1], sph[i + 1][j],
+					GooMesh.quad(ball, pose, light, 0xFFFFFF, sph[i][j], sph[i][j + 1], sph[i + 1][j + 1], sph[i + 1][j],
 							(float) j / segs, (float) i / rings, (float) (j + 1) / segs, (float) (i + 1) / rings);
 				}
 			}

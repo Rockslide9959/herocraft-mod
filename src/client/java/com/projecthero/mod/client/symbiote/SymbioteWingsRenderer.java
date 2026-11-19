@@ -102,19 +102,33 @@ public final class SymbioteWingsRenderer {
 		}
 		SymbioteColours col = SymbioteSuitTint.colours(player);
 		int membraneRgb = shade(mix(col.primary(), col.secondary(), 0.3f), 0.78f);
-		VertexConsumer bone = buffers.getBuffer(RenderType.entityCutoutNoCull(SymbioteSuitTint.goo(player, SymbioteWeaponRenderer.TEXTURE)));
-		VertexConsumer mem = buffers.getBuffer(RenderType.entityCutoutNoCull(MEMBRANE));
-		VertexConsumer edge = buffers.getBuffer(RenderType.entityCutoutNoCull(SymbioteWeaponRenderer.EDGE));
+		// fetched right before each write: asking the buffer source for another render type ends the previous one
+		B b = new B(buffers, RenderType.entityCutoutNoCull(SymbioteSuitTint.goo(player, SymbioteWeaponRenderer.TEXTURE)),
+				RenderType.entityCutoutNoCull(MEMBRANE), RenderType.entityCutoutNoCull(SymbioteWeaponRenderer.EDGE));
 		int edgeRgb = mix(col.primary(), col.secondary(), 0.6f);
 		for (int sgn = -1; sgn <= 1; sgn += 2) {
-			wing(pose.last(), bone, mem, edge, light, sgn, bones, fill, flap, spread, backOut, membraneRgb, edgeRgb, since);
+			wing(pose.last(), b, light, sgn, bones, fill, flap, spread, backOut, membraneRgb, edgeRgb, since);
 		}
 	}
 
 	/** The finger bones' directions from the wrist (x outward, y down) and lengths. */
 	private static final double[][] FINGERS = { { 0.55, -0.8, 1.0 }, { 0.97, -0.18, 1.32 }, { 0.86, 0.52, 1.24 }, { 0.42, 0.92, 1.1 } };
 
-	private static void wing(PoseStack.Pose pose, VertexConsumer bone, VertexConsumer mem, VertexConsumer edge, int light, int sgn,
+	private record B(MultiBufferSource src, RenderType boneType, RenderType memType, RenderType edgeType) {
+		VertexConsumer bone() {
+			return src.getBuffer(boneType);
+		}
+
+		VertexConsumer mem() {
+			return src.getBuffer(memType);
+		}
+
+		VertexConsumer edge() {
+			return src.getBuffer(edgeType);
+		}
+	}
+
+	private static void wing(PoseStack.Pose pose, B b, int light, int sgn,
 			float bones, float fill, float flap, float spread, float backOut, int membraneRgb, int edgeRgb, float time) {
 		double grow = 0.12 + 0.88 * bones;
 		Vec3 root = new Vec3(sgn * 0.1, 0.2, 0.17 + backOut);
@@ -143,9 +157,9 @@ public final class SymbioteWingsRenderer {
 			mids[k] = flap(mids[k], root, a * 1.06);
 		}
 		// bones: upper arm and forearm (thick), the fingers (tapering), the hip line
-		GooMesh.tube(bone, pose, light, new Vec3[]{root, root.lerp(elbow, 0.5).add(0, -0.03, 0), elbow},
+		GooMesh.tube(b.bone(), pose, light, new Vec3[]{root, root.lerp(elbow, 0.5).add(0, -0.03, 0), elbow},
 				new float[]{0.07f, 0.06f, 0.055f}, 6, 0.3f);
-		GooMesh.tube(bone, pose, light, new Vec3[]{elbow, elbow.lerp(wrist, 0.5).add(0, -0.02, 0), wrist},
+		GooMesh.tube(b.bone(), pose, light, new Vec3[]{elbow, elbow.lerp(wrist, 0.5).add(0, -0.02, 0), wrist},
 				new float[]{0.055f, 0.048f, 0.05f}, 6, 0.3f);
 		for (int k = 0; k < tips.length; k++) {
 			Vec3[] pts = curve(wrist, mids[k], tips[k], 6);
@@ -153,16 +167,16 @@ public final class SymbioteWingsRenderer {
 			for (int i = 0; i < r.length; i++) {
 				r[i] = Mth.lerp((float) i / (r.length - 1), 0.04f, 0.01f);
 			}
-			GooMesh.tube(bone, pose, light, pts, r, 5, 0.3f);
+			GooMesh.tube(b.bone(), pose, light, pts, r, 5, 0.3f);
 		}
 		// the claw at the top finger and spikes along the leading edge
 		Vec3 t0 = tips[0];
 		Vec3 clawDir = t0.subtract(mids[0]).normalize();
-		cone(bone, edge, pose, light, edgeRgb, t0, clawDir.add(0, 0.6, -0.3), 0.14 * grow, 0.025f);
+		cone(b, pose, light, edgeRgb, t0, clawDir.add(0, 0.6, -0.3), 0.14 * grow, 0.025f);
 		for (int i = 1; i <= 5; i++) {
 			double t = i / 6.0;
 			Vec3 on = i <= 2 ? root.lerp(elbow, t * 3) : elbow.lerp(wrist, (t - 0.33) * 1.5);
-			cone(bone, edge, pose, light, edgeRgb, on, new Vec3(sgn * 0.3, -1, -0.15), (0.06 + 0.03 * Math.sin(i * 2.1)) * grow, 0.02f);
+			cone(b, pose, light, edgeRgb, on, new Vec3(sgn * 0.3, -1, -0.15), (0.06 + 0.03 * Math.sin(i * 2.1)) * grow, 0.02f);
 		}
 		if (fill <= 0.001f) {
 			return;
@@ -176,7 +190,7 @@ public final class SymbioteWingsRenderer {
 		lines[4] = curve(wrist, wrist.lerp(hipF, 0.5).add(0, 0, 0.14), hipF, 9);
 		lines[5] = curve(wrist, elbow, root, 9);
 		for (int k = 0; k < 5; k++) {
-			panel(mem, pose, light, membraneRgb, lines[k], lines[k + 1], fill, time + k * 7, k == 4);
+			panel(b.mem(), pose, light, membraneRgb, lines[k], lines[k + 1], fill, time + k * 7, k == 4);
 		}
 	}
 
@@ -203,15 +217,15 @@ public final class SymbioteWingsRenderer {
 		return out;
 	}
 
-	private static void cone(VertexConsumer bone, VertexConsumer edge, PoseStack.Pose pose, int light, int edgeRgb, Vec3 base, Vec3 dir,
+	private static void cone(B b, PoseStack.Pose pose, int light, int edgeRgb, Vec3 base, Vec3 dir,
 			double len, float r) {
 		if (len <= 0.005) {
 			return;
 		}
 		Vec3 d = dir.normalize();
 		Vec3 mid = base.add(d.scale(len * 0.6));
-		GooMesh.tube(bone, pose, light, new Vec3[]{base, mid}, new float[]{r, r * 0.45f}, 5, 0f);
-		GooMesh.tube(edge, pose, light, edgeRgb, new Vec3[]{mid, base.add(d.scale(len))}, new float[]{r * 0.45f, 0.002f}, 5, 0f);
+		GooMesh.tube(b.bone(), pose, light, new Vec3[]{base, mid}, new float[]{r, r * 0.45f}, 5, 0f);
+		GooMesh.tube(b.edge(), pose, light, edgeRgb, new Vec3[]{mid, base.add(d.scale(len))}, new float[]{r * 0.45f, 0.002f}, 5, 0f);
 	}
 
 	/**
