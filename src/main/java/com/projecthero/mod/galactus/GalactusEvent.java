@@ -148,6 +148,8 @@ public class GalactusEvent extends EventInstance {
 	private transient final Set<UUID> helped = new HashSet<>();
 	/** Who C2 is lifting (taken as it starts: the hold has run out by the time it ends). */
 	private transient final Set<UUID> liftIds = new HashSet<>();
+	/** v0.17.5: who the current overworld cutscene (C1 / C2) has been sent to, so anyone arriving mid-scene is caught up. */
+	private transient final Set<UUID> sceneSent = new HashSet<>();
 	private transient List<OrbitArena.Pad> cachedPads = new ArrayList<>();
 	private transient boolean needsRebuild;
 	private transient long lastSkySent = -1000;
@@ -361,10 +363,15 @@ public class GalactusEvent extends EventInstance {
 		phase = Phase.ARRIVAL;
 		phaseStart = level.getGameTime();
 		BlockPos c = center();
-		double r2 = arena() * arena();
+		// v0.17.5 ("only the player that starts it sees the cutscenes"): everyone inside the drawn border's reach joins, not
+		// only those inside the 80-block arena (the arena wall pulls the rest in); the scene goes to the whole audience
+		double r2 = (arena() + 48) * (arena() + 48);
 		for (ServerPlayer p : level.players()) {
 			if (GalactusCombat.isFighter(p) && p.distanceToSqr(c.getX() + 0.5, p.getY(), c.getZ() + 0.5) <= r2) {
 				fighters.add(p.getUUID());
+				if (horizontalDistance(p) > arena()) {
+					pullBack(level, p, arena() - 4);
+				}
 			}
 		}
 		if (activator != null && GalactusCombat.isFighter(activator)) {
@@ -385,7 +392,7 @@ public class GalactusEvent extends EventInstance {
 		if (instant) {
 			startHerald(level);
 		} else {
-			GalactusCinematics.play(fighterPlayers(level), Scene.HERALD, anchor(), sceneYaw, 0, -1, 0f);
+			playOverworldScene(level, Scene.HERALD, sceneAudience(level), -1);
 		}
 		ProjectHeroMod.LOGGER.info("[ProjectHero] Galactus raid {} started at {} with {} fighter(s)", id(), c, fighters.size());
 	}
@@ -554,7 +561,7 @@ public class GalactusEvent extends EventInstance {
 			devourerId = d.getUUID();
 		}
 		List<ServerPlayer> lift = new ArrayList<>();
-		double r2 = (arena() + 16) * (arena() + 16);
+		double r2 = (arena() + 48) * (arena() + 48);
 		for (ServerPlayer p : fighterPlayers(level)) {
 			if (p.distanceToSqr(anchor().x, p.getY(), anchor().z) <= r2) {
 				lift.add(p);
@@ -564,7 +571,13 @@ public class GalactusEvent extends EventInstance {
 		for (ServerPlayer p : lift) {
 			liftIds.add(p.getUUID());
 		}
-		GalactusCinematics.play(lift, Scene.DEVOURER, anchor(), sceneYaw, 0, d != null ? d.getId() : -1, 0f);
+		List<ServerPlayer> view = sceneAudience(level);
+		for (ServerPlayer p : lift) {
+			if (!view.contains(p)) {
+				view.add(p);
+			}
+		}
+		playOverworldScene(level, Scene.DEVOURER, view, d != null ? d.getId() : -1);
 		SilverSurferEntity s = surfer(level);
 		if (s != null) {
 			s.setNoAi(true);
@@ -1352,6 +1365,58 @@ public class GalactusEvent extends EventInstance {
 		catchUpScene(p);
 	}
 
+	/**
+	 * v0.17.5: everyone an overworld cutscene (C1 the Herald, C2 the Devourer) plays for: every fighter here plus anyone else
+	 * alive in the raid's area (the participants' radius, where the boss bar shows -- creative onlookers too). Dead,
+	 * respawning and spectating players are skipped.
+	 */
+	public List<ServerPlayer> sceneAudience(ServerLevel level) {
+		List<ServerPlayer> out = fighterPlayers(level);
+		BlockPos c = center();
+		double r = EventConfig.framework().abandonRadius;
+		for (ServerPlayer p : level.players()) {
+			if (!out.contains(p) && p.isAlive() && !p.isSpectator() && !p.isRemoved()
+					&& p.distanceToSqr(c.getX() + 0.5, p.getY(), c.getZ() + 0.5) <= r * r) {
+				out.add(p);
+			}
+		}
+		return out;
+	}
+
+	/** Plays an overworld scene for {@code to}, all in step (the same start tick), and remembers who has it. */
+	private void playOverworldScene(ServerLevel level, Scene s, List<ServerPlayer> to, int bossId) {
+		sceneSent.clear();
+		for (ServerPlayer p : to) {
+			sceneSent.add(p.getUUID());
+		}
+		GalactusCinematics.play(to, s, anchor(), sceneYaw, 0, bossId, 0f);
+	}
+
+	/**
+	 * v0.17.5: anyone who came into the raid's area (or logged back in) while C1 / C2 plays gets it from where it is. A fighter
+	 * arriving in C2 before the lift goes up with the others.
+	 */
+	public void catchUpOverworldScene(ServerLevel level) {
+		Scene s = phase == Phase.ARRIVAL ? Scene.HERALD : phase == Phase.DEVOURER ? Scene.DEVOURER : null;
+		if (s == null || phaseStart < 0) {
+			return;
+		}
+		long in = level.getGameTime() - phaseStart;
+		if (in < 0 || in >= s.length - 10) {
+			return;
+		}
+		DevourerEntity d = s == Scene.DEVOURER ? devourer(level) : null;
+		for (ServerPlayer p : sceneAudience(level)) {
+			if (!sceneSent.add(p.getUUID())) {
+				continue;
+			}
+			if (s == Scene.DEVOURER && fighters.contains(p.getUUID()) && in < GalactusScenes.DEVOURER_LIFT) {
+				liftIds.add(p.getUUID());
+			}
+			GalactusCinematics.play(List.of(p), s, anchor(), sceneYaw, (int) in, d != null ? d.getId() : -1, 0f);
+		}
+	}
+
 	private void catchUpScene(ServerPlayer p) {
 		Scene s = switch (phase) {
 			case ASCENT -> Scene.ARRIVAL;
@@ -1392,6 +1457,7 @@ public class GalactusEvent extends EventInstance {
 			if (phase != Phase.DEVOURER) {
 				enforceArena(level);
 			}
+			catchUpOverworldScene(level);
 			ZombieRaidNetworking.pushSky(level, center(), arena(), SKY_COLOR);
 			sendSky(level, false);
 			drawBorder(level, now);
@@ -1439,6 +1505,7 @@ public class GalactusEvent extends EventInstance {
 			}
 			if (d > r && d < r + 48 && !p.isPassenger()) {
 				pullBack(level, p, r - 4);
+				GalactusCinematics.moved(p);
 				p.displayClientMessage(Component.translatable("message.projecthero.galactus.no_escape").withStyle(ChatFormatting.LIGHT_PURPLE), true);
 				level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.BEACON_DEACTIVATE, SoundSource.HOSTILE, 1.0f, 1.2f);
 			}
@@ -1722,12 +1789,15 @@ public class GalactusEvent extends EventInstance {
 		BlockPos c = center();
 		GalactusWorldState ws = GalactusWorldState.get(level.getServer());
 		List<ServerPlayer> winners = success ? winners(level) : List.of();
+		// v0.17.5: ONE Board chance per raid, for the top damage dealer still here (picked before the clears are recorded)
+		ServerPlayer boardFor = success ? GalactusRewards.boardCandidate(winners, damageBy, level.random) : null;
 		tearDown(level);
 		if (success) {
 			BlockState there = level.getBlockState(c);
 			if (there.isAir() || there.canBeReplaced() || there.is(GalactusBlocks.HERALDS_BEACON)) {
 				GalactusRewards.placeChest(level, c, Math.max(1, winners.size()));
 			}
+			GalactusRewards.awardBoard(boardFor, winners, level.random, GalactusConfig.rewards().boardChance);
 			for (ServerPlayer p : winners) {
 				GalactusRewards.grantClear(p);
 				int shards = shardsOwed.getOrDefault(p.getUUID(), 0);

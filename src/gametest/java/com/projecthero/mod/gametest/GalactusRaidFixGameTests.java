@@ -201,4 +201,102 @@ public class GalactusRaidFixGameTests implements FabricGameTest {
 		helper.assertFalse(GalactusOrbit.totemWillSave(p, level.damageSources().fellOutOfWorld()), "the void goes through totems");
 		helper.succeed();
 	}
+
+	// ---------------------------------------------------------------- v0.17.5: one Board per raid
+
+	private static ServerPlayer fresh(GameTestHelper helper) {
+		ServerPlayer p = helper.makeMockServerPlayerInLevel();
+		p.setGameMode(GameType.SURVIVAL);
+		p.getInventory().clearContent();
+		return p;
+	}
+
+	private static int boards(ServerPlayer p) {
+		return p.getInventory().countItem(com.projecthero.mod.galactus.item.GalactusItems.SURFBOARD);
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void onlyTheTopDamageDealerGetsTheOneBoard(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		ServerPlayer a = fresh(helper), b = fresh(helper), c = fresh(helper);
+		List<ServerPlayer> all = List.of(a, b, c);
+		try {
+			java.util.Map<java.util.UUID, Double> dmg = new java.util.HashMap<>();
+			dmg.put(a.getUUID(), 10.0);
+			dmg.put(b.getUUID(), 50.0);
+			dmg.put(c.getUUID(), 30.0);
+			ServerPlayer pick = com.projecthero.mod.galactus.GalactusRewards.boardCandidate(all, dmg, level.random);
+			helper.assertTrue(pick == b, "the top damage dealer is offered the roll");
+			helper.assertTrue(com.projecthero.mod.galactus.GalactusRewards.awardBoard(pick, all, level.random, 1.0), "a sure roll drops it");
+			for (ServerPlayer p : all) {
+				com.projecthero.mod.galactus.GalactusRewards.grantClear(p);
+			}
+			helper.assertTrue(boards(a) + boards(b) + boards(c) == 1 && boards(b) == 1, "exactly one Board, to the top damage dealer");
+			helper.assertTrue(a.getInventory().countItem(com.projecthero.mod.galactus.item.GalactusItems.POWER_COSMIC) == 1,
+					"every first clear still gets the Power Cosmic");
+			// next raid: b already has one, so the chance passes to the next highest; a failed roll gives nobody anything
+			ServerPlayer next = com.projecthero.mod.galactus.GalactusRewards.boardCandidate(all, dmg, level.random);
+			helper.assertTrue(next == c, "a Board owner is skipped: the next highest gets the chance");
+			helper.assertFalse(com.projecthero.mod.galactus.GalactusRewards.awardBoard(next, all, level.random, 0.0), "a failed roll");
+			helper.assertTrue(boards(a) + boards(b) + boards(c) == 1, "a failed roll drops nothing for anyone");
+			// a player who cleared before 0.17.5 (when every first clear got one) never gets another
+			ServerPlayer old = fresh(helper);
+			old.setAttached(com.projecthero.mod.galactus.GalactusRewards.CLEARS, 2);
+			dmg.put(old.getUUID(), 999.0);
+			helper.assertTrue(com.projecthero.mod.galactus.GalactusRewards.boardCandidate(List.of(old, c), dmg, level.random) == c,
+					"a pre-0.17.5 clearer already had theirs");
+			level.getServer().getPlayerList().remove(old);
+		} finally {
+			for (ServerPlayer p : all) {
+				level.getServer().getPlayerList().remove(p);
+			}
+		}
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- v0.17.5: every player in the raid sees the cutscenes
+
+	@GameTest(template = EMPTY_STRUCTURE, batch = "galactus_v0175_scenes", timeoutTicks = 60)
+	public void theOpeningCutsceneReachesEveryoneInTheRaid(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		level.getServer().setDifficulty(Difficulty.HARD, true);
+		clearRaids(helper);
+		BlockPos at = helper.absolutePos(new BlockPos(4, 2, 4));
+		double arena = GalactusEvent.arena();
+		ServerPlayer near = fresh(helper), edge = fresh(helper), watcher = fresh(helper);
+		near.moveTo(at.getX() + 3.5, at.getY(), at.getZ() + 0.5);
+		edge.moveTo(at.getX() + arena + 30, at.getY(), at.getZ() + 0.5);       // outside the arena, inside the border's reach
+		watcher.moveTo(at.getX() + 0.5, at.getY(), at.getZ() + arena + 60);    // in the raid's area, beyond the border
+		watcher.setGameMode(GameType.CREATIVE);                                // an onlooker, not a fighter
+		List<ServerPlayer> ps = new java.util.ArrayList<>(List.of(near, edge, watcher));
+		GalactusEvent e = Galactus.start(level, at, near, Galactus.Source.COMMAND);
+		try {
+			helper.assertTrue(e != null && e.phase() == GalactusEvent.Phase.ARRIVAL, "the raid opens on C1");
+			for (ServerPlayer p : ps) {
+				helper.assertTrue(com.projecthero.mod.galactus.cinematic.GalactusCinematics.held(p),
+						"C1 was sent to " + p.getGameProfile().getName() + " (held for the scene)");
+			}
+			helper.assertTrue(e.isFighter(near.getUUID()) && e.isFighter(edge.getUUID()), "both survivors are in the fight");
+			helper.assertFalse(e.isFighter(watcher.getUUID()), "the creative onlooker watches but does not fight");
+			// someone arriving mid-scene gets it from where it is
+			ServerPlayer late = fresh(helper);
+			ps.add(late);
+			late.moveTo(at.getX() - 6.5, at.getY(), at.getZ() + 0.5);
+			helper.assertFalse(com.projecthero.mod.galactus.cinematic.GalactusCinematics.held(late), "not yet");
+			e.catchUpOverworldScene(level);
+			helper.assertTrue(com.projecthero.mod.galactus.cinematic.GalactusCinematics.held(late), "a late arrival is caught up");
+		} finally {
+			for (ServerPlayer p : ps) {
+				com.projecthero.mod.galactus.cinematic.GalactusCinematics.release(p);
+				level.getServer().getPlayerList().remove(p);
+			}
+			if (e != null) {
+				if (e.state().active()) {
+					e.abort(level);
+				}
+				EventSavedData.get(level).remove(e.id());
+			}
+		}
+		helper.succeed();
+	}
 }

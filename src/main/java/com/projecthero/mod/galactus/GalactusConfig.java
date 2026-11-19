@@ -271,8 +271,13 @@ public final class GalactusConfig {
 		public int netheriteMin = 2;
 		public int netheriteMax = 4;
 		public int books = 3;
-		/** First clear: the Silver Surfer's Board and the Power Cosmic. */
+		/** First clear: the Power Cosmic; the Silver Surfer's Board goes to one fighter per raid ({@link #boardChance}). */
 		public boolean firstClearItems = true;
+		/**
+		 * v0.17.5: the chance (0..1) of the one Board roll a won raid makes. The roll is offered to a single fighter -- the top
+		 * damage dealer still present who has never had the Board -- and nobody gets one if it fails. 1.0 = the old odds.
+		 */
+		public double boardChance = 1.0;
 	}
 
 	public static final class Board {

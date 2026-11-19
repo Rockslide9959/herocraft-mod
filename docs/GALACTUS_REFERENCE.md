@@ -36,6 +36,24 @@ flies the camera per scene (`GalactusCinematicCameraMixin`), draws letterbox bar
 `QuirkCameraFx` shakes / FOV punches on cue. **Hold Sneak** skips your own view. Timings live in `GalactusScenes` (both
 sides). Late joiners and re-loggers mid-scene get the scene from where it is (`elapsed`).
 
+**Who sees them (v0.17.5, the user: "right now only the player that starts it sees the cutscenes").** Before, C1 went
+only to fighters inside the 80-block arena when it started and C2 only to fighters within 96 blocks, while the boss bar
+(the participants) reaches 160 blocks, so friends a little way off were in the raid but saw nothing. Now:
+- At the start every survival player within arena + 48 (the drawn border's reach) becomes a fighter and anyone past the
+  arena wall is pulled inside it (as the wall would a moment later).
+- C1 and C2 go to `GalactusEvent.sceneAudience`: every fighter in the overworld plus anyone else alive and not
+  spectating within the participants' radius (`abandonRadius`, 160), creative onlookers included (they are held like the
+  rest but never lifted). Everyone gets the same payload in the same tick, so the scenes run in step. Dead / respawning
+  players are skipped.
+- C2 lifts every fighter within arena + 48 (was arena + 16).
+- Anyone entering the area or logging back in while C1 / C2 plays is caught up from where the scene is
+  (`catchUpOverworldScene`, every framework tick; `sceneSent` remembers who has it). A fighter arriving in C2 before the
+  lift goes up too.
+- Orbit scenes (C3-C5) already went to every fighter up there (`orbitFighters`); Rift joiners and re-loggers are caught up.
+- The hold is per player: a logout drops that player's hold only, the arena wall moving a held player moves the hold with
+  them (`GalactusCinematics.moved`), and each client puts its own camera back when the scene ends.
+Gametest: `GalactusRaidFixGameTests.theOpeningCutsceneReachesEveryoneInTheRaid`.
+
 ## 3. The orbit (`GalactusOrbit`)
 - `projecthero:galactus_orbit`: void, fixed night, ambient light 0.55, effects id `projecthero:galactus_orbit` (no clouds,
   no weather). Sky: `GalactusOrbitSky` (Fabric sky renderer) -- violet-black wash, 4200 stars + 260 twinkling, two nebula
@@ -114,8 +132,18 @@ Surfer gives the **Ultimate Nullifier** to the top damage dealer; hold right-cli
 he beams the holder every 3.5 s; a dropped / lost Nullifier comes back.
 
 ## 8. Rewards
-The chest (`GalactusRewards`, x1.5), first-clear Board + Power Cosmic, Cosmic Shards (4 + a beacon = a Herald's Beacon:
+The chest (`GalactusRewards`, x1.5), first-clear Power Cosmic, Cosmic Shards (4 + a beacon = a Herald's Beacon:
 `heralds_beacon_from_shards`), and a chat line naming who used the Nullifier.
+
+**One Board per raid (v0.17.5, the user: "only one person has a chance to get the silver surfer board").** Before, every
+winner's first clear got a Silver Surfer's Board. Now a won raid makes **one** Board roll (`rewards.boardChance`, default 1.0,
+which keeps the old odds) for **one** fighter: the winner still present (online, alive, not down) with the most damage on
+Galactus (`damageBy`, the same tally that picks the Nullifier holder; a tie is broken at random) who has never had a
+Board. A failed roll means nobody gets it that raid. The winner is told, the other fighters get a chat line naming them
+(or, on a miss, that the Surfer kept it). Board history is the persistent `projecthero:galactus_board` attachment
+(0 unset, 1 won, 2 cleared without it); a player with clears from before 0.17.5 counts as already having one (they got it
+with their first clear). The Power Cosmic stays a first-clear item for everyone; the chest and shards are unchanged.
+`firstClearItems: false` turns the Board off too. Gametest: `GalactusRaidFixGameTests.onlyTheTopDamageDealerGetsTheOneBoard`.
 
 ## 8b. Recovery rules (v0.17.4)
 - A lost Devourer (chunk unload, /kill) mid-stage is re-made within a second where the stage puts him.
