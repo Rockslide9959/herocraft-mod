@@ -139,6 +139,16 @@ public class SaiyanGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.17.5: a Saiyan never takes fall damage, flying or not. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void saiyansTakeNoFallDamage(GameTestHelper helper) {
+		ServerPlayer p = saiyan(helper);
+		float before = p.getHealth();
+		p.hurt(p.damageSources().fall(), 30f);
+		helper.assertTrue(p.getHealth() == before, "no fall damage: " + p.getHealth());
+		helper.succeed();
+	}
+
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void theSaiyanBody(GameTestHelper helper) {
 		ServerPlayer p = mock(helper);

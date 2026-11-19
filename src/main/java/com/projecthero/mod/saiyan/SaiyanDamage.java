@@ -62,7 +62,8 @@ public final class SaiyanDamage {
 			return true;
 		}
 		ServerPlayer victim = entity instanceof ServerPlayer p && Saiyan.hasPower(p) ? p : null;
-		if (victim != null && (source.is(DamageTypeTags.IS_FALL) || source.is(DamageTypes.FLY_INTO_WALL)) && SaiyanFlight.fallSafe(victim)) {
+		// v0.17.5 (user: "make it so that saiyans dont take fall damage"): falls never hurt a Saiyan; flying into a wall only while flying
+		if (victim != null && (source.is(DamageTypeTags.IS_FALL) || (source.is(DamageTypes.FLY_INTO_WALL) && SaiyanFlight.fallSafe(victim)))) {
 			victim.resetFallDistance();
 			return false;
 		}
