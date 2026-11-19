@@ -117,8 +117,8 @@ public final class KryptonianConfig {
 	public static final float HEAT_DAMAGE = 4.0f;
 	public static final int HEAT_HIT_INTERVAL = 5;
 	public static final int HEAT_FIRE_SECONDS = 5;
-	/** The longest one burst can be held. */
-	public static final int HEAT_MAX_TICKS = 10 * S;
+	// v0.17.5 (user: "Remove time limit for the laser vision please"): no HEAT_MAX_TICKS any more -- held as long as the key is,
+	// ending on release or when Solar Energy runs out (HEAT_COST_PER_SECOND)
 	public static final float HEAT_COST_PER_SECOND = 1.0f;
 	/** Counted from when the beam stops. */
 	public static final int HEAT_COOLDOWN = 3 * S;

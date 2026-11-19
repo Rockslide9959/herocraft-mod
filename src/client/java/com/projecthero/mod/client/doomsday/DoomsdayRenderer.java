@@ -109,21 +109,19 @@ public final class DoomsdayRenderer extends HumanoidMobRenderer<DoomsdayEntity, 
 		Vec3 origin = e.getPosition(partialTick);
 		float yawRad = -Mth.lerp(partialTick, e.yHeadRotO, e.yHeadRot) * Mth.DEG_TO_RAD;
 		Vec3 eye = new Vec3(Math.sin(yawRad) * e.getBbWidth() * 0.3, e.getEyeHeight(), Math.cos(yawRad) * e.getBbWidth() * 0.3);
-		Vec3 end = target.subtract(origin);
-		Vec3 cam = entityRenderDispatcher.camera.getPosition().subtract(origin);
-		VertexConsumer vc = buffers.getBuffer(RenderType.lightning());
-		PoseStack.Pose last = pose.last();
-		float flicker = 0.85f + 0.15f * Mth.sin((e.tickCount + partialTick) * 2.3f);
-		for (int side = -1; side <= 1; side += 2) {
-			// one beam from each eye
-			Vec3 off = new Vec3(Math.cos(yawRad), 0, -Math.sin(yawRad)).scale(side * 0.09 * e.getScale());
-			Vector3f a = eye.add(off).toVector3f();
-			Vector3f b = end.add(off.scale(0.3)).toVector3f();
-			Vector3f toCam = cam.subtract(eye).toVector3f();
-			DoomsdayMesh.ribbon(vc, last, a, b, toCam, 0.32f * flicker, 0x70FF1A0A);
-			DoomsdayMesh.ribbon(vc, last, a, b, toCam, 0.14f, 0xC0FF8040);
-			DoomsdayMesh.ribbon(vc, last, a, b, toCam, 0.05f, 0xF0FFF0D0);
+		// v0.17.5: drawn by the shared eye-beam look (EyeBeamFx.DOOMSDAY): one beam from each eye, flare + sparks + scorch at the end
+		Vec3 off = new Vec3(Math.cos(yawRad), 0, -Math.sin(yawRad)).scale(0.09 * e.getScale());
+		Vec3 eyeWorld = origin.add(eye);
+		Vec3 dir = target.subtract(eyeWorld);
+		com.projecthero.mod.client.eyebeam.EyeBeamFx.Hit hit = com.projecthero.mod.client.eyebeam.EyeBeamFx.Hit.at(target);
+		if (dir.lengthSqr() > 1.0e-4) {
+			hit = com.projecthero.mod.client.eyebeam.EyeBeamFx.ray(e.level(), e, eyeWorld, dir.normalize(), dir.length() + 0.5, false);
+			if (hit.pos().distanceToSqr(target) > 1.0) {
+				hit = com.projecthero.mod.client.eyebeam.EyeBeamFx.Hit.at(target); // a creature in the way: the server aimed at it
+			}
 		}
+		com.projecthero.mod.client.eyebeam.EyeBeamFx.twinFrom(origin, eyeWorld.add(off), eyeWorld.subtract(off), hit,
+				com.projecthero.mod.client.eyebeam.EyeBeamFx.DOOMSDAY, 2.6f * Math.max(1f, e.getScale() * 0.6f), 1f);
 	}
 
 	private void phantomPane(DoomsdayEntity e, float elapsed, PoseStack pose, MultiBufferSource buffers) {

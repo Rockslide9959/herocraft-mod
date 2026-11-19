@@ -237,6 +237,35 @@ public class KryptonianGameTests implements FabricGameTest {
 		});
 	}
 
+	/** v0.17.5 (user: "Remove time limit for the laser vision please"): held past the old 10 s cap, it keeps burning and paying. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 360)
+	public void heatVisionHasNoTimeLimit(GameTestHelper helper) {
+		ServerPlayer p = hero(helper);
+		boolean[] drained = { false };
+		helper.onEachTick(() -> {
+			if (drained[0]) {
+				// out of Solar Energy (held at 0 against the refill): the next half-point payment must end it
+				var n = p.getAttached(com.projecthero.mod.attachment.ModAttachments.KRYPTONIAN_STATE).copy();
+				n.solar = 0f;
+				p.setAttached(com.projecthero.mod.attachment.ModAttachments.KRYPTONIAN_STATE, n);
+			}
+		});
+		pump(helper, p);
+		KryptonianAbilities.startHeatVision(p);
+		helper.assertTrue(Kryptonian.heatVisionActive(p), "the beam is on");
+		helper.runAfterDelay(230, () -> {
+			helper.assertTrue(Kryptonian.heatVisionActive(p) && KryptonianAbilities.running(p, KryptonianAbilities.HEAT_VISION),
+					"still burning past the old 200-tick cap");
+			drained[0] = true;
+			// 45 ticks: several half-point payments, not all of them just after the once-a-second sunlight refill (+6)
+			helper.runAfterDelay(45, () -> {
+				helper.assertFalse(Kryptonian.heatVisionActive(p), "running out of Solar Energy still ends it");
+				helper.assertTrue(Kryptonian.cooldownRemaining(p, KryptonianAbilities.HEAT_VISION) > 0, "then the cooldown");
+				helper.succeed();
+			});
+		});
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
 	public void grabAndThrow(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);

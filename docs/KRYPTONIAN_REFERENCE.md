@@ -23,7 +23,7 @@ Added in v0.14.8. Every number is a static final in `KryptonianConfig`.
 | `KryptonianCommand` | `/projecthero meteor [here]`, `/projecthero kryptonian solar <n>` (op). |
 
 Client: `KryptonianHud` (mono style, Hairline bars only), `flight/DirectionalFlight` + `mixin/DirectionalFlightTravelMixin`
-(v0.14.16 shared directional flight, local player), `KryptonianBeamRenderer` (heat vision, `BeamDraw` ribbons like `LaserBeamRenderer`),
+(v0.14.16 shared directional flight, local player), `KryptonianBeamRenderer` (heat vision; since v0.17.5 drawn by the shared `eyebeam/EyeBeamFx` look, see `EYE_BEAMS_REFERENCE.md`),
 `KryptonianPose` (from `HumanoidModelMixin`), `mixin/KryptonianXRayGlowMixin` (per-viewer outlines),
 `KryptoniteMeteorRenderer` (a tumbling 2x kryptonite-ore block + vanilla fire overlay). `FlightPoseHelper` counts
 Kryptonian flight as hero flight (body lean); the double-tap is in `ProjectHeroModClient.handleDoubleJump`.
@@ -54,7 +54,7 @@ always the plain gold (green near kryptonite).
 |---|---|---|---|---|
 | R | Kryptonian Punch | 32 to the aimed target (6 blocks), pushed 3.0 along the look + 0.6 up; 12 in 3 blocks round it. Air punch: 14 in a 7-block 40-deg cone | 5 | 3 s |
 | Shift+R | Thunderclap | 20-block 80-deg cone, up to 20 dmg (50% at the far end), knockback 3.0 + 0.4 up, Slowness VII + Weakness II 2 s | 5 | 8 s |
-| G | Heat Vision (hold) | 32 blocks from the eyes; 4 dmg every 5 ticks (burst), 5 s fire; sets blocks alight every second (terrain damage on); max 10 s; needs 1 to open | 1/s (0.5 per 10 ticks from age 0) | 3 s after release |
+| G | Heat Vision (hold) | 32 blocks from the eyes; 4 dmg every 5 ticks (burst), 5 s fire; sets blocks alight every second (terrain damage on); no time limit (v0.17.5: ends on key-up or when Solar runs out); needs 1 to open | 1/s (0.5 per 10 ticks from age 0) | 3 s after release |
 | Shift+G | Ground Pound (id `ground_slam`) | grounded: slam now (75%); airborne: dive at 2.6 b/t, slam on landing (75% -> 100% after 20 ticks of dive). 30 dmg in 7 blocks, lift 1.0; 2.5-block crater (30 blocks max) | 10 | 8 s |
 | Z | Freeze Breath (hold) | 12-block 60-deg cone, 5 dmg every 5 ticks, frozen + Slowness IV 6 s; source water -> frosted ice, fire out; max 6 s; `breathing` flag drives the pose | 1/s | 4 s after release |
 | Shift+Z | SOLAR FLARE | needs a FULL 100, spends all of it at the start; 40-tick charge; 120 in 12 blocks (falloff to 60%), knockback 3.5, lift 1.0, 8 s fire; 4-block crater (80 max); then **powerless 30 s** (`depoweredUntil`: `empowered()` false = no moves / flight / Regeneration / damage reduction / passives / solar) with Slowness IV, Weakness IV and Blindness for the first 6 s; X-Ray switched off | 100 | 90 s |
