@@ -29,6 +29,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -120,17 +121,29 @@ public final class CrystalkinesisHandlers {
 	}
 
 	public static void register() {
-		AbilityHandlers.register(KEY, "crystal_shard", Handlers.instant(ctx -> {
-			ServerPlayer p = ctx.player();
-			if (p.isShiftKeyDown()) {
-				volley(ctx);
-				return;
+		// v0.17.5 (user: split Shift/hold cooldowns): Shift+R Volley keeps R's Shift entry, so neither blocks the other
+		AbilityHandlers.register(KEY, "crystal_shard", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				if (p.isShiftKeyDown()) {
+					if (!shiftReady(ctx)) {
+						return;
+					}
+					volley(ctx);
+					return;
+				}
+				fireShard(p, SHARD_DAMAGE + armorBonus(p), 0.0f);
+				MutationVisuals.play(p, "cast_right");
+				AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_CHIME, 1.0f, 1.4f);
+				ctx.triggerCooldown();
 			}
-			fireShard(p, SHARD_DAMAGE + armorBonus(p), 0.0f);
-			MutationVisuals.play(p, "cast_right");
-			AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_CHIME, 1.0f, 1.4f);
-			ctx.triggerCooldown();
-		}));
+
+			@Override
+			public boolean shiftHasOwnCooldown() {
+				return true;
+			}
+		});
 
 		AbilityHandlers.register(KEY, "shatter", Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
@@ -149,8 +162,20 @@ public final class CrystalkinesisHandlers {
 		AbilityHandlers.register(KEY, "crystal_eruption", new AbilityHandler() {
 			@Override
 			public void onActivate(AbilityContext ctx) {
-				if (BatchBUtil.chargeStart(ctx, "crystal_start")) {
-					ctx.setResource("crystal_colossal", ctx.player().isShiftKeyDown() ? 1 : 0, 1);
+				// v0.17.5: Shift+Z Colossal Crystal keeps Z's Shift entry (Eruption keeps the plain one)
+				boolean colossal = ctx.player().isShiftKeyDown();
+				boolean started;
+				if (colossal) {
+					started = ctx.resource("crystal_start") <= 0.5f && shiftReady(ctx);
+					if (started) {
+						ctx.setResource("crystal_start", ctx.player().level().getGameTime(), 1e12f);
+						ctx.setResource("ult_charge", 0, 100);
+					}
+				} else {
+					started = BatchBUtil.chargeStart(ctx, "crystal_start");
+				}
+				if (started) {
+					ctx.setResource("crystal_colossal", colossal ? 1 : 0, 1);
 					AbilityHelpers.sound(ctx.player(), SoundEvents.AMETHYST_BLOCK_RESONATE, 0.8f, 0.5f);
 				}
 			}
@@ -331,7 +356,17 @@ public final class CrystalkinesisHandlers {
 			return age < 16;
 		});
 		AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_CHIME, 1.0f, 1.2f);
-		ctx.triggerCooldown(VOLLEY_CD);
+		ctx.triggerShiftCooldown(VOLLEY_CD); // v0.17.5: R's Shift entry
+	}
+
+	/** v0.17.5: the key's Shift move's own cooldown -- false (with the seconds left) while it runs. */
+	private static boolean shiftReady(AbilityContext ctx) {
+		if (ctx.shiftCooldownReady()) {
+			return true;
+		}
+		ctx.actionBar("message.projecthero.ability.on_cooldown", Component.translatable(ctx.ability().nameKey()),
+				String.format(java.util.Locale.ROOT, "%.1f", ctx.shiftCooldownRemaining() / 20.0f));
+		return false;
 	}
 
 	// ---- G: Shatter ------------------------------------------------------------------------
@@ -459,7 +494,7 @@ public final class CrystalkinesisHandlers {
 		if (colossal) {
 			MutationVisuals.play(p, "throw_right");
 			launchColossalCrystal(p, level);
-			ctx.triggerCooldown(COLOSSAL_CD);
+			ctx.triggerShiftCooldown(COLOSSAL_CD); // v0.17.5: Z's Shift entry
 			return;
 		}
 		MutationVisuals.play(p, "cast_raise_both");

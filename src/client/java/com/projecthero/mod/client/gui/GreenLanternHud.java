@@ -136,6 +136,17 @@ public final class GreenLanternHud {
 			int shiftCd = shiftCooldown(player, k);
 			int tapCd = cooldownFor(player, k, s);
 			float tapFrac = peakFrac("key/" + k, tapCd);
+			// v0.17.5 (user: split Shift/hold cooldowns): R's hold move (the Continuous Beam) has its own wait -- it no longer greys
+			// the tap box; it is the durability bar when it is the only other one cooling
+			int beamCd = k == 0 ? GreenLantern.cooldownRemaining(player, "continuous_beam") : 0;
+			float beamFrac = peakFrac("hold/" + k, beamCd);
+			if (beamCd > 0) {
+				if (!shift && shiftCd <= 0) {
+					shiftFrac = beamFrac;
+				} else if (shift && tapCd <= 0) {
+					tapFrac = beamFrac;
+				}
+			}
 			if (k == 2 && oathActive && !shift) {
 				// empowered: a green wash (not the cooldown sweep) with the Oath's seconds left, so it reads as a buff
 				g.fill(RenderType.guiOverlay(), ix, iy, ix + 16, iy + 16, 0x8010A040);
@@ -382,8 +393,7 @@ public final class GreenLanternHud {
 
 	private static int cooldownFor(Player player, int slot, GreenLanternState s) {
 		return switch (slot) {
-			case 0 -> Math.max(GreenLantern.cooldownRemaining(player, "ring_bolt"),
-					GreenLantern.cooldownRemaining(player, "continuous_beam"));
+			case 0 -> GreenLantern.cooldownRemaining(player, "ring_bolt"); // v0.17.5: the beam's wait is drawn separately (render)
 			// v0.15.15: the slot shows the tap move; each Shift move is its durability bar (shiftReady)
 			case 1 -> GreenLantern.cooldownRemaining(player, "construct_fist");
 			case 2 -> GreenLantern.cooldownRemaining(player, "oath_mode");

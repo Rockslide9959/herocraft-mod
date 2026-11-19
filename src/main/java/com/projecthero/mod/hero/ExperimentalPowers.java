@@ -230,11 +230,37 @@ public final class ExperimentalPowers {
 	}
 
 	public static void triggerCooldown(ServerPlayer player, Power power, Ability ability, int ticks) {
+		triggerCooldown(player, power, ability, "", ticks);
+	}
+
+	/**
+	 * v0.17.5 (user: "if i use shift+R ... i cant use regular R while Shift+R is on cooldown"): a key's Shift move or hold
+	 * move keeps its own cooldown under {@code power/ability#variant} ({@link #SHIFT} / {@link #HOLD}) in the same synced
+	 * ready-at map, so it never blocks the plain move (and vice versa). "" is the plain move's own entry.
+	 */
+	public static final String SHIFT = "shift";
+	public static final String HOLD = "hold";
+
+	public static String cdKey(Power power, Ability ability, String variant) {
+		return variant == null || variant.isEmpty() ? cdKey(power, ability) : cdKey(power, ability) + "#" + variant;
+	}
+
+	public static boolean cooldownReady(ServerPlayer player, Power power, Ability ability, String variant) {
+		Long readyAt = state(player).abilityReadyAt.get(cdKey(power, ability, variant));
+		return readyAt == null || player.level().getGameTime() >= readyAt;
+	}
+
+	public static int cooldownRemainingTicks(ServerPlayer player, Power power, Ability ability, String variant) {
+		Long readyAt = state(player).abilityReadyAt.get(cdKey(power, ability, variant));
+		return readyAt == null ? 0 : (int) Math.max(0L, readyAt - player.level().getGameTime());
+	}
+
+	public static void triggerCooldown(ServerPlayer player, Power power, Ability ability, String variant, int ticks) {
 		if (ticks <= 0) {
 			return;
 		}
 		ExperimentalState s = state(player).copy();
-		s.abilityReadyAt.put(cdKey(power, ability), player.level().getGameTime() + ticks);
+		s.abilityReadyAt.put(cdKey(power, ability, variant), player.level().getGameTime() + ticks);
 		save(player, s);
 	}
 

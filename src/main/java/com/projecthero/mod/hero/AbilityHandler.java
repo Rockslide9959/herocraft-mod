@@ -45,6 +45,14 @@ public interface AbilityHandler {
 	}
 
 	/**
+	 * v0.17.5: true when this key's Shift move keeps its own cooldown (and does its own check), so the router must not gate
+	 * a Shift press of an INSTANT key on the plain move's cooldown -- the plain move's wait never blocks the Shift move.
+	 */
+	default boolean shiftHasOwnCooldown() {
+		return false;
+	}
+
+	/**
 	 * Runs every server tick for every ability of the player's active power (not just toggles). Use
 	 * for grab/charge/marker upkeep. Must be cheap and idempotent. {@code ctx.pressed()} is always
 	 * true here.

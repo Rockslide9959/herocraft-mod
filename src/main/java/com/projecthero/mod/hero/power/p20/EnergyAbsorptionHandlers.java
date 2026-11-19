@@ -305,8 +305,9 @@ public final class EnergyAbsorptionHandlers {
 			public void onActivate(AbilityContext ctx) {
 				ServerPlayer p = ctx.player();
 				if (p.isShiftKeyDown()) {
-					if (!ctx.cooldownReady()) {
-						onCooldownMessage(ctx);
+					// v0.17.5 (user: split Shift/hold cooldowns): the burst keeps its own entry -- the beam's wait never blocks it
+					if (!ctx.shiftCooldownReady()) {
+						shiftCooldownMessage(ctx);
 						return;
 					}
 					if (!ctx.spendResource(METER, 50.0f)) {
@@ -322,7 +323,7 @@ public final class EnergyAbsorptionHandlers {
 					}
 					MutationVisuals.play(p, "power_up");
 					AbilityHelpers.sound(p, SoundEvents.BEACON_ACTIVATE, 1.2f, 0.8f);
-					ctx.triggerCooldown(17 * 20);
+					ctx.triggerShiftCooldown(17 * 20);
 					return;
 				}
 				if (ctx.resource(METER) < 1.0f) {
@@ -459,11 +460,17 @@ public final class EnergyAbsorptionHandlers {
 		AbilityHandlers.register(KEY, "energy_drain", new AbilityHandler() {
 			@Override
 			public void onActivate(AbilityContext ctx) {
-				if (!ctx.cooldownReady()) {
-					onCooldownMessage(ctx);
+				// v0.17.5 (user: split Shift/hold cooldowns): Energy Conversion (Shift) keeps its own cooldown entry
+				boolean shift = ctx.player().isShiftKeyDown();
+				if (shift ? !ctx.shiftCooldownReady() : !ctx.cooldownReady()) {
+					if (shift) {
+						shiftCooldownMessage(ctx);
+					} else {
+						onCooldownMessage(ctx);
+					}
 					return;
 				}
-				ctx.setResource(ctx.player().isShiftKeyDown() ? "converting" : "draining", 1, 1);
+				ctx.setResource(shift ? "converting" : "draining", 1, 1);
 				ctx.setResource("drain_ticks", 0, 1000);
 			}
 
@@ -696,7 +703,8 @@ public final class EnergyAbsorptionHandlers {
 	}
 
 	private static void endDrain(AbilityContext ctx) {
-		boolean was = ctx.resource("converting") > 0.5f || ctx.resource("draining") > 0.5f;
+		boolean converting = ctx.resource("converting") > 0.5f;
+		boolean was = converting || ctx.resource("draining") > 0.5f;
 		if (!was) {
 			return;
 		}
@@ -704,7 +712,11 @@ public final class EnergyAbsorptionHandlers {
 		ctx.setResource("draining", 0, 1);
 		MutationVisuals.stopIf(ctx.player(), "channel_right");
 		MutationVisuals.stopIf(ctx.player(), "power_up");
-		ctx.triggerCooldown(8 * 20);
+		if (converting) {
+			ctx.triggerShiftCooldown(8 * 20); // v0.17.5: Conversion's own entry
+		} else {
+			ctx.triggerCooldown(8 * 20);
+		}
 	}
 
 	/** Reflects the first hostile projectile heading at a player whose Redirect window is open. */
@@ -915,5 +927,11 @@ public final class EnergyAbsorptionHandlers {
 	private static void onCooldownMessage(AbilityContext ctx) {
 		ctx.actionBar("message.projecthero.ability.on_cooldown", Component.translatable(ctx.ability().nameKey()),
 				String.format(java.util.Locale.ROOT, "%.1f", ctx.cooldownRemaining() / 20.0f));
+	}
+
+	/** v0.17.5: the "on cooldown" message for a key's Shift move (its own entry). */
+	private static void shiftCooldownMessage(AbilityContext ctx) {
+		ctx.actionBar("message.projecthero.ability.on_cooldown", Component.translatable(ctx.ability().nameKey()),
+				String.format(java.util.Locale.ROOT, "%.1f", ctx.shiftCooldownRemaining() / 20.0f));
 	}
 }

@@ -262,13 +262,25 @@ public final class TelekinesisHandlers {
 
 	public static void register() {
 		// ---- R: Force Push, sneak = Force Pull -----------------------------------------------------
-		AbilityHandlers.register(KEY, "force_push", Handlers.instant(ctx -> {
-			if (ctx.player().isShiftKeyDown()) {
-				forcePull(ctx);
-			} else {
-				forcePush(ctx);
+		// v0.17.5 (user: split Shift/hold cooldowns): Force Pull keeps its own cooldown entry
+		AbilityHandlers.register(KEY, "force_push", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				if (ctx.player().isShiftKeyDown()) {
+					if (!shiftReady(ctx)) {
+						return;
+					}
+					forcePull(ctx);
+				} else {
+					forcePush(ctx);
+				}
 			}
-		}));
+
+			@Override
+			public boolean shiftHasOwnCooldown() {
+				return true;
+			}
+		});
 
 		// ---- G: Telekinetic Barrier ----------------------------------------------------------------
 		AbilityHandlers.register(KEY, "telekinetic_barrier", Handlers.toggle(
@@ -371,8 +383,23 @@ public final class TelekinesisHandlers {
 		});
 
 		// ---- V: Telekinetic Grab (orbit) / Force Crush ---------------------------------------------
-		AbilityHandlers.register(KEY, "telekinetic_grab", Handlers.instantTicking(
-				TelekinesisHandlers::grabPress, TelekinesisHandlers::crushTick));
+		// v0.17.5 (user: split Shift/hold cooldowns): Shift+V (set down / Force Crush) keeps its own cooldown entry
+		AbilityHandlers.register(KEY, "telekinetic_grab", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				grabPress(ctx);
+			}
+
+			@Override
+			public void onServerTick(AbilityContext ctx) {
+				crushTick(ctx);
+			}
+
+			@Override
+			public boolean shiftHasOwnCooldown() {
+				return true;
+			}
+		});
 
 		// ---- C: Block Manipulation -----------------------------------------------------------------
 		AbilityHandlers.register(KEY, "block_manipulation", new AbilityHandler() {
@@ -476,7 +503,17 @@ public final class TelekinesisHandlers {
 		if (t == null && items == 0) {
 			ctx.actionBar("message.projecthero.telekinesis.nothing_to_pull");
 		}
-		ctx.triggerCooldown();
+		ctx.triggerShiftCooldown(ctx.ability().cooldownTicks()); // v0.17.5: its own entry, R stays free
+	}
+
+	/** v0.17.5: the Shift move's own cooldown check (with the usual message). */
+	private static boolean shiftReady(AbilityContext ctx) {
+		if (ctx.shiftCooldownReady()) {
+			return true;
+		}
+		ctx.actionBar("message.projecthero.ability.on_cooldown", Component.translatable(ctx.ability().nameKey()),
+				String.format(Locale.ROOT, "%.1f", ctx.shiftCooldownRemaining() / 20.0f));
+		return false;
 	}
 
 	// ================================================================================ Z
@@ -636,12 +673,15 @@ public final class TelekinesisHandlers {
 		}
 		List<Integer> orbit = orbit(p);
 		if (sneaking) {
+			if (!shiftReady(ctx)) {
+				return;
+			}
 			if (!orbit.isEmpty()) {
 				releaseOrbit(p, false);
 				ctx.actionBar("message.projecthero.telekinesis.set_down");
 				AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_CHIME, 0.8f, 1.4f);
 				MutationVisuals.play(p, "p10.set_down");
-				ctx.triggerCooldown();
+				ctx.triggerShiftCooldown(ctx.ability().cooldownTicks()); // v0.17.5: its own entry
 				return;
 			}
 			startCrush(ctx);

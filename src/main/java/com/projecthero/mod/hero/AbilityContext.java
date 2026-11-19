@@ -67,6 +67,35 @@ public final class AbilityContext {
 		ExperimentalPowers.triggerCooldown(player, power, ability, HeroConfig.get().scaledCooldown(baseTicks));
 	}
 
+	// v0.17.5: the key's Shift move / hold move keep their own cooldown entries (ExperimentalPowers.SHIFT / HOLD), so using
+	// one never puts the plain move on cooldown. The HUD reads them straight from the synced ready-at map.
+
+	public boolean shiftCooldownReady() {
+		return ExperimentalPowers.cooldownReady(player, power, ability, ExperimentalPowers.SHIFT);
+	}
+
+	public int shiftCooldownRemaining() {
+		return ExperimentalPowers.cooldownRemainingTicks(player, power, ability, ExperimentalPowers.SHIFT);
+	}
+
+	/** Start the Shift move's own (config-scaled) cooldown. */
+	public void triggerShiftCooldown(int baseTicks) {
+		ExperimentalPowers.triggerCooldown(player, power, ability, ExperimentalPowers.SHIFT, HeroConfig.get().scaledCooldown(baseTicks));
+	}
+
+	public boolean holdCooldownReady() {
+		return ExperimentalPowers.cooldownReady(player, power, ability, ExperimentalPowers.HOLD);
+	}
+
+	public int holdCooldownRemaining() {
+		return ExperimentalPowers.cooldownRemainingTicks(player, power, ability, ExperimentalPowers.HOLD);
+	}
+
+	/** Start the hold move's own (config-scaled) cooldown. */
+	public void triggerHoldCooldown(int baseTicks) {
+		ExperimentalPowers.triggerCooldown(player, power, ability, ExperimentalPowers.HOLD, HeroConfig.get().scaledCooldown(baseTicks));
+	}
+
 	// ---- toggle / cycle ----
 
 	public boolean isToggled() {
