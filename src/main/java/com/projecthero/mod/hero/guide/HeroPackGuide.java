@@ -922,6 +922,12 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.devices.target_dummy.body");
 			para(lines, "projecthero.guide.devices.target_dummy.stats");
 			para(lines, "projecthero.guide.devices.target_dummy.controls");
+			// v0.17.5 (user): backpacks
+			blank(lines);
+			head(lines, "projecthero.guide.devices.backpacks");
+			para(lines, "projecthero.guide.devices.backpacks.body");
+			para(lines, "projecthero.guide.devices.backpacks.tiers");
+			para(lines, "projecthero.guide.devices.backpacks.wearing");
 		}));
 
 		out.add(chapter("projecthero.guide.combos", lines -> {

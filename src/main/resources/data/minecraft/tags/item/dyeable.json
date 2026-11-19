@@ -1,0 +1,10 @@
+{
+  "replace": false,
+  "values": [
+    "projecthero:leather_backpack",
+    "projecthero:iron_backpack",
+    "projecthero:gold_backpack",
+    "projecthero:diamond_backpack",
+    "projecthero:netherite_backpack"
+  ]
+}

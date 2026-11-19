@@ -41,6 +41,7 @@
 		"UpgradeTechSenseColorMixin",
 		"OmnitrixHideGearMixin",
 		"OmnitrixCapeMixin",
+		"BackpackCapeMixin",
 		"GyroCoatCapeMixin",
 		"OmnitrixItemInHandMixin",
 		"OmnitrixAlienTranslucentMixin",
