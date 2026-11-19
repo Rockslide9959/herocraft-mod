@@ -387,14 +387,17 @@ public final class ShockRockClient implements AlienClientKit {
 
 	@Override
 	public void renderFirstPersonArm(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, ModelPart arm, boolean right) {
-		// the energy on his first-person arm glows too, and the blade shows on it
+		// the energy on his first-person arm glows too, and the blade shows on it.
+		// v0.17.5 fix: the caller has already moved the pose onto the arm, so the glow arm is drawn with its own pose zeroed
+		// (it used to be applied twice, leaving a see-through ghost arm floating to the side in first person)
+		net.minecraft.client.model.geom.PartPose was = arm.storePose();
+		arm.setPos(0, 0, 0);
+		arm.setRotation(0, 0, 0);
 		arm.render(pose, buffers.getBuffer(RenderType.eyes(GLOW)), LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, glowTint(p, p.tickCount, 0f));
+		arm.loadPose(was);
 		OmnitrixState s = Omnitrix.state(p);
 		if (right && (s.kitFlags & ShockRockKit.F_BLADE) != 0) {
-			pose.pushPose();
-			arm.translateAndRotate(pose);
 			blade(pose, buffers, 1f, p.tickCount);
-			pose.popPose();
 		}
 	}
 
