@@ -23,7 +23,7 @@ Added in v0.14.8. Every number is a static final in `KryptonianConfig`.
 | `KryptonianCommand` | `/projecthero meteor [here]`, `/projecthero kryptonian solar <n>` (op). |
 
 Client: `KryptonianHud` (mono style, Hairline bars only), `flight/DirectionalFlight` + `mixin/DirectionalFlightTravelMixin`
-(v0.14.16 shared directional flight, local player), `KryptonianBeamRenderer` (heat vision, `BeamDraw` ribbons like `LaserBeamRenderer`),
+(v0.14.16 shared directional flight, local player), `KryptonianBeamRenderer` (heat vision; since v0.17.5 drawn by the shared `eyebeam/EyeBeamFx` look, see `EYE_BEAMS_REFERENCE.md`),
 `KryptonianPose` (from `HumanoidModelMixin`), `mixin/KryptonianXRayGlowMixin` (per-viewer outlines),
 `KryptoniteMeteorRenderer` (a tumbling 2x kryptonite-ore block + vanilla fire overlay). `FlightPoseHelper` counts
 Kryptonian flight as hero flight (body lean); the double-tap is in `ProjectHeroModClient.handleDoubleJump`.

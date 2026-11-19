@@ -156,37 +156,26 @@ public final class SentryFxClient {
 	// ---------------------------------------------------------------- the Solar Gaze (moveset 2: twin beams from his eyes)
 
 	private static void gaze(Minecraft mc, ClientLevel level, Player p, SentryState st, float partial, float now, List<Seg> light, List<Seg> dark) {
-		Vec3 eye = p.getEyePosition(partial);
+		// v0.17.5: the beams themselves are the shared eye-beam look (EyeBeamFx: from each eye, glowing eyes, first-person beams in
+		// from the lower screen edge, flare + sparks + scorch); the Sentry keeps his golden ring at the hit
 		Vec3 dir = p.getViewVector(partial);
-		boolean fp = p == mc.getCameraEntity() && mc.options.getCameraType().isFirstPerson();
-		Vec3 right = dir.cross(new Vec3(0, 1, 0));
-		right = right.lengthSqr() < 1.0e-6 ? new Vec3(1, 0, 0) : right.normalize();
-		Vec3 base = fp ? eye.add(dir.scale(0.6)).add(0, -0.12, 0) : eye.add(dir.scale(0.22)).add(0, 0.02, 0);
-		double sep = fp ? 0.09 : 0.065;
-		Vec3 from = base;
+		Vec3 from = p.getEyePosition(partial).add(dir.scale(0.25)); // SentryMoves.gazeOrigin, interpolated: the server's exact ray
 		Vec3 end = from.add(dir.scale(SentryConfig.GAZE_RANGE));
 		BlockHitResult bh = level.clip(new ClipContext(from, end, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
+		net.minecraft.core.Direction face = null;
 		if (bh.getType() != HitResult.Type.MISS) {
 			end = bh.getLocation();
+			face = bh.getDirection();
 		}
 		var eh = SentryMoves.gazeHit(p, from, end); // round 3: the server's exact ray -- the beam never bends onto a creature beside it
 		if (eh != null) {
 			end = eh.getLocation();
+			face = null;
 		}
 		boolean hot = level.getGameTime() - st.beamStart >= SentryConfig.GAZE_HOT_TICKS;
-		float pulse = 0.85f + 0.15f * Mth.sin(now * 1.3f);
-		float near = fp ? 0.5f : 1f;
-		float w = hot ? 1.45f : 1f;
-		for (int side = -1; side <= 1; side += 2) {
-			Vec3 a = base.add(right.scale(side * sep));
-			light.add(new Seg(a, end, 0.11f * pulse * w, 0.2f * pulse * w, hot ? 0xFF8A20 : 0xFFB52A, 0.5f * near, 0.55f));
-			light.add(new Seg(a, end, 0.04f * w, 0.07f * w, 0xFFF8E0, 0.95f * near, 0.95f));
-			// the glint in each eye
-			light.add(new Seg(a.add(0, -0.06, 0), a.add(0, 0.06, 0), 0.12f, 0.12f, 0xFFF4C0, 0.8f * near, 0.8f * near));
-		}
-		// the burst where the two meet
-		float b = (hot ? 0.75f : 0.5f) * pulse;
-		light.add(new Seg(end.add(0, -b, 0), end.add(0, b, 0), b, b, hot ? 0xFFB060 : 0xFFE8A0, 0.55f, 0.55f));
+		com.projecthero.mod.client.eyebeam.EyeBeamFx.twin(p, 0, hot ? com.projecthero.mod.client.eyebeam.EyeBeamFx.SOLAR_HOT
+				: com.projecthero.mod.client.eyebeam.EyeBeamFx.SOLAR, dir, new com.projecthero.mod.client.eyebeam.EyeBeamFx.Hit(end, face, eh != null),
+				hot ? 1.45f : 1.05f, 1f);
 		ring(end, dir, 0.35f + 0.15f * Mth.sin(now * 0.9f), 0.05f, 0xFFD860, 0.6f, light);
 	}
 

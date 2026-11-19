@@ -536,6 +536,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		// v0.16.7 (user): Titan footsteps, in step with the walk / run / crawl clips (played here, on every client)
 		ClientTickEvents.END_CLIENT_TICK.register(com.projecthero.mod.client.titanshifter.TitanFootstepsClient::tick);
 		ClientTickEvents.END_CLIENT_TICK.register(client -> com.projecthero.mod.client.oathbreaker.WorldEventZoomClient.tick());
+		com.projecthero.mod.client.eyebeam.EyeBeamFx.init(); // v0.17.5: every eye beam drawn in one pass -- registered LAST so it runs after the renderers that hand beams in
 	}
 
 	private static void handleKeyBinds(Minecraft client) {
