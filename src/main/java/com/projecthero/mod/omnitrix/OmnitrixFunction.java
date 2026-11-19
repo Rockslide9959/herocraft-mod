@@ -344,13 +344,10 @@ public final class OmnitrixFunction {
 				return alien(p, a, now);
 			}
 		}
-		// wrong: Mastermind against his Master Control code only, then the lock
+		// wrong: just the lock. v0.17.5 (user: "if i input 111111 ... it tells me which numbers are right and which numbers are
+		// wrong by the number flashing red or green ... this makes getting master control too easy, please remove that"): no
+		// per-digit hint any more -- a wrong code says only that it is wrong
 		int mask = 0;
-		for (int i = 0; i < OmnitrixConfig.CODE_LENGTH; i++) {
-			if (code.charAt(i) == secrets.master().charAt(i)) {
-				mask |= 1 << i;
-			}
-		}
 		OmnitrixState n = Omnitrix.state(p).copy();
 		result(n, Outcome.WRONG, now);
 		n.timers.put(HINT, (long) mask);

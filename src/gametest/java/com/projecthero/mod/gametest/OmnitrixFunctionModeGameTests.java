@@ -198,7 +198,7 @@ public class OmnitrixFunctionModeGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 400)
-	public void aWrongCodeHintsAndLocksForTenSeconds(GameTestHelper helper) {
+	public void aWrongCodeGivesNoHintAndLocksForTenSeconds(GameTestHelper helper) {
 		ServerPlayer p = wearer(helper, false, true);
 		long[] at = { 0L };
 		helper.startSequence()
@@ -207,7 +207,7 @@ public class OmnitrixFunctionModeGameTests implements FabricGameTest {
 					// 2 4 . . . 3 right in place against 246813
 					helper.assertTrue(OmnitrixFunction.submit(p, "249993") == OmnitrixFunction.Outcome.WRONG, "a wrong code");
 					OmnitrixState s = Omnitrix.state(p);
-					helper.assertTrue(OmnitrixFunction.hint(s) == 0b100011, "the right-place digits light (Mastermind), got "
+					helper.assertTrue(OmnitrixFunction.hint(s) == 0, "v0.17.5: no per-digit hint, even with three digits in place, got "
 							+ Integer.toBinaryString(OmnitrixFunction.hint(s)));
 					at[0] = p.level().getGameTime();
 					helper.assertTrue(OmnitrixFunction.lockLeft(s, at[0]) == OmnitrixConfig.CODE_LOCK_TICKS, "locked for 10 s");

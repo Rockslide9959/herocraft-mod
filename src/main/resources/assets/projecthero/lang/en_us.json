@@ -13860,7 +13860,7 @@
   "projecthero.guide.omnitrix.master.do.leave": "leave (or lower the watch with R)",
   "projecthero.guide.omnitrix.master.code": "Master Control answers to six numbers, and they are yours alone: no other wearer's watch has the same. They are written nowhere.",
   "projecthero.guide.omnitrix.master.finding": "The watch lets them slip, one at a time and with their place: a flicker as it changes you, or after a long while spent as an alien. The Data Fragments left in old Hero Vaults hold pieces too - hold one to the watch.",
-  "projecthero.guide.omnitrix.master.wrong": "Enter the wrong numbers and it buzzes, lights the ones already in their right place green, and will not listen for ten seconds.",
+  "projecthero.guide.omnitrix.master.wrong": "Enter the wrong numbers and it buzzes and will not listen for ten seconds. It never says which numbers were close.",
   "projecthero.guide.omnitrix.master.off": "The right numbers make the whole watch flash white and black for two seconds, then the dial runs through every form you carry before it goes quiet and answers to you. Enter them again while Master Control is awake (the watch reminds you) and it goes back to sleep the same way.",
   "projecthero.guide.omnitrix.master.found": "What your watch has let slip",
   "projecthero.guide.omnitrix.master.found.none": "Nothing yet.",

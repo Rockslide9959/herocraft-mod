@@ -309,9 +309,9 @@ public final class OmnitrixFunctionClient {
 			String d;
 			int col;
 			if (wrong) {
-				// the wrong code with its Mastermind hints: right-place digits flash green, the rest dull red
+				// the wrong code, all one colour while the lock lasts (no hints)
 				d = lastSent.length() == OmnitrixCodeEntry.LENGTH ? String.valueOf(lastSent.charAt(i)) : "-";
-				col = (mask >> i & 1) != 0 ? (hintFlash ? 0xFFE2FFD2 : 0xFF55FF55) : 0xFFAA4040;
+				col = 0xFFAA4040; // v0.17.5: every digit the same dull red -- no per-digit right/wrong hint
 			} else {
 				d = String.valueOf(e.digit(i));
 				col = sd ? (i == e.slot() ? 0xFFFFB020 : 0xFFFF6040) : i == e.slot() ? 0xFFFFFFFF : 0xFF8FE870;
