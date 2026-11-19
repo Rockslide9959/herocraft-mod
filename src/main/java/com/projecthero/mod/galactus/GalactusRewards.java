@@ -36,13 +36,24 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
  * <ul>
  *   <li>A <b>reward chest</b> at the arena's centre (the Herald's Beacon becomes it): Galactus' Helmet Crest trophy, diamonds,
  *       netherite scrap, emeralds, amethyst and enchanted books, scaled for the party ({@link Valuables#partyScale}).</li>
- *   <li>Every winner's <b>first</b> clear ({@link #CLEARS}, persistent, once per player ever): the Silver Surfer's Board and the
- *       Power Cosmic, straight into their pack. Never in the shared chest.</li>
+ *   <li>Every winner's <b>first</b> clear ({@link #CLEARS}, persistent, once per player ever): the Power Cosmic, straight into
+ *       their pack. Never in the shared chest.</li>
+ *   <li>v0.17.5 (the user: "only one person has a chance to get the silver surfer board"): <b>one</b> Silver Surfer's Board
+ *       roll per won raid ({@code rewards.boardChance}), offered to a single fighter -- the top damage dealer on Galactus still
+ *       present who has never had the Board ({@link #BOARD}); a tie is broken at random. A failed roll: nobody gets it.</li>
  * </ul>
  */
 public final class GalactusRewards {
 	public static final AttachmentType<Integer> CLEARS = AttachmentRegistry.create(ProjectHeroMod.id("galactus_clears"),
 			builder -> builder.persistent(Codec.INT).copyOnDeath().initializer(() -> 0));
+	/**
+	 * v0.17.5: the player's Board history. {@link #BOARD_UNSET} = never recorded (a player with clears from before 0.17.5 got
+	 * the Board with their first clear, so they count as having it), {@link #BOARD_WON}, {@link #BOARD_MISSED} = cleared under
+	 * the one-Board rule without winning it (still eligible).
+	 */
+	public static final AttachmentType<Integer> BOARD = AttachmentRegistry.create(ProjectHeroMod.id("galactus_board"),
+			builder -> builder.persistent(Codec.INT).copyOnDeath().initializer(() -> 0));
+	public static final int BOARD_UNSET = 0, BOARD_WON = 1, BOARD_MISSED = 2;
 
 	private GalactusRewards() {
 	}
@@ -84,16 +95,83 @@ public final class GalactusRewards {
 		return player.getAttachedOrElse(CLEARS, 0);
 	}
 
-	/** Records a clear; on the first, returns the items owed (the Board and the Power Cosmic), else none. Pure bookkeeping. */
+	/** Records a clear; on the first, returns the items owed (the Power Cosmic), else none. Pure bookkeeping. */
 	public static List<ItemStack> recordClear(Player player) {
 		int before = clears(player);
 		player.setAttached(CLEARS, before + 1);
+		if (player.getAttachedOrElse(BOARD, BOARD_UNSET) == BOARD_UNSET) {
+			player.setAttached(BOARD, BOARD_MISSED);
+		}
 		List<ItemStack> out = new ArrayList<>();
 		if (before == 0 && GalactusConfig.rewards().firstClearItems) {
-			out.add(new ItemStack(GalactusItems.SURFBOARD));
 			out.add(new ItemStack(GalactusItems.POWER_COSMIC));
 		}
 		return out;
+	}
+
+	/** Can this player still win the Board? (Not if they won it, or cleared before 0.17.5, when every first clear got one.) */
+	public static boolean boardEligible(Player player) {
+		int b = player.getAttachedOrElse(BOARD, BOARD_UNSET);
+		return b == BOARD_MISSED || (b == BOARD_UNSET && clears(player) == 0);
+	}
+
+	/**
+	 * The one fighter offered the raid's Board roll: the highest damage on Galactus among {@code present} players who can still
+	 * win it (ties at random); null if nobody can. Call before the clears are recorded.
+	 */
+	public static ServerPlayer boardCandidate(List<ServerPlayer> present, java.util.Map<java.util.UUID, Double> damage, RandomSource r) {
+		if (!GalactusConfig.rewards().firstClearItems) {
+			return null;
+		}
+		List<ServerPlayer> best = new ArrayList<>();
+		double top = -1;
+		for (ServerPlayer p : present) {
+			if (p == null || p.isRemoved() || !boardEligible(p)) {
+				continue;
+			}
+			double d = damage.getOrDefault(p.getUUID(), 0.0);
+			if (d > top + 1.0E-6) {
+				top = d;
+				best.clear();
+				best.add(p);
+			} else if (Math.abs(d - top) <= 1.0E-6) {
+				best.add(p);
+			}
+		}
+		return best.isEmpty() ? null : best.get(best.size() == 1 ? 0 : r.nextInt(best.size()));
+	}
+
+	/**
+	 * The raid's single Board roll for {@code candidate} ({@link #boardCandidate}). On a hit the Board goes into their pack and
+	 * every fighter in {@code tell} hears who got it; on a miss they hear the Surfer kept it. Returns whether it dropped.
+	 */
+	public static boolean awardBoard(ServerPlayer candidate, List<ServerPlayer> tell, RandomSource r, double chance) {
+		if (candidate == null) {
+			return false;
+		}
+		boolean hit = chance >= 1.0 || (chance > 0.0 && r.nextDouble() < chance);
+		if (!hit) {
+			for (ServerPlayer p : tell) {
+				p.sendSystemMessage(Component.translatable("message.projecthero.galactus.board_kept", candidate.getDisplayName())
+						.withStyle(ChatFormatting.GRAY));
+			}
+			return false;
+		}
+		candidate.setAttached(BOARD, BOARD_WON);
+		ItemStack board = new ItemStack(GalactusItems.SURFBOARD);
+		if (!candidate.getInventory().add(board)) {
+			candidate.drop(board, false);
+		}
+		candidate.sendSystemMessage(Component.translatable("message.projecthero.galactus.board_won").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+		for (ServerPlayer p : tell) {
+			if (p != candidate) {
+				p.sendSystemMessage(Component.translatable("message.projecthero.galactus.board_given", candidate.getDisplayName())
+						.withStyle(ChatFormatting.AQUA));
+			}
+		}
+		candidate.serverLevel().playSound(null, candidate.getX(), candidate.getY(), candidate.getZ(), SoundEvents.BEACON_POWER_SELECT,
+				SoundSource.PLAYERS, 1.5f, 1.4f);
+		return true;
 	}
 
 	/** Records the clear and hands over the first-clear items (into the pack, or at their feet). True if it was the first. */

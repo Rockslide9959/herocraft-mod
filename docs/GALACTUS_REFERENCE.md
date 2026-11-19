@@ -36,6 +36,24 @@ flies the camera per scene (`GalactusCinematicCameraMixin`), draws letterbox bar
 `QuirkCameraFx` shakes / FOV punches on cue. **Hold Sneak** skips your own view. Timings live in `GalactusScenes` (both
 sides). Late joiners and re-loggers mid-scene get the scene from where it is (`elapsed`).
 
+**Who sees them (v0.17.5, the user: "right now only the player that starts it sees the cutscenes").** Before, C1 went
+only to fighters inside the 80-block arena when it started and C2 only to fighters within 96 blocks, while the boss bar
+(the participants) reaches 160 blocks, so friends a little way off were in the raid but saw nothing. Now:
+- At the start every survival player within arena + 48 (the drawn border's reach) becomes a fighter and anyone past the
+  arena wall is pulled inside it (as the wall would a moment later).
+- C1 and C2 go to `GalactusEvent.sceneAudience`: every fighter in the overworld plus anyone else alive and not
+  spectating within the participants' radius (`abandonRadius`, 160), creative onlookers included (they are held like the
+  rest but never lifted). Everyone gets the same payload in the same tick, so the scenes run in step. Dead / respawning
+  players are skipped.
+- C2 lifts every fighter within arena + 48 (was arena + 16).
+- Anyone entering the area or logging back in while C1 / C2 plays is caught up from where the scene is
+  (`catchUpOverworldScene`, every framework tick; `sceneSent` remembers who has it). A fighter arriving in C2 before the
+  lift goes up too.
+- Orbit scenes (C3-C5) already went to every fighter up there (`orbitFighters`); Rift joiners and re-loggers are caught up.
+- The hold is per player: a logout drops that player's hold only, the arena wall moving a held player moves the hold with
+  them (`GalactusCinematics.moved`), and each client puts its own camera back when the scene ends.
+Gametest: `GalactusRaidFixGameTests.theOpeningCutsceneReachesEveryoneInTheRaid`.
+
 ## 3. The orbit (`GalactusOrbit`)
 - `projecthero:galactus_orbit`: void, fixed night, ambient light 0.55, effects id `projecthero:galactus_orbit` (no clouds,
   no weather). Sky: `GalactusOrbitSky` (Fabric sky renderer) -- violet-black wash, 4200 stars + 260 twinkling, two nebula
@@ -84,6 +102,29 @@ living hit-boxes resized to the skeleton every tick; they take no damage -- `onP
 - A hit that counts: `broadcastDamageEvent` on the Devourer (the whole model flashes red), an iron-golem thud and
   crit / spark particles where it struck.
 
+**v0.17.5 hands ("make his hand model better please it looks really weird right now during the raid").** What was wrong:
+the hand was a thin slab (6.4 x 13.5) with four fingers spread along 23 px (twice the palm's width, with gaps), one stick
+thumb, and `DevourerRenderer` bent the fingers about **X** -- which, for fingers lined up front to back, swung the whole
+row sideways, so a "fist" threw the finger blocks off the hand. Now (`galactusHand` in `scratchpad/gen_galactus_models.js`,
+exported with `--hands-game`; preview sheet with `--hands <png>`):
+- Palm 5.4 x 12.4 x 9.5 px (as wide as the four fingers), purple back plate, knuckle guard, ribbed wrist band, thenar /
+  hypothenar pads round the glowing palm emitter (the palm halo plate moved to the new palm face).
+- Four fingers (index at the front, by the thumb) in three segments with plated backs: `fingers_n` (all four knuckle
+  segments, curl axis = the knuckle line) > `fingertips_n` (the four middle segments) > `tip0_n`..`tip3_n` (each tip at
+  its own joint). Segments overlap into their parent and get thinner outward, so no gaps or coplanar faces when bent.
+  Thumb: `thumb_n` (rest rotation [-28, 0, 12 s] in the model) > `thumbtip_n`.
+- A curl is a **Z** rotation toward the palm (s = -1 right, +1 left). Poses (degrees: knuckles, middles, tips, thumb x,
+  thumb z, thumb tip), the same table in the generator (`GH_POSES`) and the renderer: relaxed 10/14/8/0/0/6, open
+  2/3/2/-6/-8/0, grip 48/52/30/26/22/20, fist 92/100/64/74/30/-4.
+- The client eases each hand (`DevourerEntity.handCur/handPrev`, interpolated per frame): fist while
+  `FLAG_FIST_*` or `FLAG_STUCK_*`, open while the arm reaches (weight > 0), relaxed hanging, and a cupped grip while he
+  holds someone (new `FLAG_GRIP_R/L`, set by the Grab on the catch, cleared on the throw -- the hand opens -- and in
+  `rest`). Visual only: hit-boxes, the rig (`GalactusRig.LOWER` still lands on the fist's middle) and every attack are
+  unchanged. Same geometry/texture size (2048 x 640); the old v0.16 `galactus.animation.json` clips still key
+  `fingers_n` / `fingertips_n` / `thumb_n` (the tips stay straight there; that entity is never spawned).
+- Note: `--game` would also rewrite `galactus.animation.json` from an older clip table (walk etc. missing), so use
+  `--hands-game` for model-only changes. Stills, MP4 and frame sheet: `docs/screenshots/v0175/galactus_hands/`.
+
 ## 5. Stage 1: the Shattered Orbit (`StageIslands`)
 11 islands (+1 per extra fighter, 19 max): the Anchor (r7, never smashed) + a hex ring of 6 + outer ring, 5-block gaps
 (`OrbitIsland.field`; each island a pure function of its seed). Gravity pads: Anchor -> each outer island and back. Galactus
@@ -114,8 +155,18 @@ Surfer gives the **Ultimate Nullifier** to the top damage dealer; hold right-cli
 he beams the holder every 3.5 s; a dropped / lost Nullifier comes back.
 
 ## 8. Rewards
-The chest (`GalactusRewards`, x1.5), first-clear Board + Power Cosmic, Cosmic Shards (4 + a beacon = a Herald's Beacon:
+The chest (`GalactusRewards`, x1.5), first-clear Power Cosmic, Cosmic Shards (4 + a beacon = a Herald's Beacon:
 `heralds_beacon_from_shards`), and a chat line naming who used the Nullifier.
+
+**One Board per raid (v0.17.5, the user: "only one person has a chance to get the silver surfer board").** Before, every
+winner's first clear got a Silver Surfer's Board. Now a won raid makes **one** Board roll (`rewards.boardChance`, default 1.0,
+which keeps the old odds) for **one** fighter: the winner still present (online, alive, not down) with the most damage on
+Galactus (`damageBy`, the same tally that picks the Nullifier holder; a tie is broken at random) who has never had a
+Board. A failed roll means nobody gets it that raid. The winner is told, the other fighters get a chat line naming them
+(or, on a miss, that the Surfer kept it). Board history is the persistent `projecthero:galactus_board` attachment
+(0 unset, 1 won, 2 cleared without it); a player with clears from before 0.17.5 counts as already having one (they got it
+with their first clear). The Power Cosmic stays a first-clear item for everyone; the chest and shards are unchanged.
+`firstClearItems: false` turns the Board off too. Gametest: `GalactusRaidFixGameTests.onlyTheTopDamageDealerGetsTheOneBoard`.
 
 ## 8b. Recovery rules (v0.17.4)
 - A lost Devourer (chunk unload, /kill) mid-stage is re-made within a second where the stage puts him.

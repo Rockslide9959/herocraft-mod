@@ -196,6 +196,8 @@ public final class StageDevourer {
 		d.setFlag(DevourerEntity.FLAG_FIST_L, false);
 		d.setFlag(DevourerEntity.FLAG_STUCK_R, false);
 		d.setFlag(DevourerEntity.FLAG_STUCK_L, false);
+		d.setFlag(DevourerEntity.FLAG_GRIP_R, false);
+		d.setFlag(DevourerEntity.FLAG_GRIP_L, false);
 		d.setFlag(DevourerEntity.FLAG_MOUTH, false);
 		d.setCharge(0f);
 	}
@@ -510,6 +512,7 @@ public final class StageDevourer {
 			victim = caught.getUUID();
 			grip = 0;
 			d.setFlag(right ? DevourerEntity.FLAG_FIST_R : DevourerEntity.FLAG_FIST_L, true);
+			d.setFlag(right ? DevourerEntity.FLAG_GRIP_R : DevourerEntity.FLAG_GRIP_L, true); // v0.17.5: a cupped hold, not a fist
 			caught.displayClientMessage(Component.translatable("message.projecthero.galactus.grabbed").withStyle(ChatFormatting.RED, ChatFormatting.BOLD), true);
 			ev.broadcastOrbit(orbit, Component.translatable("message.projecthero.galactus.grab_ally", caught.getDisplayName()).withStyle(ChatFormatting.GOLD));
 		} else if (in < wind + strike + lift + hold) {
@@ -537,6 +540,9 @@ public final class StageDevourer {
 				GalactusCombat.hit(orbit, d, v, (float) c.flingDamage);
 			}
 			victim = null;
+			// v0.17.5: the hand opens as it throws them
+			d.setFlag(right ? DevourerEntity.FLAG_GRIP_R : DevourerEntity.FLAG_GRIP_L, false);
+			d.setFlag(right ? DevourerEntity.FLAG_FIST_R : DevourerEntity.FLAG_FIST_L, false);
 		} else if (in < wind + strike + lift + hold + 20) {
 			d.setArm(right, show, 1f - (in - wind - strike - lift - hold) / 20f);
 		} else {
