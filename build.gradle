@@ -129,6 +129,37 @@ dependencies {
 	modGametestImplementation fabricApi.module("fabric-gametest-api-v1", project.fabric_api_version)
 }
 
+// v0.17.5: the build id for the join handshake (VersionCheck.BuildPayload). The version stays the same across many test builds,
+// so every jar also carries projecthero_build.properties: the git commit + the build time. A client whose jar is a different
+// build from the server's is refused before registry sync with a clear message. Regenerated on every build (never up to date).
+def buildInfoDir = layout.buildDirectory.dir("generated/buildinfo")
+def generateBuildInfo = tasks.register('generateBuildInfo') {
+	def outDir = buildInfoDir
+	def repoDir = project.rootDir
+	outputs.dir outDir
+	outputs.upToDateWhen { false }
+	doLast {
+		def commit = 'nogit'
+		try {
+			def proc = ['git', 'rev-parse', '--short=9', 'HEAD'].execute(null, repoDir)
+			def text = proc.inputStream.text.trim()
+			proc.waitFor()
+			if (proc.exitValue() == 0 && !text.isEmpty()) {
+				commit = text
+			}
+		} catch (Exception ignored) {
+			// no git on this machine: the build time alone tells builds apart
+		}
+		def now = java.time.ZonedDateTime.now(java.time.ZoneOffset.UTC)
+		def id = commit + '-' + now.format(java.time.format.DateTimeFormatter.ofPattern('yyyyMMddHHmmss'))
+		def built = now.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm 'UTC'"))
+		def f = outDir.get().file('projecthero_build.properties').asFile
+		f.parentFile.mkdirs()
+		f.text = "id=${id}\nbuilt=${built}\ncommit=${commit}\n"
+	}
+}
+sourceSets.main.resources.srcDir(generateBuildInfo)
+
 processResources {
 	def version = project.version
 	inputs.property "version", version
