@@ -6,6 +6,8 @@ import java.util.List;
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.client.ModKeyBindings;
 import com.projecthero.mod.hero.AbilitySlot;
+import com.projecthero.mod.hero.visual.MutationMeters;
+import com.projecthero.mod.titanshifter.TitanCharges;
 import com.projecthero.mod.titanshifter.TitanMove;
 import com.projecthero.mod.titanshifter.TitanPhase;
 import com.projecthero.mod.titanshifter.TitanShifter;
@@ -31,12 +33,15 @@ import net.minecraft.world.phys.Vec3;
  *                Attack Titan                       title (the shifter's Titan)
  *                (limb silhouette) NAPE EXPOSED!    the limbs + the nape status (flashes with a hostile behind)
  *                Emergency [=====-----]   12s       only in an emergency form
+ *                Charges [#][#][ ]       2/3        v0.17.5: Titan charges (pips; the regenerating one fills from the bottom)
  *                Steam    [=========-]    82%
  *                Titan HP [=======---] 412/500      orange / red as it falls, blue hardened, green regenerating
  *                +--+--+--+--+--+--+                R G Z X C V: the tap move (Shift: the Shift move); the other move's
  *                                                   recharge is the durability bar; a running move lights its key
  *   Human form:  Titan Shift Ready [H] ...          status (and "Passive Regen: OFF")
  *                Attack Titan                       title
+ *                Charges [#][#][ ]       2/3        v0.17.5: Titan charges
+ *                Next charge [====-]     42s        Hairline toward the next charge, seconds left
  *                Steam / Healing pool meters
  *                +--+--+--+                         the three Partial Shifting keys (R G X)
  * </pre>
@@ -49,6 +54,11 @@ public final class TitanShifterHud {
 	private static final int COLOR_POOL = 0xFF5ED36A;
 	private static final int COLOR_LIMB = 0xFFD8C8B0;
 	private static final int COLOR_LIMB_GONE = 0xFF7A1010;
+	/** v0.17.5: Titan charge pips. */
+	private static final int COLOR_CHARGE = 0xFFFFC23A;
+	private static final int COLOR_CHARGE_FILLING = 0xFFB07A1C;
+	private static final int COLOR_CHARGE_EMPTY = 0xFF3A3328;
+	private static final int PIP_W = 7, PIP_H = 9;
 	/** The human kit's keys (R G X), in the strip's R G Z X C V order. */
 	private static final AbilitySlot[] HUMAN_KEYS = { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_3 };
 
@@ -95,6 +105,7 @@ public final class TitanShifterHud {
 			st.meter(Component.translatable("hud.projecthero.titan_shifter.hp"), frac, fill, (int) Math.ceil(hp) + "/" + (int) Math.ceil(max),
 					VanillaHud.WHITE);
 			steam(st, s);
+			charges(st, mc, s, TitanShifterConfig.charges().regenInTitan); // v0.17.5: what is left for the next shift
 			if (s.inEmergency()) {
 				int leftTicks = (int) Math.max(0L, s.emergencyUntil - now);
 				float left = Math.max(0f, Math.min(1f, leftTicks / (float) TitanShifterConfig.emergency().durationTicks));
@@ -134,9 +145,10 @@ public final class TitanShifterHud {
 		st.meter(Component.translatable("hud.projecthero.titan_shifter.pool_label"), pFrac, COLOR_POOL,
 				(int) Math.floor(pFrac * 100f + 1.0e-3f) + "%", VanillaHud.WHITE);
 		steam(st, s);
+		charges(st, mc, s, phase == TitanPhase.HUMAN || phase == TitanPhase.RECOVERING || TitanShifterConfig.charges().regenInTitan);
 		st.title(title, VanillaHud.GOLD);
 
-		boolean full = s.energy + 1.0e-3f >= TitanShifter.energyNeeded();
+		boolean full = TitanCharges.current(s) > 0; // v0.17.5: a Titan charge is what a shift needs
 		Component status = switch (phase) {
 			case HUMAN -> {
 				int cd = TitanShifter.transformCooldownRemaining(mc.player);
@@ -150,7 +162,8 @@ public final class TitanShifterHud {
 				if (TitanShifter.emergencyAllowed(s)) {
 					yield Component.translatable("hud.projecthero.titan_shifter.emergency_ready", key).withStyle(ChatFormatting.AQUA);
 				}
-				yield s.emergencyPenalty ? Component.translatable("hud.projecthero.titan_shifter.drained").withStyle(ChatFormatting.GRAY) : null;
+				yield s.emergencyPenalty ? Component.translatable("hud.projecthero.titan_shifter.drained").withStyle(ChatFormatting.GRAY)
+						: Component.translatable("hud.projecthero.titan_shifter.no_charges").withStyle(ChatFormatting.RED);
 			}
 			case TRANSFORMING -> Component.translatable("hud.projecthero.titan_shifter.transforming").withStyle(ChatFormatting.GOLD);
 			case TITAN -> null;
@@ -201,6 +214,48 @@ public final class TitanShifterHud {
 			case BEAST_TITAN -> form.hasMoveFlag(TitanFormEntity.FLAG_HOLDING_BOULDER);
 			default -> form.hasMoveFlag(TitanFormEntity.FLAG_RAGING);
 		};
+	}
+
+	/**
+	 * v0.17.5: Titan charges. One row of pips (lit gold = ready, dark = spent; the one regenerating fills from the bottom) with
+	 * "have/max" on the right; while one is missing, a Hairline under it fills toward the next charge with the seconds left.
+	 * Inside the Titan (the timer stops) there is no Hairline and the half-filled pip is drawn dim.
+	 */
+	private static void charges(VanillaHud.Stack st, Minecraft mc, TitanShifterState s, boolean running) {
+		int max = TitanCharges.max(s);
+		int have = TitanCharges.current(s);
+		float prog = TitanCharges.progress(s);
+		if (have < max && running) {
+			st.meter(Component.translatable("hud.projecthero.titan_shifter.next_charge"), prog, COLOR_CHARGE,
+					VanillaHud.seconds(TitanCharges.ticksToNext(s)) + "s", VanillaHud.WHITE, MutationMeters.Style.HAIRLINE);
+		}
+		st.reserve(PIP_H + 3);
+		int y = st.top() + 1;
+		Component label = Component.translatable("hud.projecthero.titan_shifter.charges_label");
+		String count = have + "/" + max;
+		int countW = mc.font.width(count);
+		int pipsW = max * (PIP_W + 2) - 2;
+		int room = st.width - countW - 4 - pipsW - 4;
+		String text = label.getString();
+		if (mc.font.width(text) > room) {
+			text = mc.font.plainSubstrByWidth(text, Math.max(0, room));
+		}
+		GuiGraphics g = st.g;
+		g.drawString(mc.font, text, st.x0, y + 1, VanillaHud.WHITE, true);
+		int px = st.x0 + Math.min(mc.font.width(text) + 4, Math.max(0, room + 4));
+		for (int i = 0; i < max; i++) {
+			int x = px + i * (PIP_W + 2);
+			g.fill(x - 1, y - 1, x + PIP_W + 1, y + PIP_H + 1, 0xFF000000); // frame
+			g.fill(x, y, x + PIP_W, y + PIP_H, COLOR_CHARGE_EMPTY);
+			if (i < have) {
+				g.fill(x, y, x + PIP_W, y + PIP_H, COLOR_CHARGE);
+				g.fill(x, y, x + PIP_W, y + 1, 0xFFFFE9A8); // a lighter top edge
+			} else if (i == have && prog > 0f) {
+				int h = Math.max(1, Math.round(PIP_H * prog));
+				g.fill(x, y + PIP_H - h, x + PIP_W, y + PIP_H, running ? COLOR_CHARGE_FILLING : 0xFF6E6250);
+			}
+		}
+		g.drawString(mc.font, count, st.x0 + st.width - countW, y + 1, have > 0 ? VanillaHud.GOLD : 0xFFFF5555, true);
 	}
 
 	/** The Steam meter (yellow, the percentage). */

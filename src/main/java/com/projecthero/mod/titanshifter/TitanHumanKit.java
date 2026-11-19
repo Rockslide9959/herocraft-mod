@@ -206,11 +206,11 @@ public final class TitanHumanKit {
 		}
 	}
 
-	/** Shift+G: Bite Shift -- the bite through the hand: an instant shift with the full bar (lightning and all). */
+	/** Shift+G: Bite Shift -- the bite through the hand: an instant shift (lightning and all). v0.17.5: costs a Titan charge, like H. */
 	public static void biteShift(ServerPlayer player) {
 		TitanShifterState s = TitanShifter.state(player);
-		if (s.energy + 1.0e-3f < TitanShifter.energyNeeded()) {
-			TitanShifter.say(player, "message.projecthero.titan_shifter.bite_shift_needs_full", ChatFormatting.RED);
+		if (TitanCharges.current(s) <= 0) {
+			TitanShifter.sayNoCharges(player, s);
 			return;
 		}
 		ServerLevel level = (ServerLevel) player.level();

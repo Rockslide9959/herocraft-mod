@@ -1,5 +1,37 @@
 # Titan Shifter — reference (v0.12.32)
 
+> **v0.17.5 -- Titan charges (user):** `TitanCharges` (pure helpers) + `TitanShifterState.charges` / `chargeProgress` (codec keys
+> `charges`, default -1 = "never set, read as full", and `charge_progress`; they share an inline `Extras` MapCodec with `emergency_until`
+> and `flags` because the record codec was at its 16-field limit -- the NBT stays flat, old saves load unchanged).
+>
+> | Titan | Charges | Why |
+> |---|---|---|
+> | Female | 4 | lightest (450 HP, 12 blocks), hit-and-run shifting is her game |
+> | Attack | 3 | the baseline brawler (500 HP) |
+> | Beast | 2 | 600 HP + long-range boulders |
+> | Armoured | 2 | 800 HP behind 35% crystal plates |
+>
+> Config section `charges` (`attackTitan`, `armoredTitan`, `femaleTitan`, `beastTitan`, `regenTicks` 1200, `regenInTitan` false).
+> - **Gate:** a normal shift (H, Shift+G Bite Shift) needs >= 1 charge and spends one (`TitanCharges.spend` in `transform`, only once the
+>   form is placed, so "no room" costs nothing). Steam no longer gates a normal shift (`energyNeeded()` removed; `energy.transformMinFraction`
+>   is still in the file but not read). Steam stays the Titan's healing / limb-regrowth fuel, the Partial Shifting fuel and the Emergency gate.
+> - **Regen:** one timer, 1200 ticks per charge, strictly sequential (`advance` pays at most one charge per 1200 ticks; spending from
+>   full restarts it at 0). Stepped 20 ticks once a second in `tickCharges` (guarded by `LAST_CHARGE_STEP` against double ticks; cleared in
+>   `clearSessionState`, which `ServerStateReset` calls). Runs in HUMAN and RECOVERING only; inside the form it pauses (keeps progress).
+>   A tick counter, not a game time: survives relog / world switch, never runs offline. A charge coming back plays a chime + gold action-bar line.
+> - **Emergency Titan:** H with 0 charges -> the hold (still 30% Steam and no exhaustion). Costs no charge but resets `chargeProgress` to 0.
+>   The exhaustion penalty now only blocks another Emergency Titan (a charge still shifts normally) and keeps its Steam / healing effects.
+> - **Death / respawn:** charges and progress are kept (copyOnDeath; `onPlayerRespawn` does not touch them). `grant` fills them, `revoke`
+>   resets to -1. A serum re-forge clamps to the new Titan's maximum (never refills).
+> - **HUD:** a pip row (`Charges [#][#][ ] 2/3`, the regenerating pip fills from the bottom) above Steam, and with one missing a
+>   Hairline `Next charge [===--] 42s` under it (human form only; in the Titan the pip row stays, the partial pip dims). Human status
+>   line: "Titan Shift Ready [H]" with a charge, "Hold [H]: Emergency Shift" / "Titan Form Exhausted" / "No Titan charges" without.
+>   The picker's size line gives each Titan's charges.
+> - **Command:** `/projecthero power tune titan charges <n> | chargetime <seconds> | status` (op 2), `TitanShifterCommand`.
+> - **Tests:** `TitanShifterGameTests` `transformNeedsAndSpendsATitanCharge`, `chargesLetTheShifterTransformTwiceInARow`,
+>   `chargesRegenerateOneAtATimeInSequence`, `chargeTimerRunsInHumanFormAndPausesInTheTitan`, `eachTitanHasItsOwnChargeCount`,
+>   `chargesPersistAcrossSavesAndDeath`, `theEmergencyTitanCostsNoChargeButRestartsTheTimer`.
+
 > **v0.13.10 -- aimed Punch / Heavy Smash:** `TitanCombat.aim` casts the rider's own look ray (they sit at the Titan's eyes and share the camera's rotation) against blocks and valid targets. Punch: `aimedFistTip` = shoulder (75% height) toward the aim point, capped at bodyHalf + reach + 3; `hitAimedFist` hits the union of the old `fistBox` and a capsule (`targetsAlong`, radius max(1.5, spread*0.8)) along shoulder->tip, each target once; FX at the tip. Heavy Smash: `TitanAbilities.smashPoint` -- the aimed mob/block within bodyHalf + 12 (+30% height); nothing under the crosshair = 6 blocks down the look ray when pitched up more than 10 degrees, else the old ground spot 3.5 ahead. Titan Kick and Stomp are unchanged (self-centred by design). GameTests: `punchHitsWhereTheShifterAims`, `heavySmashLandsWhereTheShifterAims`.
 >
 > **v0.12.43:** `TitanShifter.toggleRegen` (Shift+N, or plain N when no other power claims it, in HUMAN phase via `TitanShiftPayload.TOGGLE_REGEN`) flips `TitanShifterState.regenOff` (packed with the penalty into the `flags` codec int); `baseRegenActive` respects it. The Roar sends `TitanRoarSensePayload` (everything within `roarHighlightRadius` 50, `roarHighlightTicks` 200) to the roaring player only; `client.titanshifter.TitanRoarSenseClient` + `EntityGlowMixin` draw the blue (0x3C9BFF) outline.

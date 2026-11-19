@@ -31,6 +31,8 @@ public final class TitanShifterConfig {
 	public World world = new World();
 	public Energy energy = new Energy();
 	public Emergency emergency = new Emergency();
+	/** v0.17.5 (user): Titan charges -- how many shifts each Titan has stored, and how fast they come back. */
+	public Charges charges = new Charges();
 	/** v0.16.7 (user, Titan revamp): the nape weak point, defeat / cut-out penalty. */
 	public Nape nape = new Nape();
 	/** v0.16.7 (user, Titan revamp): severed limbs. */
@@ -210,6 +212,21 @@ public final class TitanShifterConfig {
 	}
 
 	/** v0.12.39: the Emergency Titan -- hold H for a few seconds with at least minFraction of the bar to become a pale, weaker Titan. */
+	/**
+	 * v0.17.5 (user): every shift spends one charge; with none left there is only the Emergency Titan. Charges come back one at a
+	 * time: {@link #regenTicks} for the first missing one, then the next starts. The tougher the Titan, the fewer it stores.
+	 */
+	public static final class Charges {
+		public int attackTitan = 3;
+		public int armoredTitan = 2;
+		public int femaleTitan = 4;
+		public int beastTitan = 2;
+		/** One charge back every 60 s, one at a time. */
+		public int regenTicks = 1200;
+		/** False: the timer only runs in human form (and while recovering) -- it pauses, never resets, inside the Titan. */
+		public boolean regenInTitan = false;
+	}
+
 	public static final class Emergency {
 		/** Least Titan Energy (fraction of the bar) that allows an emergency shift. */
 		public double minFraction = 0.30;
@@ -439,6 +456,10 @@ public final class TitanShifterConfig {
 		return instance.emergency;
 	}
 
+	public static Charges charges() {
+		return instance.charges;
+	}
+
 	public static Nape nape() {
 		return instance.nape;
 	}
@@ -480,7 +501,7 @@ public final class TitanShifterConfig {
 	 */
 	public static final VersionedConfig<TitanShifterConfig> SPEC = VersionedConfig
 			.builder(TitanShifterConfig.class, "projecthero_titan_shifter.json", TitanShifterConfig::new)
-			.balance("stats", "damage", "abilities", "resistances", "energy", "emergency", "nape", "limbs", "human",
+			.balance("stats", "damage", "abilities", "resistances", "energy", "emergency", "charges", "nape", "limbs", "human",
 					"sharedMoves", "attackTitan", "armoredTitan", "femaleTitan", "beastTitan",
 					"sharedMoves", "attackTitan", "armoredTitan", "femaleTitan", "beastTitan",
 					"transformation.transformTicks", "transformation.revertTicks", "transformation.defeatTicks",
