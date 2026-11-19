@@ -462,3 +462,89 @@ based on the comics and movies and shows ... i want a really cool looking suitup
 with the transform clock set directly, the host stays at scale 1.0 through 85% of the suit-up, is bulking at 95%, is 1.5 once settled,
 deflates as the retract starts and is back to 1.0 from 20% of it on. Visual checks: `docs/screenshots/v0175/symbiote_suitup/` (harness
 `scratchpad/SymbioteSuitUpHarness.v0175.java.txt`, films via `scratchpad/symbiote/films_suitup_v0175.js`).
+
+## v0.17.5 round 3 -- Lethal Protector only, a random colour on bonding, no glint, coloured lips, the mouth clear of the eyes
+
+User: "Remove all the classic suit styles from this power and just make it the lethal protector variants please. when player gets the
+symbiote they get a random colour. Remove the enchantment glow or tint from the suit please", then "make the lip colour match the colour
+of the symbiote please" and "the top of the mouth is kinda going into the eyes of the suit, please fix that".
+
+### One suit: the Lethal Protector
+
+- There is no style choice any more. `SymbioteColours` is back to three colours (no `style` field); its codec ignores unknown keys, so
+  saves that still carry `"style": "classic"` (or `"lethal_protector"`, or junk) load as plain colours and show the Lethal Protector.
+  The stream codec / `SymbioteColourPayload` carry only the three ints. `SymbioteSuitColours.setStyle` and the
+  `/projecthero power tune symbiote style ...` command are gone (`colour <preset>` / `colour hex` stay).
+- `SymbioteSuitStyle` survives only as **which art a build draws** (not saved, not a choice): `SymbioteSuitTint.styleOf(wearer)` /
+  `artStyle()` = `LETHAL_PROTECTOR` when its textures are in the build, else `CLASSIC`. Every renderer that asked for the wearer's style
+  (`SuperheroArmorModel` rig switch, `SymbioteMouth.wearsLethal`, `SymbioteEmerge` field, `SymbioteSuitFx` eye mask) asks this now.
+- The screen is "Symbiote Suit Colours" again (button "Suit Colours" on Your Power (I)): the Classic / Lethal Protector row is gone,
+  the panel is 22 px shorter, presets and Reset Colours set colours only. The `projecthero.symbiote.style.*` and `...style.missing`
+  lang keys are deleted; the Guidebook bullet and the JEI page describe the one suit.
+
+### The fallback rule (public builds)
+
+The Lethal Protector textures are still made from a borrowed skin with no licence (`.gitignore`d; `node
+scratchpad/symbiote/make_lethal_protector.js` re-makes them). **A build without them silently draws the mod's own original Classic art**
+(`symbiote_host.png` + `symbiote_host_tint.png` on `geo/symbiote_host.geo.json`, no mouth) in the player's colours -- same
+`SymbioteSuitTint.lethalAvailable()` check (once per resource reload), no message, nothing selectable. The Classic art is kept only for
+that (and for the item icons' look). Ship the Lethal textures only once the skin's author has said yes.
+
+- **Black Suit Spider-Man's Let It Take Over form** keeps using `symbiote_host.png` (the Classic art, always shipped): it is Spider-Man's
+  suit, not the Normal host's, so it does not need the borrowed skin. **Agent Venom** keeps its own skin.
+
+### A random colour on bonding
+
+- `Symbiote.grant` (the one place a bond is made: wild / vial bonding, serums and `PowerGrants`, `/symbiote bond`, the Black Suit command)
+  calls `SymbioteSuitColours.rollOnGrant` after it saves the bond. **70%** (`PRESET_CHANCE`): one of the seven presets at random;
+  **30%**: `harmonious(rng)` -- one of three body kinds (deep dark body with a pale tinted or vivid near-complementary emblem; vivid
+  mid-bright body with a near-black emblem; pale Anti-Venom-like body with a dark emblem), eyes that read against the body. The emblem
+  always differs from the body by more than 0.25 in luminance (tested over 400 seeds).
+- Drawn from the player's own RNG (`player.getRandom()`), so a test seeds it with `setSeed`. Only a fresh bond rolls: relog and death
+  never pass through `grant` (the bond is saved / copied), granting while bonded is a no-op, and **re-bonding after losing the Symbiote
+  rolls again**. Players already bonded when this ships keep their colours. The colour screen still changes it any time.
+
+### No glint
+
+- What read as an enchantment glow was `SymbioteSuitFx`'s **sheen** pass: a translucent white band sweeping up the whole suit every 110
+  ticks (frames cross-faded) -- exactly a glint. Gone, with the **vein** pulse (a lifted body tint crawling up the Classic art's veins;
+  the Lethal style never had it), both in third person and on the first-person sleeve. `SymbioteFxTypes.sheen` is deleted. The suit is
+  now its painted, coloured texture only. Kept: the faint additive **eye glow** (lenses only, so the eyes read at night) and the suit-up's
+  wet rim (only while the suit flows on / off). `symbiote_host_fx.png` stays in the assets only because the Lethal script reads it;
+  `symbiote_host_lethal_fx.png` is still written but unused.
+- The suit pieces never had item foil: `PowerEquipmentLock.bind` sets `ENCHANTMENT_GLINT_OVERRIDE = false` on the binding curse, and a
+  plain stack has no enchantment. Now covered by a gametest (worn pieces and a plain stack: `hasFoil()` false).
+
+### Lips in the suit colour (`make_lethal_protector.js`)
+
+- The skin's lip texels (the lower-lip corners on the head, the lip band along the top of the 3D jaw's front) and the upper gum strip
+  are no longer "keep" (tint A = 0) but body-channel tint texels with a lip shade (`lipOf`: 0.28..0.7 from the painted lip's luminance;
+  the lighter ones a little gloss, the gum 0.3 / 0.4) -- so they are the body colour, slightly lifted or darkened, and read as lips on
+  any colour. The rest of the jaw's outside (chin, sides, underside) now takes the suit colour too (it kept the skin's navy before, so a
+  red suit had a navy chin). Throat, teeth, tongue, the floor of the mouth and the saliva keep their own colours.
+- `SymbioteSuitTint` now always bakes the Lethal Protector from its mask, Classic colours included (the as-painted texture had pink lips).
+
+### The mouth clear of the eyes
+
+- The lenses reach down to y 27.0 at the sides (face rows 8-9); the mouth's top (`MOUTH_TOP`) was 27.55, so the upper gum and teeth sat
+  on the bottom of the eyes. `MOUTH_TOP` is now **26.0** (the top of face row 12, `MOUTH_ROW`): the black of the painted open mouth
+  between the lenses and the skin's painted top row of teeth (rows 8-11) are repainted as suit (`SUIT_REF`, a plain suit texel, lightly
+  varied), both rows of teeth are **0.6x** as long (`UPPER_SCALE` / `LOWER_SCALE`: upper tips ~25.45, lower ~25.7, still interlocking
+  in the smaller closed gap over the jaw's top at 25.1), the cheek teeth hang from 25.85, the gum strip is 0.3 tall with its top on 26.0.
+  Even with the snarl's 0.28 px lip lift the gum stays under 26.3 -- a full pixel of suit (rows 10-11) always separates eyes and mouth.
+- `SymbioteMouth.UPPER_TIP_Y` 26.5 -> **25.45** and `LOWER_TIP_Y` 26.15 -> **25.7**, so `keepInMouth` aims the tongue at the new
+  middle of the gap.
+
+### Tests
+
+`SymbioteSuitStyleGameTests` (rewritten): old `style` saves (classic / lethal_protector / junk) load as plain colours and no style is
+written; the payload is 12 bytes and both codecs round-trip; `/symbiote style` no longer parses while `colour` still works; random schemes
+are deterministic per seed, ~70% presets, varied, customs contrast; a seeded fresh bond gets exactly the seeded scheme, relog / death /
+a second grant keep it, re-bonding rolls again; no foil on worn pieces or a plain stack. `SymbioteSuitColourGameTests`: the attachment
+default (never bonded) is Classic; the junk packet has no style ordinal. Visual checks: `docs/screenshots/v0175/symbiote_lethal_only/`
+(harness `scratchpad/SymbioteLethalOnlyHarness.v0175.java.txt`: the same shots on the old and new code).
+
+## v0.17.5 -- a Secondary power on top of any Primary
+
+The Symbiote now stacks on any Primary power (no purge on bonding, a new Primary keeps it); with a Primary its moveset is only yours while
+the suit is on, and Shift+H is the suit when the Primary uses plain H. Everything about it: `docs/SYMBIOTE_SECONDARY_REFERENCE.md`.

@@ -52,6 +52,10 @@ public final class SymbioteDamageRules {
 		if (REENTRANT.get() || !(entity instanceof ServerPlayer player) || !Symbiote.isNormalHost(player)) {
 			return true;
 		}
+		// v0.17.5: stacked on a Primary with the suit off, the Symbiote stays out of it (no fall immunity, no auto-wrap, no Biomass share)
+		if (Symbiote.dormant(player)) {
+			return true;
+		}
 		// v0.13.21: a squadmate's hit is none of the Symbiote's business -- Squads vetoes it, and nothing here
 		// (the auto-wrap, the damage rules) may react to it first.
 		if (com.projecthero.mod.squad.Squads.isFriendlyFire(player, source)) {

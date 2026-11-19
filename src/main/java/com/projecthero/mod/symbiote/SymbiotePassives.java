@@ -43,7 +43,8 @@ public final class SymbiotePassives {
 
 	/** Bonded with a plain (non-Spider-Man) Symbiote -- true whether or not the suit is worn. */
 	private static boolean bonded(ServerPlayer player) {
-		return SymbioteHostType.of(player) == SymbioteHostType.NORMAL && Symbiote.hasSymbiote(player);
+		// v0.17.5: stacked on a Primary, the bonded-only kit (Regeneration, a little speed) waits for the suit
+		return SymbioteHostType.of(player) == SymbioteHostType.NORMAL && Symbiote.hasSymbiote(player) && !Symbiote.dormant(player);
 	}
 
 	/** Bonded <em>and</em> the living suit is currently worn -- the full enhancement set. */

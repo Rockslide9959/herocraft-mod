@@ -420,7 +420,7 @@ public class SymbioteGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void bondingPurgesAnIncompatibleHeroTierPower(GameTestHelper helper) {
+	public void bondingKeepsAHeroTierPower(GameTestHelper helper) { // v0.17.5: a Secondary power -- it used to purge Iron Man
 		ServerPlayer player = helper.makeMockServerPlayerInLevel();
 		player.setGameMode(GameType.SURVIVAL);
 		com.projecthero.mod.ironman.TonyStark.grant(player);
@@ -433,13 +433,14 @@ public class SymbioteGameTests implements FabricGameTest {
 		com.projecthero.mod.symbiote.SymbioteBonding.bondNow(player, blob);
 
 		helper.assertTrue(Symbiote.hasSymbiote(player), "the bond still succeeds");
-		helper.assertFalse(com.projecthero.mod.ironman.TonyStark.hasPower(player),
-				"Iron Man is purged -- it is not the whitelisted power");
+		helper.assertTrue(com.projecthero.mod.ironman.TonyStark.hasPower(player),
+				"Tony Stark is kept -- the Symbiote stacks on any Primary");
+		helper.assertTrue(Symbiote.stackedNow(player), "a Normal host stacked on a Primary");
 		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void bondingPurgesAnExperimentalPower(GameTestHelper helper) {
+	public void bondingKeepsAnExperimentalPower(GameTestHelper helper) { // v0.17.5: it used to purge mutations
 		ServerPlayer player = helper.makeMockServerPlayerInLevel();
 		player.setGameMode(GameType.SURVIVAL);
 		Power strength = Powers.byKey("power_01_super_strength");
@@ -453,8 +454,8 @@ public class SymbioteGameTests implements FabricGameTest {
 		com.projecthero.mod.symbiote.SymbioteBonding.bondNow(player, blob);
 
 		helper.assertTrue(Symbiote.hasSymbiote(player), "the bond still succeeds");
-		helper.assertFalse(com.projecthero.mod.hero.HeroTiers.hasExperimental(player),
-				"every experimental power (Super Strength included) is purged on bond");
+		helper.assertTrue(com.projecthero.mod.hero.HeroTiers.hasExperimental(player),
+				"the mutation (Super Strength) is kept -- the Symbiote stacks on it");
 		helper.succeed();
 	}
 

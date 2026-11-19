@@ -17,18 +17,6 @@ import net.minecraft.resources.ResourceLocation;
  * never instantiated.
  */
 final class SymbioteFxTypes extends RenderType {
-	private static final Function<ResourceLocation, RenderType> SHEEN = Util.memoize(tex -> create("projecthero_symbiote_sheen",
-			DefaultVertexFormat.NEW_ENTITY, VertexFormat.Mode.QUADS, 1536, true, true,
-			CompositeState.builder()
-					.setShaderState(RENDERTYPE_ENTITY_TRANSLUCENT_SHADER)
-					.setTextureState(new TextureStateShard(tex, false, false))
-					.setTransparencyState(TRANSLUCENT_TRANSPARENCY)
-					.setCullState(NO_CULL)
-					.setLightmapState(LIGHTMAP)
-					.setOverlayState(OVERLAY)
-					.setLayeringState(VIEW_OFFSET_Z_LAYERING)
-					.setWriteMaskState(COLOR_WRITE)
-					.createCompositeState(false)));
 	private static final Function<ResourceLocation, RenderType> GLOW = Util.memoize(tex -> create("projecthero_symbiote_eye_glow",
 			DefaultVertexFormat.NEW_ENTITY, VertexFormat.Mode.QUADS, 1536, false, true,
 			CompositeState.builder()
@@ -42,11 +30,6 @@ final class SymbioteFxTypes extends RenderType {
 	private SymbioteFxTypes(String name, VertexFormat format, VertexFormat.Mode mode, int size, boolean crumbling, boolean sort,
 			Runnable setup, Runnable clear) {
 		super(name, format, mode, size, crumbling, sort, setup, clear);
-	}
-
-	/** Translucent, lit, layered like armour: the sheen and vein passes. */
-	static RenderType sheen(ResourceLocation texture) {
-		return SHEEN.apply(texture);
 	}
 
 	/** Additive, full bright, layered like armour: the eye glow. */

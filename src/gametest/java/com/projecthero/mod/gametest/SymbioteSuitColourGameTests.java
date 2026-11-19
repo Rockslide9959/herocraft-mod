@@ -34,8 +34,9 @@ public class SymbioteSuitColourGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void defaultIsClassicAndPresetsSetTheirColours(GameTestHelper helper) {
+		helper.assertTrue(SymbioteSuitColours.get(helper.makeMockServerPlayerInLevel()).equals(SymbioteColours.CLASSIC),
+				"the attachment default (never bonded) is Classic");
 		ServerPlayer player = host(helper);
-		helper.assertTrue(SymbioteSuitColours.get(player).equals(SymbioteColours.CLASSIC), "a new host wears Classic");
 		helper.assertTrue(SymbioteColours.CLASSIC.equals(SymbioteColourPreset.CLASSIC.colours()), "CLASSIC constant = the Classic preset");
 		for (SymbioteColourPreset preset : SymbioteColourPreset.values()) {
 			SymbioteSuitColours.setPreset(player, preset);
@@ -122,7 +123,6 @@ public class SymbioteSuitColourGameTests implements FabricGameTest {
 		junk.writeInt(0xFF00FF00);
 		junk.writeInt(0x80FFFFFF);
 		junk.writeInt(-1);
-		junk.writeVarInt(99); // v0.17.5: + the suit style; an unknown one reads as Classic
 		SymbioteColours decoded = SymbioteColourPayload.CODEC.decode(junk).colours();
 		helper.assertTrue(decoded.primary() == 0x00FF00 && decoded.secondary() == 0xFFFFFF && decoded.eyes() == 0xFFFFFF,
 				"junk packet clamped");

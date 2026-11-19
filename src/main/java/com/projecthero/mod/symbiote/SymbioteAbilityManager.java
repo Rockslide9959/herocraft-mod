@@ -121,7 +121,9 @@ public final class SymbioteAbilityManager {
 
 	/** v0.9.23: a bonded Normal host owns the six slots whether or not the suit is currently worn. */
 	public static boolean hasContext(ServerPlayer player) {
-		return Symbiote.hasSymbiote(player) && SymbioteHostType.of(player) == SymbioteHostType.NORMAL;
+		// v0.17.5 (a Secondary power): stacked on a Primary, the kit is only the player's while the suit is on
+		return Symbiote.hasSymbiote(player) && SymbioteHostType.of(player) == SymbioteHostType.NORMAL
+				&& (Symbiote.isActive(player) || !Symbiote.hasPrimaryPower(player));
 	}
 
 	public static boolean shieldActive(ServerPlayer player) {

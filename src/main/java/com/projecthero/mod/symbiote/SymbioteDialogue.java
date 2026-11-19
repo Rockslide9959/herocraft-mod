@@ -85,6 +85,9 @@ public final class SymbioteDialogue {
 			clearFor(player);
 			return;
 		}
+		if (Symbiote.dormant(player)) {
+			return; // v0.17.5: stacked on a Primary with the suit off, the Symbiote keeps quiet
+		}
 		if (SymbioteHostType.of(player) == SymbioteHostType.SPIDER_MAN) {
 			// v0.16.4 (user): the Black Suit has its own, far quieter, Spider-Man voice
 			SymbioteBlackSuitDialogue.tick(player);

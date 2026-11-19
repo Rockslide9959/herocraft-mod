@@ -327,8 +327,12 @@ public final class SymbioteMouth {
 	static final float FACE_Z = -4.75f;
 	/** The jaw's hinge (geo Y, Z) and the tongue root's pivot (geo Y, Z before the slide). */
 	static final float JAW_PIVOT_Y = 26.6f, JAW_PIVOT_Z = 0.2f, ROOT_Y = 25.5f;
-	/** Where the mouth gap is at the face: the lower teeth tips (in the jaw, at the front) and the upper teeth tips (fixed). */
-	static final float LOWER_TIP_Y = 26.15f, LOWER_TIP_Z = -4.9f, UPPER_TIP_Y = 26.5f, HEAD_FRONT_Z = -4.62f;
+	/**
+	 * Where the mouth gap is at the face: the lower teeth tips (in the jaw, at the front) and the upper teeth tips (fixed). v0.17.5 round 3:
+	 * the mouth's top moved down from 27.55 to 26.0 (it ran into the lenses) and both rows of teeth are 0.6x as long, so the upper tips
+	 * sit at ~25.45 (was 26.5) and the lower ones at ~25.7 (was 26.15) -- make_lethal_protector.js MOUTH_TOP / UPPER_SCALE / LOWER_SCALE.
+	 */
+	static final float LOWER_TIP_Y = 25.7f, LOWER_TIP_Z = -4.9f, UPPER_TIP_Y = 25.45f, HEAD_FRONT_Z = -4.62f;
 
 	/**
 	 * v0.17.5 (user: "the tongue goes through the head and not out the mouth ... at the very least it should go out the mouth"): the

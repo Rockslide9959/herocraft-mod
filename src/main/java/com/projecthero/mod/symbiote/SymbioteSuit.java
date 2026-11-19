@@ -36,6 +36,11 @@ public final class SymbioteSuit {
 	private SymbioteSuit() {
 	}
 
+	/** v0.17.5: {@link #isSymbiotePiece} for other classes. */
+	public static boolean isPiece(Item item) {
+		return isSymbiotePiece(item);
+	}
+
 	/** True if {@code item} is either variant of the Symbiote's own synthesised armour. */
 	private static boolean isSymbiotePiece(Item item) {
 		return item instanceof SymbioteArmorItem || item instanceof SymbioteHostArmorItem

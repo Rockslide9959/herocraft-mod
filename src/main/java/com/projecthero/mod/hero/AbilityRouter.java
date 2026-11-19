@@ -63,6 +63,16 @@ public final class AbilityRouter {
 		}
 		// v0.17.5 (user: "make falcons powers a secondary power"): the Falcon gear, on Power Armour's terms -- while the full set is
 		// on and live its kit owns R/G/Z/X/C/V ahead of every Primary (whose passives keep running); H / N presses are swallowed
+		// v0.17.5 (user: "you only get symbiote moveset if player transforms into symbiote armour while having a primary power"): a
+		// Normal Symbiote host with the suit on owns R/G/Z/X/C/V ahead of every Primary (whose passives keep running); H / N presses
+		// are swallowed. With the suit off a stacked Primary keeps its keys (the Symbiote is dormant).
+		if (com.projecthero.mod.symbiote.Symbiote.isNormalHost(player) && com.projecthero.mod.symbiote.Symbiote.isActive(player)
+				&& !com.projecthero.mod.powerarmour.PowerArmour.ownsKeys(player)) {
+			if (!slot.isUtility()) {
+				com.projecthero.mod.symbiote.SymbioteAbilityManager.handle(player, slot, pressed);
+			}
+			return;
+		}
 		if (com.projecthero.mod.falcon.FalconAbilityManager.hasContext(player)) {
 			if (!slot.isUtility()) {
 				com.projecthero.mod.falcon.FalconAbilityManager.handle(player, slot, pressed);
@@ -350,8 +360,8 @@ public final class AbilityRouter {
 
 		// A Normal Symbiote host (bonded, suit active, NOT also Spider-Man -- that combination is Black
 		// Suit Spider-Man and stays on SpiderManAbilityManager above) gets its own six tendril/mobility/
-		// defence abilities. Moot in practice that this sits after every Hero-Tier check: bonding purges
-		// every other Hero-Tier power, so a Normal host never has one to contend with here anyway.
+		// defence abilities. v0.17.5: with the suit on it is routed near the top (ahead of every Primary); this
+		// is the suit-off case for a host with NO Primary power (hasContext is false for a stacked, suit-off host).
 		if (com.projecthero.mod.symbiote.SymbioteAbilityManager.hasContext(player)) {
 			com.projecthero.mod.symbiote.SymbioteAbilityManager.handle(player, slot, pressed);
 			return;

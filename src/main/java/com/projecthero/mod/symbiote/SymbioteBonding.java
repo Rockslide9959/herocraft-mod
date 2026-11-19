@@ -88,17 +88,15 @@ public final class SymbioteBonding {
 		}
 		// v0.13.11: Spider-Man and the Punisher both keep their power (Black Suit / Agent Venom)
 		boolean spiderMan = SymbioteCompatibility.isCompatibleHero(player);
-		boolean incompatible = !spiderMan && SymbioteCompatibility.hasIncompatiblePower(player);
+		// v0.17.5: a Secondary power -- it no longer purges anything; it stacks on whatever Primary the host holds
+		boolean stacks = !spiderMan && Symbiote.hasPrimaryPower(player);
 
 		if (spiderMan) {
 			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.accepts_powers")
 					.withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.BOLD), false);
-		} else if (incompatible) {
-			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.rejects_powers")
+		} else if (stacks) {
+			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.stacks")
 					.withStyle(ChatFormatting.DARK_GRAY), false);
-			SymbioteCompatibility.purge(player);
-			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.purged")
-					.withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.BOLD), false);
 		}
 
 		Symbiote.grant(player, false);
