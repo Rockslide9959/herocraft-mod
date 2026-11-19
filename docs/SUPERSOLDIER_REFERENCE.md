@@ -222,6 +222,13 @@ happens". N is user-assigned here (the H / N rule otherwise stands: no N HUD box
   inventory, else dropped at his feet.
 - **HUD**: no N box; a status word above the title -- "Shield on back" (blue), "Slot empty" (grey), "Shield raised".
 - No static state (component + attachment), nothing for `ServerStateReset`.
+- **Seen in a real client** (`scratchpad/CapSuitHarness.v0175.java.txt`, output in `docs/screenshots/v0175/cap_suit`): the suit front /
+  back / side / face close-up (wide) and front (slim); the real N key stowing and retrieving (`n_stow`, `n_retrieve` MP4 + sheets); the
+  slotted shield on the back (Adamantium wide, Vibranium slim) and the HUD word with C lit; C from the slot -> three husks -> home into the
+  slot (`throw_from_slot`); right-click raising it on the off-hand arm in third person (`block_tp`, `block_tp_side`) and first person
+  (`block_fp`); a husk hitting the raised shield four times, 30 -> 30 health (`block_hits`). **Not seen**: the original fallback suit
+  in game (only `texture_preview.png`), multiplayer (another player's slot / guard), the Soldier's Shield in the slot, an inventory swap
+  of the top while the shield flies.
 
 ## State / lifecycle
 
