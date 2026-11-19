@@ -177,6 +177,8 @@ public final class FlightPoseHelper {
 				|| com.projecthero.mod.vision.Vision.isFlying(player)
 				// v0.17.5: Sentry's X flight
 				|| com.projecthero.mod.sentry.Sentry.selfFlying(player)
+				// v0.17.5 (user: tilt forward in flight): the Symbiote wings lean in like every other flight, arms at the sides
+				|| com.projecthero.mod.symbiote.SymbioteWings.airborne(player)
 				// v0.17.4: Raven's levitation (her own gentler lean and limbs: client.raven.RavenPose)
 				|| com.projecthero.mod.raven.Raven.isFlying(player);
 		// (v0.17.2: Heatblast's Fire Jet lean is gone with the Fire Jet -- he surfs his Rock Ride in his own stance, HeatblastClient)

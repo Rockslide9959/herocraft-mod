@@ -101,7 +101,8 @@ public final class SymbioteWingsRenderer {
 			return;
 		}
 		SymbioteColours col = SymbioteSuitTint.colours(player);
-		int membraneRgb = shade(mix(col.primary(), col.secondary(), 0.3f), 0.78f);
+		// v0.17.5 (user): the membrane is the suit colour itself (near-black on Classic), only a hint of the second colour
+		int membraneRgb = mix(col.primary(), col.secondary(), 0.07f);
 		// fetched right before each write: asking the buffer source for another render type ends the previous one
 		B b = new B(buffers, RenderType.entityCutoutNoCull(SymbioteSuitTint.goo(player, SymbioteWeaponRenderer.TEXTURE)),
 				RenderType.entityCutoutNoCull(MEMBRANE), RenderType.entityCutoutNoCull(SymbioteWeaponRenderer.EDGE));
@@ -268,7 +269,4 @@ public final class SymbioteWingsRenderer {
 		return (r << 16) | (g << 8) | bl;
 	}
 
-	private static int shade(int c, float f) {
-		return mix(0, c, f);
-	}
 }
