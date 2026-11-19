@@ -47,7 +47,18 @@ public class DevourerEntity extends GalactusMob implements com.projecthero.mod.e
 	private static final EntityDataAccessor<Integer> DATA_FLAGS = SynchedEntityData.defineId(DevourerEntity.class, EntityDataSerializers.INT);
 
 	public static final int FLAG_CRACKED = 1, FLAG_FIST_R = 2, FLAG_FIST_L = 4, FLAG_CORE_OPEN = 8, FLAG_DISSOLVE = 16, FLAG_MOUTH = 32,
-			FLAG_FULLBRIGHT = 64, FLAG_STUCK_R = 128, FLAG_STUCK_L = 256;
+			FLAG_FULLBRIGHT = 64, FLAG_STUCK_R = 128, FLAG_STUCK_L = 256,
+			/** v0.17.5: that hand is holding someone (the Grab): a cupped grip instead of a tight fist. Visual only. */
+			FLAG_GRIP_R = 512, FLAG_GRIP_L = 1024;
+
+	/**
+	 * v0.17.5 hands, client only: each hand's finger pose eased toward what the flags and the arm say (open while reaching,
+	 * relaxed hanging, a fist when punching or stuck, a grip while holding someone), so the fingers close and open over a
+	 * few ticks instead of snapping. Values: {@link #HAND_CURL} (0 open .. 1 fist) and {@link #HAND_GRIP} (0..1 grip mix);
+	 * {@code [side][value]}, side 0 = right.
+	 */
+	public static final int HAND_CURL = 0, HAND_GRIP = 1, HAND_OPEN = 2;
+	public final float[][] handPrev = new float[2][3], handCur = { { 0.1f, 0f, 0f }, { 0.1f, 0f, 0f } };
 
 	private final Map<DevourerPartEntity.Kind, UUID> parts = new EnumMap<>(DevourerPartEntity.Kind.class);
 	private boolean partsOn;
@@ -313,6 +324,7 @@ public class DevourerEntity extends GalactusMob implements com.projecthero.mod.e
 	@Override
 	public void tick() {
 		if (level().isClientSide) {
+			easeHands();
 			// keep last tick's inputs for interpolation
 			copy(curInput, prevInput);
 			input(curInput);
@@ -331,6 +343,24 @@ public class DevourerEntity extends GalactusMob implements com.projecthero.mod.e
 	}
 
 	private float eyesCache, chargeCache;
+
+	/** Client: one tick of the hands' easing (see {@link #handCur}). */
+	private void easeHands() {
+		for (int side = 0; side < 2; side++) {
+			boolean right = side == 0;
+			System.arraycopy(handCur[side], 0, handPrev[side], 0, 3);
+			boolean fist = flag(right ? FLAG_FIST_R : FLAG_FIST_L) || flag(right ? FLAG_STUCK_R : FLAG_STUCK_L);
+			boolean grip = flag(right ? FLAG_GRIP_R : FLAG_GRIP_L);
+			float reach = entityData.get(right ? DATA_WR : DATA_WL);
+			float curl = fist || grip ? 1f : 0f;
+			float open = fist || grip ? 0f : Math.min(1f, reach * 1.5f);
+			float g = grip ? 1f : 0f;
+			float[] h = handCur[side];
+			h[HAND_CURL] += (curl - h[HAND_CURL]) * (curl > h[HAND_CURL] ? 0.45f : 0.3f);
+			h[HAND_GRIP] += (g - h[HAND_GRIP]) * 0.35f;
+			h[HAND_OPEN] += (open - h[HAND_OPEN]) * 0.3f;
+		}
+	}
 
 	private static void copy(GalactusRig.Input from, GalactusRig.Input to) {
 		to.feet = from.feet;

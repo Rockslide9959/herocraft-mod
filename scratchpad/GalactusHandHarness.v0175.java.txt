@@ -1,0 +1,308 @@
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.UUID;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+import com.projecthero.mod.galactus.entity.GalactusEntityTypes;
+import com.projecthero.mod.galactus.orbit.DevourerEntity;
+
+/**
+ * TEMP-HARNESS (not shipped), v0.17.5 Galactus hands: a superflat world, a 100-block Devourer (the Stage 3 size) standing
+ * 50 blocks out facing the player, his right hand posed (rest / open / fist / grip) and filmed from the raid's usual
+ * viewpoints (the ground, flying at hand height, the palm side), then a Hammer Fist slam filmed every tick for the MP4.
+ * Enabled by run/galhands.flag: line 1 a label (before|after), line 2 the frames folder. Install: copy to
+ * src/client/java/com/projecthero/mod/client/GalactusHandHarness.java and call GalactusHandHarness.init() first thing in
+ * ProjectHeroModClient.onInitializeClient. Remove both before committing.
+ */
+public final class GalactusHandHarness {
+	private static final int GRIP = 512; // DevourerEntity.FLAG_GRIP (after); harmless before
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static File frames;
+	private static String label = "before";
+	private static volatile UUID devId;
+	private static Vec3 feet;
+	private static int step = -1, stepTick;
+	private static int frame;
+
+	private GalactusHandHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("galhands.flag"))) {
+			return;
+		}
+		try {
+			List<String> lines = Files.readAllLines(Path.of("galhands.flag"));
+			label = lines.get(0).trim();
+			frames = new File(lines.size() > 1 ? lines.get(1).trim() : "galhands_frames");
+		} catch (Exception e) {
+			frames = new File("galhands_frames");
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(GalactusHandHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[GALHANDS] WATCHDOG");
+			Runtime.getRuntime().halt(3);
+		}, "galhands-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void log(String s) {
+		System.out.println("[GALHANDS] " + s);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerLevel> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				try {
+					fn.accept(srv.overworld());
+				} catch (Throwable e) {
+					log("error: " + e);
+					e.printStackTrace();
+				}
+			});
+		}
+	}
+
+	private static DevourerEntity serverDev(ServerLevel l) {
+		return devId != null && l.getEntity(devId) instanceof DevourerEntity d ? d : null;
+	}
+
+	private static DevourerEntity clientDev(Minecraft mc) {
+		for (Entity e : mc.level.entitiesForRendering()) {
+			if (e instanceof DevourerEntity d && !d.isRemoved()) {
+				return d;
+			}
+		}
+		return null;
+	}
+
+	private static void grab(Minecraft mc, String name) {
+		File dir = new File(frames, label);
+		dir.mkdirs();
+		Screenshot.grab(dir, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+	}
+
+	private static void place(Minecraft mc, Vec3 eye, Vec3 at) {
+		var p = mc.player;
+		p.getAbilities().flying = true;
+		p.setPos(eye.x, eye.y - p.getEyeHeight(), eye.z);
+		p.setDeltaMovement(Vec3.ZERO);
+		Vec3 d = at.subtract(eye);
+		double h = Math.sqrt(d.x * d.x + d.z * d.z);
+		float yaw = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+		float pitch = (float) -Math.toDegrees(Math.atan2(d.y, h));
+		p.setYRot(yaw);
+		p.setXRot(pitch);
+		p.yRotO = yaw;
+		p.xRotO = pitch;
+		p.setYHeadRot(yaw);
+		p.yHeadRotO = yaw;
+	}
+
+	/** Server: pose his right arm. */
+	private static void pose(Minecraft mc, Vec3 target, float weight, boolean fist, boolean grip) {
+		server(mc, l -> {
+			DevourerEntity d = serverDev(l);
+			if (d != null) {
+				d.setArm(true, target, weight);
+				d.setFlag(DevourerEntity.FLAG_FIST_R, fist);
+				d.setFlag(GRIP, grip);
+			}
+		});
+	}
+
+	// his frame: he faces -Z (toward the player at the origin); his right hand is on the -X side... resolved from the pose
+	private static Vec3 front(double fwd, double right, double up) {
+		// he stands at feet facing north (yaw 180): forward = -Z, his right = +X
+		return feet.add(right, up, -fwd);
+	}
+
+	private static final String[] STILLS = { "ground_rest", "ground_open_reach", "fly_open", "fly_fist", "fly_grip", "palm_open", "palm_fist", "back_fist" };
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(GalactusHandHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 20) {
+			mc.getWindow().setWindowed(854, 480);
+		}
+		if (t == 40) {
+			mc.options.fov().set(70);
+			mc.options.bobView().set(false);
+			mc.options.renderDistance().set(5);
+			mc.options.hideGui = true;
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			Vec3 base = mc.player.position();
+			feet = new Vec3(Math.floor(base.x) + 0.5, Math.floor(base.y), Math.floor(base.z) + 0.5 + 50);
+			final Vec3 f = feet;
+			server(mc, l -> {
+				l.getServer().setDifficulty(Difficulty.EASY, true);
+				l.setDayTime(6000L);
+				l.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, l.getServer());
+				l.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, l.getServer());
+				l.getServer().getPlayerList().getPlayers().get(0).setGameMode(GameType.CREATIVE);
+				DevourerEntity d = GalactusEntityTypes.DEVOURER.create(l);
+				d.setHeight(100f);
+				d.moveToFeet(f.x, f.y, f.z, 180f);
+				d.setFacing(180f);
+				d.setLean(0.05f);
+				d.setEyes(0.6f);
+				com.projecthero.mod.entity.GiantTracking.keepLoaded(l, d.position());
+				l.addFreshEntity(d);
+				devId = d.getUUID();
+				log("devourer at " + d.position() + " feet " + f);
+			});
+		}
+		if (t < 100 || feet == null) {
+			return;
+		}
+		if (t % 20 == 0) {
+			server(mc, l -> {
+				DevourerEntity d = serverDev(l);
+				if (d != null) {
+					com.projecthero.mod.entity.GiantTracking.keepLoaded(l, d.position());
+				}
+			});
+		}
+		DevourerEntity cd = clientDev(mc);
+		if (cd == null) {
+			if (t % 40 == 0) {
+				log("no client devourer yet");
+			}
+			if (t > 900) {
+				log("giving up");
+				Runtime.getRuntime().halt(2);
+			}
+			return;
+		}
+		if (step < 0) {
+			step = 0;
+			stepTick = 0;
+		}
+		stepTick++;
+		Vec3 reach = front(26, 10, 30); // where the posed right hand goes (in front of him, to his right, 30 up)
+		if (step < STILLS.length) {
+			String s = STILLS[step];
+			if (stepTick == 1) {
+				switch (s) {
+					case "ground_rest" -> pose(mc, null, 0f, false, false);
+					case "ground_open_reach" -> pose(mc, front(30, 8, 8), 1f, false, false);
+					case "fly_open", "palm_open" -> pose(mc, reach, 1f, false, false);
+					case "fly_fist", "palm_fist", "back_fist" -> pose(mc, reach, 1f, true, false);
+					case "fly_grip" -> pose(mc, reach, 1f, true, true);
+					default -> {
+					}
+				}
+			}
+			Vec3 hand = cd.pose().fistR;
+			Vec3 eye = switch (s) {
+				case "ground_rest" -> new Vec3(hand.x - 14, feet.y + 1.6, hand.z - 24);
+				case "ground_open_reach" -> new Vec3(hand.x - 10, feet.y + 1.6, hand.z - 16);
+				case "fly_open", "fly_fist", "fly_grip" -> hand.add(-15, 4, -19);
+				case "palm_open", "palm_fist" -> hand.add(-23, -1, 6); // his body side: the palm and the thumb
+				case "back_fist" -> hand.add(21, 3, -8);              // the outside: the back of the hand
+				default -> hand.add(0, 0, -15);
+			};
+			place(mc, eye, hand);
+			if (stepTick == 40) {
+				grab(mc, s);
+				log("still " + s + " hand " + hand);
+				step++;
+				stepTick = 0;
+			}
+			return;
+		}
+		// the slam (the Stage 3 Hammer Fist): lean in, wind up over the deck in front, come down as a fist, stay stuck, then open and rise
+		int n = stepTick;
+		Vec3 ground = front(30, 9, 41);
+		Vec3 up = front(22, 12, 68);
+		float leanIn = 0.55f;
+		Vec3 fist = cd.pose().fistR;
+		Vec3 eye = new Vec3(ground.x - 30, ground.y + 7, ground.z - 22);
+		if (n == 1) {
+			// a stone deck under the slam, like the Worldship deck in Stage 3
+			final Vec3 g0 = ground;
+			server(mc, l -> {
+				for (int dx = -9; dx <= 9; dx++) for (int dz = -9; dz <= 9; dz++)
+					l.setBlockAndUpdate(net.minecraft.core.BlockPos.containing(g0.x + dx, g0.y - 3.5, g0.z + dz), net.minecraft.world.level.block.Blocks.POLISHED_DEEPSLATE.defaultBlockState());
+			});
+		}
+		place(mc, eye, ground.lerp(fist, 0.5));
+		final float ln = n < 10 ? 0.05f : n < 60 ? leanIn : Math.max(0.05f, leanIn - (n - 60) * 0.02f);
+		server(mc, l -> {
+			DevourerEntity d = serverDev(l);
+			if (d != null) {
+				d.setLean(d.lean() + (ln - d.lean()) * 0.2f);
+			}
+		});
+		if (n < 26) {
+			pose(mc, up, 1f, n > 8, false);
+		} else if (n < 34) {
+			double k = (n - 26) / 8.0;
+			pose(mc, up.lerp(ground, k * k), 1f, true, false);
+		} else if (n < 62) {
+			pose(mc, ground, 1f, true, false);
+		} else if (n < 96) {
+			double k = (n - 62) / 34.0;
+			pose(mc, ground.lerp(up, k), 1f, false, false);
+		}
+		if (n >= 4 && n < 100) {
+			grab(mc, String.format("slam_%03d", frame++));
+		}
+		if (n == 104) {
+			log("done");
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("GH_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.EASY, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+}

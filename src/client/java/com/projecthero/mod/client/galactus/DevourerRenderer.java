@@ -26,7 +26,7 @@ import software.bernie.geckolib.cache.object.GeoBone;
  * v0.17.2 Galactus raid v2: draws the Devourer. The model is our own {@code galactus} GeckoLib asset at whatever height the
  * raid sets; its waist, head, shoulders, arms and forearms are posed every frame from {@link GalactusRig} (the same solve
  * the server uses for his hit-boxes and fist impacts), from inputs interpolated between the last two ticks so the huge
- * motions stay smooth. His fingers close into fists when he punches. Drawn full-bright in orbit (lit by the Power Cosmic),
+ * motions stay smooth. His fingers close into fists when he punches (v0.17.5: rebuilt jointed hands, eased between open, relaxed, grip and fist). Drawn full-bright in orbit (lit by the Power Cosmic),
  * with burning eyes ({@link DevourerEntity#eyes}) and the Planet Cracker sphere between his hands.
  */
 public final class DevourerRenderer extends GalactusRenderers.Mob<DevourerEntity> {
@@ -154,18 +154,48 @@ public final class DevourerRenderer extends GalactusRenderers.Mob<DevourerEntity
 			set("forearm_l", p.foreLX, 0f, p.foreLZ);
 			set("hand_r", 0f, 0f, 0f);
 			set("hand_l", 0f, 0f, 0f);
-			float fr = e.flag(DevourerEntity.FLAG_FIST_R) ? 1f : 0.15f;
-			float fl = e.flag(DevourerEntity.FLAG_FIST_L) ? 1f : 0.15f;
-			// the fingers curl forward into a fist (they hang down at rest; +X swings toward the palm side)
-			set("fingers_r", 1.35f * fr, 0f, 0f);
-			set("fingertips_r", 1.5f * fr, 0f, 0f);
-			set("fingers_l", 1.35f * fl, 0f, 0f);
-			set("fingertips_l", 1.5f * fl, 0f, 0f);
+			// v0.17.5: the rebuilt hands (knuckle -> middle -> tip, two-segment thumb), eased between poses
+			hand("r", e, 0, state.getPartialTick(), -1f);
+			hand("l", e, 1, state.getPartialTick(), 1f);
 			GeoBone flinch = getAnimationProcessor().getBone("flinch");
 			if (flinch != null) {
 				flinch.setRotX(0f);
 				flinch.setRotZ(0f);
 			}
+		}
+
+		/**
+		 * v0.17.5: the shared hand poses in degrees, the same numbers as GH_POSES in scratchpad/gen_galactus_models.js:
+		 * {knuckles, middles, tips, thumb x, thumb z, thumb tip}. A curl is a Z rotation toward the palm (s = -1 right, +1
+		 * left); the thumb's x swings its tip back across the fingers. (Before 0.17.5 the fingers were bent about X, which
+		 * swung the whole row sideways.)
+		 */
+		private static final float[] RELAXED = { 10, 14, 8, 0, 0, 6 }, OPEN = { 2, 3, 2, -6, -8, 0 }, GRIP = { 48, 52, 30, 26, 22, 20 },
+				FIST = { 92, 100, 64, 74, 30, -4 };
+
+		private void hand(String n, DevourerEntity e, int side, float pt, float s) {
+			float curl = Mth.lerp(pt, e.handPrev[side][DevourerEntity.HAND_CURL], e.handCur[side][DevourerEntity.HAND_CURL]);
+			float grip = Mth.lerp(pt, e.handPrev[side][DevourerEntity.HAND_GRIP], e.handCur[side][DevourerEntity.HAND_GRIP]);
+			float open = Mth.lerp(pt, e.handPrev[side][DevourerEntity.HAND_OPEN], e.handCur[side][DevourerEntity.HAND_OPEN]);
+			float[] q = new float[6];
+			for (int i = 0; i < 6; i++) {
+				float loose = Mth.lerp(open, RELAXED[i], OPEN[i]);
+				float closed = Mth.lerp(grip, FIST[i], GRIP[i]);
+				q[i] = Mth.lerp(curl, loose, closed) * Mth.DEG_TO_RAD;
+			}
+			set("fingers_" + n, 0f, 0f, s * q[0]);
+			set("fingertips_" + n, 0f, 0f, s * q[1]);
+			for (int i = 0; i < 4; i++) {
+				set("tip" + i + "_" + n, 0f, 0f, s * q[2]);
+			}
+			GeoBone th = getAnimationProcessor().getBone("thumb_" + n);
+			if (th != null) {
+				// the thumb has a rest angle in the model: the pose is added to it (GeckoLib keeps x negated)
+				th.setRotX(th.getInitialSnapshot().getRotX() - q[3]);
+				th.setRotY(th.getInitialSnapshot().getRotY());
+				th.setRotZ(th.getInitialSnapshot().getRotZ() + s * q[4]);
+			}
+			set("thumbtip_" + n, 0f, 0f, s * q[5]);
 		}
 
 		private void set(String name, float x, float y, float z) {

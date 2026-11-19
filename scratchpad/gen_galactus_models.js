@@ -210,6 +210,10 @@ function humanoid(M, P) {
 		const fa = M.bone(`forearm_${n}`, `arm_${n}`, [sx, elbowY, 0], [-6, 0, 0]);
 		M.box(fa, sx - P.foreW / 2, wristY - 0.2, -P.foreW / 2, sx + P.foreW / 2, elbowY + 0.4, P.foreW / 2, m('fore'), { paint: 'fore' });
 		const hand = M.bone(`hand_${n}`, `forearm_${n}`, [sx, wristY, 0]);
+		if (P.detailHand) {
+			galactusHand(M, P, s, n, sx, wristY, knuckY, m);
+			continue;
+		}
 		const hT = P.handT / 2, hW = P.handW / 2;
 		M.box(hand, sx - hT, knuckY, -hW, sx + hT, wristY + 0.3, hW, m('hand'), { paint: 'palm' });
 		const fing = M.bone(`fingers_${n}`, `hand_${n}`, [sx, knuckY + 0.2, 0]);
@@ -229,6 +233,70 @@ function humanoid(M, P) {
 const FIST = n => { const s = n === 'r' ? -1 : 1; return { [`fingers_${n}`]: [0, 0, s * 95], [`fingertips_${n}`]: [0, 0, s * 100], [`thumb_${n}`]: [0, 0, s * 40] }; };
 const OPEN = (n, k = 1) => { const s = n === 'r' ? -1 : 1; return { [`fingers_${n}`]: [0, 0, s * 12 * k], [`fingertips_${n}`]: [0, 0, s * 16 * k] }; };
 const BACKBEND = (n, k = 1) => { const s = n === 'r' ? -1 : 1; return { [`fingers_${n}`]: [0, 0, -s * 14 * k], [`fingertips_${n}`]: [0, 0, -s * 6 * k], [`thumb_${n}`]: [0, 0, -s * 30 * k] }; };
+
+// ---------------------------------------------------------------- v0.17.5: Galactus's hand, rebuilt ("make his hand model
+// better please it looks really weird right now during the raid"). The old hand was a thin slab with four fingers fanned
+// out along twice its width (gaps between them, sticking out past the palm) and one stick thumb; the raid's renderer also
+// curled them about the wrong axis, so a "fist" swung the row of fingers sideways. Now: a palm as wide as the four
+// fingers, armoured back plate + knuckle guard + wrist band, palm pads round the glowing emitter, four fingers in three
+// segments (knuckle -> middle -> tip) with plated backs, a two-segment thumb at the front edge. Bones (per side n):
+// hand_n > fingers_n (the four proximal segments, curl axis = the knuckle line) > fingertips_n (the four middle
+// segments) > tip0_n..tip3_n (index..pinky tips, each at its own joint); hand_n > thumb_n > thumbtip_n. The model faces
+// -Z, the thumb is at the front (-Z) and the palm faces the body; a curl is a Z rotation (s * deg, s = -1 right / +1 left).
+// GH_* are the shared hand poses (degrees); DevourerRenderer uses the same numbers.
+const GH = {
+	fingerZ: [-4.75, -1.47, 1.42, 4.5],          // index, middle, ring, pinky (front to back)
+	fingerW: [2.85, 2.9, 2.85, 2.55],
+	L1: 4.4, L2: [3.1, 3.4, 3.2, 2.5], L3: [2.6, 2.8, 2.65, 2.2],
+	axis: -0.1,                                   // the finger axis, inward from the hand's centre line
+	palmIn: 2.6, palmOut: -2.8, palmZ: 6.2,
+	thumb: { d: 1.1, dy: 5.0, z: -6.2, rest: [-28, 0, 12] }, // rest: x, y, z * s (z) -- tip forward and a little inward
+};
+const GH_POSES = {
+	relaxed: { f: 10, m: 14, t: 8, th: [0, 0, 0], tt: 6 },
+	open: { f: 2, m: 3, t: 2, th: [-6, 0, -8], tt: 0 },
+	grip: { f: 48, m: 52, t: 30, th: [26, 0, 22], tt: 20 },
+	fist: { f: 92, m: 100, t: 64, th: [74, 0, 30], tt: -4 },
+};
+function GHAND(n, mode) {
+	const s = n === 'r' ? -1 : 1, q = GH_POSES[mode];
+	const o = { [`fingers_${n}`]: [0, 0, s * q.f], [`fingertips_${n}`]: [0, 0, s * q.m], [`thumb_${n}`]: [q.th[0], q.th[1], s * q.th[2]], [`thumbtip_${n}`]: [0, 0, s * q.tt] };
+	for (let i = 0; i < 4; i++) o[`tip${i}_${n}`] = [0, 0, s * q.t];
+	return o;
+}
+function galactusHand(M, P, s, n, sx, W, K, m) {
+	const xi = d => sx - s * d; // d > 0: toward the palm / the body
+	const B = (bone, d0, d1, y0, y1, z0, z1, mat, o = {}) => M.box(bone, xi(d0), y0, z0, xi(d1), y1, z1, mat, o);
+	const hand = `hand_${n}`, blue = m('hand');
+	// palm + armour
+	B(hand, GH.palmOut, GH.palmIn, K, W + 0.3, -GH.palmZ, GH.palmZ, blue, { paint: 'palm', seed: 58 });
+	B(hand, 1.6, 3.3, K + 0.8, K + 6.6, -6.5, -3.6, blue, { seed: 70 });                       // thenar pad (thumb side)
+	B(hand, 1.8, 3.1, K + 0.6, K + 5.2, 3.9, 6.4, blue, { seed: 71 });                         // hypothenar pad (pinky side)
+	B(hand, -3.6, -2.6, K + 1.4, W - 0.8, -5.4, 5.4, 'g_purple', { tag: 'panel', seed: 72 }); // back plate
+	B(hand, -3.85, -1.3, K - 0.5, K + 1.6, -6.35, 6.35, 'g_blueD', { tag: 'dots', seed: 73 });   // knuckle guard
+	B(hand, -3.2, 3.0, W - 1.4, W + 0.6, -6.6, 6.6, 'g_blueD', { tag: 'ribs', seed: 74, ribPer: 1.0 }); // wrist band
+	// fingers
+	const ax = GH.axis;
+	const fing = M.bone(`fingers_${n}`, hand, [xi(ax), K, 0]);
+	const mid = M.bone(`fingertips_${n}`, `fingers_${n}`, [xi(ax), K - GH.L1, 0]);
+	for (let i = 0; i < 4; i++) {
+		const z = GH.fingerZ[i], w1 = GH.fingerW[i], w2 = w1 - 0.12, w3 = w2 - 0.12, L2 = GH.L2[i], L3 = GH.L3[i];
+		B(fing, ax - 1.6, ax + 1.4, K - GH.L1, K + 1.0, z - w1 / 2, z + w1 / 2, m('finger'), { paint: 'finger', seed: 80 + i });
+		B(fing, ax - 2.0, ax - 1.6, K - GH.L1 + 0.6, K - 0.7, z - w1 / 2 + 0.35, z + w1 / 2 - 0.35, 'g_blueD', { seed: 84 + i });
+		B(mid, ax - 1.5, ax + 1.3, K - GH.L1 - L2, K - GH.L1 + 0.9, z - w2 / 2, z + w2 / 2, m('finger'), { paint: 'finger', seed: 88 + i });
+		B(mid, ax - 1.85, ax - 1.5, K - GH.L1 - L2 + 0.5, K - GH.L1 - 0.45, z - w2 / 2 + 0.35, z + w2 / 2 - 0.35, 'g_blueD', { seed: 92 + i });
+		const tip = M.bone(`tip${i}_${n}`, `fingertips_${n}`, [xi(ax), K - GH.L1 - L2, 0]);
+		B(tip, ax - 1.4, ax + 1.2, K - GH.L1 - L2 - L3, K - GH.L1 - L2 + 0.8, z - w3 / 2, z + w3 / 2, m('finger'), { paint: 'fingertip', seed: 96 + i });
+	}
+	// thumb: a thick base and a tip, hanging from the front of the palm, angled forward and a little inward at rest
+	const T = GH.thumb, ty = K + T.dy;
+	const th = M.bone(`thumb_${n}`, hand, [xi(T.d), ty, T.z], [T.rest[0], T.rest[1], s * T.rest[2]]);
+	B(th, T.d - 1.65, T.d + 1.55, ty - 4.8, ty + 0.6, T.z - 1.55, T.z + 1.55, m('finger'), { paint: 'finger', seed: 100 });
+	B(th, T.d - 2.05, T.d - 1.65, ty - 4.1, ty - 1.0, T.z - 1.05, T.z + 1.05, 'g_blueD', { seed: 101 });
+	const tt = M.bone(`thumbtip_${n}`, `thumb_${n}`, [xi(T.d), ty - 4.8, T.z]);
+	B(tt, T.d - 1.45, T.d + 1.4, ty - 4.8 - 3.4, ty - 4.8 + 0.85, T.z - 1.4, T.z + 1.4, m('finger'), { paint: 'fingertip', seed: 102 });
+	M.A.palmIn = GH.palmIn;
+}
 
 // Feet planted: root offset that puts the lowest foot cube on y = 0.
 function planted(M, pose, extra = 0) {
@@ -436,7 +504,7 @@ function buildGalactus() {
 		footH: 5, footLen: 20, footW: 12, shinLen: 26, shinW: 10.5, shinD: 11, thighLen: 26, thighW: 13, thighD: 14, legX: 8, legOut: 1.5,
 		pelvisH: 10, pelvisW: 28, pelvisD: 16, waistH: 9, waistW: 25, waistD: 15, chestH: 26, chestW: 38, chestD: 20,
 		neckH: 4, neckW: 12, headW: 15, headH: 19, headD: 16, headSink: 3,
-		armW: 12, armD: 12, upperLen: 21, foreLen: 18, foreW: 13, handLen: 9.5, handT: 6.4, handW: 13.5, fingerLen: 10.5, armOut: 9, shIn: 3,
+		armW: 12, armD: 12, upperLen: 21, foreLen: 18, foreW: 13, handLen: 9.5, handT: 6.4, handW: 13.5, fingerLen: 10.5, armOut: 9, shIn: 3, detailHand: true,
 		mats: { def: 'g_purple', pelvis: 'g_blue', foot: 'g_blue', shin: 'g_blue', hand: 'g_blue', finger: 'g_blue', fore: 'g_blue', head: 'g_face', neck: 'g_blueD', waist: 'g_blue' },
 	};
 	humanoid(M, P);
@@ -523,7 +591,7 @@ function buildGalactus() {
 		cham(M, fa, sx - 10.2, A.elbowY - 7.5, -10.2, sx + 10.2, A.elbowY + 0.5, 10.2, 2.8, 'g_blue', { tag: 'circles panel', seed: 55 });   // flared cuff
 		cham(M, fa, sx - 10.4, A.elbowY - 8.5, -10.4, sx + 10.4, A.elbowY - 7.3, 10.4, 2.8, 'g_purple', { seed: 56 });
 		cham(M, fa, sx - 7.9, A.wristY + 1.2, -7.9, sx + 7.9, A.wristY + 3.0, 7.9, 1.9, 'g_core', { seed: 57 });                             // energy ring
-		M.box(`hand_${n}`, sx - 3.6, A.knuckY + 1.5, -7.0, sx + 3.6, A.wristY + 0.6, 7.0, 'g_blue', { paint: 'palm', seed: 58 });
+		// v0.17.5: the hand's own armour is built with it (galactusHand)
 	}
 	// ---- legs: purple thighs (tapering to the knee), knee guards, big flared boots
 	for (const [s, n] of SIDES) {
@@ -544,7 +612,7 @@ function buildGalactus() {
 	M.bone('weak_emblem', 'chest', [0, (A.chestBot + 7 + A.chestTop - 4) / 2, -13.2]);
 	for (const [s, n] of SIDES) {
 		M.bone(`weak_gauntlet_${n}`, `forearm_${n}`, [s * A.shX, A.wristY + 2.1, 0]);
-		M.bone(`palm_${n}`, `hand_${n}`, [s * A.shX - s * 3.6, A.knuckY + 4, 0]);
+		M.bone(`palm_${n}`, `hand_${n}`, [s * A.shX - s * (A.palmIn || 3.6), A.knuckY + 4, 0]);
 	}
 	M.bone('grab_socket', 'hand_r', [-A.shX + 2, A.knuckY - 2, 0]);
 	return M;
@@ -675,20 +743,20 @@ function galactusPoses(M) {
 	const stand = Object.assign({
 		arm_r: [-4, 0, 6], forearm_r: [-14, 0, 0], arm_l: [-4, 0, -6], forearm_l: [-14, 0, 0],
 		thigh_r: [0, 0, 4], thigh_l: [0, 0, -4], head: [0, 0, 0], chest: [-2, 0, 0],
-	}, FIST('r'), FIST('l'));
+	}, GHAND('r', 'fist'), GHAND('l', 'fist'));
 	// eye beams: head lowered, fists clenched and pulled back, leaning into it
 	const beams = Object.assign({
 		waist: [6, 0, 0], chest: [8, 0, 0], neck: [6, 0, 0], head: [14, 0, 0],
 		arm_r: [18, 0, 26], forearm_r: [-40, 0, 0], arm_l: [18, 0, -26], forearm_l: [-40, 0, 0],
 		thigh_r: [-10, 0, 8], shin_r: [12, 0, 0], foot_r: [-2, 0, 0], thigh_l: [12, 0, -6], shin_l: [4, 0, 0], foot_l: [-14, 0, 0],
-	}, FIST('r'), FIST('l'));
+	}, GHAND('r', 'fist'), GHAND('l', 'fist'));
 	// the giant open hand reaching down toward the ground in front of him
 	const reachP = Object.assign({
 		waist: [24, 0, 0], chest: [24, -10, 0], head: [6, -10, 0],
 		arm_l: [10, 0, -18], forearm_l: [-30, 0, 0],
 		thigh_r: [-56, 0, 6], shin_r: [78, 0, 0], foot_r: [-22, 0, 0],
 		thigh_l: [26, 0, -6], shin_l: [40, 0, 0], foot_l: [-64, 0, 0],
-	}, OPEN('r', 1.6), FIST('l'));
+	}, GHAND('r', 'open'), GHAND('l', 'fist'));
 	const palm = [-A.shX, A.knuckY + 3, 0];
 	reachP.$root = planted(M, reachP);
 	// aim for a point 92 % of the arm's length from the shoulder, down and forward (always reachable)
@@ -1720,7 +1788,7 @@ function gameExport() {
 		const poses = galactusPoses(G);
 		const A0 = G.A, hs = A0.hs;
 		const eyes = [-1, 1].map(s => ({ bone: 'head', c: [s * A0.eyeX, A0.eyeY, A0.faceZ - 0.35], s: [3.3 * 2 * hs * 0.5 + 1.6, 0.62 * 2 * hs + 1.3, 0.2], col: [200, 230, 255], k: 1 }));
-		const palms = SIDES.map(([s, n]) => ({ bone: `hand_${n}`, c: [s * A0.shX - s * 3.75, A0.knuckY + 5, 0], s: [0.2, 6, 6], col: PC_GLOW, k: 0.9 }));
+		const palms = SIDES.map(([s, n]) => ({ bone: `hand_${n}`, c: [s * A0.shX - s * ((A0.palmIn || 3.6) + 0.15), A0.knuckY + 5, 0], s: [0.2, 6, 6], col: PC_GLOW, k: 0.9 }));
 		gameLook(G, 'galactus', eyes.concat(palms));
 		unit('galactus', G, (an, t) => CL.galactusClips(an, t, poses), { cam: { yaw: 30, pitch: 6 }, note: 'height_blocks = toes to the top of the head; the helmet prongs rise above. Locators: eye_l/eye_r (beam origins), weak_crest, weak_emblem, weak_gauntlet_l/r (weak points), palm_l/r, grab_socket (where a grabbed player sits).' });
 	}
@@ -1918,5 +1986,41 @@ function buildPlayer() {
 	return M;
 }
 
+// v0.17.5 hands:
+//   node scratchpad/gen_galactus_models.js --hands <sheet.png>   the right hand in every pose from four sides (game paint)
+//   node scratchpad/gen_galactus_models.js --hands-game          writes ONLY galactus.geo.json / .png / _glowmask.png
+//     (the clips in galactus.animation.json are maintained separately now; --game would rewrite them from an older table)
+function handsGalactus() {
+	const G = buildGalactus();
+	G.setHeight(60, fitSkip(G));
+	const A0 = G.A, hs = A0.hs;
+	const eyes = [-1, 1].map(s => ({ bone: 'head', c: [s * A0.eyeX, A0.eyeY, A0.faceZ - 0.35], s: [3.3 * 2 * hs * 0.5 + 1.6, 0.62 * 2 * hs + 1.3, 0.2], col: [200, 230, 255], k: 1 }));
+	const palms = SIDES.map(([s, n]) => ({ bone: `hand_${n}`, c: [s * A0.shX - s * ((A0.palmIn || 3.6) + 0.15), A0.knuckY + 5, 0], s: [0.2, 6, 6], col: PC_GLOW, k: 0.9 }));
+	gameLook(G, 'galactus', eyes.concat(palms));
+	return G;
+}
+if (args.includes('--hands-game')) {
+	const G = handsGalactus();
+	const RES = path.join(REPO, 'src/main/resources/assets/projecthero');
+	fs.writeFileSync(path.join(RES, 'geo/galactus/galactus.geo.json'), JSON.stringify(G.geoJson('geometry.galactus'), null, '\t') + '\n');
+	fs.writeFileSync(path.join(RES, 'textures/entity/galactus/galactus.png'), L.encodePng(G.TW, G.TH, G.tex));
+	fs.writeFileSync(path.join(RES, 'textures/entity/galactus/galactus_glowmask.png'), L.encodePng(G.TW, G.TH, G.glow));
+	console.log(`galactus: ${G.bones.length} bones, ${G.cubes().length} cubes, tex ${G.TW}x${G.TH}`);
+}
+if (args.includes('--hands')) {
+	const G = handsGalactus();
+	const file = args[args.indexOf('--hands') + 1];
+	const keep = args.includes('--no-forearm') ? /^(hand_r|fingers_r|fingertips_r|tip\d_r|thumb_r|thumbtip_r)$/ : /^(forearm_r|hand_r|fingers_r|fingertips_r|tip\d_r|thumb_r|thumbtip_r)$/;
+	const it = pose => ({ model: G, pose, root: [0, 0, 0], hide: c => !keep.test(c.bone), noFloor: true });
+	const ro = { panelH: 520, minW: 2400, maxW: 3200, bg: galBg(), shadowSoft: 0.9, aoR: 1.0, edgeThr: 0.5, titleH: 0, shadow: false, returnCanvas: true };
+	const rows = [];
+	for (const [label, cam] of [['PALM SIDE', { yaw: -90, pitch: 8 }], ['BACK OF HAND', { yaw: 90, pitch: 8 }], ['FRONT (THUMB)', { yaw: 0, pitch: 10 }], ['THREE-QUARTER', { yaw: -40, pitch: 28 }]]) {
+		const hm = args.indexOf('--hand-modes'), modes = hm >= 0 ? args[hm + 1].split(',') : ['relaxed', 'open', 'grip', 'fist'];
+		rows.push(sheet(null, '', '', modes.map(mode => ({
+			label: `${mode.toUpperCase()} - ${label}`, items: [it(GHAND('r', mode))], cam, ownScale: true, ownScaleMax: 40, noOrigin: true,
+		})), ro));
+	}
+	stackRows(file, rows);
+}
 if (GAME) gameExport();
 module.exports = { built };

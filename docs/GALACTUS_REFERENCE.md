@@ -102,6 +102,29 @@ living hit-boxes resized to the skeleton every tick; they take no damage -- `onP
 - A hit that counts: `broadcastDamageEvent` on the Devourer (the whole model flashes red), an iron-golem thud and
   crit / spark particles where it struck.
 
+**v0.17.5 hands ("make his hand model better please it looks really weird right now during the raid").** What was wrong:
+the hand was a thin slab (6.4 x 13.5) with four fingers spread along 23 px (twice the palm's width, with gaps), one stick
+thumb, and `DevourerRenderer` bent the fingers about **X** -- which, for fingers lined up front to back, swung the whole
+row sideways, so a "fist" threw the finger blocks off the hand. Now (`galactusHand` in `scratchpad/gen_galactus_models.js`,
+exported with `--hands-game`; preview sheet with `--hands <png>`):
+- Palm 5.4 x 12.4 x 9.5 px (as wide as the four fingers), purple back plate, knuckle guard, ribbed wrist band, thenar /
+  hypothenar pads round the glowing palm emitter (the palm halo plate moved to the new palm face).
+- Four fingers (index at the front, by the thumb) in three segments with plated backs: `fingers_n` (all four knuckle
+  segments, curl axis = the knuckle line) > `fingertips_n` (the four middle segments) > `tip0_n`..`tip3_n` (each tip at
+  its own joint). Segments overlap into their parent and get thinner outward, so no gaps or coplanar faces when bent.
+  Thumb: `thumb_n` (rest rotation [-28, 0, 12 s] in the model) > `thumbtip_n`.
+- A curl is a **Z** rotation toward the palm (s = -1 right, +1 left). Poses (degrees: knuckles, middles, tips, thumb x,
+  thumb z, thumb tip), the same table in the generator (`GH_POSES`) and the renderer: relaxed 10/14/8/0/0/6, open
+  2/3/2/-6/-8/0, grip 48/52/30/26/22/20, fist 92/100/64/74/30/-4.
+- The client eases each hand (`DevourerEntity.handCur/handPrev`, interpolated per frame): fist while
+  `FLAG_FIST_*` or `FLAG_STUCK_*`, open while the arm reaches (weight > 0), relaxed hanging, and a cupped grip while he
+  holds someone (new `FLAG_GRIP_R/L`, set by the Grab on the catch, cleared on the throw -- the hand opens -- and in
+  `rest`). Visual only: hit-boxes, the rig (`GalactusRig.LOWER` still lands on the fist's middle) and every attack are
+  unchanged. Same geometry/texture size (2048 x 640); the old v0.16 `galactus.animation.json` clips still key
+  `fingers_n` / `fingertips_n` / `thumb_n` (the tips stay straight there; that entity is never spawned).
+- Note: `--game` would also rewrite `galactus.animation.json` from an older clip table (walk etc. missing), so use
+  `--hands-game` for model-only changes. Stills, MP4 and frame sheet: `docs/screenshots/v0175/galactus_hands/`.
+
 ## 5. Stage 1: the Shattered Orbit (`StageIslands`)
 11 islands (+1 per extra fighter, 19 max): the Anchor (r7, never smashed) + a hex ring of 6 + outer ring, 5-block gaps
 (`OrbitIsland.field`; each island a pure function of its seed). Gravity pads: Anchor -> each outer island and back. Galactus
