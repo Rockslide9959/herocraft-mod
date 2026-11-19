@@ -446,8 +446,11 @@ public final class QuirkHud {
 				continue;
 			}
 			boolean showShift = shift && ids.length > 1;
-			String id = ids[showShift ? 1 : 0];
-			String other = ids.length > 1 ? ids[showShift ? 0 : 1] : null;
+			// v0.17.5 split cooldowns: the plain view shows the tap's cooldown, or the hold move's when only the hold is cooling
+			String hold = com.projecthero.mod.quirk.QuirkInfo.holdOf(kit, slot);
+			String plain = hold != null && kit.cooldownLeft(mc.player, ids[0]) <= 0 && kit.cooldownLeft(mc.player, hold) > 0 ? hold : ids[0];
+			String id = showShift ? ids[1] : plain;
+			String other = ids.length > 1 ? (showShift ? plain : ids[1]) : null;
 			int cd = kit.cooldownLeft(mc.player, id);
 			float frac = Math.min(1f, cd / (float) Math.max(1, kit.maxCooldown(id)));
 			float otherFrac = other == null ? 0f : Math.min(1f, kit.cooldownLeft(mc.player, other) / (float) Math.max(1, kit.maxCooldown(other)));

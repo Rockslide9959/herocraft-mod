@@ -322,6 +322,7 @@
       "com.projecthero.mod.gametest.OmnitrixFrankenstrikeGameTests",
       "com.projecthero.mod.gametest.OmnitrixEyeGuyGameTests",
       "com.projecthero.mod.gametest.OmnitrixBenwolfGameTests",
+      "com.projecthero.mod.gametest.SplitCooldownGameTests",
       "com.projecthero.mod.gametest.OmnitrixArctiguanaGameTests",
       "com.projecthero.mod.gametest.OmnitrixPrototypeRevampGameTests",
       "com.projecthero.mod.gametest.OmnitrixAutoGameTests",

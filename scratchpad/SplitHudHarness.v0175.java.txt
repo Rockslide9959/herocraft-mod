@@ -1,0 +1,180 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import com.projecthero.mod.client.omnitrix.OmnitrixHud;
+import com.projecthero.mod.client.stand.StandHud;
+import com.projecthero.mod.omnitrix.Omnitrix;
+import com.projecthero.mod.omnitrix.alien.Aliens;
+import com.projecthero.mod.omnitrix.alien.fourarms.FourArmsKit;
+import com.projecthero.mod.stand.StandMove;
+import com.projecthero.mod.stand.StandType;
+import com.projecthero.mod.stand.Stands;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+
+/** TEMP-HARNESS (not shipped): split-cooldown HUD stills. Enabled by run/splithud.flag. */
+public final class SplitHudHarness {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+
+	private SplitHudHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("splithud.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(SplitHudHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(300_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "splithud-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	private static FourArmsKit kit() {
+		return (FourArmsKit) Aliens.kit(FourArmsKit.ID);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(SplitHudHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 60) {
+			server(mc, p -> {
+				p.serverLevel().setDayTime(6000L);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.setGameMode(GameType.SURVIVAL);
+				Omnitrix.grant(p);
+				Omnitrix.noGlitch(p);
+			});
+		}
+		if (t == 80) {
+			server(mc, p -> Omnitrix.activate(p));
+		}
+		if (t == 95) {
+			server(mc, p -> {
+				Omnitrix.select(p, FourArmsKit.ID);
+				System.out.println("[HARNESS] transform=" + Omnitrix.transform(p));
+			});
+		}
+		// Four Arms: only the hold-X Charged Leap cooling (100 ticks): the X box shows it; Shift view shows Charge with the leap as the bar
+		if (t == 200) {
+			server(mc, p -> {
+				for (var m : kit().moves()) {
+					kit().cooldown(p, m.id(), 0);
+				}
+				kit().cooldown(p, FourArmsKit.LEAP_FAR, 2000);
+				kit().cooldown(p, FourArmsKit.HAMMER, 2000); // Shift+R cooling: the R box stays ready (bar only)
+			});
+		}
+		if (t == 218 || t == 305) {
+			mc.gui.getChat().clearMessages(false);
+			mc.gui.clear();
+		}
+		if (t == 220) {
+			shot(mc, "omnitrix_hold_x_cooling");
+		}
+		if (t == 225) {
+			OmnitrixHud.forceShift = true;
+		}
+		if (t == 235) {
+			shot(mc, "omnitrix_hold_x_cooling_shift_view");
+			OmnitrixHud.forceShift = false;
+		}
+		// Star Platinum: only the hold-R ORA Barrage cooling
+		if (t == 245) {
+			server(mc, p -> {
+				Omnitrix.revoke(p);
+				Stands.grant(p, StandType.STAR_PLATINUM);
+				Stands.summon(p);
+			});
+		}
+		if (t == 290) {
+			server(mc, p -> {
+				var n = Stands.state(p).copy();
+				n.abilityReadyAt.clear();
+				n.abilityReadyAt.put(StandMove.ORA_BARRAGE, p.level().getGameTime() + 2000);
+				n.abilityReadyAt.put(StandMove.BEARING_FLICK, p.level().getGameTime() + 2000);
+				p.setAttached(com.projecthero.mod.attachment.ModAttachments.STAND_STATE, n);
+			});
+		}
+		if (t == 310) {
+			shot(mc, "stand_hold_r_cooling");
+		}
+		if (t == 315) {
+			StandHud.forceShift = true;
+		}
+		if (t == 325) {
+			shot(mc, "stand_hold_r_cooling_shift_view");
+			StandHud.forceShift = false;
+		}
+		if (t == 340) {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("SH_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+}

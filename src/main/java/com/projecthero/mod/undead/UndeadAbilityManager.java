@@ -486,6 +486,21 @@ public final class UndeadAbilityManager {
 		};
 	}
 
+	/**
+	 * v0.17.5 (split cooldowns): the hold move on a key with its own cooldown, or null -- hold X the Head Throw, hold V the Bone
+	 * Sword, Shift + hold V Reform. The HUD shows its cooldown in that view while the tap's is ready. Not while the sword is out.
+	 */
+	public static String holdIdOf(Player player, AbilitySlot slot, boolean shift) {
+		if (UndeadBoneSword.idsOf(player, slot) != null || Undead.victor(player)) {
+			return null;
+		}
+		return switch (slot) {
+			case SLOT_3 -> shift ? null : UndeadAbilities.HEAD_THROW;
+			case SLOT_5 -> shift ? UndeadAbilities.REFORM : UndeadBoneSword.BONE_SWORD;
+			default -> null;
+		};
+	}
+
 	public static int maxCooldown(String id) {
 		int sword = UndeadBoneSword.maxCooldown(id);
 		if (sword >= 0) {

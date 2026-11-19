@@ -214,10 +214,13 @@ public final class OmnitrixHud {
 			AlienMove tap = kit.liveMoveOn(p, slot, false, false);
 			AlienMove sh = kit.liveMoveOn(p, slot, true, false);
 			AlienMove hold = kit.liveMoveOn(p, slot, false, true);
-			AlienMove shown = shift && sh != null ? sh : tap != null ? tap : hold;
+			// v0.17.5 split cooldowns: the plain view shows the tap's cooldown, or the hold's when only the hold is cooling
+			AlienMove plain = tap != null && hold != null && kit.cooldownLeft(p, tap.id()) <= 0 && kit.cooldownLeft(p, hold.id()) > 0 ? hold
+					: tap != null ? tap : hold;
+			AlienMove shown = shift && sh != null ? sh : plain;
 			int cd = shown == null ? 0 : kit.cooldownLeft(p, shown.id());
 			float frac = shown == null ? 0f : Math.min(1f, cd / (float) Math.max(1, shown.cooldown()));
-			AlienMove other = shift ? (tap != null ? tap : hold) : sh;
+			AlienMove other = shift ? plain : sh;
 			float otherFrac = 0f;
 			if (other != null && other != shown) {
 				int ocd = kit.cooldownLeft(p, other.id());

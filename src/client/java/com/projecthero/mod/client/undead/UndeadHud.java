@@ -211,6 +211,11 @@ public final class UndeadHud {
 		}
 	}
 
+	private static String holdOrTap(LocalPlayer p, AbilitySlot slot, boolean shift, String tap) {
+		String hold = UndeadAbilityManager.holdIdOf(p, slot, shift);
+		return hold != null && Undead.cooldownRemaining(p, tap) <= 0 && Undead.cooldownRemaining(p, hold) > 0 ? hold : tap;
+	}
+
 	private static void keys(GuiGraphics g, LocalPlayer p, UndeadState s, boolean victor, int x0, int y0, float now) {
 		boolean shift = forceShift || p.isShiftKeyDown();
 		VanillaHud.strip(g, x0, y0, SLOTS.length);
@@ -220,8 +225,11 @@ public final class UndeadHud {
 			if (ids.length == 0) {
 				continue;
 			}
-			String shown = ids[shift && ids.length > 1 ? 1 : 0];
-			String other = ids.length > 1 ? ids[shift ? 0 : 1] : null;
+			// v0.17.5 split cooldowns: each view shows its tap's cooldown, or its hold move's when only the hold is cooling
+			String plain = holdOrTap(p, slot, false, ids[0]);
+			String shifted = ids.length > 1 ? holdOrTap(p, slot, true, ids[1]) : null;
+			String shown = shift && shifted != null ? shifted : plain;
+			String other = shifted == null ? null : shift ? plain : shifted;
 			int cd = Undead.cooldownRemaining(p, shown);
 			float frac = Math.min(1f, cd / (float) Math.max(1, UndeadAbilityManager.maxCooldown(shown)));
 			float otherFrac = other == null ? 0f

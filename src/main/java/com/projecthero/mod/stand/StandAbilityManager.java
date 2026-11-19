@@ -159,6 +159,11 @@ public final class StandAbilityManager {
 		};
 	}
 
+	/** v0.17.5: the key's hold move with its own cooldown (R: the ORA Barrage), or null. */
+	public static String holdIdOf(AbilitySlot slot) {
+		return slot == AbilitySlot.SLOT_1 ? StandMove.ORA_BARRAGE : null;
+	}
+
 	public static int maxCooldown(String id) {
 		StandMove m = StandType.STAR_PLATINUM.move(id);
 		return m == null ? 0 : m.cooldown();

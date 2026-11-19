@@ -96,7 +96,10 @@ public final class StandHud {
 		for (int i = 0; i < SLOTS.length; i++) {
 			AbilitySlot slot = SLOTS[i];
 			String[] ids = StandAbilityManager.idsOf(slot);
-			String shown = ids[shift ? 1 : 0], other = ids[shift ? 0 : 1];
+			// v0.17.5 split cooldowns: the plain view shows the tap's cooldown, or the hold's (R: the barrage) when only it is cooling
+			String hold = StandAbilityManager.holdIdOf(slot);
+			String plain = hold != null && Stands.cooldownRemaining(p, ids[0]) <= 0 && Stands.cooldownRemaining(p, hold) > 0 ? hold : ids[0];
+			String shown = shift ? ids[1] : plain, other = shift ? plain : ids[1];
 			int cd = Stands.cooldownRemaining(p, shown);
 			float frac = Math.min(1f, cd / (float) Math.max(1, StandAbilityManager.maxCooldown(shown)));
 			float otherFrac = Math.min(1f, Stands.cooldownRemaining(p, other) / (float) Math.max(1, StandAbilityManager.maxCooldown(other)));

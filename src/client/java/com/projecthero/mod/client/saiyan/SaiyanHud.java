@@ -208,8 +208,14 @@ public final class SaiyanHud {
 			if (ids.length == 0) {
 				continue;
 			}
-			String shown = ids[shift && ids.length > 1 ? 1 : 0];
-			String other = ids.length > 1 ? ids[shift ? 0 : 1] : null;
+			String shifted = ids.length > 1 ? ids[1] : null;
+			// v0.17.5 split cooldowns: Shift + hold V (Kaioken) shows its own cooldown while the Shift+V tap's is ready
+			if (slot == AbilitySlot.SLOT_5 && shifted != null && SaiyanAbilityManager.cooldownRemaining(p, shifted) <= 0
+					&& SaiyanAbilityManager.cooldownRemaining(p, SaiyanAbilityManager.KAIOKEN) > 0) {
+				shifted = SaiyanAbilityManager.KAIOKEN;
+			}
+			String shown = shift && shifted != null ? shifted : ids[0];
+			String other = shifted == null ? null : shift ? ids[0] : shifted;
 			int cd = SaiyanAbilityManager.cooldownRemaining(p, shown);
 			float frac = Math.min(1f, cd / (float) Math.max(1, SaiyanAbilityManager.maxCooldown(shown)));
 			float otherFrac = other == null ? 0f
