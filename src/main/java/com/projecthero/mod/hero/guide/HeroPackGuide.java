@@ -40,17 +40,58 @@ public final class HeroPackGuide {
 		}
 	}
 
-	private static List<Chapter> chapters;
+	private static volatile List<Chapter> chapters;
 	private static List<IndexEntry> index;
 
 	private HeroPackGuide() {
 	}
 
 	public static List<Chapter> chapters() {
-		if (chapters == null) {
-			chapters = build();
+		List<Chapter> c = chapters;
+		if (c == null) {
+			synchronized (HeroPackGuide.class) { // v0.17.5: built once, even if two threads open it at the same moment
+				c = chapters;
+				if (c == null) {
+					c = build();
+					chapters = c;
+				}
+			}
 		}
-		return chapters;
+		return c;
+	}
+
+	/**
+	 * v0.17.5 (Guidebook crash fixes): the chapter at {@code index}, or a one-line "This page couldn't be shown" chapter when the
+	 * index is out of range -- the screen reads chapters only through here, so a stale index can never crash the game.
+	 */
+	public static Chapter chapterAt(int index) {
+		List<Chapter> all = chapters();
+		if (index >= 0 && index < all.size()) {
+			Chapter ch = all.get(index);
+			if (ch != null) {
+				return ch;
+			}
+		}
+		return new Chapter(Component.translatableWithFallback("projecthero.guide.ui.page_error.title", "Missing page"), List.of(pageError()));
+	}
+
+	/** v0.17.5: the line shown in place of a page that failed to build or draw. */
+	public static Component pageError() {
+		return Component.translatableWithFallback("projecthero.guide.ui.page_error", "This page couldn't be shown.").withStyle(ChatFormatting.RED);
+	}
+
+	/** v0.17.5: whether {@code index} names a chapter that exists. */
+	public static boolean validChapter(int index) {
+		return index >= 0 && index < chapters().size();
+	}
+
+	private static final java.util.Set<String> REPORTED = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+	/** v0.17.5: logs a Guidebook failure with its stack trace, once per place + exception type (a page that fails every frame logs once). */
+	public static void report(String where, Throwable t) {
+		if (REPORTED.add(where + "|" + t.getClass().getName() + "|" + t.getMessage())) {
+			com.projecthero.mod.ProjectHeroMod.LOGGER.error("[Guidebook] {} failed; showing a placeholder instead of crashing", where, t);
+		}
 	}
 
 	public static List<IndexEntry> index() {
@@ -724,8 +765,12 @@ public final class HeroPackGuide {
 
 	/** v0.17.5: rebuilds the Master Control page (its found digits changed). */
 	public static void refreshMasterControl() {
-		if (chapters != null && CH_MASTER_CONTROL < chapters.size()) {
-			chapters.set(CH_MASTER_CONTROL, masterControlChapter());
+		List<Chapter> all = chapters;
+		if (all != null && CH_MASTER_CONTROL < all.size()) {
+			all.set(CH_MASTER_CONTROL, masterControlChapter());
+			// v0.17.5 crash fix: the search cache held the OLD page's lines; a page that got shorter (fewer found codes after a
+			// world switch, a reset code) made the next search read past its end -> IndexOutOfBoundsException in search()
+			searchText = null;
 		}
 	}
 
@@ -773,7 +818,15 @@ public final class HeroPackGuide {
 
 	/** v0.17.4: a chapter the reader cannot see yet (left out of its category page and of search). */
 	public static boolean hidden(int chapter) {
-		return chapter == CH_MASTER_CONTROL && !(com.projecthero.mod.omnitrix.OmnitrixFeature.enabled() && masterControlRevealed.getAsBoolean());
+		if (chapter != CH_MASTER_CONTROL) {
+			return false;
+		}
+		try {
+			return !(com.projecthero.mod.omnitrix.OmnitrixFeature.enabled() && masterControlRevealed.getAsBoolean());
+		} catch (RuntimeException e) {
+			report("Master Control check", e); // v0.17.5: a client-state hiccup keeps the page hidden instead of crashing the book
+			return true;
+		}
 	}
 
 	private static List<Chapter> build() {
@@ -2411,12 +2464,15 @@ public final class HeroPackGuide {
 	public static List<IndexEntry> categoryEntries(Category category) {
 		buildCategories();
 		List<IndexEntry> all = categoryEntries.get(category);
-		if (!hidden(CH_MASTER_CONTROL)) {
-			return all;
+		if (all == null) {
+			return List.of();
 		}
+		boolean hideMaster = hidden(CH_MASTER_CONTROL);
+		int n = chapters().size();
 		List<IndexEntry> shown = new ArrayList<>(all.size());
 		for (IndexEntry e : all) {
-			if (e.isHeading() || !hidden(e.chapterIndex())) {
+			// v0.17.5: a link to a chapter that doesn't exist is dropped instead of crashing the list when drawn or clicked
+			if (e.isHeading() || (e.chapterIndex() < n && !(hideMaster && hidden(e.chapterIndex())))) {
 				shown.add(e);
 			}
 		}
@@ -2568,7 +2624,7 @@ public final class HeroPackGuide {
 		CHAPTER_ICONS.put(chapter, item.contains(":") ? item : "projecthero:" + item);
 	}
 
-	private static void buildCategories() {
+	private static synchronized void buildCategories() {
 		if (categoryEntries != null) {
 			return;
 		}
@@ -2767,7 +2823,7 @@ public final class HeroPackGuide {
 		}
 		List<Chapter> all = chapters();
 		List<String[]> text = searchText();
-		for (int c = 0; c < all.size(); c++) {
+		for (int c = 0; c < all.size() && c < text.size(); c++) {
 			if (c == CH_OMNITRIX && !com.projecthero.mod.omnitrix.OmnitrixFeature.enabled()) {
 				continue; // v0.17.1: not public yet
 			}
@@ -2783,7 +2839,9 @@ public final class HeroPackGuide {
 			String[] lines = text.get(c);
 			String section = title;
 			int bodyHits = 0;
-			for (int i = 0; i < lines.length; i++) {
+			// v0.17.5 crash fix: never read past either list (the cached text and a rebuilt page can differ in length)
+			int count = Math.min(lines.length, ch.lines().size());
+			for (int i = 0; i < count; i++) {
 				boolean isHead = isSectionLine(ch.lines().get(i));
 				String plain = ch.lines().get(i).getString();
 				if (isHead && !plain.isBlank()) {
@@ -3107,7 +3165,13 @@ public final class HeroPackGuide {
 
 	private static Chapter chapter(String titleKey, Body body) {
 		List<Component> lines = new ArrayList<>();
-		body.fill(lines);
+		try {
+			body.fill(lines);
+		} catch (RuntimeException e) {
+			// v0.17.5: a chapter whose builder throws shows a placeholder line -- it used to take the whole book (and the game) down
+			report("Building chapter " + titleKey, e);
+			lines.add(pageError());
+		}
 		return new Chapter(Component.translatable(titleKey), lines);
 	}
 

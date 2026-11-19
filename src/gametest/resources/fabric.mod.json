@@ -75,6 +75,7 @@
       "com.projecthero.mod.gametest.StarkFurnaceModelsV0151GameTests",
       "com.projecthero.mod.gametest.IronManRecipeCostV01421GameTests",
       "com.projecthero.mod.gametest.HeroPackGameTests",
+      "com.projecthero.mod.gametest.GuidebookStabilityGameTests",
       "com.projecthero.mod.gametest.IronManSuitUpV01421GameTests",
       "com.projecthero.mod.gametest.IronManV01427SuitUpGameTests",
       "com.projecthero.mod.gametest.IronManHandSuitUpV01511GameTests",

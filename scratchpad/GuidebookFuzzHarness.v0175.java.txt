@@ -1,0 +1,447 @@
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+
+import org.lwjgl.glfw.GLFW;
+
+import com.projecthero.mod.client.gui.HeroPackGuideScreen;
+import com.projecthero.mod.hero.guide.HeroPackGuide;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.5 Guidebook crash fixes): opens the Guidebook and drives it through its own input methods,
+ * rendering after every action (with the mouse at the action's point, so hover paths draw too): every chapter and every page,
+ * Prev / Next at both ends of every chapter, every category's rows, the breadcrumbs and back arrow, searches (empty, one letter,
+ * every chapter title, nonsense), random clicks / keys / wheel at GUI scales 1-4, repeated right-clicks of the Guidebook item
+ * (fast doubles, with the inventory open, while dead) -- once with no powers and once with the Omnitrix (Master Control woken,
+ * digits found) and Sentry. Every exception (guarded ones are counted by HeroPackGuideScreen.failures and logged once by
+ * HeroPackGuide.report; unguarded ones are caught here) is printed with "[GFUZZ]". Enabled by run/guidefuzz.flag = "<out dir>".
+ */
+public final class GuidebookFuzzHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static File out;
+	private static int phase;
+	private static int unguarded;
+	private static final List<String> problems = new ArrayList<>();
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("guidefuzz.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			out = new File(Files.readString(flag).trim());
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(GuidebookFuzzHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(900_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[GFUZZ] watchdog halt");
+			Runtime.getRuntime().halt(3);
+		}, "gfuzz-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[GFUZZ] server error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(GuidebookFuzzHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 40) {
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			mc.getToasts().clear();
+			mc.options.guiScale().set(2);
+			mc.resizeDisplay();
+			server(mc, p -> p.getInventory().setItem(0, new net.minecraft.world.item.ItemStack(
+					net.minecraft.core.registries.BuiltInRegistries.ITEM.get(com.projecthero.mod.ProjectHeroMod.id("guidebook")))));
+		}
+		if (t == 80) {
+			mc.player.getInventory().selected = 0;
+			runSuite(mc, "no powers");
+			Screenshot.grab(out, "phase1.png", mc.getMainRenderTarget(), m -> {
+			});
+		}
+		if (t == 100) {
+			server(mc, p -> {
+				com.projecthero.mod.omnitrix.Omnitrix.grant(p, false);
+				com.projecthero.mod.omnitrix.Omnitrix.setMasterControl(p, true);
+				var s = com.projecthero.mod.omnitrix.Omnitrix.state(p).copy();
+				s.timers.put(com.projecthero.mod.omnitrix.OmnitrixCodes.digitKey(1), 7L);
+				com.projecthero.mod.omnitrix.Omnitrix.save(p, s);
+				com.projecthero.mod.sentry.Sentry.grant(p);
+			});
+		}
+		if (t == 200) {
+			System.out.println("[GFUZZ] master revealed=" + HeroPackGuide.masterControlRevealed.getAsBoolean() + " hidden="
+					+ HeroPackGuide.hidden(76));
+			runSuite(mc, "omnitrix+sentry");
+		}
+		if (t == 220) {
+			rightClicks(mc);
+		}
+		if (t == 260) {
+			mc.setScreen(null);
+			server(mc, p -> p.kill());
+		}
+		if (t == 270) {
+			for (int i = 0; i < 6; i++) {
+				useItem(mc, "while dead " + i);
+			}
+		}
+		if (t == 300) {
+			if (mc.player.isDeadOrDying()) {
+				mc.player.respawn();
+			}
+		}
+		if (t == 360) {
+			for (int i = 0; i < 6; i++) {
+				useItem(mc, "after respawn " + i);
+			}
+			mc.setScreen(null);
+			System.out.println("[GFUZZ] DONE guardedFailures=" + HeroPackGuideScreen.failures + " unguarded=" + unguarded + " problems="
+					+ problems.size());
+			for (String p : problems) {
+				System.out.println("[GFUZZ] PROBLEM " + p);
+			}
+			try {
+				Files.writeString(new File(out, "result.txt").toPath(), "guarded=" + HeroPackGuideScreen.failures + "\nunguarded=" + unguarded
+						+ "\n" + String.join("\n", problems) + "\n");
+			} catch (Exception ignored) {
+			}
+			mc.stop();
+		}
+	}
+
+	// ---------------------------------------------------------------- driving the screen
+
+	private static HeroPackGuideScreen screen;
+	private static int mx, my;
+	private static String doing = "";
+
+	private static void act(String what, Runnable r) {
+		doing = what;
+		int before = HeroPackGuideScreen.failures;
+		try {
+			reopen();
+			r.run();
+			render();
+		} catch (Throwable e) {
+			unguarded++;
+			problems.add("UNGUARDED during " + what + ": " + e);
+			System.out.println("[GFUZZ] UNGUARDED during " + what + ": " + e);
+			e.printStackTrace(System.out);
+			reopen();
+		}
+		if (HeroPackGuideScreen.failures != before) {
+			problems.add("guarded failure during " + what);
+			System.out.println("[GFUZZ] guarded failure during " + what);
+		}
+	}
+
+	private static void render() {
+		Minecraft mc = Minecraft.getInstance();
+		if (!(mc.screen instanceof HeroPackGuideScreen s)) {
+			return;
+		}
+		GuiGraphics g = new GuiGraphics(mc, mc.renderBuffers().bufferSource());
+		s.render(g, mx, my, 0f);
+		g.flush();
+	}
+
+	private static void reopen() {
+		Minecraft mc = Minecraft.getInstance();
+		if (!(mc.screen instanceof HeroPackGuideScreen)) {
+			HeroPackGuideScreen.open();
+		}
+		screen = mc.screen instanceof HeroPackGuideScreen s ? s : null;
+	}
+
+	private static Object get(String field) {
+		try {
+			Field f = HeroPackGuideScreen.class.getDeclaredField(field);
+			f.setAccessible(true);
+			return f.get(screen);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	private static int i(String field) {
+		return (Integer) get(field);
+	}
+
+	private static void call(String name, Class<?>[] types, Object... args) {
+		try {
+			Method m = HeroPackGuideScreen.class.getDeclaredMethod(name, types);
+			m.setAccessible(true);
+			m.invoke(screen, args);
+		} catch (java.lang.reflect.InvocationTargetException e) {
+			throw e.getCause() instanceof RuntimeException re ? re : new RuntimeException(e.getCause());
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	private static void click(int x, int y, int button) {
+		mx = x;
+		my = y;
+		screen.mouseClicked(x, y, button);
+		screen.mouseReleased(x, y, button);
+	}
+
+	private static void key(int k) {
+		screen.keyPressed(k, 0, 0);
+	}
+
+	private static void type(String s) {
+		for (char c : s.toCharArray()) {
+			screen.charTyped(c, 0);
+		}
+	}
+
+	private static void clearSearch() {
+		act("clear search", () -> {
+			call("goHome", new Class<?>[0]);
+		});
+	}
+
+	private static void runSuite(Minecraft mc, String label) {
+		System.out.println("[GFUZZ] suite: " + label);
+		for (int scale : new int[] { 2, 1, 3, 4 }) {
+			mc.options.guiScale().set(scale);
+			mc.resizeDisplay();
+			reopen();
+			if (screen == null) {
+				problems.add("couldn't open the book at scale " + scale);
+				continue;
+			}
+			act("home render", () -> {
+			});
+			systematic(label + " s" + scale, scale == 2);
+			randomFuzz(label + " s" + scale, scale == 2 ? 6000 : 1500, 1234L + scale);
+		}
+		mc.options.guiScale().set(2);
+		mc.resizeDisplay();
+		mc.setScreen(null);
+	}
+
+	private static void systematic(String label, boolean full) {
+		int n = HeroPackGuide.chapters().size();
+		// every chapter, every page, Prev / Next at both ends
+		for (int c = 0; c < n; c++) {
+			final int ch = c;
+			act(label + " open chapter " + ch, () -> call("openChapter", new Class<?>[] { int.class, int.class }, ch, -1));
+			int pages = full ? 60 : 3;
+			for (int k = 0; k < pages; k++) {
+				act(label + " ch " + ch + " right " + k, () -> key(GLFW.GLFW_KEY_RIGHT));
+			}
+			act(label + " ch " + ch + " wheel down", () -> screen.mouseScrolled(mx, my, 0, -1));
+			act(label + " ch " + ch + " footer next (end)", () -> click(i("px") + i("pw") - 10, i("py") + i("ph") - 10, 0));
+			act(label + " ch " + ch + " back", () -> key(GLFW.GLFW_KEY_BACKSPACE));
+			act(label + " reopen chapter " + ch, () -> call("openChapter", new Class<?>[] { int.class, int.class }, ch, 3));
+			act(label + " ch " + ch + " footer prev (start)", () -> click(i("px") + 10, i("py") + i("ph") - 10, 0));
+			act(label + " ch " + ch + " left", () -> key(GLFW.GLFW_KEY_LEFT));
+			act(label + " ch " + ch + " crumb category", () -> click(i("px") + 24 + 70, i("py") + 10, 0));
+			act(label + " ch " + ch + " right-click back", () -> click(i("px") + i("pw") / 2, i("py") + i("ph") / 2, 1));
+		}
+		// every category: click down the list every 5 px (and back after each), scrolled to the top and to the bottom
+		for (HeroPackGuide.Category cat : HeroPackGuide.Category.values()) {
+			for (int scrollTo : new int[] { 0, 100000 }) {
+				for (int y = 0; y < 400; y += 5) {
+					final int yy = y;
+					act(label + " cat " + cat + " scroll " + scrollTo + " row y " + y, () -> {
+						call("goHome", new Class<?>[0]);
+						call("openCategory", new Class<?>[] { HeroPackGuide.Category.class }, cat);
+						call("jumpScroll", new Class<?>[] { double.class }, (double) scrollTo);
+						click(i("bx") + 40, i("by") + yy, 0);
+					});
+					act(label + " back from cat row", () -> key(GLFW.GLFW_KEY_BACKSPACE));
+				}
+			}
+		}
+		// home: the whole panel on a 7 px grid (tiles, the Continue row, breadcrumbs), going home after each
+		for (int y = 0; y < Minecraft.getInstance().getWindow().getGuiScaledHeight(); y += 7) {
+			for (int x = 0; x < Minecraft.getInstance().getWindow().getGuiScaledWidth(); x += 7) {
+				final int xx = x, yy = y;
+				act(label + " home click " + x + "," + y, () -> click(xx, yy, 0));
+				act(label + " home", () -> call("goHome", new Class<?>[0]));
+			}
+			if (!full) {
+				y += 14;
+			}
+		}
+		// searches: empty, a letter, nonsense, every chapter's title; click every result, Enter on the first
+		List<String> queries = new ArrayList<>(List.of("", " ", "a", "e", "z", "zzqqxx", "[(*+?\\", "%s %d", "İ", "....", "shift+r", "H"));
+		for (int c = 0; c < n; c++) {
+			queries.add(HeroPackGuide.chapters().get(c).title().getString());
+		}
+		for (String q : queries) {
+			clearSearch();
+			act(label + " search '" + q + "'", () -> type(q));
+			if (full) {
+				for (int y = 0; y < 400; y += 13) {
+					final int yy = y;
+					act(label + " search '" + q + "' click y " + y, () -> click(i("bx") + 60, i("by") + yy, 0));
+					act(label + " back to results", () -> key(GLFW.GLFW_KEY_BACKSPACE));
+				}
+			}
+			act(label + " search '" + q + "' enter", () -> {
+				call("focusSearch", new Class<?>[0]);
+				key(GLFW.GLFW_KEY_ENTER);
+			});
+			act(label + " search '" + q + "' backspace x5", () -> {
+				call("focusSearch", new Class<?>[0]);
+				for (int k = 0; k < 5; k++) {
+					key(GLFW.GLFW_KEY_BACKSPACE);
+				}
+			});
+		}
+		clearSearch();
+		// close and reopen (where you left off), with a stale saved chapter
+		act(label + " close + reopen", () -> {
+			Minecraft.getInstance().setScreen(null);
+			reopen();
+		});
+	}
+
+	private static final int[] KEYS = { GLFW.GLFW_KEY_LEFT, GLFW.GLFW_KEY_RIGHT, GLFW.GLFW_KEY_UP, GLFW.GLFW_KEY_DOWN, GLFW.GLFW_KEY_PAGE_UP,
+			GLFW.GLFW_KEY_PAGE_DOWN, GLFW.GLFW_KEY_BACKSPACE, GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_HOME, GLFW.GLFW_KEY_END, GLFW.GLFW_KEY_TAB,
+			GLFW.GLFW_KEY_DELETE, GLFW.GLFW_KEY_ESCAPE, GLFW.GLFW_KEY_F, GLFW.GLFW_KEY_A };
+
+	private static void randomFuzz(String label, int steps, long seed) {
+		Random r = new Random(seed);
+		Minecraft mc = Minecraft.getInstance();
+		int w = mc.getWindow().getGuiScaledWidth(), h = mc.getWindow().getGuiScaledHeight();
+		for (int s = 0; s < steps; s++) {
+			int kind = r.nextInt(10);
+			int x = r.nextInt(w), y = r.nextInt(h);
+			final int step = s;
+			act(label + " random " + step + " kind " + kind + " at " + x + "," + y, () -> {
+				reopen();
+				if (screen == null) {
+					return;
+				}
+				mx = x;
+				my = y;
+				switch (kind) {
+					case 0, 1, 2, 3 -> click(x, y, 0);
+					case 4 -> click(x, y, 1);
+					case 5 -> screen.mouseScrolled(x, y, 0, r.nextBoolean() ? 1 : -1);
+					case 6 -> {
+						int k = KEYS[r.nextInt(KEYS.length)];
+						if (k == GLFW.GLFW_KEY_ESCAPE) {
+							key(k);
+							reopen();
+						} else {
+							key(k);
+						}
+					}
+					case 7 -> type(String.valueOf((char) ('a' + r.nextInt(26))));
+					case 8 -> {
+						screen.mouseClicked(x, y, 0);
+						screen.mouseDragged(x, y + 30, 0, 0, 30);
+						screen.mouseReleased(x, y + 30, 0);
+					}
+					default -> {
+						// render only (hover)
+					}
+				}
+			});
+		}
+	}
+
+	// ---------------------------------------------------------------- right-clicking the item
+
+	private static void useItem(Minecraft mc, String what) {
+		try {
+			var m = Minecraft.class.getDeclaredMethod("startUseItem");
+			m.setAccessible(true);
+			m.invoke(mc);
+			render();
+		} catch (Throwable e) {
+			unguarded++;
+			problems.add("UNGUARDED right-click " + what + ": " + e);
+			System.out.println("[GFUZZ] UNGUARDED right-click " + what + ": " + e);
+			e.printStackTrace(System.out);
+		}
+	}
+
+	private static void rightClicks(Minecraft mc) {
+		mc.setScreen(null);
+		for (int i = 0; i < 10; i++) {
+			useItem(mc, "fast " + i); // the first opens the book, the rest land while it is open
+		}
+		mc.setScreen(null);
+		mc.setScreen(new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player));
+		useItem(mc, "with the inventory open");
+		mc.setScreen(null);
+		for (int i = 0; i < 20; i++) {
+			useItem(mc, "open/close " + i);
+			mc.setScreen(null);
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		rules.getRule(com.projecthero.mod.calling.SpawnCallings.RULE).set(false, null);
+		LevelSettings settings = new LevelSettings("GFUZZ_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+				rules, WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, true, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

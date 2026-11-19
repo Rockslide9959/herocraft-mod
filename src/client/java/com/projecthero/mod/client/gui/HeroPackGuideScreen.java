@@ -101,6 +101,7 @@ public final class HeroPackGuideScreen extends Screen {
 	// chapter layout
 	private final List<FormattedCharSequence> rows = new ArrayList<>();
 	private final List<Integer> rowLine = new ArrayList<>();
+	private final List<Boolean> rowBlank = new ArrayList<>();
 	private final List<int[]> pages = new ArrayList<>();
 	private int columns = 1;
 	private int colW = 100;
@@ -122,8 +123,74 @@ public final class HeroPackGuideScreen extends Screen {
 		this.chapter = s.chapter();
 		this.spread = s.spread();
 		this.pendingScroll = s.scroll();
-		if (this.view == View.CHAPTER && (chapter < 0 || chapter >= HeroPackGuide.chapters().size())) {
+		if (this.view == View.CHAPTER && !safeValid(chapter)) {
 			this.view = View.HOME;
+		}
+		if (this.category == null) {
+			this.category = Category.GETTING_STARTED;
+		}
+		if (lastChapterRead >= 0 && !safeValid(lastChapterRead)) {
+			lastChapterRead = -1;
+		}
+	}
+
+	/** {@link HeroPackGuide#validChapter}, false if the book itself can't be built. */
+	private static boolean safeValid(int ch) {
+		try {
+			return HeroPackGuide.validChapter(ch);
+		} catch (RuntimeException e) {
+			HeroPackGuide.report("Opening the book", e);
+			return false;
+		}
+	}
+
+	// ---------------------------------------------------------------- v0.17.5: crash guards
+
+	/**
+	 * The page that failed (shown as "This page couldn't be shown" in the body), or null. Every draw and every input runs
+	 * guarded: an exception logs its stack trace once ({@link HeroPackGuide#report}) and the book shows a placeholder instead of
+	 * taking the game down (user: "sometimes when you right click the guidebook or click a certain thing in the guidebook your
+	 * game crashes").
+	 */
+	private Throwable failed;
+
+	private void fail(String where, Throwable t) {
+		HeroPackGuide.report("Guidebook " + where + " (" + view + ", chapter " + chapter + ")", t);
+		failed = t;
+		failures++;
+	}
+
+	private long noticeUntil;
+
+	/** Harness / tests: how many guarded failures this game session has caught. */
+	public static int failures;
+
+	/** Back to the home page after a failed click / key (a known-good place). */
+	private void recover() {
+		try {
+			history.clear();
+			view = View.HOME;
+			chapter = -1;
+			spread = 0;
+			jumpScroll(0);
+		} catch (RuntimeException ignored) {
+			view = View.HOME;
+		}
+	}
+
+	private interface Guarded {
+		boolean run();
+	}
+
+	private boolean guard(String where, Guarded action) {
+		try {
+			return action.run();
+		} catch (RuntimeException | StackOverflowError e) {
+			fail(where, e);
+			recover();
+			failed = null; // Home is drawn normally; the footer says what happened for a few seconds
+			noticeUntil = System.currentTimeMillis() + 4000;
+			return true;
 		}
 	}
 
@@ -161,11 +228,37 @@ public final class HeroPackGuideScreen extends Screen {
 		searchBox.setResponder(this::onQuery);
 		addRenderableWidget(searchBox);
 
-		if (view == View.CHAPTER) {
-			layoutChapter();
-		}
-		jumpScroll(pendingScroll);
+		guard("opening the page", () -> {
+			if (view == View.CHAPTER) {
+				layoutChapter();
+			}
+			jumpScroll(pendingScroll);
+			return true;
+		});
 		pendingScroll = 0;
+	}
+
+	/**
+	 * v0.17.5: what the Guidebook item's right-click runs. Opening never throws: a book that can't be built logs the error and says
+	 * so in chat instead of crashing the game.
+	 */
+	public static void open() {
+		net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+		if (mc.screen instanceof HeroPackGuideScreen) {
+			return; // a fast double right-click: already open
+		}
+		try {
+			mc.setScreen(new HeroPackGuideScreen());
+		} catch (RuntimeException e) {
+			HeroPackGuide.report("Opening the Guidebook", e);
+			failures++;
+			if (mc.screen instanceof HeroPackGuideScreen) {
+				mc.setScreen(null);
+			}
+			if (mc.player != null) {
+				mc.player.displayClientMessage(HeroPackGuide.pageError(), true);
+			}
+		}
 	}
 
 	// ---------------------------------------------------------------- navigation
@@ -197,15 +290,41 @@ public final class HeroPackGuideScreen extends Screen {
 		view = View.HOME;
 		jumpScroll(0);
 		if (!query.isEmpty()) {
-			query = "";
+			clearSearchBox();
+		}
+	}
+
+	/** Set while the screen itself empties the search box, so the box's responder doesn't react to it. */
+	private boolean clearingSearch;
+
+	/**
+	 * v0.17.5 crash fix: empties the search box without re-entering {@link #onQuery}. Back used to call {@code searchBox.setValue("")}
+	 * and let the responder pop back -- but 1.21.1's EditBox fires its responder from {@code setValue} AND again from
+	 * {@code moveCursorToEnd}, while the view was still SEARCH, so onQuery -> back -> setValue -> onQuery ... recursed until a
+	 * StackOverflowError crashed the game. Right-click, Backspace or the back arrow on a search results page all did it.
+	 */
+	private void clearSearchBox() {
+		query = "";
+		hits = List.of();
+		if (clearingSearch) {
+			return;
+		}
+		clearingSearch = true;
+		try {
 			searchBox.setValue("");
+		} finally {
+			clearingSearch = false;
 		}
 	}
 
 	private void back() {
 		if (view == View.SEARCH) {
-			searchBox.setValue(""); // onQuery pops back
-			return;
+			clearSearchBox();
+			view = View.HOME; // where an empty history lands; the pop below restores the page the search started from
+			if (history.isEmpty()) {
+				jumpScroll(0);
+				return;
+			}
 		}
 		if (history.isEmpty()) {
 			if (view != View.HOME) {
@@ -230,6 +349,9 @@ public final class HeroPackGuideScreen extends Screen {
 	}
 
 	private void onQuery(String value) {
+		if (clearingSearch) {
+			return; // the screen is emptying the box itself (clearSearchBox)
+		}
 		String q = value == null ? "" : value;
 		boolean was = !query.isBlank();
 		query = q;
@@ -255,23 +377,30 @@ public final class HeroPackGuideScreen extends Screen {
 	private void layoutChapter() {
 		rows.clear();
 		rowLine.clear();
+		rowBlank.clear();
 		pages.clear();
-		if (chapter < 0 || chapter >= HeroPackGuide.chapters().size()) {
+		spread = Math.max(0, spread);
+		if (!HeroPackGuide.validChapter(chapter)) {
+			pages.add(new int[] { 0, 0 });
 			return;
 		}
 		int gap = 14;
 		columns = bw >= 380 ? 2 : 1;
 		colW = (bw - gap * (columns - 1)) / columns - 4;
-		List<Component> lines = HeroPackGuide.chapters().get(chapter).lines();
+		List<Component> lines = new ArrayList<>(HeroPackGuide.chapterAt(chapter).lines()); // a snapshot: the page may be rebuilt meanwhile
+		lines.replaceAll(l -> l == null ? Component.empty() : l);
 		for (int i = 0; i < lines.size(); i++) {
-			List<FormattedCharSequence> split = this.font.split(lines.get(i), colW);
+			List<FormattedCharSequence> split = this.font.split(lines.get(i), Math.max(20, colW));
+			boolean blank = lines.get(i).getString().isBlank();
 			if (split.isEmpty()) {
 				rows.add(FormattedCharSequence.EMPTY);
 				rowLine.add(i);
+				rowBlank.add(blank);
 			} else {
 				for (FormattedCharSequence s : split) {
 					rows.add(s);
 					rowLine.add(i);
+					rowBlank.add(blank);
 				}
 			}
 		}
@@ -325,7 +454,7 @@ public final class HeroPackGuideScreen extends Screen {
 	}
 
 	private boolean isBlankRow(int r) {
-		return HeroPackGuide.chapters().get(chapter).lines().get(rowLine.get(r)).getString().isBlank();
+		return rowBlank.get(r);
 	}
 
 	private int spreadCount() {
@@ -359,6 +488,25 @@ public final class HeroPackGuideScreen extends Screen {
 
 	@Override
 	public boolean keyPressed(int key, int scan, int mods) {
+		return guard("key " + key, () -> doKeyPressed(key, scan, mods));
+	}
+
+	@Override
+	public boolean charTyped(char c, int mods) {
+		return guard("typing", () -> doCharTyped(c, mods));
+	}
+
+	@Override
+	public boolean mouseClicked(double mx, double my, int button) {
+		return guard("click", () -> doMouseClicked(mx, my, button));
+	}
+
+	@Override
+	public boolean mouseScrolled(double mx, double my, double dx, double dy) {
+		return guard("scroll", () -> doMouseScrolled(mx, my, dx, dy));
+	}
+
+	private boolean doKeyPressed(int key, int scan, int mods) {
 		if (searchBox.isFocused()) {
 			if (key == GLFW.GLFW_KEY_ESCAPE) {
 				searchBox.setFocused(false);
@@ -423,8 +571,7 @@ public final class HeroPackGuideScreen extends Screen {
 		return true; // swallow everything else: no keybind fires from inside the book
 	}
 
-	@Override
-	public boolean charTyped(char c, int mods) {
+	private boolean doCharTyped(char c, int mods) {
 		if (!searchBox.isFocused()) {
 			if (Character.isISOControl(c) || (c == ' ' && query.isEmpty())) {
 				return true;
@@ -439,8 +586,7 @@ public final class HeroPackGuideScreen extends Screen {
 		searchBox.setFocused(true);
 	}
 
-	@Override
-	public boolean mouseClicked(double mx, double my, int button) {
+	private boolean doMouseClicked(double mx, double my, int button) {
 		if (searchBox.isMouseOver(mx, my)) {
 			focusSearch();
 			return searchBox.mouseClicked(mx, my, button);
@@ -481,7 +627,7 @@ public final class HeroPackGuideScreen extends Screen {
 					openCategory(c);
 					return true;
 				}
-				if (lastChapterRead >= 0 && continueRowHit(mx, my)) {
+				if (lastChapterRead >= 0 && HeroPackGuide.validChapter(lastChapterRead) && continueRowHit(mx, my)) {
 					openChapter(lastChapterRead, -1);
 					return true;
 				}
@@ -533,8 +679,7 @@ public final class HeroPackGuideScreen extends Screen {
 		return false;
 	}
 
-	@Override
-	public boolean mouseScrolled(double mx, double my, double dx, double dy) {
+	private boolean doMouseScrolled(double mx, double my, double dx, double dy) {
 		if (view == View.CHAPTER) {
 			turn(dy < 0 ? 1 : -1);
 			return true;
@@ -603,21 +748,108 @@ public final class HeroPackGuideScreen extends Screen {
 	@Override
 	public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partial) {
 		super.renderBackground(g, mouseX, mouseY, partial);
-		syncScroll();
-		scrollPos = scroll.eased();
 		lastMouseX = mouseX;
 		lastMouseY = mouseY;
-
-		drawPanel(g);
-		drawHeader(g, mouseX, mouseY);
-		switch (view) {
-			case HOME -> drawHome(g, mouseX, mouseY);
-			case CATEGORY -> drawCategory(g, mouseX, mouseY);
-			case CHAPTER -> drawChapter(g, mouseX, mouseY);
-			case SEARCH -> drawSearch(g, mouseX, mouseY);
+		String key = view + "/" + category + "/" + chapter;
+		if (failed != null && !key.equals(failedKey)) {
+			failed = null; // a new page: try drawing again
 		}
-		drawFooter(g, mouseX, mouseY);
+		drawSafely(g, "panel", () -> {
+			syncScroll();
+			scrollPos = scroll.eased();
+			drawPanel(g);
+		});
+		drawSafely(g, "header", () -> drawHeader(g, mouseX, mouseY));
+		if (failed == null) {
+			drawSafely(g, "page", () -> {
+				switch (view) {
+					case HOME -> drawHome(g, mouseX, mouseY);
+					case CATEGORY -> drawCategory(g, mouseX, mouseY);
+					case CHAPTER -> drawChapter(g, mouseX, mouseY);
+					case SEARCH -> drawSearch(g, mouseX, mouseY);
+				}
+			});
+		}
+		if (failed != null) {
+			failedKey = key;
+			drawFailedPage(g);
+		}
+		drawSafely(g, "footer", () -> drawFooter(g, mouseX, mouseY));
 	}
+
+	private String failedKey = "";
+	private int scissorDepth;
+
+	/** Runs one part of the frame; an exception logs once, unwinds the scissor / pose stacks it left behind and marks the page failed. */
+	private void drawSafely(GuiGraphics g, String what, Runnable draw) {
+		com.mojang.blaze3d.vertex.PoseStack.Pose base = g.pose().last();
+		int scissors = scissorDepth;
+		try {
+			draw.run();
+		} catch (RuntimeException | StackOverflowError e) {
+			while (scissorDepth > scissors) {
+				unscissor(g);
+			}
+			for (int i = 0; i < 64 && g.pose().last() != base && !g.pose().clear(); i++) {
+				g.pose().popPose();
+			}
+			fail("drawing the " + what, e);
+		}
+	}
+
+	private void scissor(GuiGraphics g, int x0, int y0, int x1, int y1) {
+		g.enableScissor(x0, y0, x1, y1);
+		scissorDepth++;
+	}
+
+	private void unscissor(GuiGraphics g) {
+		if (scissorDepth > 0) {
+			scissorDepth--;
+			g.disableScissor();
+		}
+	}
+
+	/** The body of a page that failed to draw: one red line (and Back / the breadcrumbs still work). */
+	private void drawFailedPage(GuiGraphics g) {
+		try {
+			int y = by + bh / 2 - 10;
+			for (FormattedCharSequence line : this.font.split(HeroPackGuide.pageError(), Math.max(40, bw - 20))) {
+				g.drawCenteredString(this.font, line, bx + bw / 2, y, 0xFFFF6060);
+				y += 10;
+			}
+			y += 4;
+			for (FormattedCharSequence line : this.font.split(Component.translatableWithFallback("projecthero.guide.ui.page_error.hint",
+					"Go back and try another page."), Math.max(40, bw - 20))) {
+				g.drawCenteredString(this.font, line, bx + bw / 2, y, TEXT_DIM);
+				y += 10;
+			}
+		} catch (RuntimeException ignored) {
+			// nothing more we can safely draw
+		}
+	}
+
+	/** An item icon; one that fails to render is remembered and drawn as a book from then on. */
+	private void item(GuiGraphics g, ItemStack stack, int x, int y) {
+		if (stack == null || stack.isEmpty()) {
+			return;
+		}
+		String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+		ItemStack draw = brokenIcons.contains(id) ? BOOK : stack;
+		com.mojang.blaze3d.vertex.PoseStack.Pose base = g.pose().last();
+		try {
+			g.renderItem(draw, x, y);
+		} catch (RuntimeException e) {
+			for (int i = 0; i < 64 && g.pose().last() != base && !g.pose().clear(); i++) {
+				g.pose().popPose();
+			}
+			brokenIcons.add(id);
+			HeroPackGuide.report("Guidebook icon " + id, e);
+			failures++;
+		}
+	}
+
+	private static final java.util.Set<String> brokenIcons = new java.util.HashSet<>();
+	private static final ItemStack BOOK = new ItemStack(Items.BOOK);
 
 	private void drawPanel(GuiGraphics g) {
 		int accent = view == View.HOME ? GOLD : category.colour;
@@ -663,7 +895,7 @@ public final class HeroPackGuideScreen extends Screen {
 			} : null);
 		}
 		if (view == View.CHAPTER) {
-			labels.add(HeroPackGuide.chapters().get(chapter).title().getString());
+			labels.add(HeroPackGuide.chapterAt(chapter).title().getString());
 			colours.add(TEXT);
 			actions.add(null);
 		}
@@ -726,7 +958,7 @@ public final class HeroPackGuideScreen extends Screen {
 			if (spread > 0) {
 				prev = Component.translatable("projecthero.guide.ui.prev").getString();
 			} else if (prevChapterInCategory() >= 0) {
-				prev = "< " + HeroPackGuide.chapters().get(prevChapterInCategory()).title().getString();
+				prev = "< " + HeroPackGuide.chapterAt(prevChapterInCategory()).title().getString();
 			}
 			if (prev != null) {
 				prev = fit(prev, pw / 3 - 10);
@@ -738,7 +970,7 @@ public final class HeroPackGuideScreen extends Screen {
 				next = Component.translatable("projecthero.guide.ui.next").getString();
 			} else if (nextChapterInCategory() >= 0) {
 				next = Component.translatable("projecthero.guide.ui.next_chapter",
-						HeroPackGuide.chapters().get(nextChapterInCategory()).title().getString()).getString();
+						HeroPackGuide.chapterAt(nextChapterInCategory()).title().getString()).getString();
 			}
 			if (next != null) {
 				next = fitEnd(next, pw / 3 - 10);
@@ -752,6 +984,10 @@ public final class HeroPackGuideScreen extends Screen {
 			case SEARCH -> Component.translatable("projecthero.guide.ui.hint.search").getString();
 			default -> Component.translatable("projecthero.guide.ui.hint.list").getString();
 		};
+		if (System.currentTimeMillis() < noticeUntil) {
+			g.drawString(this.font, fit(HeroPackGuide.pageError().getString(), pw - 16), px + 8, fy, 0xFFFF6060, false);
+			return;
+		}
 		String right = view == View.CATEGORY
 				? Component.translatable("projecthero.guide.ui.chapters", HeroPackGuide.chapterCount(category)).getString()
 				: "";
@@ -849,7 +1085,7 @@ public final class HeroPackGuideScreen extends Screen {
 	}
 
 	private void drawHome(GuiGraphics g, int mx, int my) {
-		g.enableScissor(bx - 2, by - 2, bx + bw + 2, by + bh + 2);
+		scissor(g, bx - 2, by - 2, bx + bw + 2, by + bh + 2);
 		Category[] cats = Category.values();
 		for (int i = 0; i < cats.length; i++) {
 			Category c = cats[i];
@@ -868,11 +1104,11 @@ public final class HeroPackGuideScreen extends Screen {
 				g.pose().pushPose();
 				g.pose().translate(x + 7, y + 6, 0);
 				g.pose().scale(1.5f, 1.5f, 1f);
-				g.renderItem(icon, 0, 0);
+				item(g, icon, 0, 0);
 				g.pose().popPose();
 				textX = x + 34;
 			} else {
-				g.renderItem(icon, x + 6, y + (h - 16) / 2);
+				item(g, icon, x + 6, y + (h - 16) / 2);
 				textX = x + 26;
 			}
 			int textW = x + w - 4 - textX;
@@ -910,12 +1146,12 @@ public final class HeroPackGuideScreen extends Screen {
 			int y = continueRowY();
 			boolean over = hit(mx, my, bx, y, bw, 16);
 			g.fill(bx, y, bx + bw, y + 16, over ? ROW_HOVER : ROW_BG);
-			g.renderItem(chapterIcon(lastChapterRead), bx + 2, y);
+			item(g, chapterIcon(lastChapterRead), bx + 2, y);
 			String s = Component.translatable("projecthero.guide.ui.continue",
-					HeroPackGuide.chapters().get(lastChapterRead).title().getString()).getString();
+					HeroPackGuide.chapterAt(lastChapterRead).title().getString()).getString();
 			g.drawString(this.font, fit(s, bw - 30), bx + 22, y + 4, over ? GOLD : TEXT_DIM, false);
 		}
-		g.disableScissor();
+		unscissor(g);
 		// v0.17.3: Home scrolls on a small window too -- now with a bar to show it (and to drag)
 		drawScrollbar(g, by, by + bh, 1);
 	}
@@ -940,7 +1176,7 @@ public final class HeroPackGuideScreen extends Screen {
 	private void drawCategory(GuiGraphics g, int mx, int my) {
 		int top = listTop();
 		int bottom = listBottom();
-		g.enableScissor(bx - 2, top, bx + bw + 2, bottom);
+		scissor(g, bx - 2, top, bx + bw + 2, bottom);
 		int y = top - (int) Math.round(scrollPos);
 		int sbW = contentHeight() > bottom - top ? 6 : 0;
 		int rowW = bw - sbW;
@@ -963,7 +1199,7 @@ public final class HeroPackGuideScreen extends Screen {
 				boolean over = pointerIn && hit(mx, my, x, y, w, ROW_H);
 				g.fill(x, y, x + w, y + ROW_H, over ? ROW_HOVER : ROW_BG);
 				g.fill(x, y, x + 2, y + ROW_H, over ? category.colour : (category.colour & 0x00FFFFFF) | 0x80000000);
-				g.renderItem(chapterIcon(e.chapterIndex()), x + 5, y + 3);
+				item(g, chapterIcon(e.chapterIndex()), x + 5, y + 3);
 				String title = e.label().getString();
 				g.drawString(this.font, fit(title, w - 40), x + 26, y + 3, over ? 0xFFFFFFFF : TEXT, false);
 				String sub = subtitle(e.chapterIndex());
@@ -974,7 +1210,7 @@ public final class HeroPackGuideScreen extends Screen {
 			}
 			y += ROW_H + 2;
 		}
-		g.disableScissor();
+		unscissor(g);
 		drawScrollbar(g, top, bottom, sbW);
 	}
 
@@ -990,7 +1226,7 @@ public final class HeroPackGuideScreen extends Screen {
 	/** The chapter's first non-empty line, as a one-line subtitle in the list. */
 	private String subtitle(int ch) {
 		return subtitles.computeIfAbsent(ch, k -> {
-			for (Component line : HeroPackGuide.chapters().get(k).lines()) {
+			for (Component line : HeroPackGuide.chapterAt(k).lines()) {
 				String s = line.getString().trim();
 				if (!s.isEmpty()) {
 					return s;
@@ -1027,7 +1263,7 @@ public final class HeroPackGuideScreen extends Screen {
 		int bottom = listBottom();
 		int sbW = contentHeight() > bottom - top ? 6 : 0;
 		int w = bw - sbW;
-		g.enableScissor(bx - 2, top, bx + bw + 2, bottom);
+		scissor(g, bx - 2, top, bx + bw + 2, bottom);
 		boolean pointerIn = my >= top && my <= bottom;
 		for (int i = 0; i < hits.size(); i++) {
 			int y = top + i * (RESULT_H + 2) - (int) Math.round(scrollPos);
@@ -1039,10 +1275,10 @@ public final class HeroPackGuideScreen extends Screen {
 			boolean over = pointerIn && hit(mx, my, bx, y, w, RESULT_H);
 			g.fill(bx, y, bx + w, y + RESULT_H, over ? ROW_HOVER : ROW_BG);
 			g.fill(bx, y, bx + 2, y + RESULT_H, c.colour);
-			g.renderItem(chapterIcon(h.chapter()), bx + 5, y + 4);
+			item(g, chapterIcon(h.chapter()), bx + 5, y + 4);
 			int tx = bx + 26;
 			int tw = w - 30;
-			String title = HeroPackGuide.chapters().get(h.chapter()).title().getString();
+			String title = HeroPackGuide.chapterAt(h.chapter()).title().getString();
 			if (h.line() < 0) {
 				drawHighlighted(g, h.text(), h.matchStart(), h.matchLength(), tx, y + 3, tw, over ? 0xFFFFFFFF : TEXT);
 				String in = Component.translatable("projecthero.guide.ui.in", Component.translatable(c.nameKey())).getString();
@@ -1069,13 +1305,13 @@ public final class HeroPackGuideScreen extends Screen {
 				}
 			}
 		}
-		g.disableScissor();
+		unscissor(g);
 		drawScrollbar(g, top, bottom, sbW);
 	}
 
 	/** The first non-empty line after {@code line} (what a matching section heading is about). */
 	private static String lineAfter(int chapter, int line) {
-		List<Component> lines = HeroPackGuide.chapters().get(chapter).lines();
+		List<Component> lines = HeroPackGuide.chapterAt(chapter).lines();
 		for (int i = line + 1; i < lines.size(); i++) {
 			String s = lines.get(i).getString().trim();
 			if (!s.isEmpty()) {
@@ -1121,9 +1357,9 @@ public final class HeroPackGuideScreen extends Screen {
 		if (chapter < 0) {
 			return;
 		}
-		HeroPackGuide.Chapter ch = HeroPackGuide.chapters().get(chapter);
+		HeroPackGuide.Chapter ch = HeroPackGuide.chapterAt(chapter);
 		// title band: icon, title, a rule in the category's colour
-		g.renderItem(chapterIcon(chapter), bx + 2, by + 1);
+		item(g, chapterIcon(chapter), bx + 2, by + 1);
 		String title = fit(ch.title().getString(), bw - 26);
 		g.drawString(this.font, Component.literal(title).withStyle(s -> s.withBold(true)), bx + 22, by + 5, 0xFFFFFFFF, true);
 		g.fill(bx, by + TITLE_BAND - 3, bx + bw, by + TITLE_BAND - 2, (category.colour & 0x00FFFFFF) | 0xA0000000);
@@ -1176,7 +1412,7 @@ public final class HeroPackGuideScreen extends Screen {
 		if (this.font.width(s) <= width) {
 			return s;
 		}
-		String tail = s.endsWith(">") ? " >" : "";
+		String tail = s.endsWith(" >") ? " >" : "";
 		String body = tail.isEmpty() ? s : s.substring(0, s.length() - 2);
 		return fit(body, width - this.font.width(tail)) + tail;
 	}

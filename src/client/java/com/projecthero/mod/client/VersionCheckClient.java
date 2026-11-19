@@ -16,6 +16,10 @@ public final class VersionCheckClient {
 	}
 
 	public static void initialize() {
+		// v0.17.5: the build check (configuration phase, before registry sync) -- answer with this jar's version + build id
+		net.fabricmc.fabric.api.client.networking.v1.ClientConfigurationNetworking.registerGlobalReceiver(VersionCheck.BuildPayload.TYPE,
+				(payload, context) -> context.responseSender().sendPacket(VersionCheck.BuildPayload.local()));
+
 		ClientPlayNetworking.registerGlobalReceiver(VersionCheck.Payload.TYPE, (payload, context) ->
 				context.responseSender().sendPacket(new VersionCheck.Payload(VersionCheck.localVersion())));
 

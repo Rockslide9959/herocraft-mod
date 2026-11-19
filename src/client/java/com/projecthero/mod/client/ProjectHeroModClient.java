@@ -103,7 +103,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 
 		MjolnirTooltip.expandKeyHeld = Screen::hasShiftDown;
 		com.projecthero.mod.hero.guide.HeroPackGuideItem.clientOpener =
-				() -> Minecraft.getInstance().setScreen(new com.projecthero.mod.client.gui.HeroPackGuideScreen());
+				com.projecthero.mod.client.gui.HeroPackGuideScreen::open; // v0.17.5: never throws (Guidebook crash fixes)
 
 		HudRenderCallback.EVENT.register(ThorHud::render);
 		HudRenderCallback.EVENT.register(AbilityHud::render);
