@@ -60,7 +60,8 @@ public class CapShieldBackLayer extends RenderLayer<AbstractClientPlayer, Player
 		boolean armoured = !chest.isEmpty() && !(chest.getItem() instanceof CapBattleSuitItem);
 		pose.pushPose();
 		getParentModel().body.translateAndRotate(pose);
-		pose.translate(0f, 5.8f / 16f, (armoured ? ARMOURED : BARE) / 16f);
+		// v0.17.5: over a worn backpack it hangs on the outside of the bag
+		pose.translate(0f, 5.8f / 16f, com.projecthero.mod.client.backpack.BackpackLayer.shieldZ(p, armoured ? ARMOURED : BARE) / 16f);
 		// shield space -> body: front (+Z) out of the back, star (+Y) up (the body's -Y)
 		pose.mulPose(Axis.ZP.rotationDegrees(180f));
 		pose.scale(CapShieldPose.BODY_SCALE, CapShieldPose.BODY_SCALE, CapShieldPose.BODY_SCALE);

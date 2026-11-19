@@ -88,6 +88,14 @@ public final class ModKeyBindings {
 	public static final KeyMapping FLIGHT_MODE = new KeyMapping(
 			"key.projecthero.flight_mode", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_COMMA, CATEGORY);
 
+	/**
+	 * v0.17.5: opens the backpack on your back (the best one carried) without holding it. Default {@code B} -- unbound in vanilla
+	 * 1.21.1 (the narrator is Ctrl+B, a separate hard-coded chord) and nothing else in the mod binds it. Listed under vanilla's
+	 * Inventory category, next to the inventory key.
+	 */
+	public static final KeyMapping OPEN_BACKPACK = new KeyMapping(
+			"key.projecthero.open_backpack", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_B, "key.categories.inventory");
+
 	private ModKeyBindings() {
 	}
 
@@ -100,5 +108,6 @@ public final class ModKeyBindings {
 		KeyBindingHelper.registerKeyBinding(MAX_STEEL_TRANSFORM);
 		KeyBindingHelper.registerKeyBinding(SQUAD_MENU);
 		KeyBindingHelper.registerKeyBinding(FLIGHT_MODE);
+		KeyBindingHelper.registerKeyBinding(OPEN_BACKPACK);
 	}
 }

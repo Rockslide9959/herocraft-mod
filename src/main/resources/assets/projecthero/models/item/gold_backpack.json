@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "projecthero:item/backpack_base",
+    "layer1": "projecthero:item/backpack_trim_gold"
+  }
+}

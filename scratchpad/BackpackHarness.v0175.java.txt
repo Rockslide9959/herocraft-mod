@@ -1,0 +1,349 @@
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.function.Consumer;
+
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
+
+import com.mojang.math.Axis;
+import com.projecthero.mod.backpack.BackpackItem;
+import com.projecthero.mod.backpack.BackpackMod;
+import com.projecthero.mod.backpack.BackpackTier;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.DyedItemColor;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.5 backpacks): each tier's icon + screen, the player model with the backpack from four sides
+ * (plain, dyed, with a Captain America shield, over a chestplate), in-world third person, and tooltips. Enabled by
+ * run/backpack.flag = "<out dir>". Install: copy to src/client/java/com/projecthero/mod/client/BackpackHarness.java and add it
+ * to the "client" entrypoints in fabric.mod.json. Remove both before committing.
+ */
+public final class BackpackHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static BlockPos base;
+	private static File out;
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("backpack.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			out = new File(Files.readString(flag).trim());
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(BackpackHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(360_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "backpack-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	private static ItemStack filled(BackpackTier t) {
+		ItemStack s = new ItemStack(BackpackMod.forTier(t));
+		BackpackItem.writeContents(s, List.of(new ItemStack(Items.DIAMOND, 12), new ItemStack(Items.TORCH, 64), new ItemStack(Items.BREAD, 20),
+				ItemStack.EMPTY, new ItemStack(Items.IRON_PICKAXE), new ItemStack(Items.OAK_LOG, 48), new ItemStack(Items.ENDER_PEARL, 8),
+				new ItemStack(Items.GOLDEN_APPLE, 3)));
+		return s;
+	}
+
+	/** Only {@code pack} carried, in the first main-inventory row; hand empty. */
+	private static void carry(ServerPlayer p, ItemStack pack, ItemStack extraHotbar, ItemStack chest) {
+		p.getInventory().clearContent();
+		p.getInventory().selected = 0;
+		p.getInventory().setItem(9, pack);
+		if (extraHotbar != null) {
+			p.getInventory().setItem(1, extraHotbar);
+		}
+		p.setItemSlot(EquipmentSlot.CHEST, chest == null ? ItemStack.EMPTY : chest);
+		BackpackMod.updateWorn(p);
+		com.projecthero.mod.supersoldier.CapShieldStow.update(p);
+	}
+
+	private static void stage(ServerPlayer p) {
+		ServerLevel level = p.serverLevel();
+		level.setDayTime(6000L);
+		level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+		level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+		level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+		p.setGameMode(GameType.SURVIVAL);
+		base = p.blockPosition();
+		for (int x = -6; x <= 6; x++) {
+			for (int z = -6; z <= 6; z++) {
+				level.setBlock(base.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 3);
+			}
+		}
+	}
+
+	private static String view = "";
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(BackpackHarness::createWorld);
+			}
+			return;
+		}
+		mc.getToasts().clear();
+		int t = ++inWorldTicks;
+		if (t == 40) {
+			mc.options.fov().set(70);
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			server(mc, BackpackHarness::stage);
+		}
+		if (t < 80 || base == null) {
+			return;
+		}
+		int s = t - 80;
+		BackpackTier[] tiers = BackpackTier.values();
+		// ---- per tier: model from four sides, then its screen
+		for (int i = 0; i < tiers.length; i++) {
+			BackpackTier tier = tiers[i];
+			int b = i * 40;
+			if (s == b) {
+				mc.setScreen(null);
+				server(mc, p -> carry(p, filled(tier), null, null));
+			}
+			if (s == b + 12) {
+				mc.setScreen(new ModelScreen(tier.id()));
+			}
+			if (s == b + 18) {
+				shot(mc, String.format("%02d_%s_model", i + 1, tier.id()));
+				mc.setScreen(null);
+				server(mc, p -> BackpackItem.open(p, 9));
+			}
+			if (s == b + 28) {
+				shot(mc, String.format("%02d_%s_screen", i + 1, tier.id()));
+			}
+		}
+		int c = tiers.length * 40;
+		String[] variants = { "dyed", "capshield", "capshield_chestplate", "chestplate" };
+		for (int v = 0; v < variants.length; v++) {
+			int b = c + v * 25;
+			String name = variants[v];
+			if (s == b) {
+				mc.setScreen(null);
+				server(mc, p -> {
+					ItemStack pack = filled(v0(name));
+					if (name.equals("dyed")) {
+						pack.set(DataComponents.DYED_COLOR, new DyedItemColor(0x2F6FD0, true));
+					}
+					ItemStack shield = name.startsWith("capshield") ? new ItemStack(com.projecthero.mod.supersoldier.item.SuperSoldierItems.ADAMANTIUM_SHIELD) : null;
+					ItemStack chest = name.endsWith("chestplate") ? new ItemStack(Items.IRON_CHESTPLATE) : null;
+					carry(p, pack, shield, chest);
+				});
+			}
+			if (s == b + 12) {
+				mc.setScreen(new ModelScreen(name));
+			}
+			if (s == b + 18) {
+				shot(mc, String.format("%02d_model_%s", 6 + v, name));
+			}
+		}
+		int w = c + variants.length * 25;
+		// ---- in-world third person
+		if (s == w) {
+			mc.setScreen(null);
+			mc.options.hideGui = true;
+			server(mc, p -> {
+				carry(p, filled(BackpackTier.LEATHER), null, null);
+				p.connection.teleport(base.getX() + 0.5, base.getY(), base.getZ() + 0.5, 30f, 10f);
+			});
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+		}
+		if (s == w + 20) {
+			shot(mc, "10_world_back");
+			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+		}
+		if (s == w + 30) {
+			shot(mc, "11_world_front");
+			server(mc, p -> p.connection.teleport(base.getX() + 0.5, base.getY(), base.getZ() + 0.5, 120f, 10f));
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+		}
+		if (s == w + 45) {
+			mc.player.setYRot(120f + 70f); // look sideways: camera swings round, body lags -> three-quarter side view
+		}
+		if (s == w + 50) {
+			shot(mc, "12_world_side");
+			mc.options.hideGui = false;
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+		}
+		// ---- icons + tooltips
+		if (s == w + 55) {
+			mc.setScreen(new IconsScreen(0));
+		}
+		for (int i = 0; i < 3; i++) {
+			if (s == w + 60 + i * 6) {
+				mc.setScreen(new IconsScreen(i));
+			}
+			if (s == w + 64 + i * 6) {
+				shot(mc, String.format("13_icons_tooltip_%d", i));
+			}
+		}
+		if (s == w + 90) {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	private static BackpackTier v0(String name) {
+		return name.equals("dyed") ? BackpackTier.LEATHER : BackpackTier.DIAMOND;
+	}
+
+	/** The local player rendered four times: front, right side, back, left side. */
+	static final class ModelScreen extends Screen {
+		ModelScreen(String label) {
+			super(Component.literal(label));
+		}
+
+		@Override
+		public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
+			g.fill(0, 0, width, height, 0xFF5A7A9A);
+			LivingEntity e = minecraft.player;
+			String[] labels = { "front", "side", "back", "side" };
+			for (int i = 0; i < 4; i++) {
+				float yaw = i * 90f;
+				float bodyRot = e.yBodyRot, yRot = e.getYRot(), xRot = e.getXRot(), headO = e.yHeadRotO, head = e.yHeadRot;
+				e.yBodyRot = 180f;
+				e.setYRot(180f);
+				e.setXRot(0f);
+				e.yHeadRot = 180f;
+				e.yHeadRotO = 180f;
+				Quaternionf pose = Axis.ZP.rotationDegrees(180f).mul(Axis.YP.rotationDegrees(yaw)).mul(Axis.XP.rotationDegrees(-8f));
+				float x = width * (i + 0.5f) / 4f;
+				InventoryScreen.renderEntityInInventory(g, x, height * 0.82f, 62f, new Vector3f(0f, 0f, 0f), pose, null, e);
+				e.yBodyRot = bodyRot;
+				e.setYRot(yRot);
+				e.setXRot(xRot);
+				e.yHeadRotO = headO;
+				e.yHeadRot = head;
+				g.drawCenteredString(font, labels[i], (int) x, 10, 0xFFFFFF);
+			}
+			g.drawString(font, title, 4, height - 12, 0xFFFFFF, true);
+		}
+
+		@Override
+		public boolean isPauseScreen() {
+			return false;
+		}
+	}
+
+	/** All five icons (and a dyed Leather one) large on the right, a tooltip on the left. */
+	static final class IconsScreen extends Screen {
+		private final int page;
+
+		IconsScreen(int page) {
+			super(Component.literal("icons"));
+			this.page = page;
+		}
+
+		@Override
+		public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
+			g.fill(0, 0, width, height, 0xFF1B1E24);
+			ItemStack dyed = new ItemStack(BackpackMod.LEATHER);
+			dyed.set(DataComponents.DYED_COLOR, new DyedItemColor(0x2F6FD0, true));
+			ItemStack[] icons = { new ItemStack(BackpackMod.LEATHER), new ItemStack(BackpackMod.IRON), new ItemStack(BackpackMod.GOLD),
+					new ItemStack(BackpackMod.DIAMOND), new ItemStack(BackpackMod.NETHERITE), dyed };
+			for (int i = 0; i < icons.length; i++) {
+				int x = width - 200, y = 8 + i * 36;
+				g.pose().pushPose();
+				g.pose().translate(x, y, 0);
+				g.pose().scale(2f, 2f, 1f);
+				g.renderItem(icons[i], 0, 0);
+				g.pose().popPose();
+				g.drawString(font, icons[i].getHoverName().copy().append(i == 5 ? " (dyed)" : ""), x + 40, y + 12, 0xFFFFFF, true);
+			}
+			ItemStack tip = switch (page) {
+				case 0 -> filled(BackpackTier.LEATHER);
+				case 1 -> filled(BackpackTier.NETHERITE);
+				default -> {
+					ItemStack d = filled(BackpackTier.LEATHER);
+					d.set(DataComponents.DYED_COLOR, new DyedItemColor(0x2F6FD0, true));
+					yield d;
+				}
+			};
+			g.renderTooltip(font, Screen.getTooltipFromItem(minecraft, tip), tip.getTooltipImage(), -6, 22);
+		}
+
+		@Override
+		public boolean isPauseScreen() {
+			return false;
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("BACKPACK_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL,
+				true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, true, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

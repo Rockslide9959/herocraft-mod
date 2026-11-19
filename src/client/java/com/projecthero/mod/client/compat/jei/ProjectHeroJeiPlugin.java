@@ -49,6 +49,11 @@ public final class ProjectHeroJeiPlugin implements IModPlugin {
 				net.minecraft.network.chat.Component.translatable("projecthero.guide.devices.target_dummy.stats"),
 				net.minecraft.network.chat.Component.translatable("projecthero.guide.devices.target_dummy.controls"));
 		powerArmourInfo(registration);
+		// v0.17.5 (user): backpacks -- each tier's upgrade step plus how they work
+		for (net.minecraft.world.item.Item i : com.projecthero.mod.backpack.BackpackMod.all()) {
+			registration.addItemStackInfo(new ItemStack(i), net.minecraft.network.chat.Component.translatable("projecthero.jei.backpack"),
+					net.minecraft.network.chat.Component.translatable(i.getDescriptionId() + ".hint"));
+		}
 		// v0.17.5: the Falcon gear is a Secondary power (a suit you wear on top of your Primary): one info page for the four pieces
 		registration.addItemStackInfo(java.util.List.of(new ItemStack(com.projecthero.mod.falcon.item.FalconItems.GOGGLES),
 				new ItemStack(com.projecthero.mod.falcon.item.FalconItems.WING_PACK), new ItemStack(com.projecthero.mod.falcon.item.FalconItems.LEGGINGS),
