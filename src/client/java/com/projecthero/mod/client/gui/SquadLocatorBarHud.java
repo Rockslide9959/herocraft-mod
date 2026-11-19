@@ -131,8 +131,30 @@ public final class SquadLocatorBarHud {
 				borderColor = ((int) (0x90 + 0x6F * pulse) << 24) | COLOR_KNOCKED;
 			}
 			graphics.renderOutline(iconX - 1, iconY - 1, iconSize + 2, iconSize + 2, borderColor);
+			// v0.17.5 (user: "if a teammate is further than 150 blocks away from you have a tiny number that shows their distance
+			// from you appear below their head if your looking in their direction"): far squadmates you are facing get their
+			// distance in blocks, half-size, centred under their face
+			if (!behind && Math.abs(relativeDegrees) <= LOOK_CONE_DEGREES) {
+				double dy = m.y() - player.getY();
+				int blocks = (int) Math.round(Math.sqrt(dx * dx + dy * dy + dz * dz));
+				if (blocks > DISTANCE_LABEL_BLOCKS) {
+					String label = blocks + "m";
+					var font = net.minecraft.client.Minecraft.getInstance().font;
+					float scale = 0.5f;
+					graphics.pose().pushPose();
+					graphics.pose().translate(iconX + iconSize / 2f - font.width(label) * scale / 2f, iconY + iconSize + 2f, 0f);
+					graphics.pose().scale(scale, scale, 1f);
+					graphics.drawString(font, label, 0, 0, 0xFFE8E8F6, true);
+					graphics.pose().popPose();
+				}
+			}
 		}
 	}
+
+	/** v0.17.5: a squadmate further than this (blocks) gets a distance label when you face them. */
+	private static final int DISTANCE_LABEL_BLOCKS = 150;
+	/** v0.17.5: "looking in their direction" -- within this many degrees of straight ahead. */
+	private static final double LOOK_CONE_DEGREES = 25.0;
 
 	/** Bigger up close, smaller far away, clamped to a sane size range around {@link #BASE_ICON_SIZE}. */
 	private static int sizeForDistance(double distance) {
