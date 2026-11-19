@@ -613,6 +613,16 @@ public final class ModAttachments {
 									AttachmentSyncPredicate.all()));
 
 	/**
+	 * v0.17.5 (the Symbiote as a Secondary power): does this Symbiote host also hold a Primary power? Worked out server side by
+	 * {@code Symbiote.tick} (every 10 ticks and on change) and synced, so the client can route H / Shift+H and hide the Symbiote HUD
+	 * while the Primary owns the keys. Not saved (recomputed), not copied on death (recomputed the next tick).
+	 */
+	public static final AttachmentType<Boolean> SYMBIOTE_WITH_PRIMARY = AttachmentRegistry.create(
+			ProjectHeroMod.id("symbiote_with_primary"),
+			builder -> builder.initializer(() -> false)
+					.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.all()));
+
+	/**
 	 * The Symbiote's own "life" (v0.9.23) -- {@code hp} (the health bar half of every hit is routed
 	 * onto), {@code broken} (bar spent, abilities locked), and the Symbiote Blade / Symbiote Spikes
 	 * toggles. A second attachment purely because {@link com.projecthero.mod.symbiote.SymbioteState} is

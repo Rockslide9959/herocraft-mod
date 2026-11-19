@@ -256,16 +256,13 @@ public final class HeroCommand {
 			return grantHeroByKey(c, target, rawKey);
 		}
 		boolean hadAny = com.projecthero.mod.hero.HeroTiers.hasExperimental(target)
-				|| com.projecthero.mod.hero.HeroTiers.hasHeroTier(target)
-				|| com.projecthero.mod.symbiote.Symbiote.hasSymbiote(target);
+				|| com.projecthero.mod.hero.HeroTiers.hasHeroTier(target);
 
-		// A command grant always REPLACES (v0.12.20: for Hero-Tier keys and the Symbiote too): tear down every
-		// power of every tier first (experimental toggles/passives/flight, all Hero-Tier powers, the Symbiote),
-		// then grant this one as the sole power. Use /projecthero power stack to add one alongside instead.
+		// A command grant always REPLACES the Primary: tear down every Primary power of every tier first (experimental
+		// toggles/passives/flight, all Hero-Tier powers), then grant this one as the sole Primary. Use /projecthero power stack
+		// to add one alongside instead. v0.17.5: Secondary powers stay -- the Falcon gear, and now the Symbiote too (it stacks
+		// on any Primary; revoke it with "revoke symbiote").
 		com.projecthero.mod.hero.HeroTiers.wipeAll(target);
-		if (com.projecthero.mod.symbiote.Symbiote.hasSymbiote(target)) {
-			com.projecthero.mod.symbiote.Symbiote.remove(target);
-		}
 		if (heroKey) {
 			return grantHeroByKey(c, target, rawKey);
 		}

@@ -415,8 +415,8 @@ public final class HeroTiers {
 	 * Called by a Primary power's own grant routine just before it hands the power over. A player holds up
 	 * to {@link #PRIMARY_SLOTS} Primary powers; the experimental mutations (which stack with each other) are
 	 * one group. Gaining a non-experimental Primary power always strips every mutation, and if the player
-	 * already holds {@link #PRIMARY_SLOTS} Hero-Tier powers the oldest is replaced. The Symbiote (the only
-	 * Secondary power) is removed too, unless the new power is Spider-Man, the one thing it can share a host with.
+	 * already holds {@link #PRIMARY_SLOTS} Hero-Tier powers the oldest is replaced. A bonded Symbiote (a
+	 * Secondary power) stays (v0.17.5: it stacks on any Primary; before, only Spider-Man / the Punisher kept it).
 	 *
 	 * @param heroKey one of {@link #HERO_KEYS}
 	 */
@@ -453,15 +453,16 @@ public final class HeroTiers {
 		order.add(heroKey);
 		saveOrder(player, order);
 		PowerPassives.reconcileActive(player);
-		// v0.13.11: the Punisher shares a host with the Symbiote too (Agent Venom)
-		dropSymbioteUnless(player, com.projecthero.mod.symbiote.SymbioteCompatibility.COMPATIBLE_HERO_KEYS.contains(heroKey));
+		// v0.17.5: the Symbiote is a Secondary power and stacks on any Primary -- a new Primary no longer removes it (it used to unless
+		// the hero was Spider-Man / the Punisher). Spider-Man still makes it the Black Suit and the Punisher Agent Venom (host type).
+		com.projecthero.mod.symbiote.Symbiote.refreshPrimary(player);
 		// v0.16.1: the single choke point every hero grant passes -- record the new holder (projectheroUniquePowers)
 		UniquePowers.onClaimed(player, heroKey);
 	}
 
 	/**
 	 * The mutation-serum flavour of {@link #claimPrimary}: the mutation group takes one Primary slot, so at
-	 * most one Hero-Tier power survives (the newest); the Symbiote is removed. Other mutations the player
+	 * most one Hero-Tier power survives (the newest); a bonded Symbiote stays (v0.17.5). Other mutations the player
 	 * already owns are kept (they stack up to the mutation capacity).
 	 *
 	 * @return true if anything was replaced
@@ -474,10 +475,7 @@ public final class HeroTiers {
 		if (changed) {
 			PowerPassives.reconcileActive(player);
 		}
-		if (Symbiote.hasSymbiote(player)) {
-			Symbiote.remove(player);
-			changed = true;
-		}
+		// v0.17.5: a bonded Symbiote is a Secondary power and stays (it used to be removed here)
 		return changed;
 	}
 
@@ -554,12 +552,6 @@ public final class HeroTiers {
 					"message.projecthero.one_power_limit").withStyle(net.minecraft.ChatFormatting.GOLD));
 		}
 		return changed;
-	}
-
-	private static void dropSymbioteUnless(ServerPlayer player, boolean compatible) {
-		if (!compatible && Symbiote.hasSymbiote(player)) {
-			Symbiote.remove(player);
-		}
 	}
 
 	/**

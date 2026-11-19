@@ -8,7 +8,11 @@ import com.projecthero.mod.spider.SpiderMan;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
- * The Symbiote's power-compatibility whitelist. Spider-Man is the only power that can coexist with
+ * v0.17.5: bonding no longer purges anything (the Symbiote is a Secondary power that stacks on any Primary, see
+ * {@code docs/SYMBIOTE_SECONDARY_REFERENCE.md}); {@link #isCompatibleHero} still picks the Black Suit / Agent Venom message, and
+ * {@link #purge} is only the admin {@code /symbiote purge} command now. The original notes:
+ *
+ * <p>The Symbiote's power-compatibility whitelist. Spider-Man is the only power that can coexist with
  * a bonded Symbiote -- everything else (every Hero-Tier power and all 27 experimental mutation
  * powers) is purged the instant the Symbiote successfully bonds.
  *

@@ -140,6 +140,100 @@ public final class Symbiote {
 		return hasSymbiote(player);
 	}
 
+	// ---------------- v0.17.5: a Secondary power on top of any Primary ----------------
+	// User: "since symbiote is a secondary power for now can we make it able to be used with any other power, you only get symbiote
+	// moveset if player transforms into symbiote armour while having a primary power, if H does something for the primary power
+	// already while having symbiote then make it shift+H to transform into symbiote". See docs/SYMBIOTE_SECONDARY_REFERENCE.md.
+
+	/** Server: does the player hold a Primary power (any Hero-Tier power or a mutation)? Worked out now. */
+	public static boolean hasPrimaryPower(ServerPlayer player) {
+		return com.projecthero.mod.hero.HeroTiers.hasHeroTier(player) || com.projecthero.mod.hero.HeroTiers.hasExperimental(player);
+	}
+
+	/** Client + server: the synced flag {@link #refreshPrimary} keeps (every 10 ticks): this host also holds a Primary power. */
+	public static boolean withPrimary(Player player) {
+		Boolean b = player.getAttachedOrElse(ModAttachments.SYMBIOTE_WITH_PRIMARY, Boolean.FALSE);
+		return b != null && b;
+	}
+
+	/** Client + server (synced flag): a Normal host stacked on a Primary power. */
+	public static boolean stacked(Player player) {
+		return isNormalHost(player) && withPrimary(player);
+	}
+
+	/** Server, worked out now (key routing, tests): a Normal host stacked on a Primary power. */
+	public static boolean stackedNow(ServerPlayer player) {
+		return isNormalHost(player) && hasPrimaryPower(player);
+	}
+
+	/** Client + server: stacked and the suit is on (or flowing on / off) -- the Symbiote kit owns the keys and the HUD corner. */
+	public static boolean ownsKeysOverPrimary(Player player) {
+		return stacked(player) && isActive(player);
+	}
+
+	/**
+	 * Client + server: stacked with the suit off -- the Symbiote stays quiet: no passives, no damage rules, no tool hands, no
+	 * protective auto-wrap, no resurrection, no HUD. The Primary is the player's power until they suit up.
+	 */
+	public static boolean dormant(Player player) {
+		return stacked(player) && !isActive(player);
+	}
+
+	/** Keeps {@link ModAttachments#SYMBIOTE_WITH_PRIMARY} in step (only written when it changes). */
+	public static void refreshPrimary(ServerPlayer player) {
+		boolean want = hasSymbiote(player) && hasPrimaryPower(player);
+		if (want != withPrimary(player)) {
+			player.setAttached(ModAttachments.SYMBIOTE_WITH_PRIMARY, want);
+		}
+	}
+
+	/**
+	 * Another power's form or suit is on, which the Symbiote suit will not cover: Iron Man pieces, the Hulk out, inside a Titan, an
+	 * Omnitrix alien, Moon Knight / Black Panther suited, Max Steel transformed, Shazam, a Miraculous transformed, Thor's Armour, a
+	 * Power Armour suit, or any other power's bound suit pieces in the armour slots (Nova, Blue Beetle, Green Lantern, ...).
+	 */
+	public static boolean otherFormActive(ServerPlayer player) {
+		return otherBodyForm(player)
+				|| com.projecthero.mod.ironman.IronManArmor.wearingAnyIronMan(player)
+				|| com.projecthero.mod.moonknight.ability.MoonKnightAbilityManager.hasContext(player)
+				|| com.projecthero.mod.blackpanther.BlackPanther.suited(player)
+				|| com.projecthero.mod.maxsteel.MaxSteel.isTransformed(player)
+				|| com.projecthero.mod.miraculous.Miraculous.transformed(player)
+				|| com.projecthero.mod.thorarmor.ThorArmor.isWearing(player)
+				|| otherPowerSuitWorn(player);
+	}
+
+	/**
+	 * The forms that change the body itself (no armour slots involved): the Hulk out, inside a Titan, an Omnitrix alien, Shazam, a Power
+	 * Armour suit. If one starts while the Symbiote suit is on (not by H -- that is the suit's while it is on), the suit lets go at once.
+	 */
+	public static boolean otherBodyForm(ServerPlayer player) {
+		return com.projecthero.mod.hulk.Hulk.isHulk(player)
+				|| com.projecthero.mod.titanshifter.TitanShifter.phase(player).insideForm()
+				|| com.projecthero.mod.omnitrix.Omnitrix.transformed(player)
+				|| com.projecthero.mod.shazam.Shazam.transformed(player)
+				|| com.projecthero.mod.powerarmour.PowerArmour.ownsKeys(player);
+	}
+
+	/** Another power's bound (Curse of Binding, {@code PowerEquipmentLock}) mod armour piece in an armour slot. */
+	private static boolean otherPowerSuitWorn(ServerPlayer player) {
+		for (net.minecraft.world.entity.EquipmentSlot slot : new net.minecraft.world.entity.EquipmentSlot[] {
+				net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST,
+				net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET }) {
+			ItemStack st = player.getItemBySlot(slot);
+			if (st.isEmpty() || SymbioteSuit.isPiece(st.getItem())) {
+				continue;
+			}
+			boolean ours = com.projecthero.mod.ProjectHeroMod.MOD_ID.equals(
+					net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(st.getItem()).getNamespace());
+			if (ours && net.minecraft.world.item.enchantment.EnchantmentHelper.has(st,
+					net.minecraft.world.item.enchantment.EnchantmentEffectComponents.PREVENT_ARMOR_CHANGE)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	// ---------------- unlock ----------------
 
 	/** Bond the player with a Symbiote (admin/command path -- instant, no settling phase). */
@@ -166,6 +260,7 @@ public final class Symbiote {
 		save(player, c);
 		// v0.17.5 (user): a fresh bond gets a random colour scheme (re-bonding rolls again; relog / death never come through here)
 		SymbioteSuitColours.rollOnGrant(player);
+		refreshPrimary(player); // v0.17.5: a Secondary power -- whatever Primary they hold stays
 		com.projecthero.mod.hero.UniquePowers.onClaimed(player, "symbiote");
 		if (announce) {
 			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.bonded")
@@ -226,6 +321,10 @@ public final class Symbiote {
 			// v0.13.21: no Biomass, no suit -- not until the bar has climbed back to RECOVER_FRACTION
 			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.suit_locked",
 					Math.round(SymbioteVitalsManager.RECOVER_FRACTION * 100.0f)).withStyle(ChatFormatting.DARK_RED), true);
+		} else if (isNormalHost(player) && otherFormActive(player)) {
+			// v0.17.5 (Secondary power): the suit waits until the Primary's form / suit is off again
+			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.other_form")
+					.withStyle(ChatFormatting.GRAY), true);
 		} else {
 			beginSuitUp(player);
 		}
@@ -350,10 +449,24 @@ public final class Symbiote {
 		SymbioteSuitResistance.tick(player);
 
 		if (!s.hasSymbiote) {
+			if (withPrimary(player)) {
+				player.setAttached(ModAttachments.SYMBIOTE_WITH_PRIMARY, false);
+			}
 			return;
+		}
+		if (player.tickCount % 10 == 0) {
+			refreshPrimary(player); // v0.17.5: stacked on a Primary? (synced for the client's H routing and HUD)
 		}
 		if (player.tickCount % 20 == 0) {
 			SymbioteModifiers.reconcileBlackSuit(player);
+		}
+		// v0.17.5: a body-changing form of the Primary (Hulk, Titan, Omnitrix alien, Shazam, Power Armour) started under the suit --
+		// the suit lets go at once (the H that would do it is the suit's own while it is on, so this is the odd non-key path)
+		if (s.active && !SymbioteTransform.isAnimating(s) && isNormalHost(player) && otherBodyForm(player)) {
+			hardDeactivate(player);
+			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.other_form_retract")
+					.withStyle(ChatFormatting.GRAY), true);
+			s = state(player);
 		}
 		tickSonic(player, s);
 		tickHazardExposure(player, s);
@@ -607,6 +720,10 @@ public final class Symbiote {
 		if (!force && now < AUTO_EQUIP_SUPPRESS.getOrDefault(player.getId(), 0L)) {
 			return false;
 		}
+		// v0.17.5: stacked on a Primary, the Symbiote never wraps the host by itself (it would take the Primary's keys mid-fight)
+		if (stackedNow(player) || (isNormalHost(player) && otherFormActive(player))) {
+			return false;
+		}
 		beginSuitUp(player);
 		return true;
 	}
@@ -637,7 +754,7 @@ public final class Symbiote {
 	 * @return true if the death was averted (the caller must then cancel it)
 	 */
 	public static boolean tryResurrect(ServerPlayer player) {
-		if (!hasSymbiote(player) || player.getAbilities().invulnerable || sonicLocked(player)) {
+		if (!hasSymbiote(player) || player.getAbilities().invulnerable || sonicLocked(player) || dormant(player)) {
 			return false;
 		}
 		long now = player.level().getGameTime();

@@ -146,7 +146,13 @@ public final class SymbioteHud {
 		int spikeFan = (int) Math.max(0L, v.spikeConeReadyAt - now);
 		float spikeFanFrac = Math.min(1.0f, spikeFan / (float) SPIKE_FAN_DISPLAY);
 
-		VanillaHud.Stack st = VanillaHud.Stack.bottomRight(g, 6).keys(6);
+		// v0.17.5 (a Secondary power): stacked on a Primary, the column only shows while the suit is on -- and then it owns the corner
+		// (every other power's column steps aside through VanillaHud.muteOthers); suit off, the Primary's HUD is the one on screen
+		if (com.projecthero.mod.symbiote.Symbiote.dormant(player)) {
+			return;
+		}
+		VanillaHud.Stack st = (com.projecthero.mod.symbiote.Symbiote.ownsKeysOverPrimary(player)
+				? VanillaHud.Stack.bottomRightOwned(g, 6) : VanillaHud.Stack.bottomRight(g, 6)).keys(6);
 		for (int i = 0; i < VanillaHud.ORDER.length; i++) {
 			AbilitySlot slot = VanillaHud.ORDER[i];
 			int o = slot.ordinal();

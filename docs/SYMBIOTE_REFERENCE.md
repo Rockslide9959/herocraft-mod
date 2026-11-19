@@ -543,3 +543,8 @@ are deterministic per seed, ~70% presets, varied, customs contrast; a seeded fre
 a second grant keep it, re-bonding rolls again; no foil on worn pieces or a plain stack. `SymbioteSuitColourGameTests`: the attachment
 default (never bonded) is Classic; the junk packet has no style ordinal. Visual checks: `docs/screenshots/v0175/symbiote_lethal_only/`
 (harness `scratchpad/SymbioteLethalOnlyHarness.v0175.java.txt`: the same shots on the old and new code).
+
+## v0.17.5 -- a Secondary power on top of any Primary
+
+The Symbiote now stacks on any Primary power (no purge on bonding, a new Primary keeps it); with a Primary its moveset is only yours while
+the suit is on, and Shift+H is the suit when the Primary uses plain H. Everything about it: `docs/SYMBIOTE_SECONDARY_REFERENCE.md`.

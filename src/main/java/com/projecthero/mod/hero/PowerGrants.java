@@ -46,7 +46,8 @@ public final class PowerGrants {
 	 * v0.17.5: grant keys for Secondary powers -- an admin "grant" of one adds it on top of what the player holds instead of
 	 * replacing everything (HeroCommand), and it never claims the Primary slot.
 	 */
-	public static final java.util.Set<String> SECONDARY_KEYS = java.util.Set.of("falcon");
+	public static final java.util.Set<String> SECONDARY_KEYS = java.util.Set.of("falcon",
+			"symbiote"); // v0.17.5: the Symbiote stacks on any Primary too
 
 	/**
 	 * v0.13.19: Hero-Tier powers still being built in phases. Grantable by an operator for testing, but the random

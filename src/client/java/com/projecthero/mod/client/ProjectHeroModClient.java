@@ -621,8 +621,14 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		// swallowed; the six ability keys below go to the armour kit (AbilityRouter)
 		boolean inArmour = com.projecthero.mod.client.powerarmour.PowerArmourClient.swallowHeroKeys(client);
 		// v0.17.5: the Falcon gear (a Secondary power) on the same terms, except the double-tap jump stays -- it is his take-off
-		boolean inFalcon = !inArmour && com.projecthero.mod.client.falcon.FalconClient.swallowHeroKeys(client);
-		if (!inArmour) {
+		// v0.17.5: the Symbiote stacked on a Primary with its suit on -- the suit owns the keys: H / Shift+H take it off, N and the
+		// Primary's own key handlers (and its double-tap jump) wait until it is off; the six ability keys go to the Symbiote kit
+		boolean inSymbiote = !inArmour && com.projecthero.mod.symbiote.Symbiote.ownsKeysOverPrimary(client.player);
+		if (inSymbiote) {
+			handleSymbioteSuitH(client);
+		}
+		boolean inFalcon = !inArmour && !inSymbiote && com.projecthero.mod.client.falcon.FalconClient.swallowHeroKeys(client);
+		if (!inArmour && !inSymbiote) {
 			handleDoubleJump(client, client.player);
 			if (!inFalcon) {
 				handlePowerSelect(client);
@@ -631,13 +637,13 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		handlePowerInfo(client);
 		handleSquadMenu(client);
 		handleFlightMode(client);
-		if (!inArmour && !inFalcon) {
+		if (!inArmour && !inFalcon && !inSymbiote) {
 			handleMaxSteelTransform(client);
 			handleWolverineOffHand(client);
 			handleChargedPunch(client);
 		}
 
-		boolean holdingFirearm = !inArmour && !inFalcon && client.player.getMainHandItem().getItem()
+		boolean holdingFirearm = !inArmour && !inFalcon && !inSymbiote && client.player.getMainHandItem().getItem()
 				instanceof com.projecthero.mod.firearm.item.FirearmItem;
 
 		for (int i = 0; i < 6; i++) {
@@ -886,6 +892,57 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		return com.projecthero.mod.greenlantern.bind.GreenLanternBinding.resolve(s, shift ? "SH" : "H") != null;
 	}
 
+	/** v0.17.5: ticks H has been held toward the power wheel (Symbiote stacked on a mutation with an H utility); -1 = not waiting. */
+	private static int symbioteHoldTicks = -1;
+
+	/** v0.17.5: the Symbiote suit is on over a Primary -- H (or Shift+H) takes it off; N waits. */
+	private static void handleSymbioteSuitH(Minecraft client) {
+		boolean down = ModKeyBindings.POWER_SELECT.isDown();
+		if (down && !powerSelectWasDown && client.screen == null) {
+			ClientPlayNetworking.send(new com.projecthero.mod.network.SpiderActionPayload(
+					com.projecthero.mod.network.SpiderActionPayload.Action.TOGGLE_SYMBIOTE));
+		}
+		powerSelectWasDown = down;
+		symbioteHoldTicks = -1;
+		while (ModKeyBindings.MAX_STEEL_TRANSFORM.consumeClick()) {
+			// N belongs to the Primary; it waits until the suit is off
+		}
+	}
+
+	/**
+	 * v0.17.5: does the player's Primary power do something on plain H right now? (Then Shift+H is the Symbiote suit.) Mirrors the
+	 * branches of {@link #handlePowerSelect} ahead of the power wheel.
+	 */
+	private static boolean primaryOwnsPlainH(Minecraft client) {
+		LocalPlayer p = client.player;
+		if (p == null) {
+			return false;
+		}
+		return com.projecthero.mod.client.ironman.GantryClient.wantsH(p)
+				|| com.projecthero.mod.client.omnitrix.AlienWheelScreen.wants(p)
+				|| com.projecthero.mod.titanshifter.TitanShifter.isShifter(p)
+				|| com.projecthero.mod.allmight.AllMight.hasPower(p)
+				|| com.projecthero.mod.hulk.Hulk.hasPower(p)
+				|| com.projecthero.mod.moonknight.MoonKnight.hasPower(p)
+				|| com.projecthero.mod.client.nova.NovaClient.ownsH(p)
+				|| com.projecthero.mod.client.sentry.SentryClient.ownsH(p)
+				|| com.projecthero.mod.client.doctorfate.DoctorFateClient.ownsH(p)
+				|| com.projecthero.mod.client.miraculous.MiraculousClient.ownsH(p)
+				|| com.projecthero.mod.client.stand.StandClient.ownsH(p)
+				|| com.projecthero.mod.client.ghostrider.GhostRiderClient.ownsH(p)
+				|| com.projecthero.mod.client.cyborg.CyborgClient.ownsH(p)
+				|| com.projecthero.mod.client.saiyan.SaiyanClient.ownsH(p)
+				|| com.projecthero.mod.client.blackpanther.BlackPantherClient.ownsH(p)
+				|| com.projecthero.mod.client.bluebeetle.BlueBeetleClient.ownsH(p)
+				|| com.projecthero.mod.client.flash.FlashClient.ownsH(p)
+				|| wearingAnyIronMan(p)
+				|| com.projecthero.mod.maxsteel.MaxSteel.hasPower(p)
+				|| com.projecthero.mod.wolverine.Wolverine.hasPower(p)
+				|| p.getAttachedOrElse(ModAttachments.BOUND_HAMMER_ID, null) != null
+				|| (greenLanternHasWheelContext(p) && greenLanternHBound(p, false))
+				|| mutationHasUtility(client, 7);
+	}
+
 	private static void handlePowerSelect(Minecraft client) {
 		boolean down = ModKeyBindings.POWER_SELECT.isDown();
 		if (!down && glHKey != null) {
@@ -899,6 +956,53 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		if (handleUtilityEdge(client, down, powerSelectWasDown, 7)) {
 			powerSelectWasDown = down;
 			return;
+		}
+		// v0.17.5: H held with the Symbiote stacked on a mutation that uses plain H -- a tap is the mutation's Utility 1 (on release),
+		// holding SymbioteKeys.WHEEL_HOLD_TICKS opens the power wheel (it used to be on Shift+H, which is the Symbiote suit now)
+		if (symbioteHoldTicks >= 0) {
+			if (client.screen != null) {
+				symbioteHoldTicks = -1;
+			} else if (down) {
+				if (++symbioteHoldTicks >= com.projecthero.mod.symbiote.SymbioteKeys.WHEEL_HOLD_TICKS) {
+					symbioteHoldTicks = -1;
+					client.setScreen(new PowerWheelScreen());
+				}
+			} else {
+				symbioteHoldTicks = -1;
+				pressUtility(7); // released next tick by handleUtilityEdge
+			}
+			powerSelectWasDown = down;
+			return;
+		}
+		if (down && !powerSelectWasDown && client.player != null && client.level != null
+				&& client.level.dimension() != com.projecthero.mod.hulk.HulkMind.DIMENSION
+				&& com.projecthero.mod.symbiote.Symbiote.stacked(client.player)) {
+			// v0.17.5 (user: "if H does something for the primary power already while having symbiote then make it shift+H to transform
+			// into symbiote"): the Symbiote stacked on a Primary -- see SymbioteKeys for the whole table
+			com.projecthero.mod.symbiote.SymbioteKeys.HAction action = com.projecthero.mod.symbiote.SymbioteKeys.route(true,
+					com.projecthero.mod.symbiote.Symbiote.isActive(client.player), primaryOwnsPlainH(client), Screen.hasShiftDown(),
+					powerWheelAvailable(client), mutationHasUtility(client, 7));
+			switch (action) {
+				case SYMBIOTE -> {
+					ClientPlayNetworking.send(new com.projecthero.mod.network.SpiderActionPayload(
+							com.projecthero.mod.network.SpiderActionPayload.Action.TOGGLE_SYMBIOTE));
+					powerSelectWasDown = down;
+					return;
+				}
+				case WHEEL -> {
+					client.setScreen(new PowerWheelScreen());
+					powerSelectWasDown = down;
+					return;
+				}
+				case TAP_OR_HOLD -> {
+					symbioteHoldTicks = 0;
+					powerSelectWasDown = down;
+					return;
+				}
+				default -> {
+					// PRIMARY: the ordinary chain below (the Symbiote branch in it is skipped for a stacked host)
+				}
+			}
 		}
 		if (down && !powerSelectWasDown) {
 			// "changes 19": H while wearing any Iron Man armour opens / closes the helmet faceplate.
@@ -982,7 +1086,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 								? com.projecthero.mod.network.MaxSteelActionPayload.Action.TOGGLE_HELMET
 								: com.projecthero.mod.network.MaxSteelActionPayload.Action.TRANSFORM_TOGGLE));
 			} else if (client.player != null
-					&& com.projecthero.mod.symbiote.Symbiote.canToggle(client.player)) {
+					&& com.projecthero.mod.symbiote.Symbiote.canToggle(client.player)
+					&& !com.projecthero.mod.symbiote.Symbiote.stacked(client.player)) { // v0.17.5: a stacked host is routed above
 				// v0.9.10: a Spider-Man who has bonded with the Symbiote -- plain H engages / retracts the
 				// black suit. Shift+H still toggles the costume mask when a hood is worn, so nothing about
 				// the old H behaviour is lost.

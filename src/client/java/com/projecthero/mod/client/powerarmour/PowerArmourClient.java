@@ -46,7 +46,9 @@ public final class PowerArmourClient {
 		com.projecthero.mod.client.gui.VanillaHud.muteOthers = () -> {
 			Player p = Minecraft.getInstance().player;
 			// v0.17.5: and while the Falcon gear (the other Secondary power) owns the keys -- its HUD takes the corner then
-			return p != null && (PowerArmour.ownsKeys(p) || com.projecthero.mod.falcon.Falcon.ownsKeys(p));
+			// v0.17.5: and while the Symbiote suit is on over a Primary power (the Symbiote is a Secondary power too)
+			return p != null && (PowerArmour.ownsKeys(p) || com.projecthero.mod.falcon.Falcon.ownsKeys(p)
+					|| com.projecthero.mod.symbiote.Symbiote.ownsKeysOverPrimary(p));
 		};
 		ResourceManagerHelper.get(PackType.CLIENT_RESOURCES).registerReloadListener(new SimpleSynchronousResourceReloadListener() {
 			@Override
