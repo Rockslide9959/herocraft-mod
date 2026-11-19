@@ -394,17 +394,12 @@ public final class BeamClash {
 		double[] st = closest(a.from(), a.dir().scale(a.range()), b.from(), b.dir().scale(b.range()));
 		Vec3 pa = a.from().add(a.dir().scale(a.range() * st[0]));
 		Vec3 pb = b.from().add(b.dir().scale(b.range() * st[1]));
-		double meet;
-		if (pa.distanceToSqr(pb) <= TOUCH * TOUCH) {
-			meet = pa.add(pb).scale(0.5).subtract(a.from()).dot(ab) / (gap * gap);
-		} else if (aimedAt(a, bodyB) && aimedAt(b, bodyA)) {
-			// each has the other in his sights but the beams pass wide (one too short, or eye beams at a flyer): they meet where the
-			// shorter one ends, or halfway
-			double half = gap * 0.5;
-			meet = a.range() < half ? a.range() / gap : b.range() < half ? 1.0 - b.range() / gap : 0.5;
-		} else {
+		if (pa.distanceToSqr(pb) > TOUCH * TOUCH && !(aimedAt(a, bodyB) && aimedAt(b, bodyA))) {
 			return Double.NaN;
 		}
+		// the point forms halfway, on even terms however sloppily the two lined up -- or where the shorter beam ends
+		double half = gap * 0.5;
+		double meet = a.range() < half ? a.range() / gap : b.range() < half ? 1.0 - b.range() / gap : 0.5;
 		return Math.max(0.1, Math.min(0.9, meet));
 	}
 

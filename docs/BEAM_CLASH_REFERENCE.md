@@ -25,8 +25,8 @@ All of:
   (`AIM_CONE_DEG`) of the other shooter's body centre;
 - clear line (blocks) from each start to the struggle point.
 
-The point forms on the line between the two starts: at the closest approach when the beams touch, else halfway (or where the
-shorter beam ends), clamped to 10..90 %. (v0.17.3 needed 1.6 blocks and 110 degrees, measured between the beams only, and dropped
+The point forms on the line between the two starts, halfway (even terms however sloppy the aim), or where the shorter beam
+ends, clamped to 10..90 %. (v0.17.3 needed 1.6 blocks and 110 degrees, measured between the beams only, and dropped
 the clash the moment a beam stopped reporting or turned 45 degrees off the point, which is why short beams and eye beams rarely held.)
 
 ## Locked in
