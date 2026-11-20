@@ -117,6 +117,13 @@ public final class SymbioteMonster {
 		return state(player).inForm();
 	}
 
+	/** Charging, in the cocoon or melting: held in place (both sides read it -- the client keeps the view from zooming in). */
+	public static boolean rooted(net.minecraft.world.entity.player.Player player) {
+		int phase = state(player).phase();
+		SymbioteState s = player.getAttachedOrElse(ModAttachments.SYMBIOTE_STATE, null);
+		return phase == SymbioteMonsterState.COCOON || phase == SymbioteMonsterState.MELT || s != null && s.onslaughtChargeStart >= 0;
+	}
+
 	public static boolean isMonster(net.minecraft.world.entity.player.Player player) {
 		return state(player).phase() == SymbioteMonsterState.MONSTER;
 	}

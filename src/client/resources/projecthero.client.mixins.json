@@ -251,6 +251,7 @@
 		"ItemInHandRendererHulkbusterMixin",
 		"PlayerRendererSymbioteMonsterMixin",
 		"ItemInHandRendererSymbioteMonsterMixin",
+		"SymbioteMonsterFovMixin",
 		"ItemInHandRendererPortableMixin",
 		"PlayerRendererMixin",
 		"PlayerRendererManualSuitUpMixin",

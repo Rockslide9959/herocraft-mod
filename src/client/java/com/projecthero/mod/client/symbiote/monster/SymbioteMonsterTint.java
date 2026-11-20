@@ -87,12 +87,60 @@ public final class SymbioteMonsterTint {
 		return id;
 	}
 
+	private static final LinkedHashMap<Integer, ResourceLocation> GLOW = new LinkedHashMap<>(8, 0.75f, true);
+
+	/**
+	 * The eyes' additive glow for an eye colour ({@code SymbioteTintMath.eyeGlowStrength}: 40% for bright eyes, none for dark ones, so
+	 * the lenses read at night without ever brightening dark eyes): black everywhere but the lens texels. Null when there is no glow.
+	 */
+	public static ResourceLocation glow(Entity owner) {
+		SymbioteColours colours = SymbioteSuitTint.colours(owner);
+		int eyes = colours.eyes();
+		float k = SymbioteTintMath.eyeGlowStrength(eyes);
+		if (k <= 0.01f) {
+			return null;
+		}
+		ResourceLocation cached = GLOW.get(eyes);
+		if (cached != null) {
+			return cached;
+		}
+		if (mask == null && !missing) {
+			texture(colours);
+		}
+		if (missing || mask == null) {
+			return null;
+		}
+		int r = Math.round(((eyes >> 16) & 0xFF) * k), g = Math.round(((eyes >> 8) & 0xFF) * k), b = Math.round((eyes & 0xFF) * k);
+		NativeImage out = new NativeImage(mask.getWidth(), mask.getHeight(), true);
+		for (int y = 0; y < mask.getHeight(); y++) {
+			for (int x = 0; x < mask.getWidth(); x++) {
+				int p = mask.getPixelRGBA(x, y);
+				boolean eye = ((p >>> 24) & 0xFF) != 0 && SymbioteTintMath.channelOf((p >> 16) & 0xFF) == SymbioteTintMath.EYES;
+				out.setPixelRGBA(x, y, eye ? 0xFF000000 | b << 16 | g << 8 | r : 0xFF000000);
+			}
+		}
+		ResourceLocation id = ProjectHeroMod.id("dynamic/symbiote_monster_glow/" + String.format("%06x", eyes & 0xFFFFFF));
+		Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(out));
+		GLOW.put(eyes, id);
+		Iterator<Map.Entry<Integer, ResourceLocation>> it = GLOW.entrySet().iterator();
+		while (GLOW.size() > MAX && it.hasNext()) {
+			ResourceLocation old = it.next().getValue();
+			it.remove();
+			Minecraft.getInstance().getTextureManager().release(old);
+		}
+		return id;
+	}
+
 	/** Resource reload / disconnect: drop every baked texture and the cached mask pixels. */
 	public static void clear() {
 		for (ResourceLocation id : BAKED.values()) {
 			Minecraft.getInstance().getTextureManager().release(id);
 		}
 		BAKED.clear();
+		for (ResourceLocation id : GLOW.values()) {
+			Minecraft.getInstance().getTextureManager().release(id);
+		}
+		GLOW.clear();
 		if (mask != null) {
 			mask.close();
 		}

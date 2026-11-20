@@ -36,6 +36,25 @@ public class SymbioteMonsterModel<T extends GeoAnimatable> extends GeoModel<T> {
 		return ANIMATION;
 	}
 
+	/** Rotates {@code bone} by {@code angle} about the model's up axis (expressed in its parent's frame), keeping its other rotation. */
+	private static void turnAboutWorldUp(software.bernie.geckolib.cache.object.GeoBone bone, float angle) {
+		org.joml.Quaternionf parents = new org.joml.Quaternionf();
+		java.util.ArrayDeque<software.bernie.geckolib.cache.object.GeoBone> chain = new java.util.ArrayDeque<>();
+		for (var b = bone.getParent(); b != null; b = b.getParent()) {
+			chain.push(b);
+		}
+		for (var b : chain) { // root first: model <- root <- ... <- parent, each Rz * Ry * Rx (GeckoLib's order)
+			parents.rotateZ(b.getRotZ()).rotateY(b.getRotY()).rotateX(b.getRotX());
+		}
+		org.joml.Vector3f up = parents.conjugate(new org.joml.Quaternionf()).transform(new org.joml.Vector3f(0, 1, 0));
+		org.joml.Quaternionf own = new org.joml.Quaternionf().rotateZ(bone.getRotZ()).rotateY(bone.getRotY()).rotateX(bone.getRotX());
+		org.joml.Quaternionf turned = new org.joml.Quaternionf().rotateAxis(angle, up.x, up.y, up.z).mul(own);
+		org.joml.Vector3f e = turned.getEulerAnglesZYX(new org.joml.Vector3f());
+		bone.setRotX(e.x);
+		bone.setRotY(e.y);
+		bone.setRotZ(e.z);
+	}
+
 	@Override
 	public void setCustomAnimations(T animatable, long instanceId, AnimationState<T> state) {
 		float yawDeg = 0f, pitchDeg = 0f;
@@ -53,8 +72,10 @@ public class SymbioteMonsterModel<T extends GeoAnimatable> extends GeoModel<T> {
 			neck.setRotY(init.getRotY());
 			neck.setRotZ(init.getRotZ());
 		});
-		// the yaw goes on the head (its frame is upright; the neck's leans with the hunch). Every clip keys the head, so GeckoLib
-		// re-sets it each frame and this stays an offset.
-		getBone("head").ifPresent(head -> head.setRotY(head.getRotY() + yawRad));
+		// the yaw turns the head about the world's up axis -- its parent frames lean forward with the hunch, so a plain rotY would roll
+		// it sideways. Every clip keys the head, so GeckoLib re-sets it each frame and this stays an offset on top of the clip.
+		if (Math.abs(yawRad) > 1.0e-4) {
+			getBone("head").ifPresent(head -> turnAboutWorldUp(head, yawRad));
+		}
 	}
 }

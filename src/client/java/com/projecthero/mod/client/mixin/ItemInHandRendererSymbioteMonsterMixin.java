@@ -21,6 +21,7 @@ public abstract class ItemInHandRendererSymbioteMonsterMixin {
 		if (SymbioteMonsterFirstPerson.active(player)) {
 			ci.cancel();
 			SymbioteMonsterFirstPerson.render(partialTicks, poseStack, buffer, player, packedLight);
+			buffer.endBatch(); // as vanilla does at the end of renderHandsWithItems (the hand projection is only up now)
 		}
 	}
 }

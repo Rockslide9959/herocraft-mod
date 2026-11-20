@@ -64,9 +64,9 @@ public final class SymbioteMonsterFirstPerson {
 		float rise = (1f - emerge) * -1.2f;
 		float bob = Mth.sin((player.tickCount + partialTick) * 0.1f) * 0.02f;
 		renderer.owner = player;
-		drawArm(poseStack, buffer, packedLight, true, 0.95f, -1.05f + bob + rise + drop * 0.6f, -1.6f - Math.max(punch, rightRake) * 0.7f,
+		drawArm(poseStack, buffer, packedLight, true, 0.9f, -0.92f + bob + rise + drop * 0.6f, -1.6f - Math.max(punch, rightRake) * 0.7f,
 				Math.max(punch, rightRake), drop);
-		drawArm(poseStack, buffer, packedLight, false, -0.95f, -1.1f - bob + rise + drop * 0.6f, -1.65f - leftRake * 0.7f, leftRake, drop);
+		drawArm(poseStack, buffer, packedLight, false, -0.9f, -0.96f - bob + rise + drop * 0.6f, -1.65f - leftRake * 0.7f, leftRake, drop);
 	}
 
 	/** 0 -> 1 over [a, b] ticks, back to 0 by c. */
@@ -89,7 +89,7 @@ public final class SymbioteMonsterFirstPerson {
 		poseStack.mulPose(Axis.XP.rotationDegrees(-6f - punch * 16f + drop * 40f));
 		poseStack.mulPose(Axis.ZP.rotationDegrees(right ? -10f : 10f));
 		// lay the forearm along the view: the elbow (model +Y) down toward the camera, the claws up and into the screen
-		poseStack.mulPose(Axis.XP.rotationDegrees(112f));
+		poseStack.mulPose(Axis.XP.rotationDegrees(102f));
 		renderer.side = right;
 		renderer.render(poseStack, ARMS, buffer, null, null, light, 0f);
 		poseStack.popPose();

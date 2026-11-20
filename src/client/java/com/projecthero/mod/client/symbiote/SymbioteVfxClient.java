@@ -679,7 +679,7 @@ public final class SymbioteVfxClient {
 			Vec3 ground = feet.add(Math.cos(a) * (0.9 + 0.2 * frac) * sc, 0.02, Math.sin(a) * (0.9 + 0.2 * frac) * sc);
 			d.tendril(root, ground, Math.min(1f, frac * 4f), (float) (0.08 * sc), p.getId() + k, 0.25 * sc, new Vec3(0, 1, 0), false);
 		}
-		double r = 9.0 * (1.0 - frac * 0.6);
+		double r = 3.4 * (1.0 - frac * 0.6); // v0.17.5 Monster form charge: the claws close in tight round the host (was 9 for Onslaught)
 		int n = 14 + Math.round(frac * 10);
 		for (int k = 0; k < n; k++) {
 			double a = Math.PI * 2 * k / n + t * 0.03;

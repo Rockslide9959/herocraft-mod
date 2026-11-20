@@ -29,6 +29,20 @@ public class SymbioteMonsterRenderer extends GeoReplacedEntityRenderer<AbstractC
 		super(context, new SymbioteMonsterModel<>(), SymbioteMonsterAnimatable.INSTANCE);
 		this.shadowRadius = 1.6f;
 		withScale(MODEL_SCALE);
+		// the lenses glow faintly in the eye colour (additive; nothing for dark eyes), so the face reads at night
+		addRenderLayer(new software.bernie.geckolib.renderer.layer.GeoRenderLayer<>(this) {
+			@Override
+			public void render(PoseStack poseStack, SymbioteMonsterAnimatable animatable, BakedGeoModel model, RenderType renderType,
+					MultiBufferSource bufferSource, VertexConsumer buffer, float partialTick, int packedLight, int packedOverlay) {
+				ResourceLocation glow = currentEntity != null ? SymbioteMonsterTint.glow(currentEntity) : null;
+				if (glow == null) {
+					return;
+				}
+				RenderType eyes = RenderType.eyes(glow);
+				getRenderer().reRender(model, poseStack, bufferSource, animatable, eyes, bufferSource.getBuffer(eyes), partialTick,
+						LightTexture.FULL_SKY, packedOverlay, 0xFFFFFFFF);
+			}
+		});
 	}
 
 	public static void rebuild(EntityRendererProvider.Context context) {
@@ -80,10 +94,5 @@ public class SymbioteMonsterRenderer extends GeoReplacedEntityRenderer<AbstractC
 		Minecraft mc = Minecraft.getInstance();
 		return Minecraft.renderNames() && player != mc.getCameraEntity() && mc.player != null && !player.isInvisibleTo(mc.player)
 				&& !player.isVehicle();
-	}
-
-	/** Light boosted a little so the dark goo still reads at night (the eyes and emblem catch it most). */
-	static int lift(int packedLight) {
-		return LightTexture.pack(Math.max(LightTexture.block(packedLight), 3), LightTexture.sky(packedLight));
 	}
 }

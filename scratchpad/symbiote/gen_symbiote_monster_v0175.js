@@ -359,7 +359,7 @@ function paint(b, c, f, p, w, nW, fu, fv, fw, fh) {
 	// edge rounding: texels near a face edge turn toward the neighbour (cheap bevel) -- darker toward the bottom edges
 	const ed = Math.min(fu * fw, (1 - fu) * fw, fv * fh, (1 - fv) * fh);
 	const bevel = 1 - smooth(0, 1.4, ed);
-	let shade = 100 + diff * 20 + (h0 - 0.5) * 30 - bevel * 10 + (fv < 0.5 && nW[1] > -0.5 ? bevel * 6 : 0);
+	let shade = 100 + diff * 20 + (h0 - 0.5) * 18 - bevel * 10 + (fv < 0.5 && nW[1] > -0.5 ? bevel * 6 : 0);
 	shade *= 0.8 + 0.2 * smooth(0, 70, w[1]); // the legs and feet sit in the body's shadow
 	// veins: zero lines of warped noise, sunk with a raised glossy rim
 	const vw = [w[0] * 0.065 + fbm3(w[0] * 0.04, w[1] * 0.04, w[2] * 0.04) * 1.4, w[1] * 0.065, w[2] * 0.065];
