@@ -264,6 +264,14 @@ public final class SymbioteMonsterHarness implements ClientModInitializer {
 		at(t + 2, () -> mc.options.hideGui = true);
 		at(t + 75, () -> charge(mc));
 		int burst = t + 75 + 61 + 50;
+		for (int k = -4; k <= 24; k += 4) {
+			final int kk = k;
+			at(burst + k, () -> {
+				face(mc, 180f, 8f);
+				cam(4.0, 4.4, -7.5, 3.8, 50);
+			});
+			at(burst + k + 1, () -> shot(mc, "e_emerge_" + (kk + 4)));
+		}
 		int s = burst + 60;
 		at(s, () -> {
 			face(mc, 180f, 8f);
