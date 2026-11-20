@@ -565,5 +565,14 @@ if (PREVIEW) {
 	preview.face({ bones, B, toModel, faceCorners, FACES, AW, AH, tex: carnage, out: path.join(PREVIEW, 'monster_face_carnage.png') });
 	const poses = require('./gen_symbiote_monster_anims_v0175.js').previewPoses;
 	if (poses) preview.poses({ bones, B, toModel, faceCorners, FACES, AW, AH, tex: classicTex, poses, out: path.join(PREVIEW, 'monster_poses.png') });
+	// polish pass: the emerge clip frame by frame from the front, the 3/4 and the side, so the face can be checked the whole way
+	const em = require('./gen_symbiote_monster_anims_v0175.js').CLIPS.emerge;
+	const times = [0, 0.15, 0.25, 0.35, 0.5, 0.7, 0.9, 1.1, 1.3, 1.6];
+	for (const [tag, yaw] of [['front', 0], ['quarter', 35], ['side', 90], ['low_front', 0]]) {
+		const ps = times.map((t) => [String(t), em.fn(t), yaw]);
+		const ims = ps.map(([, pose]) => preview.render({ bones, B, toModel, faceCorners, FACES, AW, AH, tex: classicTex },
+			{ yaw, pitch: tag === 'low_front' ? -14 : 6, w: 260, h: 330, bg: [150, 170, 190], scale: 2.4, cx: 0, cyw: 0, margin: 26, pose }));
+		preview.compose(ims, 5, path.join(PREVIEW, 'monster_emerge_' + tag + '.png'));
+	}
 }
-module.exports = { bones, B };
+module.exports = { bones, B, toModel, faceCorners, FACES, AW, AH, classicTex, bake, CARNAGE };

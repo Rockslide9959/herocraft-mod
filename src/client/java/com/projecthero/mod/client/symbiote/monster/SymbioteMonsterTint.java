@@ -131,6 +131,142 @@ public final class SymbioteMonsterTint {
 		return id;
 	}
 
+	// ------------------------------------------------------------------------------------------------ the cocoon (polish pass)
+
+	private static final int COCOON_SIZE = 128;
+	private static final LinkedHashMap<String, ResourceLocation> COCOON = new LinkedHashMap<>(8, 0.75f, true);
+	private static int[] cocoonMask;
+	private static ResourceLocation cocoonGloss, cocoonVeins, cocoonGlow;
+
+	/**
+	 * The cocoon's living surface in {@code owner}'s colours: a tileable 128 x 128 tint mask made here (no asset) -- wavy sinew fibres and
+	 * lumps in the body colour (shade a little under the colour, so the gloss and lift read as wet highlights on any colour), sunken veins
+	 * in the emblem colour, wet streaks of gloss -- baked through {@link SymbioteTintMath#bake} like the suit, every texel opaque (nothing
+	 * foreign shows through). Used for the shell, every strand, the pool and the burst / melt goo.
+	 */
+	public static ResourceLocation cocoon(Entity owner) {
+		SymbioteColours colours = SymbioteSuitTint.colours(owner);
+		if (colours == null) {
+			colours = SymbioteColours.CLASSIC;
+		}
+		String key = colours.key();
+		ResourceLocation cached = COCOON.get(key);
+		if (cached != null) {
+			return cached;
+		}
+		int[] mask = cocoonMask();
+		NativeImage out = new NativeImage(COCOON_SIZE, COCOON_SIZE, true);
+		for (int i = 0; i < mask.length; i++) {
+			int m = mask[i];
+			int rgb = SymbioteTintMath.bake(m & 0xFF, (m >> 8) & 0xFF, (m >> 16) & 0xFF, 255, colours);
+			out.setPixelRGBA(i % COCOON_SIZE, i / COCOON_SIZE, 0xFF000000 | (rgb & 0xFF) << 16 | (rgb & 0xFF00) | (rgb >> 16) & 0xFF);
+		}
+		ResourceLocation id = ProjectHeroMod.id("dynamic/symbiote_cocoon/" + key);
+		Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(out));
+		COCOON.put(key, id);
+		Iterator<Map.Entry<String, ResourceLocation>> it = COCOON.entrySet().iterator();
+		while (COCOON.size() > MAX && it.hasNext()) {
+			ResourceLocation old = it.next().getValue();
+			it.remove();
+			Minecraft.getInstance().getTextureManager().release(old);
+		}
+		return id;
+	}
+
+	/** The cocoon's wet streaks as a grey additive layer (drawn over the shell, sliding slowly, tinted by the vertex colour). */
+	public static ResourceLocation cocoonGloss() {
+		if (cocoonGloss == null) {
+			cocoonGloss = additive("gloss", (u, v) -> {
+				double streak = Math.pow(Math.max(0, Math.sin(2 * u + 0.9 * Math.sin(v + 0.6) + 0.4 * Math.sin(2 * v))), 6);
+				double band = 0.55 + 0.45 * Math.sin(v + 2 * u);
+				double crest = Math.pow(0.5 + 0.5 * fibre(u, v), 6);
+				return Math.min(1, streak * band * 0.9 + crest * 0.35);
+			});
+		}
+		return cocoonGloss;
+	}
+
+	/** The cocoon's veins as a white additive layer (the heartbeat flushes them). */
+	public static ResourceLocation cocoonVeins() {
+		if (cocoonVeins == null) {
+			cocoonVeins = additive("veins", (u, v) -> Math.pow(1 - Math.min(1, vein(u, v) / 0.11), 2));
+		}
+		return cocoonVeins;
+	}
+
+	/** A soft mottled glow (the light inside the cocoon, through its tears). */
+	public static ResourceLocation cocoonGlow() {
+		if (cocoonGlow == null) {
+			cocoonGlow = additive("glow", (u, v) -> 0.6 + 0.2 * Math.sin(2 * u + 3 * v) + 0.2 * Math.sin(5 * u - v + 1));
+		}
+		return cocoonGlow;
+	}
+
+	private interface Field {
+		double at(double u, double v);
+	}
+
+	private static ResourceLocation additive(String name, Field f) {
+		NativeImage out = new NativeImage(COCOON_SIZE, COCOON_SIZE, true);
+		for (int y = 0; y < COCOON_SIZE; y++) {
+			for (int x = 0; x < COCOON_SIZE; x++) {
+				int g = (int) Math.round(Math.max(0, Math.min(1, f.at(Math.PI * 2 * x / COCOON_SIZE, Math.PI * 2 * y / COCOON_SIZE))) * 255);
+				out.setPixelRGBA(x, y, 0xFF000000 | g << 16 | g << 8 | g);
+			}
+		}
+		ResourceLocation id = ProjectHeroMod.id("dynamic/symbiote_cocoon_" + name);
+		Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(out));
+		return id;
+	}
+
+	/** Wavy sinew fibres running up the cocoon (-1..1), tileable (integer frequencies in u, v = 0..2 pi). */
+	private static double fibre(double u, double v) {
+		return Math.sin(3 * u + 1.3 * Math.sin(v + 0.7) + 0.6 * Math.sin(2 * u - v));
+	}
+
+	/** Distance-like value, small on a vein (two branching families of sinuous lines). */
+	private static double vein(double u, double v) {
+		double a = Math.abs(Math.sin(2 * u + 1.9 * Math.sin(2 * v + 1.3) + 0.6 * Math.sin(5 * v)));
+		double b = Math.abs(Math.sin(3 * u - 2 * v + 1.4 * Math.sin(4 * u + 0.5)));
+		return Math.min(a, b * 1.3);
+	}
+
+	/** The cocoon tint mask, packed {@code shade | gloss << 8 | channel << 16}. */
+	private static int[] cocoonMask() {
+		if (cocoonMask != null) {
+			return cocoonMask;
+		}
+		int[] m = new int[COCOON_SIZE * COCOON_SIZE];
+		for (int y = 0; y < COCOON_SIZE; y++) {
+			for (int x = 0; x < COCOON_SIZE; x++) {
+				double u = Math.PI * 2 * x / COCOON_SIZE, v = Math.PI * 2 * y / COCOON_SIZE;
+				double r = 0.5 + 0.5 * fibre(u, v);
+				double lumps = 0.5 + 0.25 * Math.sin(3 * u + 2 * v) + 0.25 * Math.sin(5 * u - 3 * v + 1);
+				double shade = 0.3 + 0.09 * r + 0.14 * lumps;
+				double gloss = Math.max(0, (r - 0.72) * 2.4) * (0.55 + 0.45 * Math.sin(v + 2 * u));
+				gloss += Math.pow(Math.max(0, Math.sin(2 * u + 0.9 * Math.sin(v + 0.6) + 0.4 * Math.sin(2 * v))), 10) * 0.4;
+				if (r < 0.12) {
+					shade -= 0.08; // the creases between fibres
+				}
+				int channel = 0;
+				double vd = vein(u, v);
+				if (vd < 0.05) { // a vein: the emblem colour, darkened, a glint along it
+					channel = 128;
+					shade = 0.26 + 0.1 * (1 - vd / 0.05);
+					gloss = 0.12;
+				} else if (vd < 0.1) { // the groove each vein sits in
+					shade -= 0.07;
+					gloss *= 0.4;
+				}
+				int sh = (int) Math.round(Math.max(0, Math.min(1, shade)) * 255);
+				int gl = (int) Math.round(Math.max(0, Math.min(1, gloss)) * 255);
+				m[y * COCOON_SIZE + x] = sh | gl << 8 | channel << 16;
+			}
+		}
+		cocoonMask = m;
+		return m;
+	}
+
 	/** Resource reload / disconnect: drop every baked texture and the cached mask pixels. */
 	public static void clear() {
 		for (ResourceLocation id : BAKED.values()) {
@@ -141,6 +277,22 @@ public final class SymbioteMonsterTint {
 			Minecraft.getInstance().getTextureManager().release(id);
 		}
 		GLOW.clear();
+		for (ResourceLocation id : COCOON.values()) {
+			Minecraft.getInstance().getTextureManager().release(id);
+		}
+		COCOON.clear();
+		if (cocoonGloss != null) {
+			Minecraft.getInstance().getTextureManager().release(cocoonGloss);
+		}
+		if (cocoonVeins != null) {
+			Minecraft.getInstance().getTextureManager().release(cocoonVeins);
+		}
+		if (cocoonGlow != null) {
+			Minecraft.getInstance().getTextureManager().release(cocoonGlow);
+		}
+		cocoonGlow = null;
+		cocoonGloss = null;
+		cocoonVeins = null;
 		if (mask != null) {
 			mask.close();
 		}

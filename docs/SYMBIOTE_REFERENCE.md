@@ -1044,3 +1044,41 @@ Shots: `docs/screenshots/v0175/symbiote_monster/` -- `00`-`07` the transformatio
 `symbiote_monster_cocoon_slowmo` (6 tps), `symbiote_monster_all_moves`, `symbiote_monster_melt_back`. Harness
 `scratchpad/SymbioteMonsterHarness.v0175.java.txt` (+ `SymMonHarnessCameraMixin` / `SymMonHarnessGuiMixin`), films via
 `scratchpad/symbiote/films_monster_v0175.js <harness out dir>`.
+
+### Polish pass (cocoon, emerge, first-person arms)
+
+User: "Yes, polish them" to three problems found in the filming: the cocoon read as a dark woven basket-egg with purple showing
+through, the emerge arched back until the hump and the back of the head showed instead of the face, and the first-person arms were
+big blocky forearms pointing straight up from the bottom corners. No gameplay numbers changed.
+
+- **Cocoon** (`SymbioteMonsterCocoon`, `MonsterMesh.Batch`, `SymbioteMonsterTint.cocoon / cocoonGloss / cocoonVeins / cocoonGlow`):
+  everything (shell, strands, pool, burst, melt goo) is drawn with a tileable 128 x 128 tint mask made in code (sinew fibres and lumps
+  in the body colour, sunken veins in the emblem colour, wet streaks) and baked through `SymbioteTintMath.bake` per colour scheme
+  like the suit -- opaque everywhere, so the old goo texture's purple is gone. On top, two additive (`RenderType.eyes`) layers: a wet
+  shine (a near-white of the body's hue, like the suit's gloss) whose strength follows a per-vertex specular + rim term, so the
+  highlight slides over the surface as the camera moves, and the veins (emblem colour when it is bright, else a hot body colour),
+  which flush with each heartbeat. Smooth per-vertex normals on the shell and every tube. Eight thick tendrils spiral up (writhing),
+  eight thick ropes crawl up over the shell the same way round with a swell running along each (no criss-cross weave). Heartbeats are
+  lub-dub (30, 37, 42, 46 + a smaller beat 2 ticks after each): the shell swells 13% and 3.5% taller, stretching its texture. From 44
+  it strains (shivering, the strands drawn tight); 45-49.5 it tears open along five seams -- the lips pull apart, the dark inside shows
+  lit from within in the eye colour, four strands across each tear stretch thin and snap. The burst adds twelve shell shards flung out
+  and shrinking away. Geometry is collected once and emitted per pass because a buffer source flushes (invalidates) the previous
+  buffer when another render type is asked for.
+- **Emerge** (`gen_symbiote_monster_anims_v0175.js`): crouched with the arms wrapped and the head countering the chest so the face
+  peers out from under the hump, then up into a forward-leaning roar -- the chest straightens only 6 degrees out of the hunch, the head
+  thrusts up and out (-16), the jaw opens 42, the arms fling wide and back (Z 120, X +35), fingers splayed, wide stance. The face reads
+  from the front, the side and a low 3/4 the whole clip. `--preview` now also writes `monster_emerge_<front|quarter|side|low_front>.png`.
+- **First person** (`SymbioteMonsterFirstPerson.armPose`, JS twin `scratchpad/symbiote/fp_pose_monster_v0175.js`, software preview
+  `fp_preview_monster_v0175.js <dir>`): the forearms come in from the bottom corners angled toward the middle, palms turned in, the
+  claws (1.45x) fanned toward each other low on the screen, well clear of the crosshair; breathing / swaying, the fingers flexing.
+  Bone extras per pose: wrist, finger curl and spread, claw curl. Moves: left click rakes the right claws forward; R winds out to the
+  right and slashes across the screen; G raises both fists overhead and slams them down (with a judder); Z flings both arms wide with
+  the claws splayed and shaking; C lunges both claws in, seizes and drags down to the jaws; V thrusts out open and yanks back as fists;
+  X crouches then throws the claws up for the pounce; the landing smashes down.
+
+Shots: `docs/screenshots/v0175/symbiote_monster_polish/` -- `cocoon_classic_<1..7>_*`, `cocoon_classic_front(_tearing)`,
+`cocoon_carnage_<2..7>_*`, `emerge_carnage_roar`, `emerge_<front|side>_<00..33>` + `emerge_low_<00..28>` and their `_sheet.png`,
+`first_person_<idle|swing|swipe_windup|swipe|pound_raised|pound|roar|devour_seize|devour_drag|pull_thrust|pull_yank|leap>`;
+films (`.mp4` + `_sheet.png`) `cocoon_transformation_realtime`, `cocoon_slowmo` (6 tps), `first_person_moves`. Harness
+`scratchpad/SymbioteMonsterPolishHarness.v0175.java.txt` (class `SymbioteMonsterHarness`, same camera / GUI mixins), films via
+`scratchpad/symbiote/films_monster_polish_v0175.js <harness out dir>`.

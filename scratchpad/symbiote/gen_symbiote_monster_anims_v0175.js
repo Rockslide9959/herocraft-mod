@@ -208,28 +208,32 @@ clip('pull', 1.0, false, (t) => {
 	for (const tn of ['a', 'b', 'c']) for (let i = 0; i < 4; i++) add(p, 'tend_' + tn + i, [30 * out - 20 * yank, 0, 0]);
 	return p;
 });
-// the reveal out of the burst cocoon (1.6 s): coiled tight, then flung open with a roar
+// the reveal out of the burst cocoon (1.6 s): crouched and wrapped, then up into a forward-leaning roar with the arms flung wide.
+// Polish pass: the old fling arched the chest back over the hump (the face disappeared behind it from low / front angles for half a
+// second); now the chest only ever straightens a little out of the hunch and the head is thrust forward and up, so the face reads.
 clip('emerge', 1.6, false, (t) => {
 	const p = {};
 	alive(p, t, ease(t / 1.6));
-	const coil = keys(t, [[0, 1], [0.15, 1], [0.35, 0], [1.6, 0]]);
-	const fling = keys(t, [[0, 0], [0.15, 0], [0.35, 1], [1.1, 1], [1.6, 0]]);
-	const sh = fling * (S(t * 64) * 1.4);
-	add(p, 'chest', [40 * coil - 26 * fling + sh, 0, 0]);
-	add(p, 'belly', [16 * coil - 8 * fling, 0, 0]);
-	add(p, 'head', [10 * coil - 16 * fling, 0, sh]);
-	add(p, 'jaw', [-14 * coil + 40 * fling, 0, 0]);
-	add(p, 'arm_r', [-60 * coil - 50 * fling, 40 * coil, -30 * coil + 85 * fling]);
-	add(p, 'arm_l', [-60 * coil - 50 * fling, -40 * coil, 30 * coil - 85 * fling]);
-	add(p, 'forearm_r', [-90 * coil - 25 * fling, 0, 0]);
-	add(p, 'forearm_l', [-90 * coil - 25 * fling, 0, 0]);
-	add(p, 'leg_r', [-40 * coil, 0, 6 * fling]);
-	add(p, 'leg_l', [-40 * coil, 0, -6 * fling]);
-	add(p, 'shin_r', [60 * coil, 0, 0]);
-	add(p, 'shin_l', [60 * coil, 0, 0]);
+	const coil = keys(t, [[0, 1], [0.12, 1], [0.32, 0], [1.6, 0]]);
+	const fling = keys(t, [[0, 0], [0.12, 0], [0.32, 1], [1.15, 1], [1.6, 0]]);
+	const sh = fling * (S(t * 64) * 1.4 + S(t * 47) * 0.8);
+	add(p, 'chest', [22 * coil - 6 * fling + sh, sh * 0.8, 0]);
+	add(p, 'belly', [10 * coil - 3 * fling, 0, 0]);
+	// the head counters the chest so the face always looks ahead -- coiled it peers up from under the hump, flung it thrusts up and out
+	add(p, 'head', [-30 * coil - 16 * fling + sh * 0.6, 0, sh]);
+	add(p, 'jaw', [-10 * coil + 42 * fling, 0, 0]);
+	add(p, 'arm_r', [-55 * coil + 35 * fling, 35 * coil - 30 * fling, -22 * coil + 120 * fling]);
+	add(p, 'arm_l', [-55 * coil + 35 * fling, -35 * coil + 30 * fling, 22 * coil - 120 * fling]);
+	add(p, 'forearm_r', [-85 * coil - 30 * fling, 0, 0]);
+	add(p, 'forearm_l', [-85 * coil - 30 * fling, 0, 0]);
+	for (const s of ['r', 'l']) for (let i = 0; i < 4; i++) add(p, 'finger_' + s + i, [20 * coil - 38 * fling, 0, 0]);
+	add(p, 'leg_r', [-36 * coil - 10 * fling, 0, 4 * coil + 9 * fling]);
+	add(p, 'leg_l', [-36 * coil - 10 * fling, 0, -4 * coil - 9 * fling]);
+	add(p, 'shin_r', [54 * coil + 14 * fling, 0, 0]);
+	add(p, 'shin_l', [54 * coil + 14 * fling, 0, 0]);
 	for (let i = 0; i < 7; i++) add(p, 'tongue_' + i, [(-10 + 10 * S(t * 12 - i)) * fling, 16 * S(t * 9 - i) * fling, 0]);
-	for (const tn of ['a', 'b', 'c']) for (let i = 0; i < 4; i++) add(p, 'tend_' + tn + i, [50 * coil - 30 * fling, 0, 14 * S(t * 15 + i) * fling]);
-	p['@pelvis'] = [0, -10 * coil, 0];
+	for (const tn of ['a', 'b', 'c']) for (let i = 0; i < 4; i++) add(p, 'tend_' + tn + i, [40 * coil - 34 * fling, 0, 18 * S(t * 15 + i) * fling]);
+	p['@pelvis'] = [0, -9 * coil - 2 * fling, 0];
 	return p;
 });
 // the melt back into goo (1.5 s, held): slumps, sinks and spreads into a puddle (the renderer adds the drips)
