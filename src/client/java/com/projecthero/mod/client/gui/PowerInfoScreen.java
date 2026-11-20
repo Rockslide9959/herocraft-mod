@@ -50,6 +50,11 @@ public final class PowerInfoScreen extends Screen {
 	 */
 	public static Screen create() {
 		net.minecraft.client.player.LocalPlayer p = Minecraft.getInstance().player;
+		// v0.17.6 (Discord): while a Secondary power owns the keys (the Symbiote suit or the Falcon gear over a Primary), I shows that
+		// power's page -- the Omnitrix's own screen used to take over and hide the Symbiote's Suit Colours button
+		if (p != null && secondaryOwnsKeys(p)) {
+			return new PowerInfoScreen();
+		}
 		if (p != null && trainingState() == null && OmnitrixInfoScreen.applies(p)) {
 			com.projecthero.mod.quirk.Quirk quirk = com.projecthero.mod.quirk.Quirks.quirk(p);
 			if (quirk == null || quirk.standalone) {
@@ -107,6 +112,18 @@ public final class PowerInfoScreen extends Screen {
 		liveQuirk = false;
 
 		int wrapW = this.right - this.left;
+
+		// v0.17.6: a Secondary power that owns the keys right now comes before the Primary's page (Quirk, Omnitrix, ...)
+		if (Minecraft.getInstance().player != null && secondaryOwnsKeys(Minecraft.getInstance().player)) {
+			com.projecthero.mod.hero.guide.HeroPackGuide.Chapter c = heroTierChapter();
+			if (c != null) {
+				this.heading = Component.empty().append(c.title()).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
+				for (Component line : c.lines()) {
+					wrap(line, wrapW);
+				}
+				return;
+			}
+		}
 
 		// Hero-Tier powers (Thor, Iron Man, Spider-Man, Max Steel) come first: a player holding one of
 		// these cannot also have an experimental power, and the info key should show their guide entry.
@@ -368,6 +385,11 @@ public final class PowerInfoScreen extends Screen {
 	 * The guide chapter for whichever Hero-Tier power the local player holds, or {@code null} if they
 	 * hold none. All four attachments are synced target-only, so this is reliable client-side.
 	 */
+	/** v0.17.6: the Symbiote suit (Normal host) or the Falcon gear is over a Primary and has the keys right now. */
+	static boolean secondaryOwnsKeys(net.minecraft.world.entity.player.Player p) {
+		return com.projecthero.mod.symbiote.Symbiote.ownsKeysOverPrimary(p) || com.projecthero.mod.falcon.Falcon.ownsKeys(p);
+	}
+
 	private static com.projecthero.mod.hero.guide.HeroPackGuide.Chapter heroTierChapter() {
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.player == null) {

@@ -74,8 +74,18 @@ public final class OmnitrixInfoScreen extends Screen {
 		tabs.add(alien != null ? Tab.ALIEN : Tab.WATCH);
 		tab = tabs.get(0);
 
-		addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
-				.bounds(this.width / 2 - 60, this.height - 28, 120, 20).build());
+		if (com.projecthero.mod.symbiote.Symbiote.isNormalHost(p)) {
+			// v0.17.6 (Discord): a Symbiote stacked on the Omnitrix recolours its suit from here too (the button only lived on the
+			// plain "Your Power" page, which the Omnitrix's screen replaces)
+			addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
+					.bounds(this.width / 2 - 122, this.height - 28, 120, 20).build());
+			addRenderableWidget(Button.builder(Component.translatable("screen.projecthero.symbiote_colours.open"),
+					b -> Minecraft.getInstance().setScreen(new SymbioteColourScreen(this)))
+					.bounds(this.width / 2 + 2, this.height - 28, 120, 20).build());
+		} else {
+			addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
+					.bounds(this.width / 2 - 60, this.height - 28, 120, 20).build());
+		}
 		page.layout(this.width, this.height);
 		page.hideHud();
 		page.scroll().set(0);
