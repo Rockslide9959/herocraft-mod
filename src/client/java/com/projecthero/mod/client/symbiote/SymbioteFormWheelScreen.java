@@ -158,11 +158,12 @@ public final class SymbioteFormWheelScreen extends Screen {
 			return;
 		}
 		float open = openEase(partialTick);
-		float outer = Math.max(74f, Math.min(124f, Math.min(this.width * 0.36f, (this.height - 64) / 2f)));
+		// leave room under the wheel for up to three wrapped description rows and the hint
+		float outer = Math.max(60f, Math.min(124f, Math.min(this.width * 0.36f, (this.height - 104) / 2f)));
 		float inner = outer * 0.46f;
 		float lift = Math.max(4f, outer * 0.05f);
 		float cx = this.width / 2f;
-		float cy = this.height / 2f - 8f;
+		float cy = Math.max(outer + 10f, this.height / 2f - 26f);
 		int cur = SymbioteVitalsManager.form(mc.player);
 
 		hovered = -1;

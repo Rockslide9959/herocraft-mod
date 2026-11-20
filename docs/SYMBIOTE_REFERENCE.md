@@ -926,3 +926,11 @@ bite); Shift+C puts it down on the ground in front, unhurt, with gravity and a n
 damage, thrown with no fall damage after; V taps still cycle, a wheel pick goes straight to Thorns / Whip, a weapon is refused with a full
 hand, a held V (or the wheel's message) does not cycle, Shift+V is the Shield. `SymbioteMovesetV2GameTests`: Sweep cooldown and the
 18-entry list updated.
+
+Visual checks: `docs/screenshots/v0175/symbiote_moveset3/` -- the wheel opened by holding the real V key and with Blade / Thorns hovered
+(01-03), the Thorns aura and Spike Surge growing / long / drawing back (04-07), Spike Nova (08-09), the grab held / crushed / set down /
+thrown (10-14); films `symbiote_thorns_aura_spike_surge`, `symbiote_spike_nova` (+ `_half_speed`), `symbiote_grab_hold_crush_setdown_throw`
+(`.mp4` + `_sheet.png`). Logged on screen: aura 12 to the two close husks only, the surge then reaching all five; the Nova 10 to all eight;
+held 4 s, three crushes 18 (the fourth click inside 10 ticks ignored), set down unhurt, the throw 7. Filming fix: the wheel was shrunk and
+raised so the wrapped description fits above the hint on a 480 px window. Harness `scratchpad/SymbioteMovesetV3Harness.v0175.java.txt`
+(+ `SymbioteMovesetV3HarnessCameraMixin.v0175.java.txt`), films via `scratchpad/symbiote/films_moveset3_v0175.js`.
