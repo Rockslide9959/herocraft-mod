@@ -574,6 +574,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			client.player.setSprinting(false);
 		}
 		handleGreenLanternConstructWheelHold(client);
+		com.projecthero.mod.client.symbiote.SymbioteKitClient.tickWheelHold(client); // v0.17.5 moveset v3: hold V = the Form wheel
 		handleTitanSprint(client);
 
 		boolean flyingNow = client.player.getAttachedOrElse(ModAttachments.FLYING, false);
@@ -598,6 +599,10 @@ public class ProjectHeroModClient implements ClientModInitializer {
 					// ABILITY6_PRESSED entry un-removed is harmless: the next real press simply overwrites
 					// it (see GreenLanternAbilityManager#handleAbilitySix).
 					if (i == 5 && glWheelOpenedThisHold) {
+						continue;
+					}
+					// v0.17.5 moveset v3: the same for V opening the Symbiote Form wheel (the server lets the press lapse)
+					if (i == 4 && com.projecthero.mod.client.symbiote.SymbioteKitClient.wheelOpenedThisHold()) {
 						continue;
 					}
 					ClientPlayNetworking.send(new AbilityInputPayload(i + 1, false));
@@ -664,6 +669,14 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			}
 			// v0.17.1: the C that opened the Construct Menu, still held -- its key repeat re-pressed C once the menu closed,
 			// which used the C construct (user: "the C construct gets used")
+			// v0.17.5 moveset v3: the V that opened the Symbiote Form wheel, still held after it closed -- ignored until let go
+			if (i == 4 && com.projecthero.mod.client.symbiote.SymbioteKitClient.swallowV()) {
+				while (key.consumeClick()) {
+					// swallowed
+				}
+				slotWasDown[i] = false;
+				continue;
+			}
 			if (i == 5 && glAwaitCRelease) {
 				while (key.consumeClick()) {
 					// swallowed

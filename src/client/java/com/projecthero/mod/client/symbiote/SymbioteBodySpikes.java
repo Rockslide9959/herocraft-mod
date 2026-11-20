@@ -74,6 +74,9 @@ public final class SymbioteBodySpikes {
 			{ -3.4f, 8.0f, 0.0f, -1.0f, 0.6f, 0.0f, 5.0f },     // outer side
 	};
 
+	/** The surge scale for the spikes being drawn right now (render thread only). */
+	private static float surge = 1.0f;
+
 	private SymbioteBodySpikes() {
 	}
 
@@ -81,7 +84,8 @@ public final class SymbioteBodySpikes {
 	public static int window(int animId) {
 		return switch (animId) {
 			case SymbioteAnim.SPIKE_SHOT -> 30;
-			case SymbioteAnim.SPIKE_FAN, SymbioteAnim.SPIKES_FLEX -> 36;
+			case SymbioteAnim.SPIKE_FAN, SymbioteAnim.SPIKES_FLEX, SymbioteAnim.SPIKE_SURGE -> 36;
+			case SymbioteAnim.SPIKE_NOVA -> 30; // v0.17.5 moveset v3: the Nova bursts out of the whole body
 			default -> 0;
 		};
 	}
@@ -102,6 +106,26 @@ public final class SymbioteBodySpikes {
 		}
 		// v0.16.2: Black Suit Spider-Man's Let It Take Over keeps them out for the whole form
 		return v.thornsMode || com.projecthero.mod.symbiote.SymbioteHunger.takingOver(player) ? 1000.0f : -1.0f;
+	}
+
+	/** v0.17.5 moveset v3: Spike Surge makes the spikes this many times longer (they grow out over 4 ticks, draw back over 8). */
+	public static final float SURGE_LENGTH = 2.5f;
+	private static final float SURGE_GROW = 4.0f;
+	private static final float SURGE_RETRACT = 8.0f;
+
+	/** 1 normally; up to {@link #SURGE_LENGTH} while Spike Surge runs (read off the synced cooldown, so every viewer sees it). */
+	static float surgeScale(Player player, float partialTick) {
+		com.projecthero.mod.symbiote.SymbioteState s = player.getAttachedOrElse(ModAttachments.SYMBIOTE_STATE, null);
+		long now = player.level().getGameTime();
+		long age = com.projecthero.mod.symbiote.SymbioteAbilityManager.surgeAge(s, now);
+		if (age < 0L || com.projecthero.mod.symbiote.SymbioteVitalsManager.form(player) != com.projecthero.mod.symbiote.SymbioteVitalsManager.FORM_THORNS) {
+			return 1.0f;
+		}
+		float a = age + partialTick;
+		float out = Math.min(1.0f, a / SURGE_GROW);
+		out = 1.0f - (1.0f - out) * (1.0f - out);
+		float back = Math.min(1.0f, Math.max(0.0f, (com.projecthero.mod.symbiote.SymbioteAbilityManager.SURGE_TICKS - a) / SURGE_RETRACT));
+		return 1.0f + (SURGE_LENGTH - 1.0f) * Math.min(out, back);
 	}
 
 	/** Growth of the {@code i}-th spike, 0..1. */
@@ -137,6 +161,7 @@ public final class SymbioteBodySpikes {
 		}
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(SymbioteSuitTint.goo(player, TEXTURE))); // v0.17.5: in the host's colours
 		boolean slim = player.getSkin().model() == PlayerSkin.Model.SLIM;
+		surge = surgeScale(player, partialTick);
 		pose.pushPose();
 		model.body.translateAndRotate(pose);
 		// v0.17.5: the six spikes out of the back face would run through a worn backpack -- they stay in under it (the two
@@ -166,6 +191,7 @@ public final class SymbioteBodySpikes {
 		}
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(SymbioteSuitTint.goo(player, TEXTURE))); // v0.17.5: in the host's colours
 		boolean slim = player.getSkin().model() == PlayerSkin.Model.SLIM;
+		surge = surgeScale(player, net.minecraft.client.Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
 		pose.pushPose();
 		arm.translateAndRotate(pose);
 		for (int i = 0; i < FP_ARM.length; i++) {
@@ -189,7 +215,7 @@ public final class SymbioteBodySpikes {
 		}
 		Vec3 root = new Vec3(sign * rx * PX, s[1] * PX, s[2] * PX);
 		Vec3 dir = new Vec3(sign * s[3], s[4], s[5]).normalize();
-		double len = s[6] * PX * g;
+		double len = s[6] * PX * g * surge;
 		// a slight hook: the tip curls back the way the spike leans (towards +Z / up the body)
 		Vec3 hook = new Vec3(0.0, -0.35, 0.25).normalize().scale(len * 0.12);
 		Vec3[] pts = {
@@ -198,7 +224,7 @@ public final class SymbioteBodySpikes {
 				root.add(dir.scale(len * 0.7)).add(hook.scale(0.4)),
 				root.add(dir.scale(len)).add(hook),
 		};
-		float w = (float) Math.sqrt(g);
+		float w = (float) Math.sqrt(g) * (1.0f + (surge - 1.0f) * 0.35f); // a surged spike is a little thicker at the root too
 		float[] radii = { 0.05f * w, 0.034f * w, 0.017f * w, 0.0015f };
 		GooMesh.tube(vc, last, light, pts, radii, 5, 0.0f);
 	}

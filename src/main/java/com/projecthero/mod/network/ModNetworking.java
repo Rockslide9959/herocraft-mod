@@ -85,6 +85,7 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playC2S().register(GreenLanternSniperPayload.TYPE, GreenLanternSniperPayload.CODEC); // v0.16.1
 		PayloadTypeRegistry.playC2S().register(UndeadFlightPayload.TYPE, UndeadFlightPayload.CODEC); // v0.17.3
 		PayloadTypeRegistry.playC2S().register(SymbioteWingsPayload.TYPE, SymbioteWingsPayload.CODEC); // v0.17.5
+		PayloadTypeRegistry.playC2S().register(SymbioteKitPayload.TYPE, SymbioteKitPayload.CODEC); // v0.17.5 moveset v3
 		PayloadTypeRegistry.playC2S().register(UndeadBoostPayload.TYPE, UndeadBoostPayload.CODEC); // v0.17.3 flight boost
 		PayloadTypeRegistry.playC2S().register(UndeadHeadThrowPayload.TYPE, UndeadHeadThrowPayload.CODEC); // v0.17.3: right click mid-throw
 		PayloadTypeRegistry.playS2C().register(GreenLanternRingScanPayload.TYPE, GreenLanternRingScanPayload.CODEC);
@@ -379,6 +380,16 @@ public final class ModNetworking {
 		ServerPlayNetworking.registerGlobalReceiver(GreenLanternConstructSelectPayload.TYPE, (payload, context) ->
 				com.projecthero.mod.greenlantern.GreenLanternAbilityManager.selectConstruct(context.player(), payload.ordinal()));
 
+		// v0.17.5 moveset v3: the Normal Symbiote host's crush click (holding a grab) and the V Form wheel
+		ServerPlayNetworking.registerGlobalReceiver(SymbioteKitPayload.TYPE, (payload, context) -> {
+			switch (payload.action()) {
+				case SymbioteKitPayload.CRUSH -> com.projecthero.mod.symbiote.SymbioteAbilityManager.crush(context.player());
+				case SymbioteKitPayload.WHEEL_OPENED -> com.projecthero.mod.symbiote.SymbioteAbilityManager.formWheelOpened(context.player());
+				case SymbioteKitPayload.PICK_FORM -> com.projecthero.mod.symbiote.SymbioteAbilityManager.pickForm(context.player(), payload.value());
+				default -> {
+				}
+			}
+		});
 		// v0.17.5: a Normal Symbiote host double-tapped jump in the air -- the Symbiote Wings grow.
 		ServerPlayNetworking.registerGlobalReceiver(SymbioteWingsPayload.TYPE, (payload, context) ->
 				com.projecthero.mod.symbiote.SymbioteWings.tryStart(context.player()));

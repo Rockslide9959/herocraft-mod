@@ -562,6 +562,51 @@ public final class SymbioteVitalsManager {
 						.withStyle(ChatFormatting.DARK_PURPLE), true);
 				return;
 			}
+		}
+		applyForm(player, from, next);
+	}
+
+	/**
+	 * v0.17.5 moveset v3 (user: "holding V for 0.5 seconds open a weapon wheel where you can choose what form you want to be in"): the
+	 * Form picked on the wheel, validated by the same rules as the cycle -- a weapon needs an empty main hand and some Biomass (refused
+	 * with a message, no fallback to Thorns: the player picked a weapon on purpose). Picking the current Form does nothing.
+	 * @return true if the Form changed
+	 */
+	public static boolean selectForm(ServerPlayer player, int target) {
+		boolean known = false;
+		for (int f : FORM_CYCLE) {
+			known |= f == target;
+		}
+		if (!known) {
+			return false;
+		}
+		SymbioteVitals v = vitals(player);
+		int from = form(player);
+		if (target == from && !(v.bladeActive && v.thornsMode)) {
+			return false;
+		}
+		if (weaponOf(target) != null) {
+			if (v.broken || v.hp <= 0.0f) {
+				player.displayClientMessage(Component.translatable("message.projecthero.symbiote.spent"), true);
+				return false;
+			}
+			if (!player.getMainHandItem().isEmpty()) {
+				player.displayClientMessage(Component.translatable("message.projecthero.symbiote.form.hand_full"), true);
+				return false;
+			}
+		}
+		applyForm(player, from, target);
+		return true;
+	}
+
+	/** Switches from Form {@code from} to {@code next} (already validated): grows / melts the weapon, raises / drops Thorns. */
+	private static void applyForm(ServerPlayer player, int from, int next) {
+		SymbioteVitals v = vitals(player);
+		SymbioteWeapon nextWeapon = weaponOf(next);
+		if (nextWeapon != null) {
+			if (v.thornsMode) {
+				setThorns(player, false);
+			}
 			SymbioteVitals c = vitals(player).copy();
 			c.weapon = nextWeapon.ordinal();
 			save(player, c);

@@ -42,6 +42,11 @@ public final class SymbioteAnim {
 	public static final int AXE_CLEAVE = 25;
 	public static final int MACE_SMASH = 26;
 	public static final int WHIP_LASH = 27;
+	// v0.17.5 moveset v3 (ids 32+ so a parallel branch's new ids at 28+ never collide)
+	public static final int SPIKE_SURGE = 32;
+	public static final int SPIKE_NOVA = 33;
+	public static final int GRAB_CRUSH = 34;
+	public static final int GRAB_SET_DOWN = 35;
 
 	private SymbioteAnim() {
 	}

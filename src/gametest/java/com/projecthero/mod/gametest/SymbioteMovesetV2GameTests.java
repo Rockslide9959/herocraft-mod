@@ -380,10 +380,10 @@ public class SymbioteMovesetV2GameTests implements FabricGameTest {
 		clearCooldowns(p);
 		p.setShiftKeyDown(true);
 		press(p, AbilitySlot.SLOT_1, true);
-		helper.assertTrue(cd(p, SymbioteAbilityManager.CDI_SWEEP) > 100L, "Shift+R fires on the press: Tendril Sweep (10 s)");
+		helper.assertTrue(cd(p, SymbioteAbilityManager.CDI_SWEEP) > 60L, "Shift+R fires on the press: Tendril Sweep (v0.17.5 moveset v3: 4 s)");
 		press(p, AbilitySlot.SLOT_1, false);
 		press(p, AbilitySlot.SLOT_2, true);
-		helper.assertTrue(SymbioteVitalsManager.vitals(p).spikeConeReadyAt > p.level().getGameTime(), "Shift+G: Spike Fan");
+		helper.assertTrue(SymbioteVitalsManager.vitals(p).spikeConeReadyAt > p.level().getGameTime(), "Shift+G: Spike Nova (was the Spike Fan)");
 		press(p, AbilitySlot.SLOT_2, false);
 		press(p, AbilitySlot.SLOT_3, true);
 		helper.assertTrue(anim(p) == SymbioteAnim.GRAPPLE || anim(p) == SymbioteAnim.TENDRIL_STRIKE, "Shift+X: Grapple");
@@ -406,7 +406,7 @@ public class SymbioteMovesetV2GameTests implements FabricGameTest {
 		p.setShiftKeyDown(true);
 		press(p, AbilitySlot.SLOT_1, true);
 		press(p, AbilitySlot.SLOT_1, false);
-		helper.assertTrue(cd(p, SymbioteAbilityManager.CDI_SWEEP) > 100L, "Tendril Sweep cooling down");
+		helper.assertTrue(cd(p, SymbioteAbilityManager.CDI_SWEEP) > 60L, "Tendril Sweep cooling down");
 		helper.assertTrue(cd(p, 0) == 0L, "Tendril Strike's own cooldown untouched by the Sweep");
 		// ... and a plain R tap still fires Tendril Strike
 		p.setShiftKeyDown(false);
@@ -419,7 +419,7 @@ public class SymbioteMovesetV2GameTests implements FabricGameTest {
 		p.setShiftKeyDown(true);
 		press(p, AbilitySlot.SLOT_1, true);
 		press(p, AbilitySlot.SLOT_1, false);
-		helper.assertTrue(sweep > 0L && cd(p, SymbioteAbilityManager.CDI_SWEEP) > 100L, "Shift+R fires while R is on cooldown");
+		helper.assertTrue(sweep > 0L && cd(p, SymbioteAbilityManager.CDI_SWEEP) > 60L, "Shift+R fires while R is on cooldown");
 		// the Monster form (Shift + hold Z; v0.17.5, it replaced Onslaught) vs Barrage (Z tap): separate entries
 		int monster = com.projecthero.mod.symbiote.monster.SymbioteMonster.CDI_MONSTER;
 		clearCooldowns(p);
@@ -438,7 +438,7 @@ public class SymbioteMovesetV2GameTests implements FabricGameTest {
 		p.setAttached(ModAttachments.SYMBIOTE_STATE, c);
 		helper.assertTrue(!SymbioteAbilityManager.grappleReady(p, p.level().getGameTime()), "Grapple reads its own entry");
 		helper.assertTrue(SymbioteAbilityManager.leapReady(p, p.level().getGameTime()), "the Lunge is still ready");
-		helper.assertTrue(SymbioteState.COOLDOWN_SLOTS == 18 && Symbiote.state(p).abilityCooldowns.size() == 18, "18 cooldown entries (v0.17.5: 15 = Symbiote Wings, 17 = Monster form)");
+		helper.assertTrue(SymbioteState.COOLDOWN_SLOTS == 18 && Symbiote.state(p).abilityCooldowns.size() == 18, "18 cooldown entries (v0.17.5: 15 = Symbiote Wings, 16 = Spike Surge, 17 = Monster form)");
 		helper.succeed();
 	}
 
