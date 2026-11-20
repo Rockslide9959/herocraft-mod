@@ -111,8 +111,17 @@ public final class CapShieldSlot {
 	// ------------------------------------------------------------------------------------------------ queries (client-safe)
 
 	/** A Super Soldier wearing the Battle Suit top: he has the slot. */
+	/**
+	 * A top that carries the shield slot: the Captain America Battle Suit top, or (v0.17.5, user: "make sure the captain america suit works
+	 * properly with the N shield") the Super Soldier suit's own chestplate -- both Captain America suits clamp the shield on.
+	 */
+	public static boolean isSlotTop(ItemStack s) {
+		return s != null && (s.getItem() instanceof CapBattleSuitItem
+				|| s.getItem() instanceof com.projecthero.mod.supersoldier.item.SuperSoldierArmorItem a && a.getEquipmentSlot() == EquipmentSlot.CHEST);
+	}
+
 	public static boolean hasSlot(Player p) {
-		return p != null && SuperSoldier.hasPower(p) && CapBattleSuitItem.topWorn(p) && !p.isSpectator();
+		return p != null && SuperSoldier.hasPower(p) && isSlotTop(p.getItemBySlot(EquipmentSlot.CHEST)) && !p.isSpectator();
 	}
 
 	/** The shield in this top's slot (EMPTY: none). */
@@ -132,7 +141,7 @@ public final class CapShieldSlot {
 	/** The shield in his worn top's slot, whether or not he may use it (EMPTY: none). Client-safe. */
 	public static ItemStack slotted(LivingEntity e) {
 		ItemStack top = e.getItemBySlot(EquipmentSlot.CHEST);
-		return top.getItem() instanceof CapBattleSuitItem ? get(top) : ItemStack.EMPTY;
+		return isSlotTop(top) ? get(top) : ItemStack.EMPTY;
 	}
 
 	/** The slotted shield he can use as if held (EMPTY: none, or no slot). */
@@ -313,7 +322,7 @@ public final class CapShieldSlot {
 			guardStop(p);
 		}
 		ItemStack worn = p.getItemBySlot(EquipmentSlot.CHEST);
-		if (worn.getItem() instanceof CapBattleSuitItem && !hasSlot(p)) {
+		if (isSlotTop(worn) && !hasSlot(p)) {
 			eject(p, worn);
 		}
 		if (p.level().getGameTime() % 5 != 0) {
@@ -328,7 +337,7 @@ public final class CapShieldSlot {
 	}
 
 	private static void eject(ServerPlayer p, @Nullable ItemStack top) {
-		if (top == null || !(top.getItem() instanceof CapBattleSuitItem)) {
+		if (top == null || !isSlotTop(top)) {
 			return;
 		}
 		ItemStack shield = get(top);
