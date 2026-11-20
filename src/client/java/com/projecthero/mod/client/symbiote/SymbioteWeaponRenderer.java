@@ -113,7 +113,7 @@ public final class SymbioteWeaponRenderer {
 		// v0.17.5 round 5 (user: "make the symbiote axe a bit smaller, its far too big right now"): the double-bitted Axe at 1x
 		// (0.62x first person)
 		if (firstPerson) {
-			return w == SymbioteWeapon.AXE ? 0.62f : 0.85f;
+			return w == SymbioteWeapon.AXE ? 0.62f : w == SymbioteWeapon.BLADE ? 1.0f : 0.85f;
 		}
 		return switch (w) {
 			case MACE -> 1.25f;
@@ -121,6 +121,10 @@ public final class SymbioteWeaponRenderer {
 			default -> 1.5f;
 		};
 	}
+
+	/** First person only: the Blade tips this many degrees about the arm's X axis (negative = its tip towards -Z, the arm's front). */
+	static float FP_BLADE_TILT = -60f;
+	static final double FP_BLADE_PIVOT_Y = 0.6;
 
 	private static void drawOne(PoseStack pose, MultiBufferSource buffers, int light, Player owner, boolean rightArm, boolean slim,
 			boolean firstPerson, float time, SymbioteVitals v, SymbioteWeapon w, float grow) {
@@ -131,6 +135,13 @@ public final class SymbioteWeaponRenderer {
 		pose.translate(xc, pivotY, 0);
 		pose.scale(s, s, s);
 		pose.translate(-xc, -pivotY, 0);
+		if (firstPerson && w == SymbioteWeapon.BLADE) {
+			// v0.17.5 round 5 (user: "Yes, angle it"): the straight Blade runs down the arm, which in first person points away from the
+			// camera -- so there only, it tips up from the fist towards the arm's front (up the screen) to show its length
+			pose.translate(xc, FP_BLADE_PIVOT_Y, 0);
+			pose.mulPose(com.mojang.math.Axis.XP.rotationDegrees(FP_BLADE_TILT));
+			pose.translate(-xc, -FP_BLADE_PIVOT_Y, 0);
+		}
 		Ctx c = new Ctx(pose, buffers, light, owner, rightArm, slim, time, v);
 		c.wscale = s;
 		c.render(w, grow);
