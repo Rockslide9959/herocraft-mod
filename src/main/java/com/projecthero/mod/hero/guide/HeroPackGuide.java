@@ -570,9 +570,20 @@ public final class HeroPackGuide {
 		symbioteRow(lines, "Sneak+R", "tendril_sweep", "10");
 		symbioteRow(lines, "Sneak+G", "spike_fan", "10");
 		symbioteRow(lines, "Sneak+X", "grapple", "3");
-		symbioteRow(lines, "Sneak+hold Z", "onslaught", "90");
+		symbioteRow(lines, "Sneak+hold Z", "monster_form", "240"); // v0.17.5: the Monster form replaced Onslaught
 		symbioteRow(lines, "Sneak+V", "shield", "toggle");
 		symbioteRow(lines, "Sneak+C", "tendril_grab", "5");
+		blank(lines);
+		// v0.17.5: the Monster form's own moves (the normal kit is locked out while transformed)
+		head(lines, "projecthero.guide.symbiote.s.monster");
+		para(lines, "projecthero.guide.symbiote.s.monster.body");
+		symbioteRow(lines, "R", "monster_swipe", "1");
+		symbioteRow(lines, "G", "monster_pound", "6");
+		symbioteRow(lines, "X", "monster_leap", "5");
+		symbioteRow(lines, "Z", "monster_roar", "10");
+		symbioteRow(lines, "C", "monster_devour", "8");
+		symbioteRow(lines, "V", "monster_pull", "8");
+		symbioteRow(lines, "Sneak+Z", "monster_end", null);
 		blank(lines);
 	}
 

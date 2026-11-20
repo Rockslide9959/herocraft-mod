@@ -162,9 +162,8 @@ public final class SymbioteAbilityManager {
 
 	/** Is Symbiote Onslaught (Shift+hold Z) off cooldown and not already charging? */
 	public static boolean onslaughtReady(ServerPlayer player, long now) {
-		SymbioteState s = Symbiote.state(player);
-		return s.onslaughtChargeStart < 0
-				&& now >= s.abilityCooldowns.get(CDI_ONSLAUGHT);
+		// v0.17.5: Shift + hold Z is the Monster form now (Onslaught has no key) -- the Symbiote's voice lines ask about that
+		return com.projecthero.mod.symbiote.monster.SymbioteMonster.ready(player, now);
 	}
 
 	/** Is Symbiote Shield (Shift+V) available -- not up already, and the Biomass is not spent? */
@@ -231,16 +230,20 @@ public final class SymbioteAbilityManager {
 			return;
 		}
 		boolean sneak = player.isShiftKeyDown();
+		// v0.17.5 Monster form: while transformed every key is the monster's (the normal kit is locked out)
+		if (com.projecthero.mod.symbiote.monster.SymbioteMonsterMoves.intercept(player, slot, pressed, sneak)) {
+			return;
+		}
 
-		// Onslaught (Shift + hold Z): a press starts the charge, the release fires it -- both edges must
-		// reach handleOnslaught. A normal (no-sneak) Z press falls through to Barrage / Blade Slash.
+		// v0.17.5: Shift + hold Z is the Monster form (it replaced Onslaught): a press starts the 3 s charge, a release before it is
+		// done cancels it -- both edges must reach SymbioteMonster.handleCharge. A normal (no-sneak) Z press falls through to Barrage.
 		if (slot == AbilitySlot.SLOT_4) {
 			if (Symbiote.state(player).onslaughtChargeStart >= 0) {
-				handleOnslaught(player, pressed, now);
+				com.projecthero.mod.symbiote.monster.SymbioteMonster.handleCharge(player, pressed, now);
 				return;
 			}
 			if (sneak && pressed) {
-				handleOnslaught(player, true, now);
+				com.projecthero.mod.symbiote.monster.SymbioteMonster.handleCharge(player, true, now);
 				return;
 			}
 			// (a release with Sneak down falls through: a plain Z press that is let go while sneaking is still a tap)
@@ -1857,6 +1860,7 @@ public final class SymbioteAbilityManager {
 
 	public static void serverTick(ServerPlayer player) {
 		SymbioteWings.tick(player);
+		com.projecthero.mod.symbiote.monster.SymbioteMonster.tick(player); // v0.17.5 Monster form (ends itself without the suit / kit)
 		if (!Symbiote.hasSymbiote(player)) {
 			if (KEY_DOWN.containsKey(player.getId()) || DEVOUR.containsKey(player.getId())) {
 				stopMovesV2(player);
@@ -1875,7 +1879,7 @@ public final class SymbioteAbilityManager {
 			wallAssist(player);
 			tickShield(player);
 			tickTendrilGrab(player, now);
-			tickOnslaught(player, now);
+			com.projecthero.mod.symbiote.monster.SymbioteMonster.tickCharge(player, now); // v0.17.5 (was tickOnslaught)
 			tickOnslaughtVictims(player, now);
 			tickGrapplePull(player, now);
 			tickBarrage(player, now);

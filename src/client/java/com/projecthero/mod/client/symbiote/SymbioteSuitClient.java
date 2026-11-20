@@ -41,6 +41,7 @@ public final class SymbioteSuitClient {
 		// v0.17.5 round 2: saliva / goo particles, and the suit-up's droplets, sounds and canvas housekeeping
 		SymbioteParticleClient.register();
 		SymbioteVfxClient.initialize(); // v0.17.5 tendril-vfx round: the moves' tendril effects (replacing their particles)
+		com.projecthero.mod.client.symbiote.monster.SymbioteMonsterClient.initialize(); // v0.17.5: the Monster form's cocoon / melt
 		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(SymbioteEmerge::tick);
 		ResourceManagerHelper.get(PackType.CLIENT_RESOURCES).registerReloadListener(new SimpleSynchronousResourceReloadListener() {
 			@Override

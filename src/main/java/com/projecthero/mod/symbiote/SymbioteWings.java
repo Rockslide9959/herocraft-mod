@@ -84,7 +84,8 @@ public final class SymbioteWings {
 	/** The double-tap (server side). @return true if the wings grew. */
 	public static boolean tryStart(ServerPlayer player) {
 		long now = player.level().getGameTime();
-		if (!SymbioteAbilityManager.hasContext(player) || !Symbiote.isActive(player)) {
+		if (!SymbioteAbilityManager.hasContext(player) || !Symbiote.isActive(player)
+				|| com.projecthero.mod.symbiote.monster.SymbioteMonster.inForm(player)) { // v0.17.5: no wings on the monster
 			return false;
 		}
 		if (phase(SymbioteVitalsManager.vitals(player), now) != Phase.NONE) {
