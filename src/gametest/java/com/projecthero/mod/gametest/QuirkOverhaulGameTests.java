@@ -512,6 +512,27 @@ public class QuirkOverhaulGameTests implements FabricGameTest {
 		});
 	}
 
+	/** v0.17.5 (Discord report): X and Shift+X through the real key router (the packet path), not the kit directly. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void xKeysThroughTheRouter(GameTestHelper helper) {
+		ground(helper);
+		ServerPlayer p = overhaul(helper, 4.5, 1.5);
+		pump(helper, p);
+		com.projecthero.mod.hero.AbilityRouter.handleInput(p, 3, true);
+		helper.runAfterDelay(2, () -> {
+			com.projecthero.mod.hero.AbilityRouter.handleInput(p, 3, false);
+			helper.assertTrue(Overhaul.running(p, Overhaul.V_SHIFT), "tap X through the router: Ground Shift");
+		});
+		helper.runAfterDelay(40, () -> {
+			p.setShiftKeyDown(true);
+			com.projecthero.mod.hero.AbilityRouter.handleInput(p, 3, true);
+			helper.assertTrue(p.getDeltaMovement().y >= OverhaulConfig.PILLAR_UP - 0.01, "Shift+X through the router: Pillar " + p.getDeltaMovement());
+			com.projecthero.mod.hero.AbilityRouter.handleInput(p, 3, false);
+			p.setShiftKeyDown(false);
+			helper.succeed();
+		});
+	}
+
 	/** Hold X: Terrain Surf runs for as long as X is held, drains Matter, ends on release. */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
 	public void holdXSurfsUntilReleased(GameTestHelper helper) {
