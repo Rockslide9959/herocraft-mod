@@ -33,7 +33,7 @@ function film(prefix, name, fps, sheetCount, scale, skip = 0) {
 // every rendered frame (~30 fps; the slow-motion one at 6 tps)
 film('transform', 'cocoon_transformation_realtime', 30, 16, 0.4);
 film('transform_slowmo', 'cocoon_slowmo', 30, 16, 0.4);
-film('fp_moves', 'first_person_moves', 30, 20, 0.4);
+film('fp_moves', 'first_person_moves', 20, 20, 0.4); // grabbed on the client tick (20 fps)
 // the emerge stills as sheets (front, side, low 3/4)
 for (const v of ['front', 'side', 'low']) {
 	const pick = files.filter((f) => f.startsWith('emerge_' + v + '_')).map((f) => path.join(shots, f));

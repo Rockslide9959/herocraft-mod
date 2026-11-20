@@ -91,7 +91,7 @@ public final class SymbioteMonsterHarness implements ClientModInitializer {
 		ClientTickEvents.END_CLIENT_TICK.register(SymbioteMonsterHarness::tick);
 		WorldRenderEvents.END.register(ctx -> {
 			String f = frameFilm;
-			if (f == null) {
+			if (f == null || f.startsWith("fp")) {
 				return;
 			}
 			if (System.currentTimeMillis() > frameUntil) {
@@ -283,6 +283,16 @@ public final class SymbioteMonsterHarness implements ClientModInitializer {
 			PLAN.get(planTick++).run();
 		}
 		holdFacing(mc);
+		String ff = frameFilm;
+		if (ff != null && ff.startsWith("fp")) {
+			if (System.currentTimeMillis() > frameUntil) {
+				frameFilm = null;
+				System.out.println("[HARNESS] film " + ff + " frames=" + frameN);
+			} else {
+				Screenshot.grab(out, String.format("film_%s_%04d.png", ff, frameN++), mc.getMainRenderTarget(), m -> {
+				});
+			}
+		}
 	}
 
 	private static void preset(Minecraft mc, SymbioteColourPreset c) {
@@ -335,6 +345,10 @@ public final class SymbioteMonsterHarness implements ClientModInitializer {
 			cam(7.0, 3.6, -9.5, 3.2, 60);
 		});
 
+		if (Files.exists(Path.of("symmon_fp.flag"))) {
+			firstPerson(mc, t + 95);
+			return;
+		}
 		// ---- A: Classic, the whole transformation in real time from the 3/4 front, cocoon stills along the way
 		int c = t + 95;
 		at(c - 1, () -> frames("transform", 9500));
@@ -421,7 +435,10 @@ public final class SymbioteMonsterHarness implements ClientModInitializer {
 		at(eb + 32, () -> preset(mc, SymbioteColourPreset.CLASSIC));
 
 		// ---- F: first person
-		int f = eb + 30 + 40;
+		firstPerson(mc, eb + 30 + 40);
+	}
+
+	private static void firstPerson(Minecraft mc, int f) {
 		int fb = transform(mc, f, 100000);
 		int fp = fb + 40;
 		at(fp, () -> {
