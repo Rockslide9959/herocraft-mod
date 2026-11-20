@@ -1755,6 +1755,8 @@
   "screen.projecthero.green_lantern.category.mobility": "MOBILITY",
   "screen.projecthero.green_lantern.category.utility": "UTILITY",
   "screen.projecthero.power_info": "Your Power",
+  "screen.projecthero.power_info.tab.primary": "Primary",
+  "screen.projecthero.power_info.tab.secondary": "Secondary",
   "screen.projecthero.power_info.controls": "Controls",
   "screen.projecthero.power_info.none": "No active power",
   "screen.projecthero.power_info.none.body": "You have not gained an experimental mutation yet, or none is currently selected. Undergo a mutation, then press the HeroPack power-select key to choose which one occupies your six ability slots.",

@@ -39,8 +39,42 @@ public final class PowerInfoScreen extends Screen {
 	private int top;
 	private int bottom;
 
+	/** v0.17.6: this page is the Secondary tab (the Symbiote stacked on a Primary), not the Primary's page. */
+	private final boolean secondaryTab;
+
 	public PowerInfoScreen() {
+		this(false);
+	}
+
+	public PowerInfoScreen(boolean secondaryTab) {
 		super(Component.translatable("screen.projecthero.power_info"));
+		this.secondaryTab = secondaryTab;
+	}
+
+	/**
+	 * v0.17.6 (user: "have 2 tabs at the top of the menu, primary and secondary ... these tabs only show up if the player has 2 powers"):
+	 * a Normal Symbiote host stacked on a Primary power gets Primary / Secondary tabs on the I menu. I opens on the Primary.
+	 */
+	public static boolean twoPowers(net.minecraft.world.entity.player.Player p) {
+		return p != null && com.projecthero.mod.symbiote.Symbiote.stacked(p);
+	}
+
+	/**
+	 * v0.17.6: the two tab buttons, centred where the "Your Power" title sits (the screen skips the title while they show). The open
+	 * tab is greyed out; the other switches screens: Primary is the Primary power's own page ({@link #primaryScreen}, so the Omnitrix
+	 * keeps its screen), Secondary the Symbiote's page with its Suit Colours button.
+	 */
+	static void addTabs(Screen screen, java.util.function.Consumer<Button> add, boolean secondaryOpen) {
+		int w = 90;
+		int x = screen.width / 2;
+		Button primary = Button.builder(Component.translatable("screen.projecthero.power_info.tab.primary"),
+				b -> Minecraft.getInstance().setScreen(primaryScreen())).bounds(x - w - 2, 10, w, 20).build();
+		Button secondary = Button.builder(Component.translatable("screen.projecthero.power_info.tab.secondary"),
+				b -> Minecraft.getInstance().setScreen(new PowerInfoScreen(true))).bounds(x + 2, 10, w, 20).build();
+		primary.active = secondaryOpen;
+		secondary.active = !secondaryOpen;
+		add.accept(primary);
+		add.accept(secondary);
 	}
 
 	/**
@@ -50,11 +84,17 @@ public final class PowerInfoScreen extends Screen {
 	 */
 	public static Screen create() {
 		net.minecraft.client.player.LocalPlayer p = Minecraft.getInstance().player;
-		// v0.17.6 (Discord): while a Secondary power owns the keys (the Symbiote suit or the Falcon gear over a Primary), I shows that
-		// power's page -- the Omnitrix's own screen used to take over and hide the Symbiote's Suit Colours button
+		// v0.17.6: while the Falcon gear owns the keys over a Primary, I shows the Falcon's page (the Omnitrix's screen used to take
+		// over). The Symbiote stacked on a Primary instead gets Primary / Secondary tabs, opening on the Primary (#twoPowers).
 		if (p != null && secondaryOwnsKeys(p)) {
 			return new PowerInfoScreen();
 		}
+		return primaryScreen();
+	}
+
+	/** The Primary power's own I screen: the Omnitrix's vanilla-styled one, else this page. */
+	static Screen primaryScreen() {
+		net.minecraft.client.player.LocalPlayer p = Minecraft.getInstance().player;
 		if (p != null && trainingState() == null && OmnitrixInfoScreen.applies(p)) {
 			com.projecthero.mod.quirk.Quirk quirk = com.projecthero.mod.quirk.Quirks.quirk(p);
 			if (quirk == null || quirk.standalone) {
@@ -83,8 +123,10 @@ public final class PowerInfoScreen extends Screen {
 						onClose();
 					}).bounds(this.width / 2 + 2, this.height - 28, 120, 20).build());
 		} else if (Minecraft.getInstance().player != null
-				&& com.projecthero.mod.symbiote.Symbiote.isNormalHost(Minecraft.getInstance().player)) {
-			// v0.17.5: a Symbiote host recolours the suit from here (no new key: the power's own info page)
+				&& com.projecthero.mod.symbiote.Symbiote.isNormalHost(Minecraft.getInstance().player)
+				&& (secondaryTab || !twoPowers(Minecraft.getInstance().player))) {
+			// v0.17.5: a Symbiote host recolours the suit from here (no new key: the power's own info page); v0.17.6: on the
+			// Secondary tab when the Symbiote is stacked on a Primary
 			addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
 					.bounds(this.width / 2 - 122, this.height - 28, 120, 20).build());
 			addRenderableWidget(Button.builder(Component.translatable("screen.projecthero.symbiote_colours.open"),
@@ -93,6 +135,10 @@ public final class PowerInfoScreen extends Screen {
 		} else {
 			addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
 					.bounds(this.width / 2 - 60, this.height - 28, 120, 20).build());
+		}
+
+		if (twoPowers(Minecraft.getInstance().player)) {
+			addTabs(this, this::addRenderableWidget, secondaryTab);
 		}
 
 		page.layout(this.width, this.height);
@@ -113,7 +159,17 @@ public final class PowerInfoScreen extends Screen {
 
 		int wrapW = this.right - this.left;
 
-		// v0.17.6: a Secondary power that owns the keys right now comes before the Primary's page (Quirk, Omnitrix, ...)
+		// v0.17.6: the Secondary tab is the Symbiote's page
+		if (secondaryTab) {
+			com.projecthero.mod.hero.guide.HeroPackGuide.Chapter c = com.projecthero.mod.hero.guide.HeroPackGuide.symbioteNormalHostChapter();
+			this.heading = Component.empty().append(c.title()).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
+			for (Component line : c.lines()) {
+				wrap(line, wrapW);
+			}
+			return;
+		}
+
+		// v0.17.6: the Falcon gear owning the keys over a Primary comes before the Primary's page (Quirk, Omnitrix, ...)
 		if (Minecraft.getInstance().player != null && secondaryOwnsKeys(Minecraft.getInstance().player)) {
 			com.projecthero.mod.hero.guide.HeroPackGuide.Chapter c = heroTierChapter();
 			if (c != null) {
@@ -385,9 +441,9 @@ public final class PowerInfoScreen extends Screen {
 	 * The guide chapter for whichever Hero-Tier power the local player holds, or {@code null} if they
 	 * hold none. All four attachments are synced target-only, so this is reliable client-side.
 	 */
-	/** v0.17.6: the Symbiote suit (Normal host) or the Falcon gear is over a Primary and has the keys right now. */
+	/** v0.17.6: the Falcon gear has the keys right now (the Symbiote stacked on a Primary uses the tabs instead). */
 	static boolean secondaryOwnsKeys(net.minecraft.world.entity.player.Player p) {
-		return com.projecthero.mod.symbiote.Symbiote.ownsKeysOverPrimary(p) || com.projecthero.mod.falcon.Falcon.ownsKeys(p);
+		return com.projecthero.mod.falcon.Falcon.ownsKeys(p);
 	}
 
 	private static com.projecthero.mod.hero.guide.HeroPackGuide.Chapter heroTierChapter() {
@@ -404,7 +460,8 @@ public final class PowerInfoScreen extends Screen {
 		// Symbiote extras), not the generic Normal-host Symbiote menu, and not the plain Spider-Man menu
 		// either (its keybind list would be right, but it would say nothing about the suit that's on).
 		// This is checked BEFORE the plain single-power cases below, either of which would otherwise win.
-		boolean symbiote = com.projecthero.mod.symbiote.Symbiote.hasSymbiote(mc.player);
+		// v0.17.6: a Symbiote stacked on a Primary has its own Secondary tab, so the Primary tab shows the Primary's page
+		boolean symbiote = com.projecthero.mod.symbiote.Symbiote.hasSymbiote(mc.player) && !twoPowers(mc.player);
 		boolean spiderMan = com.projecthero.mod.spider.SpiderMan.hasPower(mc.player);
 		if (symbiote && spiderMan) {
 			return com.projecthero.mod.hero.guide.HeroPackGuide.symbioteSpiderManChapter();
@@ -633,7 +690,9 @@ public final class PowerInfoScreen extends Screen {
 	@Override
 	public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
 		super.render(g, mouseX, mouseY, partial);
-		g.drawCenteredString(this.font, this.title, this.width / 2, 16, 0xFFFFFFFF);
+		if (!twoPowers(Minecraft.getInstance().player)) { // v0.17.6: the Primary / Secondary tabs sit where the title was
+			g.drawCenteredString(this.font, this.title, this.width / 2, 16, 0xFFFFFFFF);
+		}
 		page.render(g, this.font, this.heading, mouseX, mouseY);
 	}
 

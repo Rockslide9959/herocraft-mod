@@ -74,17 +74,11 @@ public final class OmnitrixInfoScreen extends Screen {
 		tabs.add(alien != null ? Tab.ALIEN : Tab.WATCH);
 		tab = tabs.get(0);
 
-		if (com.projecthero.mod.symbiote.Symbiote.isNormalHost(p)) {
-			// v0.17.6 (Discord): a Symbiote stacked on the Omnitrix recolours its suit from here too (the button only lived on the
-			// plain "Your Power" page, which the Omnitrix's screen replaces)
-			addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
-					.bounds(this.width / 2 - 122, this.height - 28, 120, 20).build());
-			addRenderableWidget(Button.builder(Component.translatable("screen.projecthero.symbiote_colours.open"),
-					b -> Minecraft.getInstance().setScreen(new SymbioteColourScreen(this)))
-					.bounds(this.width / 2 + 2, this.height - 28, 120, 20).build());
-		} else {
-			addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
-					.bounds(this.width / 2 - 60, this.height - 28, 120, 20).build());
+		addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
+				.bounds(this.width / 2 - 60, this.height - 28, 120, 20).build());
+		if (PowerInfoScreen.twoPowers(p)) {
+			// v0.17.6 (user): the Symbiote stacked on the Omnitrix -- Primary (this page) / Secondary (the Symbiote's, with Suit Colours)
+			PowerInfoScreen.addTabs(this, this::addRenderableWidget, false);
 		}
 		page.layout(this.width, this.height);
 		page.hideHud();
@@ -161,7 +155,9 @@ public final class OmnitrixInfoScreen extends Screen {
 	@Override
 	public void render(GuiGraphics g, int mx, int my, float partial) {
 		super.render(g, mx, my, partial);
-		g.drawCenteredString(this.font, this.title, this.width / 2, 16, 0xFFFFFFFF);
+		if (!PowerInfoScreen.twoPowers(Minecraft.getInstance().player)) { // v0.17.6: the tabs sit where the title was
+			g.drawCenteredString(this.font, this.title, this.width / 2, 16, 0xFFFFFFFF);
+		}
 		// v0.17.3 (user: "the see-through looking I menu ... apply this to all the powers"): the same page as every power; the
 		// alien (or the watch) as a 16x16 icon left of the heading, which then starts after it
 		page.render(g, this.font, Component.empty(), mx, my);
