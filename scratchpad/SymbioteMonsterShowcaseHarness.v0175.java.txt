@@ -1,0 +1,475 @@
+// v0.17.5 Symbiote Monster SHOWCASE harness (the user's "video of the transformation and monster moves"): the transformation in real
+// time, every move on zombies with a key/move caption, the melt back, and the cocoon in slow motion. To use: copy to
+// src/client/java/com/projecthero/mod/client/SymbioteMonsterHarness.java, add it to fabric.mod.json client entrypoints, copy
+// SymMonHarnessCameraMixin.v0175.java.txt / SymMonHarnessGuiMixin.showcase.v0175.java.txt (as SymMonHarnessGuiMixin) into client/mixin and list them in
+// projecthero.client.mixins.json; run node scratchpad/symbiote/make_lethal_protector.js (the monster's Lethal spider mask); write
+// run/symmon.flag = <out dir>; then node scratchpad/symbiote/films_monster_showcase_v0175.js <out dir>.
+// Remove all of it from src before committing.
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.hero.AbilitySlot;
+import com.projecthero.mod.symbiote.Symbiote;
+import com.projecthero.mod.symbiote.SymbioteAbilityManager;
+import com.projecthero.mod.symbiote.SymbioteColourPreset;
+import com.projecthero.mod.symbiote.SymbioteState;
+import com.projecthero.mod.symbiote.SymbioteSuitColours;
+import com.projecthero.mod.symbiote.SymbioteVitalsManager;
+import com.projecthero.mod.symbiote.monster.SymbioteMonster;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.5 Symbiote Monster SHOWCASE; the polish harness before it): films the Shift+Z transformation (real time, every rendered frame, and the
+ * cocoon again in slow motion), turntable stills on Classic and Carnage, a face close-up, the HUD + Left-Alt list, every monster move on
+ * iron golems / zombies, first person, the melt-back, and a side-by-side with the Titan boss. Enabled by run/symmon.flag = "<out dir>".
+ * Kept as scratchpad/SymbioteMonsterHarness.v0175.java.txt (+ SymMonHarnessCameraMixin / SymMonHarnessGuiMixin .v0175.java.txt).
+ */
+public final class SymbioteMonsterHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static File out;
+	private static final List<Runnable> PLAN = new ArrayList<>();
+	private static int planTick;
+	private static BlockPos site;
+	public static volatile net.minecraft.world.phys.Vec3 camOffset;
+	public static volatile double camLookY = 1.2;
+	public static volatile boolean hideHud;
+	/** Drawn top-left by SymMonHarnessGuiMixin while hideHud is on. */
+	public static volatile String caption;
+	private static volatile long frameStart;
+	private static volatile String frameFilm;
+	private static volatile long frameUntil;
+	private static int frameN;
+
+	private static void cam(double x, double y, double z, double lookY, int fov) {
+		camOffset = new net.minecraft.world.phys.Vec3(x, y, z);
+		camLookY = lookY;
+		Minecraft.getInstance().options.fov().set(fov);
+	}
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("symmon.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			out = new File(Files.readAllLines(flag).get(0).trim());
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(SymbioteMonsterHarness::tick);
+		WorldRenderEvents.END.register(ctx -> {
+			String f = frameFilm;
+			if (f == null || f.startsWith("fp") || f.startsWith("cap")) {
+				return;
+			}
+			if (System.currentTimeMillis() > frameUntil) {
+				frameFilm = null;
+				meta(f);
+				return;
+			}
+			Screenshot.grab(out, String.format("film_%s_%04d.png", f, frameN++), Minecraft.getInstance().getMainRenderTarget(), m -> {
+			});
+		});
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "symmon-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void rate(Minecraft mc, float tps) {
+		server(mc, p -> p.server.tickRateManager().setTickRate(tps));
+	}
+
+	private static void meta(String f) {
+		long ms = Math.min(System.currentTimeMillis(), frameUntil) - frameStart;
+		System.out.println("[HARNESS] film " + f + " frames=" + frameN + " ms=" + ms);
+		try {
+			Files.writeString(new File(out, "screenshots/film_" + f + ".meta").toPath(), frameN + " " + ms);
+		} catch (Exception e) {
+			System.out.println("[HARNESS] meta " + e);
+		}
+	}
+
+	/** "cap_" films are grabbed by SymMonHarnessGuiMixin after the caption is drawn (the world-render grab comes before the GUI). */
+	public static void capFrame() {
+		String f = frameFilm;
+		if (f == null || !f.startsWith("cap")) {
+			return;
+		}
+		if (System.currentTimeMillis() > frameUntil) {
+			frameFilm = null;
+			meta(f);
+			return;
+		}
+		Screenshot.grab(out, String.format("film_%s_%04d.png", f, frameN++), Minecraft.getInstance().getMainRenderTarget(), m -> {
+		});
+	}
+
+	private static void stopFilm() {
+		frameUntil = System.currentTimeMillis();
+	}
+
+	private static void frames(String name, long ms) {
+		frameN = 0;
+		frameStart = System.currentTimeMillis();
+		frameUntil = System.currentTimeMillis() + ms;
+		frameFilm = name;
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		mc.gui.getChat().clearMessages(false);
+		mc.getToasts().clear();
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name + " phase=" + SymbioteMonster.state(mc.player).phase() + " h=" + mc.player.getBbHeight());
+	}
+
+	static void at(int ticks, Runnable r) {
+		while (PLAN.size() < ticks) {
+			PLAN.add(() -> {
+			});
+		}
+		Runnable prev = PLAN.get(ticks - 1);
+		PLAN.set(ticks - 1, () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	private static void toggle() {
+		ClientPlayNetworking.send(new com.projecthero.mod.network.SpiderActionPayload(
+				com.projecthero.mod.network.SpiderActionPayload.Action.TOGGLE_SYMBIOTE));
+	}
+
+	private static void face(Minecraft mc, float yaw, float pitch) {
+		server(mc, p -> p.connection.teleport(site.getX() + 0.5, site.getY() + 1, site.getZ() + 0.5, yaw, pitch));
+		faceYaw = yaw;
+		facePitch = pitch;
+		faceTicks = 6;
+	}
+
+	private static float faceYaw, facePitch;
+	private static int faceTicks;
+
+	/** The body turns lazily toward the head on the client: square it up with the look for a few ticks after each turn. */
+	private static void holdFacing(Minecraft mc) {
+		if (faceTicks > 0 && mc.player != null) {
+			faceTicks--;
+			mc.player.setYRot(faceYaw);
+			mc.player.setXRot(facePitch);
+			mc.player.setYHeadRot(faceYaw);
+			mc.player.yHeadRotO = faceYaw;
+			mc.player.yBodyRot = faceYaw;
+			mc.player.yBodyRotO = faceYaw;
+		}
+	}
+
+	/** A server-side press of a monster key (no Shift). */
+	private static void move(Minecraft mc, AbilitySlot slot) {
+		server(mc, p -> {
+			p.setShiftKeyDown(false);
+			SymbioteAbilityManager.handle(p, slot, true);
+			SymbioteAbilityManager.handle(p, slot, false);
+		});
+	}
+
+	private static void charge(Minecraft mc) {
+		server(mc, p -> {
+			SymbioteVitalsManager.restoreBiomass(p);
+			SymbioteState c = Symbiote.state(p).copy();
+			c.abilityCooldowns.set(SymbioteMonster.CDI_MONSTER, 0L);
+			p.setAttached(ModAttachments.SYMBIOTE_STATE, c);
+			SymbioteMonster.handleCharge(p, true, p.level().getGameTime());
+		});
+	}
+
+	/** Mobs in front of the host (north, -z), relative to the site; golems unless {@code zombie}. */
+	private static void mob(Minecraft mc, double dx, double dz, boolean zombie) {
+		server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			Mob m = zombie ? EntityType.ZOMBIE.create(level) : EntityType.IRON_GOLEM.create(level);
+			if (m == null) {
+				return;
+			}
+			m.moveTo(site.getX() + 0.5 + dx, site.getY() + 1, site.getZ() + 0.5 + dz, 180f + (float) Math.toDegrees(Math.atan2(dx, -dz)), 0f);
+			m.setNoAi(!zombie);
+			m.setPersistenceRequired();
+			m.setYHeadRot(m.getYRot());
+			if (zombie) {
+				m.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 20 * 600, 0, false, false));
+				// AI on so the hits visibly throw them; 60 HP so most moves throw rather than kill; a helmet so the sun doesn't light them
+				m.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(60.0);
+				m.setHealth(60f);
+				m.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.IRON_HELMET));
+				m.setDropChance(net.minecraft.world.entity.EquipmentSlot.HEAD, 0f);
+			}
+			level.addFreshEntity(m);
+		});
+	}
+
+	private static void clearMobs(Minecraft mc) {
+		server(mc, p -> p.serverLevel().getEntitiesOfClass(Mob.class, p.getBoundingBox().inflate(40)).forEach(e -> e.discard()));
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.getWindow().setWindowed(854, 480);
+				mc.execute(SymbioteMonsterHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 30) {
+			mc.options.fov().set(70);
+			mc.options.tutorialStep = net.minecraft.client.tutorial.TutorialSteps.NONE;
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(com.projecthero.mod.loot.finds.SupplyDrops.RULE).set(false, p.server);
+				BlockPos sp = p.blockPosition();
+				int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, sp.getX(), sp.getZ());
+				site = new BlockPos(sp.getX(), y - 1, sp.getZ());
+				for (int x = -18; x <= 30; x++) {
+					for (int z = -22; z <= 14; z++) {
+						for (int yy = -2; yy <= 22; yy++) {
+							BlockState st = yy < 0 ? Blocks.DIRT.defaultBlockState() : yy == 0 ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState();
+							level.setBlock(site.offset(x, yy, z), st, 2 | 16);
+						}
+					}
+				}
+				p.setGameMode(GameType.SURVIVAL);
+				p.connection.teleport(site.getX() + 0.5, site.getY() + 1, site.getZ() + 0.5, 180f, 8f);
+				Symbiote.grant(p);
+				SymbioteSuitColours.setPreset(p, SymbioteColourPreset.CLASSIC);
+				p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 20 * 60 * 30, 4, false, false));
+				// zombies leave an invulnerable host alone (no red hurt flash on the monster mid-film)
+				p.getAbilities().invulnerable = true;
+				p.onUpdateAbilities();
+				p.addEffect(new MobEffectInstance(MobEffects.SATURATION, 20 * 60 * 30, 4, false, false));
+			});
+		}
+		if (t == 46) {
+			buildPlan(mc);
+		}
+		if (t < 50 || site == null) {
+			return;
+		}
+		if (planTick < PLAN.size()) {
+			PLAN.get(planTick++).run();
+		}
+		holdFacing(mc);
+		String ff = frameFilm;
+		if (ff != null && ff.startsWith("fp")) {
+			if (System.currentTimeMillis() > frameUntil) {
+				frameFilm = null;
+				meta(ff);
+			} else {
+				Screenshot.grab(out, String.format("film_%s_%04d.png", ff, frameN++), mc.getMainRenderTarget(), m -> {
+				});
+			}
+		}
+	}
+
+	private static void shiftZ(Minecraft mc) {
+		server(mc, p -> {
+			p.setShiftKeyDown(true);
+			SymbioteAbilityManager.handle(p, AbilitySlot.SLOT_4, true);
+			p.setShiftKeyDown(false);
+		});
+	}
+
+	/** A real left-click on the nearest zombie in reach (client attack packet + swing). */
+	private static void leftClick(Minecraft mc) {
+		if (mc.player == null || mc.level == null || mc.gameMode == null) {
+			return;
+		}
+		net.minecraft.world.entity.monster.Zombie best = null;
+		double bd = 1e9;
+		for (var z : mc.level.getEntitiesOfClass(net.minecraft.world.entity.monster.Zombie.class, mc.player.getBoundingBox().inflate(7))) {
+			double d = z.distanceToSqr(mc.player);
+			if (z.isAlive() && d < bd) {
+				bd = d;
+				best = z;
+			}
+		}
+		if (best != null) {
+			mc.gameMode.attack(mc.player, best);
+		}
+		mc.player.swing(InteractionHand.MAIN_HAND);
+	}
+
+	/** One captioned move segment: reset the host, fresh zombies, the move after 14 ticks. */
+	private static void segment(Minecraft mc, int s, String cap, double[][] zombies, Runnable act) {
+		at(s, () -> {
+			clearMobs(mc);
+			face(mc, 180f, 8f);
+			caption = cap;
+		});
+		at(s + 2, () -> {
+			for (double[] z : zombies) {
+				mob(mc, z[0], z[1], true);
+			}
+		});
+		at(s + 14, act);
+	}
+
+	private static void buildPlan(Minecraft mc) {
+		int t = 10;
+		at(t, () -> {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.hideGui = true;
+		});
+		at(t + 5, SymbioteMonsterHarness::toggle);
+		// front three-quarter, far enough back that the 7.2-block cocoon and the 7-block body fit with room above
+		at(t + 85, () -> {
+			face(mc, 180f, 8f);
+			cam(8.5, 4.2, -11.5, 3.6, 60);
+		});
+
+		// ---- 1: the transformation, real time: charge (tendrils circling) -> cocoon -> burst -> emerge roar -> idle
+		int c = t + 95;
+		at(c - 10, () -> frames("transform", 60000));
+		at(c, () -> charge(mc));
+		int burst = c + 61 + 50;
+		at(burst + 40, () -> face(mc, 180f, 8f));
+		at(burst + 112, SymbioteMonsterHarness::stopFilm);
+
+		// ---- 2: every move on zombies (AI on, so they get thrown and come back), captioned in the corner
+		int m = burst + 120;
+		at(m - 4, () -> {
+			mc.options.hideGui = false;
+			hideHud = true;
+			cam(11.5, 5.4, -9.5, 3.2, 64);
+		});
+		at(m, () -> frames("cap_moves", 60000));
+		int s = m + 2;
+		segment(mc, s, "R  -  Claw Swipe", new double[][] { { -1.6, -4.4 }, { 1.4, -4.8 }, { 0.0, -5.6 } }, () -> move(mc, AbilitySlot.SLOT_1));
+		s += 56;
+		segment(mc, s, "G  -  Ground Pound", new double[][] { { -3.2, -3.4 }, { 3.0, -3.8 }, { 0.0, -5.4 }, { 4.2, 0.8 } }, () -> move(mc, AbilitySlot.SLOT_2));
+		s += 60;
+		at(s - 2, () -> cam(13.5, 6.4, -6.0, 3.0, 70));
+		segment(mc, s, "X  -  Leap Smash", new double[][] { { -1.6, -13.5 }, { 1.6, -14.0 }, { 0.0, -15.5 } }, () -> move(mc, AbilitySlot.SLOT_3));
+		s += 72;
+		at(s - 2, () -> cam(11.5, 5.4, -9.5, 3.2, 64));
+		segment(mc, s, "Z  -  Monster Roar", new double[][] { { -2.6, -6.0 }, { 2.6, -6.6 }, { 0.0, -8.6 } }, () -> move(mc, AbilitySlot.SLOT_4));
+		s += 58;
+		segment(mc, s, "C  -  Devour Whole", new double[][] { { 0.0, -4.2 }, { 3.4, -7.4 } }, () -> move(mc, AbilitySlot.SLOT_6));
+		s += 58;
+		segment(mc, s, "V  -  Tendril Pull", new double[][] { { -3.0, -8.2 }, { 3.0, -8.6 }, { 0.0, -9.6 } }, () -> move(mc, AbilitySlot.SLOT_5));
+		s += 58;
+		segment(mc, s, "Left-click  -  Claws", new double[][] { { -0.6, -4.0 }, { 1.4, -4.6 } }, () -> leftClick(mc));
+		at(s + 14 + 16, () -> leftClick(mc));
+		at(s + 14 + 32, () -> leftClick(mc));
+		s += 70;
+		at(s, SymbioteMonsterHarness::stopFilm);
+
+		// ---- 3: the melt back into the suit (Shift+Z in the form)
+		int e = s + 6;
+		at(e - 4, () -> {
+			clearMobs(mc);
+			caption = null;
+			hideHud = false;
+			mc.options.hideGui = true;
+			face(mc, 180f, 8f);
+			cam(6.5, 3.4, -9.0, 2.8, 60);
+		});
+		at(e, () -> frames("melt", 60000));
+		at(e + 96, SymbioteMonsterHarness::stopFilm);
+		at(e + 16, () -> shiftZ(mc));
+
+		// ---- 4: the cocoon again in slow motion (6 tps from just before the charge completes)
+		int w = e + 120;
+		at(w - 4, () -> {
+			face(mc, 180f, 8f);
+			cam(7.5, 3.8, -10.5, 3.4, 60);
+		});
+		at(w, () -> charge(mc));
+		at(w + 57, () -> rate(mc, 6f));
+		at(w + 58, () -> frames("transform_slowmo", 60000));
+		at(w + 58 + 100, SymbioteMonsterHarness::stopFilm); // the client ticks at 6 tps too: ~16.7 s
+		at(w + 58 + 102, () -> rate(mc, 20f));
+		at(w + 58 + 130, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		rules.getRule(com.projecthero.mod.calling.SpawnCallings.RULE).set(false, null);
+		LevelSettings settings = new LevelSettings("SYMMON_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.NORMAL, true,
+				rules, WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(17051L, true, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}
