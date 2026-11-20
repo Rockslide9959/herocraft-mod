@@ -439,3 +439,6 @@ if (process.argv.includes('--debug')) {
 	PNG.write(f, DW, H * Z, dbg);
 	console.log('debug', f);
 }
+
+// v0.17.5: the Symbiote Monster form's held-back tint mask wears this suit's spider (gen_symbiote_monster_v0175.js --lethal)
+require('child_process').execFileSync(process.execPath, [path.join(__dirname, 'gen_symbiote_monster_v0175.js'), '--lethal'], { stdio: 'inherit' });

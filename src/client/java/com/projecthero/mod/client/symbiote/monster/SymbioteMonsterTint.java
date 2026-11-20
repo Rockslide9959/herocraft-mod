@@ -25,7 +25,9 @@ import net.minecraft.world.entity.Entity;
  */
 public final class SymbioteMonsterTint {
 	public static final ResourceLocation MASK = ProjectHeroMod.id("textures/entity/symbiote_monster_tint.png");
-	public static final ResourceLocation KEEP = ProjectHeroMod.id("textures/entity/symbiote_monster_keep.png");
+	/** Held back (.gitignored, made by make_lethal_protector.js): the same mask wearing the Lethal Protector suit's spider. */
+	public static final ResourceLocation MASK_LETHAL = ProjectHeroMod.id("textures/entity/symbiote_monster_tint_lethal.png");
+	public static final ResourceLocation KEEP =ProjectHeroMod.id("textures/entity/symbiote_monster_keep.png");
 	public static final ResourceLocation CLASSIC = ProjectHeroMod.id("textures/entity/symbiote_monster.png");
 	private static final int MAX = 6;
 	private static final LinkedHashMap<String, ResourceLocation> BAKED = new LinkedHashMap<>(8, 0.75f, true);
@@ -50,7 +52,14 @@ public final class SymbioteMonsterTint {
 			return cached;
 		}
 		if (mask == null && !missing) {
-			mask = read(MASK);
+			// v0.17.5: the monster wears the same spider as the suit the player sees -- the held-back Lethal Protector mask when that
+			// suit's (borrowed, unlicensed) art is in this build, else the committed mask with the Classic suit's own spider
+			if (SymbioteSuitTint.artStyle() == com.projecthero.mod.symbiote.SymbioteSuitStyle.LETHAL_PROTECTOR) {
+				mask = read(MASK_LETHAL);
+			}
+			if (mask == null) {
+				mask = read(MASK);
+			}
 			keep = read(KEEP);
 			missing = mask == null || keep == null;
 		}

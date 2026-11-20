@@ -213,7 +213,10 @@ for (const side of [-1, 1]) {
 		bone('spur_' + s + k, 'forearm_' + s, [x + side * 10.5, 44 - k * 6, 4], [0, 0, side * (60 + k * 6)]);
 		cube(B['spur_' + s + k], [x + side * 10.5 - 1.2, 44 - k * 6, 2.8], [2.4, 4.2 - k * 0.6, 2.4], 'claw');
 	}
-	bone('hand_' + s, 'forearm_' + s, [x, 23, -1], [-6, 0, 0]);
+	// v0.17.5 (user: 'make the hands face the other way so like their hand is being dragged behind them ... make sure the thumb is on the
+	// correct side'): the hand is turned round (180 deg about its own up axis) -- the claws trail behind the knuckles and the thumb, which
+	// was on the outer edge, comes to the inner side, where it sits on a palm-back hand
+	bone('hand_' + s, 'forearm_' + s, [x, 23, -1], [6, 180, 0]);
 	cube(B['hand_' + s], [x - 9, 11, -9.5], [18, 12.5, 18]);
 	cube(B['hand_' + s], [x - 8, 9.5, -8.5], [16, 2, 15]);                 // knuckle pad
 	for (let k = 0; k < 4; k++) {
@@ -300,34 +303,66 @@ function polyDist(px, py, pts, w0, w1) { // tapered polyline: signed-ish distanc
 	return best;
 }
 function ellipse(px, py, cx, cy, rx, ry) { return (Math.hypot((px - cx) / rx, (py - cy) / ry) - 1) * Math.min(rx, ry); }
-/** The front emblem (chest / belly front faces): distance, negative inside. */
+// v0.17.5 (user: "make the spider symbol the same spider symbol thats on the regular symbiote form"): the emblem is read straight off the
+// Lethal Protector suit's tint mask (B 128 = emblem) -- the body front (skin 20,20 8x12) on the chest, the body back (32,20) on the hump --
+// and scaled up, so the monster wears exactly the suit's spider. Distance-ish: negative inside, from a nearest sample of the 0/1 mask. Its legs wrap the ribcage sides as they wrap the suit's.
+// Licence rule (as the suit's own SymbioteSuitTint fallback): the Lethal Protector skin is borrowed with no licence, so its spider only goes
+// into a held-back (.gitignored) mask, symbiote_monster_tint_lethal.png, made with --lethal (make_lethal_protector.js runs it); the committed
+// mask and bake wear the Classic suit's own original spider. At runtime SymbioteMonsterTint uses the Lethal mask when that suit's art is in
+// the build, so the monster always wears the same spider as the suit the player sees.
+const LETHAL = args.indexOf('--lethal') >= 0;
+const SUIT_TINT = PNG.read(path.join(ROOT, 'textures', 'armor', LETHAL ? 'symbiote_host_lethal_tint.png' : 'symbiote_host_tint.png'));
+const SUIT_S = SUIT_TINT.W / 64;
+/** The suit's emblem mask of the skin region (u0, v0, w, h), upscaled 4x with Scale2x twice: the 1-texel diagonal leg stripes become smooth
+ * lines and keep the gaps between them (a plain zoom reads as a checkerboard at the monster's size, a blur merges the legs). */
+const EMB_CACHE = {};
+function suitMask(u0, v0, w, h) {
+	const key = u0 + ',' + v0 + ',' + w + ',' + h;
+	if (EMB_CACHE[key]) return EMB_CACHE[key];
+	let W = w * SUIT_S, H = h * SUIT_S, m = new Uint8Array(W * H);
+	for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+		const i = (((v0 * SUIT_S + y) * SUIT_TINT.W) + u0 * SUIT_S + x) * 4, bl = SUIT_TINT.px[i + 2];
+		m[y * W + x] = SUIT_TINT.px[i + 3] > 0 && bl > 100 && bl < 160 ? 1 : 0;
+	}
+	for (let pass = 0; pass < 2; pass++) {
+		const g = (x, y) => m[clamp(y, 0, H - 1) * W + clamp(x, 0, W - 1)];
+		const o = new Uint8Array(W * H * 4), W2 = W * 2;
+		for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+			const P = g(x, y), A = g(x, y - 1), B = g(x + 1, y), C = g(x - 1, y), D = g(x, y + 1);
+			let e0 = P, e1 = P, e2 = P, e3 = P;
+			if (C === A && C !== D && A !== B) e0 = A;
+			if (A === B && A !== C && B !== D) e1 = B;
+			if (D === C && D !== B && C !== A) e2 = C;
+			if (B === D && B !== A && D !== C) e3 = D;
+			o[(2 * y) * W2 + 2 * x] = e0; o[(2 * y) * W2 + 2 * x + 1] = e1; o[(2 * y + 1) * W2 + 2 * x] = e2; o[(2 * y + 1) * W2 + 2 * x + 1] = e3;
+		}
+		m = o; W *= 2; H *= 2;
+	}
+	return (EMB_CACHE[key] = { m, W, H });
+}
+function suitEmblemAt(u0, v0, w, h, u, v) { // u, v in suit texels (0..w*S, 0..h*S) of the region at skin (u0, v0)
+	const { m, W, H } = suitMask(u0, v0, w, h);
+	const x = Math.floor(u * 4), y = Math.floor(v * 4);
+	return x < 0 || y < 0 || x >= W || y >= H ? 0 : m[y * W + x];
+}
+/** The chest emblem: suit texel (u, v) -> chest (x, y): 16 texels across the ribcage front (x +-21), texel row 2 at y 81. */
+const EMB_K = 2.2, EMB_TOP = 74 + 2 * EMB_K, RIB_FRONT_Z = -12; // smaller and lower than the ribcage: the hanging head hides the top of the chest from the front
 function emblemFront(x, y) {
-	const ax = Math.abs(x);
-	let d = ellipse(ax, y, 0, 75.2, 2.3, 2.0);                       // head
-	d = Math.min(d, ellipse(ax, y, 0, 70.6, 4.2, 3.6));               // thorax
-	d = Math.min(d, polyDist(ax, y, [[0, 68], [0, 60], [0, 50], [0, 44]], 3.4, 0.4)); // the long abdomen spike
-	d = Math.min(d, polyDist(ax, y, [[2.5, 73], [7, 76.5], [11, 79.5]], 2.0, 1.5));   // leg 1, over the shoulder
-	d = Math.min(d, polyDist(ax, y, [[3.2, 71.5], [10, 74], [16, 73.5], [21.5, 71]], 2.0, 1.2)); // leg 2 round the ribs
-	d = Math.min(d, polyDist(ax, y, [[3.4, 69.5], [10, 67.5], [16, 64.5], [21.5, 61]], 1.9, 1.1)); // leg 3
-	d = Math.min(d, polyDist(ax, y, [[2.6, 67.5], [7, 62.5], [9.5, 57], [9.8, 52.5]], 1.7, 0.35)); // leg 4, a free point
-	return d;
+	const u = 8 - x / EMB_K, v = (EMB_TOP - y) / EMB_K; // the chest faces the viewer: the skin's left column is the model's +x side
+	return (0.5 - suitEmblemAt(20, 20, 8, 12, u, v)) * 2.2;
 }
-function emblemTop(x, z) { return polyDist(Math.abs(x), z, [[11, -15.5], [12.5, -6], [12, 6], [10, 14]], 1.5, 0.4); }
-function emblemSide(z, y) { // on the ribcage's east / west faces (x = +-21)
-	let d = polyDist(z, y, [[-12, 71], [-4, 70], [4, 67], [10, 62]], 1.2, 0.35);
-	d = Math.min(d, polyDist(z, y, [[-12, 61], [-4, 59], [3, 56.5]], 1.1, 0.3));
-	return d;
+/** The ribcage sides (x = +-21): the suit's body side strips, the legs carrying on round from the front. */
+function emblemSide(x, z, y) {
+	const back = (z - RIB_FRONT_Z) / EMB_K, v = (EMB_TOP - y) / EMB_K;
+	return (0.5 - (x > 0 ? suitEmblemAt(16, 20, 4, 12, 8 - back, v) : suitEmblemAt(28, 20, 4, 12, back, v))) * 2.2;
 }
-function emblemBack(x, y) { // the hump's back face (z = 21): a smaller spider whose legs claw round the hump
-	const ax = Math.abs(x);
-	let d = ellipse(ax, y, 0, 84, 1.9, 1.7);
-	d = Math.min(d, ellipse(ax, y, 0, 80.2, 3.4, 3.0));
-	d = Math.min(d, polyDist(ax, y, [[0, 78], [0, 72]], 2.6, 0.5));
-	d = Math.min(d, polyDist(ax, y, [[2.2, 82], [8, 86.5], [14, 89.5]], 1.6, 0.8));
-	d = Math.min(d, polyDist(ax, y, [[2.8, 80.5], [10, 81.5], [17, 79]], 1.6, 0.8));
-	d = Math.min(d, polyDist(ax, y, [[2.8, 79], [9, 76], [14, 72.5]], 1.5, 0.6));
-	return d;
+/** The hump's back face: the suit's back spider, 1.2 px a texel, texel row 3 at y 90. */
+const EMB_BK = 1.2, EMB_BTOP = 90 + 3 * 1.2;
+function emblemBack(x, y) {
+	const u = 8 + x / EMB_BK, v = (EMB_BTOP - y) / EMB_BK;
+	return (0.5 - suitEmblemAt(32, 20, 8, 12, u, v)) * 1.4;
 }
+
 // eyes: big angular white lenses sweeping up and round the sides of the head (head space, the front face z = -30)
 const EYE = [[0.8, 78.6], [3.0, 77.3], [6.0, 77.0], [9.0, 77.8], [11.3, 79.4], [11.3, 89.1], [9.8, 89.4], [7.4, 88.5], [5.0, 86.2], [3.0, 83.0], [1.6, 80.4]];
 function polySdf(px, py, poly) {
@@ -443,14 +478,13 @@ function paint(b, c, f, p, w, nW, fu, fv, fw, fh) {
 	let em = 1e9;
 	if (b.name === 'chest') {
 		if (f === 'north') em = emblemFront(p[0], p[1]);
-		else if (f === 'up' && c.from[1] < 80) em = emblemTop(p[0], p[2]);
-		else if ((f === 'east' || f === 'west') && Math.abs(Math.abs(p[0]) - 21) < 0.05) em = emblemSide(p[2], p[1]);
+		else if ((f === 'east' || f === 'west') && Math.abs(Math.abs(p[0]) - 21) < 0.05) em = emblemSide(p[0], p[2], p[1]);
 		else if (f === 'south' && c.from[1] >= 70 && c.from[1] < 80) em = emblemBack(p[0], p[1]);
 		if (f === 'north' && c.tag === 'pecs') em = emblemFront(p[0], p[1] + 0.2);
 	}
 	if (b.name === 'belly' && f === 'north') em = emblemFront(p[0], p[1] + 2.5);
 	if (em < 1e8) {
-		const rag = (vnoise3(w[0] * 0.9, w[1] * 0.9, w[2] * 0.9) - 0.5) * 0.9; // a ragged, living edge
+		const rag = (vnoise3(w[0] * 0.9, w[1] * 0.9, w[2] * 0.9) - 0.5) * 0.35; // a slightly ragged, living edge (kept small: the suit spider's thin legs)
 		const d = em + rag;
 		if (d < 0) { ch = 128; shade = 128 + clamp(-d, 0, 2) * 3 + (h0 - 0.5) * 20; gloss = 20 + spec * 70; }
 		else if (d < 0.9) { ch = 0; shade = 20; gloss = 0; }
@@ -534,6 +568,11 @@ const geo = {
 };
 const mask8 = Buffer.alloc(AW * AH * 4), keep8 = Buffer.alloc(AW * AH * 4);
 for (let i = 0; i < AW * AH * 4; i++) { mask8[i] = Math.round(MASK[i]); keep8[i] = KEEP[i]; }
+if (LETHAL) {
+	PNG.write(path.join(ROOT, 'textures', 'entity', 'symbiote_monster_tint_lethal.png'), AW, AH, mask8);
+	console.log('wrote textures/entity/symbiote_monster_tint_lethal.png (held back: the Lethal Protector spider)');
+	process.exit(0);
+}
 fs.writeFileSync(path.join(ROOT, 'geo', 'symbiote_monster.geo.json'), JSON.stringify(geo));
 PNG.write(path.join(ROOT, 'textures', 'entity', 'symbiote_monster_tint.png'), AW, AH, mask8);
 PNG.write(path.join(ROOT, 'textures', 'entity', 'symbiote_monster_keep.png'), AW, AH, keep8);
