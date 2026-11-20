@@ -40,12 +40,12 @@ public final class OmnitrixFeature {
 	/** v0.17.3 release switch: the six new hidden prototype aliens. {@code false} for v0.17.3; {@code true} to ship them. */
 	public static final boolean PROTOTYPE_ALIENS_0173 = true;
 	/** v0.17.3 release switch: the new show transformations (all but Four Arms'). {@code false} for v0.17.3; {@code true} to ship them. */
-	public static final boolean SHOW_SEQUENCES = true;
+	public static final boolean SHOW_SEQUENCES = false; // v0.17.6 (user: "remove the omnitrix transformation sequences from the game")
 	/** The aliens {@link #PROTOTYPE_ALIENS_0173} holds back. */
 	public static final java.util.Set<String> HELD_ALIENS_0173 = java.util.Set.of("snare_oh", "shock_rock", "frankenstrike", "eye_guy", "benwolf",
 			"arctiguana");
 	/** The show sequences that play whatever {@link #SHOW_SEQUENCES} says: Four Arms' shipped in v0.17.2. */
-	public static final java.util.Set<String> SHIPPED_SEQUENCES = java.util.Set.of("four_arms");
+	public static final java.util.Set<String> SHIPPED_SEQUENCES = java.util.Set.of(); // v0.17.6: Four Arms' is gone too
 
 	private static final boolean IN_GAMETEST = System.getProperty("fabric-api.gametest") != null;
 	private static boolean prototypeAliens = PROTOTYPE_ALIENS_0173 || IN_GAMETEST;

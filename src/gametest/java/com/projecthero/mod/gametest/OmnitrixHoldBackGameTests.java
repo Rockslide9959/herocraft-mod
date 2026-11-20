@@ -105,13 +105,11 @@ public class OmnitrixHoldBackGameTests implements FabricGameTest {
 		ServerPlayer p = wearer(helper);
 		OmnitrixFeature.forceShowSequencesForTests(false);
 		try {
-			helper.assertTrue(OmnitrixLongTransform.has(Aliens.FOUR_ARMS.id()), "Four Arms' long transformation (v0.17.2) stays");
+			helper.assertFalse(OmnitrixLongTransform.has(Aliens.FOUR_ARMS.id()), "v0.17.6: Four Arms' long transformation is gone too");
 			for (Aliens.Alien a : Aliens.all()) {
-				if (!a.id().equals(Aliens.FOUR_ARMS.id())) {
-					helper.assertFalse(ShowSequences.has(a.id()), a.id() + ": no show sequence while held back");
-				}
+				helper.assertFalse(ShowSequences.has(a.id()), a.id() + ": no show sequence while held back");
 			}
-			for (String id : List.of(Aliens.HEATBLAST.id(), Aliens.XLR8.id(), Aliens.GHOSTFREAK.id())) {
+			for (String id : List.of(Aliens.FOUR_ARMS.id(), Aliens.HEATBLAST.id(), Aliens.XLR8.id(), Aliens.GHOSTFREAK.id())) {
 				helper.assertTrue(ShowSequences.byHash(id.hashCode()) == null, id + ": a synced sequence id resolves to nothing");
 			}
 			raise(helper, p);
