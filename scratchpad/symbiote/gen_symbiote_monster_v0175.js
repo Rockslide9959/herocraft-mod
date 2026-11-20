@@ -122,21 +122,40 @@ cube(B.chest, [-17, 72, -2], [34, 18, 23]);                // THE HUMP (back, ab
 cube(B.chest, [-12, 88, 2], [24, 6, 16]);                  // hump crown
 cube(B.chest, [-13, 76, -9], [26, 6, 9]);                  // traps into the neck
 cube(B.chest, [-15, 56, 13], [30, 18, 4]);                 // lats / lower back bulk
-// spines along the hump
-for (let i = 0; i < 5; i++) {
-	const z = 4 + i * 3.4, y = 94 - Math.abs(i - 1.5) * 1.6 - i * 0.6;
-	bone('spine_' + i, 'chest', [0, y, z], [-30 - i * 8, 0, 0]);
-	cube(B['spine_' + i], [-1.6, y, z - 1.6], [3.2, 3.6 - i * 0.25, 3.2], 'spine');
-	cube(B['spine_' + i], [-0.9, y + 3.2, z - 0.9], [1.8, 3.4 - i * 0.3, 1.8], 'claw');
+// v0.17.5 (user: "make the back spikes look better ... the positioning and stuff"): a dorsal ridge of curved horns down the middle of the
+// hump -- biggest over the crown, raked back and shrinking down the back -- plus a smaller pair on each shoulder blade. Each horn is three
+// tapering segments, each bent a little further back than the last, so it curves like a claw. Chest space: the crown top is y 94 (z 2..18),
+// the hump's back face z 21 (y 72..90), the lats z 17 (y 56..74). rotX -a tips the horn from +y towards +z (back) by a degrees.
+function horn(name, parent, x, y, z, rotX, rotZ, len) {
+	const s = len / 10;
+	const segs = [[4.4 * s + 0.6, len * 0.42, 'spine', 0], [3.0 * s + 0.4, len * 0.33, 'spine', -14], [1.7 * s + 0.3, len * 0.33, 'claw', -16]];
+	let py = y - 1.2, par = parent; // the root sits a little inside the body
+	segs.forEach(([w, l, tag, bend], k) => {
+		const n = name + '_' + k;
+		bone(n, par, [x, py, z], k === 0 ? [rotX, 0, rotZ] : [bend, 0, 0]);
+		cube(B[n], [x - w / 2, py, z - w / 2], [w, l, w], tag);
+		py += l - (k < 2 ? 0.4 : 0); // overlap the joints a touch so no gap opens when the segment bends
+		par = n;
+	});
 }
-// back tendrils: three living strands off the hump (they writhe)
-const TENDRILS = [['a', -9, 86, 14, [-100, 0, 38]], ['b', 9, 86, 14, [-100, 0, -38]], ['c', 0, 84, 20, [-118, 0, 0]]];
+// The body hunches 38 deg forward (belly 14 + chest 24), so in chest space a horn at rotX -a points a - 38 deg back from straight up in the
+// world. The hump's back face (z 21) is the top of the back in the world; the spider emblem sits on it (x +-9.6, y 70..90), so the horns
+// there run in twin rows either side of it, with single horns on the crown and on the lower back below the emblem.
+const RIDGE = [ // [x, y, z, rotX, rotZ, length]
+	[0, 93.2, 10.0, -35, 0, 7], [0, 93.2, 15.5, -50, 0, 9.5],
+	[-12, 88.0, 20.2, -70, 12, 9.5], [12, 88.0, 20.2, -70, -12, 9.5],
+	[-12.5, 81.0, 20.2, -85, 12, 8], [12.5, 81.0, 20.2, -85, -12, 8],
+	[-12.5, 74.5, 20.2, -98, 10, 6.5], [12.5, 74.5, 20.2, -98, -10, 6.5],
+	[0, 67.5, 16.2, -108, 0, 6], [0, 62.5, 16.2, -116, 0, 4.5]];
+RIDGE.forEach(([x, y, z, rx, rz, len], i) => horn('spine_' + i, 'chest', x, y, z, rx, rz, len * 1.45));
+// back tendrils: three living strands off the back of the hump (they writhe), hanging back and down over the hump instead of standing up
+const TENDRILS = [['a', -12, 69, 16.5, [-192, 0, 22]], ['b', 12, 69, 16.5, [-192, 0, -22]], ['c', 0, 57.5, 16.5, [-196, 0, 0]]];
 for (const [t, tx, ty, tz, r0] of TENDRILS) {
 	let w = 3.4, y = ty, parent = 'chest';
-	const len = [10, 9, 8, 7];
+	const len = [7, 6.5, 6, 5.5]; // shorter, hanging strands (they read as rods when long)
 	for (let k = 0; k < 4; k++) {
 		const name = 'tend_' + t + k;
-		bone(name, parent, [tx, y, tz], k === 0 ? r0 : [-16, 0, 0]);
+		bone(name, parent, [tx, y, tz], k === 0 ? r0 : [7, 0, 0]); // each joint curls a little away from the back
 		cube(B[name], [tx - w / 2, y, tz - w / 2], [w, len[k], w], k === 3 ? 'claw' : 'skin');
 		y += len[k];
 		w *= 0.74;
