@@ -147,6 +147,17 @@ public final class SymbioteMonsterHarness implements ClientModInitializer {
 				+ " normalHost=" + Symbiote.isNormalHost(mc.player) + " owns=" + Symbiote.ownsKeysOverPrimary(mc.player));
 	}
 
+	private static void openSecondary(Minecraft mc, String name) {
+		if (com.projecthero.mod.client.gui.PowerInfoScreen.twoPowers(mc.player)) {
+			mc.setScreen(new com.projecthero.mod.client.gui.PowerInfoScreen(true));
+			System.out.println("[HARNESS] " + name + " opened");
+		}
+		pending = name;
+	}
+
+	private static String pending;
+	private static int pendingWait;
+
 	private static void charge(Minecraft mc) {
 		server(mc, p -> {
 			SymbioteVitalsManager.restoreBiomass(p);
@@ -204,6 +215,11 @@ public final class SymbioteMonsterHarness implements ClientModInitializer {
 		if (t < 50 || site == null) {
 			return;
 		}
+		if (pending != null && mc.screen != null && pendingWait++ >= 0) {
+			shot(mc, pending);
+			pending = null;
+			pendingWait = 0;
+		}
 		if (planTick < PLAN.size()) {
 			PLAN.get(planTick++).run();
 		} else if (PLAN.size() > 0) {
@@ -228,10 +244,16 @@ public final class SymbioteMonsterHarness implements ClientModInitializer {
 			at(t + 10, () -> server(mc, p -> System.out.println("[HARNESS] symbiote=" + Symbiote.grant(p, false))));
 			at(t + 30, () -> openInfo(mc, "i1_kryptonian_suit_off"));
 			at(t + 36, () -> shot(mc, "i1_kryptonian_suit_off"));
+			at(t + 37, () -> openSecondary(mc, "i1_kryptonian_suit_off_tab2"));
+			at(t + 38 + 0, () -> {
+			});
 			at(t + 38, () -> mc.setScreen(null));
 			at(t + 40, () -> server(mc, Symbiote::toggle));
 			at(t + 110, () -> openInfo(mc, "i2_kryptonian_suit_on"));
 			at(t + 116, () -> shot(mc, "i2_kryptonian_suit_on"));
+			at(t + 117, () -> openSecondary(mc, "i2_kryptonian_suit_on_tab2"));
+			at(t + 118 + 0, () -> {
+			});
 			at(t + 118, () -> mc.setScreen(null));
 			at(t + 120, () -> server(mc, Symbiote::toggle));
 			at(t + 180, () -> server(mc, p -> {
@@ -240,16 +262,25 @@ public final class SymbioteMonsterHarness implements ClientModInitializer {
 			}));
 			at(t + 210, () -> openInfo(mc, "i3_omnitrix_suit_off"));
 			at(t + 216, () -> shot(mc, "i3_omnitrix_suit_off"));
+			at(t + 217, () -> openSecondary(mc, "i3_omnitrix_suit_off_tab2"));
+			at(t + 218 + 0, () -> {
+			});
 			at(t + 218, () -> mc.setScreen(null));
 			at(t + 220, () -> server(mc, Symbiote::toggle));
 			at(t + 290, () -> openInfo(mc, "i4_omnitrix_suit_on"));
 			at(t + 296, () -> shot(mc, "i4_omnitrix_suit_on"));
+			at(t + 297, () -> openSecondary(mc, "i4_omnitrix_suit_on_tab2"));
+			at(t + 298 + 0, () -> {
+			});
 			at(t + 298, () -> mc.setScreen(null));
 			at(t + 300, () -> server(mc, p -> {
 				Symbiote.toggle(p);
 				com.projecthero.mod.hero.PowerGrants.revokeHeroTier(p, "omnitrix");
 			}));
 			t += 370;
+			if (mode.equals("tabs")) {
+				return;
+			}
 		} else {
 			at(t, () -> server(mc, p -> System.out.println("[HARNESS] symbiote=" + Symbiote.grant(p, false))));
 			t += 20;
