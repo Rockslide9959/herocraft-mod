@@ -1,0 +1,40 @@
+// v0.17.5 Symbiote Monster SHOWCASE: the Gui mixin for SymbioteMonsterShowcaseHarness (draws the key/move caption and grabs the "cap_" film
+// frames after the GUI; the world-render grab comes before the GUI is drawn). Copy to client/mixin/SymMonHarnessGuiMixin.java.
+// The polish / original harnesses use SymMonHarnessGuiMixin.v0175.java.txt instead (they have no caption / capFrame).
+package com.projecthero.mod.client.mixin;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.GuiGraphics;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.5 Symbiote Monster form): hides the HUD for first-person shots without hiding the hand, and (showcase)
+ * draws {@code SymbioteMonsterHarness.caption} top-left on a dark plate instead, then grabs the captioned frame.
+ */
+@Mixin(Gui.class)
+public abstract class SymMonHarnessGuiMixin {
+	@Inject(method = "render", at = @At("HEAD"), cancellable = true)
+	private void projecthero$symmonNoHud(GuiGraphics g, DeltaTracker delta, CallbackInfo ci) {
+		if (com.projecthero.mod.client.SymbioteMonsterHarness.hideHud) {
+			String cap = com.projecthero.mod.client.SymbioteMonsterHarness.caption;
+			if (cap != null) {
+				var font = Minecraft.getInstance().font;
+				int w = font.width(cap);
+				g.pose().pushPose();
+				g.pose().scale(1.5f, 1.5f, 1f);
+				g.fill(4, 4, 4 + w + 10, 4 + 17, 0xB0000000);
+				g.drawString(font, cap, 9, 9, 0xFFFFFFFF, true);
+				g.pose().popPose();
+			}
+			g.flush();
+			com.projecthero.mod.client.SymbioteMonsterHarness.capFrame();
+			ci.cancel();
+		}
+	}
+}
