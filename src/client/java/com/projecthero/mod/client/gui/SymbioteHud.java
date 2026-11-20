@@ -59,12 +59,12 @@ public final class SymbioteHud {
 	 * v0.17.5: the Shift variant's own cooldown entry on R / X / Z (Tendril Sweep 12, Grapple 14, Onslaught 13 -- they no longer share
 	 * the plain move's). G (Spike Fan) and C (Tendril Grab) are handled below as before; V has none.
 	 */
-	private static final int[] SHIFT_CD_INDEX = { 12, -1, 14, 13, -1, -1 };
+	private static final int[] SHIFT_CD_INDEX = { 12, -1, 14, com.projecthero.mod.symbiote.monster.SymbioteMonster.CDI_MONSTER, -1, -1 }; // v0.17.5: Z = Monster form
 	/** Client-side: when each of R G X Z V C went down without Sneak (for the hold fill), or -1. */
 	private static final long[] HOLD_DOWN = { -1, -1, -1, -1, -1, -1 };
 	/** v0.16.6: the Shift move on each key (SymbioteAbilityManager.handle's sneak branches), for the move list. */
 	private static final String[] NORMAL_SHIFT_ABILITIES = {
-			"tendril_sweep", "spike_nova", "grapple", "onslaught", "shield", "tendril_grab"
+			"tendril_sweep", "spike_nova", "grapple", "monster_form", "shield", "tendril_grab"
 	};
 	private static final int[] AGENT_VENOM_COOLDOWNS = {
 			SymbioteAgentVenomAbilities.CD_SWING, SymbioteAgentVenomAbilities.CD_SNATCH,
@@ -163,6 +163,11 @@ public final class SymbioteHud {
 		// v0.17.5 (a Secondary power): stacked on a Primary, the column only shows while the suit is on -- and then it owns the corner
 		// (every other power's column steps aside through VanillaHud.muteOthers); suit off, the Primary's HUD is the one on screen
 		if (com.projecthero.mod.symbiote.Symbiote.dormant(player)) {
+			return;
+		}
+		// v0.17.5 Monster form: while transformed the column shows the monster's moves and the form's timer instead
+		if (com.projecthero.mod.client.symbiote.monster.SymbioteMonsterHud.render(g, player, v, now, shift,
+				com.projecthero.mod.symbiote.Symbiote.ownsKeysOverPrimary(player))) {
 			return;
 		}
 		VanillaHud.Stack st = (com.projecthero.mod.symbiote.Symbiote.ownsKeysOverPrimary(player)

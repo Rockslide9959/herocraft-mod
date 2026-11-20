@@ -82,6 +82,7 @@ public final class SymbioteDamageRules {
 		if (active) {
 			// v0.12.15 replaced Resistance I with a flat 10% cut; v0.15.15 brings Resistance I back (SymbioteSuitResistance)
 			factor *= SUIT_DAMAGE_FACTOR;
+			factor *= com.projecthero.mod.symbiote.monster.SymbioteMonster.damageFactor(player); // v0.17.5 Monster form: 50% less
 			if (source.is(DamageTypeTags.IS_FIRE)) {
 				// IS_FIRE also covers vanilla lava damage.
 				factor *= FIRE_MULTIPLIER;

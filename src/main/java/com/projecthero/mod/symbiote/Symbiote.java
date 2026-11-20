@@ -558,6 +558,7 @@ public final class Symbiote {
 		SymbioteBlackSuitAbilities.clearFor(player);
 		SymbioteAgentVenomAbilities.clearFor(player);
 		SymbioteAbilityManager.clearFor(player);
+		com.projecthero.mod.symbiote.monster.SymbioteMonster.clearTransient(player); // v0.17.5 Monster form ends at once
 		SymbioteVitalsManager.clearTransient(player);
 		SymbioteDialogue.clearFor(player);
 		SymbioteState s = player.getAttachedOrElse(ModAttachments.SYMBIOTE_STATE, null);

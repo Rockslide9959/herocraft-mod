@@ -42,6 +42,7 @@ public final class SymbioteSuitClient {
 		SymbioteParticleClient.register();
 		SymbioteKitClient.initialize(); // v0.17.5 moveset v3: the grab crush click
 		SymbioteVfxClient.initialize(); // v0.17.5 tendril-vfx round: the moves' tendril effects (replacing their particles)
+		com.projecthero.mod.client.symbiote.monster.SymbioteMonsterClient.initialize(); // v0.17.5: the Monster form's cocoon / melt
 		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(SymbioteEmerge::tick);
 		ResourceManagerHelper.get(PackType.CLIENT_RESOURCES).registerReloadListener(new SimpleSynchronousResourceReloadListener() {
 			@Override

@@ -934,3 +934,93 @@ thrown (10-14); films `symbiote_thorns_aura_spike_surge`, `symbiote_spike_nova` 
 held 4 s, three crushes 18 (the fourth click inside 10 ticks ignored), set down unhurt, the throw 7. Filming fix: the wheel was shrunk and
 raised so the wrapped description fits above the hint on a 480 px window. Harness `scratchpad/SymbioteMovesetV3Harness.v0175.java.txt`
 (+ `SymbioteMovesetV3HarnessCameraMixin.v0175.java.txt`), films via `scratchpad/symbiote/films_moveset3_v0175.js`.
+## v0.17.5 -- Monster form (Shift+Z ultimate)
+
+User: "make a new and better ultimate for symbiotes shift+Z, maybe players need to hold shift+Z for 3 seconds and then they transform into
+a monster form, make the animation for transforming tendrils erupt from the players feet and circle them and then create almost a cocoon,
+coccon grows to 7 blocks and player model changes into a hulking monster symbiote form (similar to the shape of the titan boss, i want it
+to be kinda hunchbacked and look like a symbiote with the face and everything), this form lasts 40 seconds". Normal host (Lethal Protector
+suit) only. **It replaces Onslaught**: no key fires Onslaught any more (its code is still in `SymbioteAbilityManager`, unreachable).
+
+### The rules (`symbiote/monster/SymbioteMonster`)
+
+| | |
+|---|---|
+| Charge | Shift + hold Z for 3 s (60 ticks). Rides on `SymbioteState.onslaughtChargeStart` (the old Onslaught charge clock), so the HUD Z box fill, the Lethal Protector's held roar (`SymbioteAnim.ONSLAUGHT_CHARGE`) and the rooted wind-up tendrils (`SymbioteVfxClient`) follow it unchanged. Rooted (speed and jump -100%) and knockback-immune while charging. A release before 3 s cancels it: no cost, no cooldown. Big hits do not cancel; a sound attack still does (`disrupt`). |
+| Cost | 50 Biomass, checked on the press (refused with a message under 50) and spent when the charge completes. |
+| Room | The full-grown hitbox (2.33 x 7 blocks, blocks only) must be clear when the charge completes, else "no room" -- no cost, no cooldown. |
+| Cocoon | `COCOON` 50 ticks, invulnerable (anything but `BYPASSES_INVULNERABILITY`). The scale grows with the cocoon (ticks 16-42). |
+| Burst | Everything (not bosses, not squadmates) within 4 blocks of the body is thrown back (1.5 out, 0.55 up, no damage); 14 tendril entities whip outward; ground + body bursts; roar (warden + ravager), an explosion particle. |
+| Form | `MONSTER` 800 ticks (40 s). Scale bonus `7 / 1.8 - 1.5` = +2.39 on top of the suit's +0.5 (7.0 blocks). +100% max health (`ADD_MULTIPLIED_TOTAL` 1.0, healed in at the burst), 50% damage taken (`SymbioteDamageRules` factor), knockback resistance +1, jump strength +0.32, step height +1, entity reach +3, block reach +2, attack damage +8 (left-click claws), walk speed -15% (sprinting: normal), no suffocation damage (a 7-block body under a low roof). No fall damage (a bonded host never takes any). |
+| End | `MELT` 30 ticks (invulnerable, rooted): the monster melts back into the suit. The 4-minute cooldown (4800 ticks, list entry **17**; `COOLDOWN_SLOTS` 16 -> 18, 16 is the other Symbiote round's) starts when the melt starts. Shift+Z in the form ends it early (same melt). |
+| Ends at once | death (`AFTER_DEATH`, cooldown starts), relog / dimension change / power loss (`Symbiote.clearTransient`), the suit coming off or losing the kit (checked every tick), server stop (the attachment is not saved; `ServerStateReset` -> `SymbioteMonster.clearSessionState`). |
+
+State: `SymbioteMonsterState` (phase, phase start, move, move start, six move-ready times) under its own attachment
+`projecthero:symbiote_monster` -- not persistent, not copied on death, synced to everyone. Every attribute is reconciled from it each tick
+(`SymbioteMonster.reconcile`, transient modifiers), so nothing can be left on a player. The Symbiote Wings refuse while transformed.
+
+### The moves (`SymbioteMonsterMoves`; the normal kit is locked out, `SymbioteAbilityManager.handle` asks `intercept` first)
+
+| Key | Move | Numbers | Cooldown |
+|---|---|---|---|
+| R | Claw Swipe | 4.5-block 120-degree cone (from the body's edge), 24 damage, knockback 1.3 + 0.3 up; lands on tick 6 | 1 s |
+| G | Ground Pound | 6-block radius (3 up / down), 20 damage, thrown 0.5 out + 1.05 up; lands on tick 10; block dust rings | 6 s |
+| X | Leap Smash | crouch, launched on tick 3 at 1.45 b/t along the flat aim + 0.95 up (+0.45 x look-up) -- about 14 blocks; landing: 4 blocks, 22 damage, knockback 1.4 + 0.6 up | 5 s |
+| Z | Monster Roar | 10-block cone (cos 0.42), 8 damage, Slowness III + Weakness II 4 s, pushed back 1.5; lands on tick 6 | 10 s |
+| C | Devour Whole | the nearest non-player mob within 5 blocks in front (cos 0.3); seized on tick 6 (two tendrils + wrap), dragged to the jaws, eaten on tick 18 at any health: +30 Biomass, +6 HP. A boss takes a 35-damage bite. Nothing in reach: a message, no cooldown | 8 s |
+| V | Tendril Pull | 8-block cone (cos 0.5): a tendril to each target, 4 damage, yanked to just in front (0.45 + 0.17 x distance, 0.35 up) | 8 s |
+| Shift+Z | End Form | the melt | -- |
+
+Ranges are measured from the body's edge (+ half the 2.33-block hitbox). Bosses (`SymbioteAbilityManager.isBoss`) take damage only;
+squadmates are never touched (`enemiesAround`). One move at a time: a move can't start while another's strike is pending, the pounce is in
+the air or prey is being dragged. Static maps (`PENDING`, `LEAPING`, `DEVOURING`) hold ids and numbers only.
+
+### The model (`geo/symbiote_monster.geo.json`, `scratchpad/symbiote/gen_symbiote_monster_v0175.js`)
+
+- Original, Titan-boss proportions in a hunch: short thick bowed legs, pelvis -> belly (14 degrees) -> chest (24) leaning forward, a big
+  back hump with a crown and five spines, three back tendrils (4 segments each), the head low and forward under the hump (`neck` +18,
+  head -60 so the face looks ahead), huge deltoids, long arms with Popeye forearms (three spurs each) and four-clawed hands plus a thumb
+  reaching to the ground, three toe claws and a heel spur per foot. A wide grin: 12 upper teeth (two fangs) + 5 per side, 11 lower (two
+  fangs) + 4 per side, the jaw hinged far back (open 22 degrees at rest), a 7-segment tongue lolling over the chin. 73 bones, 193 cubes,
+  95.6 px tall at rest; `SymbioteMonsterRenderer.MODEL_SCALE` draws it 7 blocks tall (the player's scale attribute divided back out).
+- Texture: per-face UVs at 2 texels / px on a 1024 x 512 atlas, painted in body space by the generator: muscle lumps as a height field lit
+  through a bumped normal, wet streaked gloss, sunken veins with glossy rims, bevelled cube edges; the spider emblem on the chest (legs over
+  the shoulders and round the ribs, the abdomen spike down the belly) and a smaller one on the back of the hump, ragged edges, dark
+  outlines; big angular lenses that wrap round the sides of the head with dark rims; a lighter lip ridge, the grin's corners creased up the
+  cheeks, a ridged palate and dark mouth floor (mouth channel), a grooved tongue.
+- `symbiote_monster_tint.png` is a tint mask in the suit's format (R shade, G gloss, B channel: body / mouth 32 / emblem 128 / eyes 255);
+  `symbiote_monster_keep.png` holds the teeth (ivory, gum line), drawn as painted on every colour. `SymbioteMonsterTint` bakes one
+  `DynamicTexture` per colour scheme through `SymbioteTintMath.bake` (LRU 6; cleared on resource reload and disconnect).
+  `symbiote_monster.png` is the Classic bake (fallback). All original art -- nothing borrowed, nothing held back.
+- Animations (`gen_symbiote_monster_anims_v0175.js`, sampled every tick from functions of time, layered "alive" motion -- breathing, the
+  tongue and back tendrils writhing, fingers flexing): `idle`, `walk`, `run`, `swipe`, `pound`, `leap` (held), `land`, `roar`, `devour`,
+  `pull`, `emerge` (coiled, then flung open with a roar), `melt` (slumps, the root squashes to 5% and spreads 35%, held).
+  `SymbioteMonsterAnimatable` picks the clip from the synced state. The never-keyed `neck` takes the look pitch, the head the look yaw.
+- Preview without a client: `node scratchpad/symbiote/gen_symbiote_monster_v0175.js --preview <dir>` renders a software turntable
+  (Classic + Carnage), a face sheet and a pose sheet (`preview_monster_v0175.js`).
+
+### Rendering (client, `client/symbiote/monster/`)
+
+- `PlayerRendererSymbioteMonsterMixin`: the monster replaces the player + suit in `MONSTER` and the first 24 ticks of `MELT`; inside the
+  closed cocoon (tick 26+) the host is not drawn; from melt tick 12 the suited host is drawn rising back up out of the pool (lowered
+  through the ground from `PlayerRenderer.scale`). Third-person camera: vanilla already pulls back by the scale attribute (4 x 3.9 blocks).
+- `SymbioteMonsterCocoon` (world render, every viewer, from the synced state): twelve ground-rooted tendrils spiral up round the host,
+  turning faster and faster (`0.0036 age^2` rad); the shell weaves shut from the ground up (ticks 6-28, ragged top), criss-crossed by 18
+  thinner strands; it swells from 3 to 7.2 blocks (ticks 14-42); four heartbeats (30, 37, 42, 46) swell it; it strains at 45-50 and
+  bursts (18 strands whipping out over 16 ticks, the pool shrinking). The melt: a spreading pool, goo dripping off the monster, then eight
+  tendrils pulling the host back up out of it. All in the host's goo colour (`SymbioteSuitTint.goo`).
+- `SymbioteMonsterFirstPerson` (`ItemInHandRendererSymbioteMonsterMixin`): the monster's forearms and clawed hands from the bottom
+  corners, raking forward on a swing, R, C and V, slamming down on G, rising into view after the burst.
+- HUD (`SymbioteMonsterHud`, from `SymbioteHud.renderNormalHost`): the six keys are the monster's moves (cooldowns from the state, lit
+  while playing, Z yellow with Shift = End Form), a **Slab** bar for the 40 s timer (Cocoon % / Melting while those run, flashing in the
+  last 20%), the Biomass Hairline, "Symbiote Monster"; the Left-Alt list names the monster moves. Normal column: Shift+Z's box shows the
+  form's 4-minute cooldown (entry 17).
+
+### Tests
+
+`SymbioteMonsterGameTests`: an early release cancels (rooted while charging, no cost, no cooldown); 3 s held -> cocoon (50 Biomass spent,
+untouchable) -> burst -> monster (7 blocks, +100% health, half damage); under 50 Biomass refused, 120 -> 70; the clock stepped by moving
+the phase start (39.95 s still the monster, 40 s the melt with the cooldown just started, the melt ends at 30 ticks, back to size); R's
+swipe hits the golem in front and not the husk to the side, G's pound hits and launches the husk, 6 s cooldown; Shift+Z ends the form
+early with the 4-minute cooldown, refused while cooling, charges once ready, 18 entries; dying ends the form and starts the cooldown.
+`SymbioteMovesetV2GameTests`: the Shift + hold Z charge / cancel and the separate-cooldown checks now read the Monster form (entry 17).

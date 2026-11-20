@@ -389,7 +389,7 @@ public class SymbioteMovesetV2GameTests implements FabricGameTest {
 		helper.assertTrue(anim(p) == SymbioteAnim.GRAPPLE || anim(p) == SymbioteAnim.TENDRIL_STRIKE, "Shift+X: Grapple");
 		press(p, AbilitySlot.SLOT_3, false);
 		press(p, AbilitySlot.SLOT_4, true);
-		helper.assertTrue(SymbioteAbilityManager.onslaughtCharging(p), "Shift + hold Z charges Onslaught");
+		helper.assertTrue(SymbioteAbilityManager.onslaughtCharging(p), "Shift + hold Z charges the Monster form (v0.17.5: it replaced Onslaught)");
 		press(p, AbilitySlot.SLOT_4, false);
 		helper.assertTrue(!SymbioteAbilityManager.onslaughtCharging(p), "an early release cancels it");
 		helper.succeed();
@@ -420,16 +420,17 @@ public class SymbioteMovesetV2GameTests implements FabricGameTest {
 		press(p, AbilitySlot.SLOT_1, true);
 		press(p, AbilitySlot.SLOT_1, false);
 		helper.assertTrue(sweep > 0L && cd(p, SymbioteAbilityManager.CDI_SWEEP) > 60L, "Shift+R fires while R is on cooldown");
-		// Onslaught (Shift + hold Z) vs Barrage (Z tap): separate entries
+		// the Monster form (Shift + hold Z; v0.17.5, it replaced Onslaught) vs Barrage (Z tap): separate entries
+		int monster = com.projecthero.mod.symbiote.monster.SymbioteMonster.CDI_MONSTER;
 		clearCooldowns(p);
 		SymbioteState c = Symbiote.state(p).copy();
-		c.abilityCooldowns.set(SymbioteAbilityManager.CDI_ONSLAUGHT, p.level().getGameTime() + 1000L);
+		c.abilityCooldowns.set(monster, p.level().getGameTime() + 1000L);
 		p.setAttached(ModAttachments.SYMBIOTE_STATE, c);
 		p.setShiftKeyDown(false);
 		tap(p, AbilitySlot.SLOT_4);
-		helper.assertTrue(cd(p, 3) > 0L, "Z still fires a Barrage while Onslaught is on cooldown");
-		helper.assertTrue(cd(p, SymbioteAbilityManager.CDI_ONSLAUGHT) > 900L, "and Onslaught's own entry is unchanged");
-		helper.assertTrue(SymbioteAbilityManager.onslaughtReady(p, p.level().getGameTime()) == false, "Onslaught reads its own entry");
+		helper.assertTrue(cd(p, 3) > 0L, "Z still fires a Barrage while the Monster form is on cooldown");
+		helper.assertTrue(cd(p, monster) > 900L, "and the form's own entry is unchanged");
+		helper.assertTrue(SymbioteAbilityManager.onslaughtReady(p, p.level().getGameTime()) == false, "Shift + hold Z reads the form's own entry");
 		// Grapple (Shift+X) on its own synced entry, not the Lunge's
 		clearCooldowns(p);
 		c = Symbiote.state(p).copy();
@@ -437,7 +438,7 @@ public class SymbioteMovesetV2GameTests implements FabricGameTest {
 		p.setAttached(ModAttachments.SYMBIOTE_STATE, c);
 		helper.assertTrue(!SymbioteAbilityManager.grappleReady(p, p.level().getGameTime()), "Grapple reads its own entry");
 		helper.assertTrue(SymbioteAbilityManager.leapReady(p, p.level().getGameTime()), "the Lunge is still ready");
-		helper.assertTrue(SymbioteState.COOLDOWN_SLOTS == 18 && Symbiote.state(p).abilityCooldowns.size() == 18, "18 cooldown entries (v0.17.5: 15 = Symbiote Wings, 16 = Spike Surge, 17 = the Shift+Z ultimate)");
+		helper.assertTrue(SymbioteState.COOLDOWN_SLOTS == 18 && Symbiote.state(p).abilityCooldowns.size() == 18, "18 cooldown entries (v0.17.5: 15 = Symbiote Wings, 16 = Spike Surge, 17 = Monster form)");
 		helper.succeed();
 	}
 

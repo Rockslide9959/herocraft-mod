@@ -110,6 +110,7 @@
       "com.projecthero.mod.gametest.SymbioteSuitUpGameTests",
       "com.projecthero.mod.gametest.SymbioteMovesetV2GameTests",
       "com.projecthero.mod.gametest.SymbioteMovesetV3GameTests",
+      "com.projecthero.mod.gametest.SymbioteMonsterGameTests",
       "com.projecthero.mod.gametest.SymbioteWeaponWingsGameTests",
       "com.projecthero.mod.gametest.SymbioteExactColourGameTests",
       "com.projecthero.mod.gametest.SymbioteTendrilVfxGameTests",

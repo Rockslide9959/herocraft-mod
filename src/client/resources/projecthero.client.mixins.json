@@ -249,6 +249,8 @@
 		"PlayerRendererHulkMixin",
 		"PlayerRendererHulkbusterMixin",
 		"ItemInHandRendererHulkbusterMixin",
+		"PlayerRendererSymbioteMonsterMixin",
+		"ItemInHandRendererSymbioteMonsterMixin",
 		"ItemInHandRendererPortableMixin",
 		"PlayerRendererMixin",
 		"PlayerRendererManualSuitUpMixin",

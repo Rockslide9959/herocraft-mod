@@ -173,6 +173,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.punisher.ability.PunisherWeaponAbilities.clearSessionState(); // v0.15.18: Weapon Ability (V) effects
 		com.projecthero.mod.combat.SonicVulnerability.clearSessionState();
 		com.projecthero.mod.symbiote.SymbioteAbilityManager.clearSessionState();
+		com.projecthero.mod.symbiote.monster.SymbioteMonster.clearSessionState(); // v0.17.5 Monster form move maps
 		com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.clearSessionState();
 		com.projecthero.mod.spider.SpiderStealth.clearSessionState();
 		com.projecthero.mod.spider.SpiderTakedown.clearSessionState(); // v0.16.2
