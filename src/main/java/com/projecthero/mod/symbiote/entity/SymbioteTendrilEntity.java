@@ -160,6 +160,13 @@ public class SymbioteTendrilEntity extends Entity {
 		}
 	}
 
+	/** v0.17.5 moveset v3: keeps a holding tendril on screen (the grab has no time limit) -- it now lasts at least {@code ticks} more. */
+	public void keepAlive(int ticks) {
+		if (!level().isClientSide && tickCount + ticks > life()) {
+			entityData.set(DATA_LIFE, tickCount + ticks);
+		}
+	}
+
 	public int ownerId() {
 		return entityData.get(DATA_OWNER);
 	}

@@ -190,6 +190,31 @@ public final class SymbiotePose {
 			f(22, -0.75f, -0.35f, 0.45f, -0.75f, 0.35f, -0.45f, 0.2f, 0, -0.1f, 0.1f, 0.15f),
 			rest(28) }, false, false);
 
+	// ---- v0.17.5 moveset v3 ----
+	/** Spike Surge: the host throws its arms back and roars as the spikes shoot out long. */
+	private static final Pose SPIKE_SURGE = new Pose(new float[][] {
+			rest(0),
+			f(4, 0.35f, 0, 0.9f, 0.35f, 0, -0.9f, 0.3f, 0, 0.12f, -0.12f, -0.35f),
+			f(11, 0.3f, 0, 0.85f, 0.3f, 0, -0.85f, 0.26f, 0, 0.1f, -0.1f, -0.3f),
+			rest(16) }, false, false);
+	/** Spike Nova: arms flung out wide as the ring bursts from the body. */
+	private static final Pose SPIKE_NOVA = new Pose(new float[][] {
+			rest(0),
+			f(2, -0.2f, 0, 1.6f, -0.2f, 0, -1.6f, -0.2f, 0, 0.15f, -0.15f, -0.4f),
+			f(9, -0.15f, 0, 1.5f, -0.15f, 0, -1.5f, -0.15f, 0, 0.12f, -0.12f, -0.35f),
+			rest(14) }, false, false);
+	/** The grab's crush: the holding arm clenches in, the other hand joins the squeeze, the body hunches into it. */
+	private static final Pose GRAB_CRUSH = new Pose(new float[][] {
+			f(0, -1.25f, 0, 0, 0.2f, 0, 0, -0.05f, -0.15f, 0, 0, 0),
+			f(3, -0.85f, 0.35f, 0.25f, -1.1f, 0.45f, -0.2f, 0.22f, -0.1f, 0, 0, 0.15f),
+			f(7, -0.9f, 0.3f, 0.2f, -1.05f, 0.4f, -0.2f, 0.2f, -0.1f, 0, 0, 0.12f),
+			f(12, -1.25f, 0, 0, 0.2f, 0, 0, -0.05f, -0.15f, 0, 0, 0) }, true, false);
+	/** The grab's gentle set-down: the arm lowers the target to the ground. */
+	private static final Pose GRAB_SET_DOWN = new Pose(new float[][] {
+			f(0, -1.25f, 0, 0, 0.2f, 0, 0, -0.05f, -0.15f, 0, 0, 0),
+			f(5, -0.6f, 0, 0, 0.1f, 0, 0, 0.2f, -0.1f, 0, 0, 0.15f),
+			rest(10) }, false, false);
+
 	private static float[][] spearChargeFrames() {
 		java.util.List<float[]> out = new java.util.ArrayList<>();
 		out.add(rest(0));
@@ -269,6 +294,10 @@ public final class SymbiotePose {
 			case SymbioteAnim.AXE_CLEAVE -> AXE_CLEAVE;
 			case SymbioteAnim.MACE_SMASH -> MACE_SMASH;
 			case SymbioteAnim.WHIP_LASH -> WHIP_LASH;
+			case SymbioteAnim.SPIKE_SURGE -> SPIKE_SURGE;
+			case SymbioteAnim.SPIKE_NOVA -> SPIKE_NOVA;
+			case SymbioteAnim.GRAB_CRUSH -> GRAB_CRUSH;
+			case SymbioteAnim.GRAB_SET_DOWN -> GRAB_SET_DOWN;
 			default -> null;
 		};
 	}
@@ -322,6 +351,11 @@ public final class SymbiotePose {
 			if (p != null && blend(m, p.frames(), gameTime - v.animStart + partial, p.aimRight(), p.aimLeft())) {
 				return;
 			}
+		}
+		// v0.17.5 moveset v3: the grab has no time limit -- the holding pose stays for as long as something is held
+		if (s.tendrilGrabHeld) {
+			blend(m, GRAB.frames(), 40f, GRAB.aimRight(), GRAB.aimLeft());
+			return;
 		}
 		// v0.17.5 Symbiote Wings: in the air on the wings, arms swept back and out, legs trailing (the wings themselves beat)
 		if (com.projecthero.mod.symbiote.SymbioteWings.airborne(player)) {

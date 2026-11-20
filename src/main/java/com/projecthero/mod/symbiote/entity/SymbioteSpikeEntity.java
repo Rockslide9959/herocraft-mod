@@ -39,6 +39,9 @@ public class SymbioteSpikeEntity extends ThrowableProjectile {
 	private int witherAmplifier = WITHER_AMPLIFIER;
 	private int witherTicks = WITHER_TICKS;
 	private double knock = 0.35;
+	/** v0.17.5 moveset v3: a Spike Nova spike is the look only -- it flies through creatures (the Nova hurts by area) and lives briefly. */
+	private boolean visualOnly;
+	private int maxLife = MAX_LIFE_TICKS;
 
 	public SymbioteSpikeEntity(EntityType<? extends SymbioteSpikeEntity> type, Level level) {
 		super(type, level);
@@ -92,6 +95,21 @@ public class SymbioteSpikeEntity extends ThrowableProjectile {
 		return spike;
 	}
 
+	/**
+	 * v0.17.5 moveset v3: one spike of the Spike Nova ring, flying flat out of the host for {@code life} ticks, in the host's colours.
+	 * It hits nothing alive (the Nova's damage is the area's) and splats on blocks.
+	 */
+	public static SymbioteSpikeEntity nova(ServerPlayer owner, Vec3 from, Vec3 dir, int life) {
+		SymbioteSpikeEntity spike = new SymbioteSpikeEntity(SymbioteEntityTypes.SPIKE, owner.level());
+		spike.setOwner(owner);
+		spike.visualOnly = true;
+		spike.maxLife = Math.max(2, life);
+		spike.setPos(from.x, from.y, from.z);
+		spike.shoot(dir.x, dir.y, dir.z, 1.9f, 0.0f);
+		owner.level().addFreshEntity(spike);
+		return spike;
+	}
+
 	public boolean crimson() {
 		return entityData.get(DATA_CRIMSON);
 	}
@@ -109,7 +127,7 @@ public class SymbioteSpikeEntity extends ThrowableProjectile {
 	@Override
 	public void tick() {
 		super.tick();
-		if (!level().isClientSide && tickCount > MAX_LIFE_TICKS) {
+		if (!level().isClientSide && tickCount > maxLife) {
 			discard();
 			return;
 		}
@@ -123,6 +141,9 @@ public class SymbioteSpikeEntity extends ThrowableProjectile {
 
 	@Override
 	protected boolean canHitEntity(Entity target) {
+		if (visualOnly) {
+			return false;
+		}
 		// v0.13.21: a spike flies straight past its owner's squadmates
 		if (crimson() && getOwner() instanceof com.projecthero.mod.carnage.entity.CarnageEntity
 				&& (target instanceof com.projecthero.mod.carnage.entity.CarnageEntity || target instanceof com.projecthero.mod.carnage.entity.CrimsonSpawnEntity)) {

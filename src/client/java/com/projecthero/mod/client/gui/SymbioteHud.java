@@ -50,11 +50,11 @@ public final class SymbioteHud {
 	};
 	/** v0.17.5 moveset v2: the hold move on each key (null = none), and X's airborne move, for the move list. */
 	private static final String[] NORMAL_HOLD_ABILITIES = {
-			"impaling_spear", "spike_rain", null, "ground_eruption", null, "devour"
+			"impaling_spear", "spike_rain", null, "ground_eruption", "form_wheel", "devour"
 	};
 	/** v0.17.5: each hold move's cooldown (ticks) and its index in the synced cooldown list, for the key box's thin strip. */
 	private static final int[] HOLD_CD_INDEX = { 6, 7, 8, 9, -1, 11 };
-	private static final int[] HOLD_CD_TICKS = { 160, 280, 120, 240, 0, 400 };
+	private static final int[] HOLD_CD_TICKS = { 160, 280, 120, 160, 0, 400 }; // v0.17.5 moveset v3: Ground Eruption 8 s
 	/**
 	 * v0.17.5: the Shift variant's own cooldown entry on R / X / Z (Tendril Sweep 12, Grapple 14, Onslaught 13 -- they no longer share
 	 * the plain move's). G (Spike Fan) and C (Tendril Grab) are handled below as before; V has none.
@@ -64,14 +64,14 @@ public final class SymbioteHud {
 	private static final long[] HOLD_DOWN = { -1, -1, -1, -1, -1, -1 };
 	/** v0.16.6: the Shift move on each key (SymbioteAbilityManager.handle's sneak branches), for the move list. */
 	private static final String[] NORMAL_SHIFT_ABILITIES = {
-			"tendril_sweep", "spike_fan", "grapple", "onslaught", "shield", "tendril_grab"
+			"tendril_sweep", "spike_nova", "grapple", "onslaught", "shield", "tendril_grab"
 	};
 	private static final int[] AGENT_VENOM_COOLDOWNS = {
 			SymbioteAgentVenomAbilities.CD_SWING, SymbioteAgentVenomAbilities.CD_SNATCH,
 			SymbioteAgentVenomAbilities.CD_UNLEASHED
 	};
-	/** Shift+G's Spike Fan cooldown is drawn against this (10 s). */
-	private static final int SPIKE_FAN_DISPLAY = 200;
+	/** Shift+G's Spike Nova (v0.17.5 moveset v3; was the Spike Fan) cooldown is drawn against this (8 s). */
+	private static final int SPIKE_FAN_DISPLAY = com.projecthero.mod.symbiote.SymbioteAbilityManager.CD_SPIKE_NOVA;
 
 	/** Set only by a client screenshot harness: the HUD draws as if the player were sneaking. */
 	public static volatile boolean forceShift;
@@ -171,7 +171,8 @@ public final class SymbioteHud {
 			AbilitySlot slot = VanillaHud.ORDER[i];
 			int o = slot.ordinal();
 			// v0.17.5: V lights while a Form (Blade / Thorns) or the shield is up; C while a grab is held
-			boolean active = (o == 3 && charging) || (o == 4 && (v.bladeActive || v.thornsMode || s.shieldHeld))
+			boolean surging = com.projecthero.mod.symbiote.SymbioteAbilityManager.surging(player, now);
+			boolean active = (o == 3 && (charging || surging)) || (o == 4 && (v.bladeActive || v.thornsMode || s.shieldHeld))
 					|| (o == 5 && s.tendrilGrabHeld);
 			int cd = o < s.abilityCooldowns.size() ? (int) Math.max(0L, s.abilityCooldowns.get(o) - now) : 0;
 			float cdFrac = VanillaHudExtras.frac("symbiote/" + o, cd);
@@ -211,6 +212,14 @@ public final class SymbioteHud {
 				} else {
 					other = Math.max(Math.max(holdCd, shiftFrac), wings);
 				}
+			} else if (o == 3 && v.thornsMode && !v.bladeActive && !shift) {
+				// v0.17.5 moveset v3: in Thorns form Z is Spike Surge (its own entry, 16); the strip keeps Onslaught / Ground Eruption
+				int idx = com.projecthero.mod.symbiote.SymbioteAbilityManager.CDI_SURGE;
+				int sc = idx < s.abilityCooldowns.size() ? (int) Math.max(0L, s.abilityCooldowns.get(idx) - now) : 0;
+				int scdo = s.abilityCooldowns.size() > 13 ? (int) Math.max(0L, s.abilityCooldowns.get(13) - now) : 0;
+				shown = VanillaHudExtras.frac("symbiote/surge", sc);
+				secs = VanillaHud.seconds(sc);
+				other = Math.max(holdCd, VanillaHudExtras.frac("symbiote/shift" + o, scdo));
 			} else if (SHIFT_CD_INDEX[o] >= 0) {
 				// R / X / Z: the plain move's cooldown, and the Shift move's while Shift is held (the same rule as G and C)
 				int idx = SHIFT_CD_INDEX[o];
@@ -261,6 +270,18 @@ public final class SymbioteHud {
 		if (form != SymbioteVitalsManager.FORM_NORMAL) {
 			tags.add(new VanillaHud.Tag(Component.translatable("message.projecthero.symbiote.form",
 					Component.translatable("projecthero.symbiote.form." + SymbioteVitalsManager.formName(form))).getString(), COLOR_LABEL));
+		}
+		// v0.17.5 moveset v3: holding a grab (no time limit) -- what the keys do now
+		if (s.tendrilGrabHeld) {
+			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.symbiote.grab.throw").getString(), VanillaHud.WHITE));
+			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.symbiote.grab.crush").getString(), COLOR_LABEL));
+			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.symbiote.grab.set_down").getString(), COLOR_LABEL));
+		}
+		// v0.17.5 Spike Surge running
+		long surgeAge = com.projecthero.mod.symbiote.SymbioteAbilityManager.surgeAge(s, now);
+		if (surgeAge >= 0 && v.thornsMode) {
+			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.symbiote.surge",
+					String.format(java.util.Locale.ROOT, "%.1f", (com.projecthero.mod.symbiote.SymbioteAbilityManager.SURGE_TICKS - surgeAge) / 20.0f)).getString(), COLOR_LABEL));
 		}
 		// v0.17.5 Symbiote Wings: flight time left while flying, "Gliding", or the cooldown (no new key, no new box)
 		com.projecthero.mod.symbiote.SymbioteWings.Phase wp = com.projecthero.mod.symbiote.SymbioteWings.phase(v, now);
@@ -346,7 +367,7 @@ public final class SymbioteHud {
 			return 0f;
 		}
 		long held = now - HOLD_DOWN[o];
-		int hold = com.projecthero.mod.symbiote.SymbioteAbilityManager.HOLD_TICKS;
+		int hold = o == 4 ? com.projecthero.mod.symbiote.SymbioteAbilityManager.FORM_WHEEL_TICKS : com.projecthero.mod.symbiote.SymbioteAbilityManager.HOLD_TICKS;
 		if (o == 0 && held >= hold) {
 			return Math.min(1f, 0.35f + 0.65f * (held - hold) / 20f); // the Spear charging
 		}

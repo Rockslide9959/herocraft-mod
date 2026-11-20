@@ -60,6 +60,11 @@ import net.minecraft.world.phys.Vec3;
  * (except the Spear, whose release throws it). Sneak moves still fire on the press. Passive with the suit on: +1 block melee
  * reach and every 3rd punch in a row knocks back ({@link #onMeleeSwing}).
  *
+ * <p>v0.17.5 moveset v3 ({@code SYMBIOTE_REFERENCE.md} "Moveset v3"): R / G 1 s, Shift+R 4 s, every Z 8 s; Shift+G is Spike Nova (a 6-block
+ * ring); Thorns form hurts everything within 1.5 blocks and its Z is Spike Surge (3.5 blocks for 6 s); a tap of V cycles the Form, a
+ * hold opens the client's Form wheel; the grab has no time limit -- C throws, left click crushes, Shift+C sets down (players and
+ * squadmates too).
+ *
  * <p>v0.13.19: every move comes out of the host's hands ({@link SymbioteHands}) and is drawn as a real living
  * tendril ({@link SymbioteTendrilEntity}) or spike ({@link SymbioteSpikeEntity}) rather than a particle line;
  * Tendril Strike and Tendril Barrage now fire whether or not something is in the sights, so they can miss;
@@ -67,16 +72,16 @@ import net.minecraft.world.phys.Vec3;
  * the Spike Fan.
  */
 public final class SymbioteAbilityManager {
-	private static final int CD_TENDRIL_STRIKE = 30;   // 1.5s
-	private static final int CD_TENDRIL_SWEEP = 200;   // 10s
+	// v0.17.5 moveset v3 (user: "R ... lower cooldown to 1 second", "lower cooldown of tendril sweep to 4 seconds", "lower cooldown of g
+	// to 1 second", "lower cooldown of z move")
+	public static final int CD_TENDRIL_STRIKE = 20;    // 1 s (was 1.5 s)
+	public static final int CD_TENDRIL_SWEEP = 80;     // 4 s (was 10 s)
 	private static final int CD_LEAP = 40;             // 2s
-	private static final int CD_BARRAGE = 300;         // 15s
-	private static final int CD_TENDRIL_GRAB = 100;    // 5s
-	private static final int CD_SPIKE_SHOT = 80;       // 4s
-	private static final int CD_SPIKE_FAN = 200;       // 10s
-
-	/** The Spike Fan's five spikes, degrees either side of the aim. */
-	private static final float[] SPIKE_FAN_YAW = { -20.0f, -10.0f, 0.0f, 10.0f, 20.0f };
+	public static final int CD_BARRAGE = 160;          // 8 s (was 15 s)
+	public static final int CD_TENDRIL_GRAB = 100;     // 5s
+	public static final int CD_SPIKE_SHOT = 20;        // 1 s (was 4 s)
+	/** v0.17.5 moveset v3: Shift+G is Spike Nova now (replaces the Spike Fan); still on the Fan's own entry (spikeConeReadyAt). */
+	public static final int CD_SPIKE_NOVA = 160;       // 8 s
 
 	private static final int LEAP_NO_FALL_TICKS = 600;
 	private static final float LEAP_RAM_DAMAGE = 15.0f;
@@ -89,7 +94,8 @@ public final class SymbioteAbilityManager {
 
 	private static final double GRAB_RANGE = 15.0;
 	private static final double GRAB_HOLD_DISTANCE = 2.6;
-	private static final int GRAB_MAX_HOLD_TICKS = 70;
+	/** v0.17.5 moveset v3: no time limit any more -- this is only how long each WRAP effect / tendril top-up lasts. */
+	private static final int GRAB_WRAP_TICKS = 70;
 	private static final float GRAB_THROW_DAMAGE = 7.0f;
 
 	private static final int BARRAGE_DURATION = 26;
@@ -188,6 +194,10 @@ public final class SymbioteAbilityManager {
 		ERUPTION.clear();
 		DEVOUR.clear();
 		PUNCH_CHAIN.clear();
+		// v0.17.5 moveset v3 (GRAB holds entities)
+		GRAB.clear();
+		SAFE_LANDING.clear();
+		THORNS_PULSE.clear();
 		SymbioteWeaponMoves.clearAll();
 		SymbioteWings.clearSessionState();
 	}
@@ -198,8 +208,12 @@ public final class SymbioteAbilityManager {
 		GRAPPLE_PULL.remove(player.getId());
 		BARRAGE.remove(player.getId());
 		ONSLAUGHT_VICTIMS.remove(player.getId());
+		// v0.17.5 moveset v3: death / relog / dimension change lets a held target go (gravity back, no fall damage) -- it used to
+		// stay floating with no gravity
+		releaseGrabQuietly(player, Symbiote.state(player), player.level().getGameTime());
 		dropHeldTendril(player);
 		stopMovesV2(player);
+		THORNS_PULSE.remove(player.getId());
 	}
 
 	/** v0.17.5: drops every moveset-v2 move in flight (a pending tap, the Spear's charge, a pin, the rain, a dive, a devour). */
@@ -252,9 +266,10 @@ public final class SymbioteAbilityManager {
 		}
 		if (!pressed) {
 			// v0.17.5: a release under HOLD_TICKS is the tap move (a later one -- the hold move already ran -- does nothing)
-			if (hasHoldMove(slot)) {
+			// v0.17.5 moveset v3: V too -- a tap (under FORM_WHEEL_TICKS) cycles the Form, a hold is the client's Form wheel
+			if (waitsForRelease(slot)) {
 				long down = takePending(player, slot);
-				if (down >= 0L && now - down < HOLD_TICKS) {
+				if (down >= 0L && now - down < holdTicks(slot)) {
 					tap(player, slot, now);
 				}
 			}
@@ -265,25 +280,29 @@ public final class SymbioteAbilityManager {
 			toggleShield(player);
 			return;
 		}
-		// C while holding something throws it -- whatever the Biomass says, you can always let go.
+		// C while holding something throws it, Shift+C sets it down -- whatever the Biomass says, you can always let go.
 		if (slot == AbilitySlot.SLOT_6 && Symbiote.state(player).tendrilGrabHeld) {
 			takePending(player, slot); // that C's release must not bite as well
-			throwGrabbed(player, Symbiote.state(player), now);
+			if (sneak) {
+				setDownGrabbed(player, Symbiote.state(player), now);
+			} else {
+				throwGrabbed(player, Symbiote.state(player), now);
+			}
 			return;
 		}
 		if (!SymbioteVitalsManager.usable(player)) {
 			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.spent"), true);
 			return;
 		}
-		// v0.17.5: R / G / Z / C without Sneak wait to see whether this is a tap or a hold
-		if (!sneak && hasHoldMove(slot)) {
+		// v0.17.5: R / G / Z / C (and v3: V) without Sneak wait to see whether this is a tap or a hold
+		if (!sneak && waitsForRelease(slot)) {
 			KEY_DOWN.computeIfAbsent(player.getId(), k -> newKeyDown())[slot.ordinal()] = now;
 			return;
 		}
 
 		switch (slot) {
 			case SLOT_1 -> tryWithCooldown(player, CDI_SWEEP, now, CD_TENDRIL_SWEEP, () -> tendrilSweep(player));
-			case SLOT_2 -> spikeFan(player, now);
+			case SLOT_2 -> spikeNova(player, now);
 			case SLOT_3 -> {
 				if (sneak) {
 					handleGrapple(player, now);
@@ -337,6 +356,23 @@ public final class SymbioteAbilityManager {
 		return slot == AbilitySlot.SLOT_1 || slot == AbilitySlot.SLOT_2 || slot == AbilitySlot.SLOT_4 || slot == AbilitySlot.SLOT_6;
 	}
 
+	/**
+	 * v0.17.5 moveset v3: V held this long (0.5 s) opens the Form wheel on the client ({@code SymbioteFormWheelScreen}); released
+	 * sooner it is a tap and cycles the Form. The client never sends V's release once the wheel is open, so the server simply lets
+	 * the pending press lapse here.
+	 */
+	public static final int FORM_WHEEL_TICKS = 10;
+
+	/** R / G / Z / C (their hold moves) and V (the Form wheel): the press waits for the release to tell a tap from a hold. */
+	public static boolean waitsForRelease(AbilitySlot slot) {
+		return hasHoldMove(slot) || slot == AbilitySlot.SLOT_5;
+	}
+
+	/** Ticks a key must be held before it counts as a hold. */
+	public static int holdTicks(AbilitySlot slot) {
+		return slot == AbilitySlot.SLOT_5 ? FORM_WHEEL_TICKS : HOLD_TICKS;
+	}
+
 	/** Takes (clears) the pending press on {@code slot}: when it went down, or -1. */
 	private static long takePending(ServerPlayer player, AbilitySlot slot) {
 		long[] a = KEY_DOWN.get(player.getId());
@@ -368,14 +404,39 @@ public final class SymbioteAbilityManager {
 					SymbioteWeapon w = SymbioteVitalsManager.weapon(player);
 					tryWithCooldown(player, 3, now, w.zCooldown,
 							() -> w == SymbioteWeapon.BLADE ? bladeSlash(player) : SymbioteWeaponMoves.start(player, w, now));
+				} else if (SymbioteVitalsManager.thornsMode(player)) {
+					// v0.17.5 moveset v3: Thorns form's Z is Spike Surge, on its own entry (16)
+					tryWithCooldown(player, CDI_SURGE, now, CD_SURGE, () -> spikeSurge(player));
 				} else {
 					tryWithCooldown(player, 3, now, CD_BARRAGE, () -> startBarrage(player, now));
 				}
 			}
+			case SLOT_5 -> SymbioteVitalsManager.cycleForm(player);
 			case SLOT_6 -> tryWithCooldown(player, CDI_MAW, now, CD_MAW, () -> mawBite(player));
 			default -> {
 			}
 		}
+	}
+
+	/**
+	 * v0.17.5 moveset v3: a Form picked on the V wheel ({@code SymbioteKitPayload}). The press that opened it lapses (no tap); the
+	 * Form rules are {@link SymbioteVitalsManager#selectForm}'s.
+	 */
+	public static void pickForm(ServerPlayer player, int form) {
+		takePending(player, AbilitySlot.SLOT_5);
+		if (!hasContext(player) || !SymbioteVitalsManager.usable(player)) {
+			return;
+		}
+		if (SonicVulnerability.isDisrupted(player, player.level().getGameTime())) {
+			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.sonic_disrupted"), true);
+			return;
+		}
+		SymbioteVitalsManager.selectForm(player, form);
+	}
+
+	/** v0.17.5 moveset v3: the client opened the Form wheel -- V's pending press must not become a tap. */
+	public static void formWheelOpened(ServerPlayer player) {
+		takePending(player, AbilitySlot.SLOT_5);
 	}
 
 	private static void hold(ServerPlayer player, AbilitySlot slot, long now) {
@@ -401,7 +462,7 @@ public final class SymbioteAbilityManager {
 		}
 		for (AbilitySlot slot : AbilitySlot.values()) {
 			long down = a[slot.ordinal()];
-			if (down >= 0L && now - down >= HOLD_TICKS) {
+			if (down >= 0L && now - down >= holdTicks(slot)) { // (V's hold is the client's Form wheel: hold() does nothing)
 				a[slot.ordinal()] = -1L;
 				hold(player, slot, now);
 			}
@@ -559,28 +620,199 @@ public final class SymbioteAbilityManager {
 		return true;
 	}
 
-	/** Shift + G -- five spikes in a 40-degree fan, both hands. Its own 10 s cooldown. */
-	private static void spikeFan(ServerPlayer player, long now) {
+	// ---------------- v0.17.5 moveset v3: Spike Nova (Shift + G, replaces the Spike Fan) ----------------
+
+	public static final double NOVA_RADIUS = 6.0;
+	public static final float NOVA_DAMAGE = 10.0f;
+	private static final int NOVA_WITHER_TICKS = 60;
+	private static final int NOVA_SPIKES = 16;
+
+	/**
+	 * Shift + G (user: "make shift+G an aoe ability please"): spikes burst out of the whole body in a flat ring of 16 and a shockwave
+	 * of tendrils rolls out over the ground. Everything within 6 blocks takes 10, Wither II for 3 s and is thrown out (not bosses).
+	 * The ring's spikes are the look only (they pass through creatures; the damage is the area's, so nothing is hit twice). Its own
+	 * 8 s cooldown on the old Spike Fan entry ({@code spikeConeReadyAt}).
+	 */
+	private static void spikeNova(ServerPlayer player, long now) {
 		SymbioteVitals v = SymbioteVitalsManager.vitals(player);
 		if (now < v.spikeConeReadyAt) {
 			cooldownMessage(player, v.spikeConeReadyAt - now);
 			return;
 		}
-		SymbioteAnim.play(player, SymbioteAnim.SPIKE_FAN);
 		SymbioteVitals c = SymbioteVitalsManager.vitals(player).copy();
-		c.spikeConeReadyAt = now + CD_SPIKE_FAN;
+		c.spikeConeReadyAt = now + CD_SPIKE_NOVA;
 		SymbioteVitalsManager.save(player, c);
-		Vec3 look = player.getLookAngle();
-		for (int i = 0; i < SPIKE_FAN_YAW.length; i++) {
-			Vec3 dir = look.yRot(SPIKE_FAN_YAW[i] * ((float) Math.PI / 180.0f)).normalize();
-			SymbioteSpikeEntity.shoot(player, SymbioteHands.hand(player, i % 2 == 0), dir);
+		SymbioteAnim.play(player, SymbioteAnim.SPIKE_NOVA);
+		ServerLevel level = AbilityHelpers.level(player);
+		Vec3 centre = player.position();
+		Vec3 chest = centre.add(0, player.getBbHeight() * 0.55, 0);
+		double radius = NOVA_RADIUS;
+		float yaw0 = player.getRandom().nextFloat() * 360.0f / NOVA_SPIKES;
+		for (int i = 0; i < NOVA_SPIKES; i++) {
+			double a = Math.toRadians(yaw0 + i * 360.0 / NOVA_SPIKES);
+			Vec3 dir = new Vec3(Math.cos(a), 0.0, Math.sin(a));
+			SymbioteSpikeEntity.nova(player, chest.add(dir.scale(0.5 * player.getScale())).add(0, (i % 2) * 0.25 - 0.1, 0), dir,
+					(int) Math.ceil(radius / 1.9));
 		}
-		SymbioteSounds.organic(player, 1.0f, 1.1f);
-		AbilityHelpers.sound(player, SoundEvents.TRIDENT_THROW, 0.9f, 1.2f);
-		AbilityHelpers.sound(player, SoundEvents.PLAYER_ATTACK_SWEEP, 0.6f, 1.4f);
+		// the shockwave: a ring of ground tendrils lashing outward plus the ground burst
+		Vec3 ground = groundPoint(level, centre);
+		for (int i = 0; i < 12; i++) {
+			double a = Math.PI * 2 * (i + 0.5) / 12;
+			Vec3 root = groundPoint(level, centre.add(Math.cos(a) * 1.0, 0, Math.sin(a) * 1.0));
+			Vec3 tip = groundPoint(level, centre.add(Math.cos(a) * radius, 0, Math.sin(a) * radius)).add(0, 0.35 + (i % 2) * 0.3, 0);
+			SymbioteTendrilEntity.fromPoint(player, root, tip, null, 12, 4, 0.13f);
+		}
+		SymbioteVfx.groundBurst(player, ground, (float) radius);
+		SymbioteVfx.bodyBurst(player, 1.2f);
+		for (LivingEntity target : enemiesAround(player, centre, radius + 1.0)) {
+			Vec3 to = target.position().subtract(centre);
+			if (to.horizontalDistance() > radius + target.getBbWidth() * 0.5 || Math.abs(to.y) > 3.0) {
+				continue;
+			}
+			if (AbilityHelpers.hurtBurst(player, target, NOVA_DAMAGE)) {
+				target.addEffect(new MobEffectInstance(MobEffects.WITHER, NOVA_WITHER_TICKS, 1, false, true, true), player);
+				if (!isBoss(target)) {
+					AbilityHelpers.knockbackFrom(target, centre, 1.0);
+					AbilityHelpers.push(target, new Vec3(0, 0.35, 0));
+				}
+				SymbioteVfx.impact(player, target, 0.9f);
+			}
+		}
+		SymbioteSounds.organic(player, 1.1f, 0.8f);
+		AbilityHelpers.sound(player, SoundEvents.TRIDENT_THROW, 1.0f, 0.7f);
+		AbilityHelpers.sound(player, SoundEvents.PLAYER_ATTACK_SWEEP, 0.8f, 0.6f);
+		AbilityHelpers.sound(player, SoundEvents.WARDEN_ATTACK_IMPACT, 0.8f, 1.2f);
 	}
 
-	// ---------------- Tendril Grab (Shift + C, C again to throw) ----------------
+	// ---------------- v0.17.5 moveset v3: the Thorns aura and Spike Surge (Z in Thorns form) ----------------
+
+	public static final int CDI_SURGE = 16;
+	public static final int CD_SURGE = 200;             // 10 s
+	public static final int SURGE_TICKS = 120;          // 6 s
+	public static final double THORNS_RADIUS = 1.5;
+	public static final double SURGE_RADIUS = 3.5;
+	public static final float THORNS_DAMAGE = 3.0f;
+	public static final float SURGE_DAMAGE = 5.0f;
+	public static final int THORNS_INTERVAL = 15;
+	private static final int THORNS_WITHER_TICKS = 40;
+	/** playerId -> game time of the last aura pulse. */
+	private static final Map<Integer, Long> THORNS_PULSE = new ConcurrentHashMap<>();
+
+	/**
+	 * Is Spike Surge running? Read off the synced cooldown (it started {@link #CD_SURGE} before its entry comes ready), so every
+	 * client knows too (the body spikes grow long) without a new field. Client-safe.
+	 */
+	public static boolean surging(Player player, long now) {
+		SymbioteState s = player.getAttachedOrElse(ModAttachments.SYMBIOTE_STATE, null);
+		return surgeAge(s, now) >= 0 && SymbioteVitalsManager.form(player) == SymbioteVitalsManager.FORM_THORNS;
+	}
+
+	/** Ticks since Spike Surge started, or -1 when it is not running. Client-safe. */
+	public static long surgeAge(SymbioteState s, long now) {
+		if (s == null || s.abilityCooldowns.size() <= CDI_SURGE) {
+			return -1L;
+		}
+		long start = s.abilityCooldowns.get(CDI_SURGE) - CD_SURGE;
+		long age = now - start;
+		return age >= 0L && age < SURGE_TICKS ? age : -1L;
+	}
+
+	/**
+	 * Z in Thorns form (user: "make the z move for this to make the spikes temporarily longer so that the range increases"): the body
+	 * spikes grow about 2.5x longer for 6 s -- the aura reaches 3.5 blocks and hits for 5. 10 s cooldown (entry 16).
+	 */
+	private static boolean spikeSurge(ServerPlayer player) {
+		SymbioteAnim.play(player, SymbioteAnim.SPIKE_SURGE);
+		SymbioteVfx.bodyBurst(player, 1.3f);
+		THORNS_PULSE.remove(player.getId()); // the longer spikes hit at once
+		SymbioteSounds.organic(player, 1.1f, 0.5f);
+		AbilityHelpers.sound(player, SoundEvents.TRIDENT_RIPTIDE_1.value(), 0.9f, 0.6f);
+		AbilityHelpers.sound(player, SoundEvents.RAVAGER_ROAR, 0.5f, 1.5f);
+		return true;
+	}
+
+	/**
+	 * Thorns form (user: "make the thorns form hurt things that get close to you aswell"): everything within 1.5 blocks (3.5 while
+	 * surging) -- measured flat from the host to the target's near side, with the bodies overlapping in height -- takes 3 (5 surging)
+	 * every 15 ticks, Wither I for 2 s and a small push out (not bosses). Never squadmates, own pets, or players with PvP off
+	 * ({@link #enemiesAround}). The Thorns IV reflection is unchanged.
+	 */
+	private static void tickThornsAura(ServerPlayer player, long now) {
+		if (!SymbioteVitalsManager.thornsMode(player) || SymbioteVitalsManager.vitals(player).broken) {
+			THORNS_PULSE.remove(player.getId());
+			return;
+		}
+		Long last = THORNS_PULSE.get(player.getId());
+		if (last != null && now - last < THORNS_INTERVAL && now >= last) {
+			return;
+		}
+		THORNS_PULSE.put(player.getId(), now);
+		boolean surge = surging(player, now);
+		double reach = surge ? SURGE_RADIUS : THORNS_RADIUS; // from the host's side, so a bulked-up host reaches as far
+		float damage = surge ? SURGE_DAMAGE : THORNS_DAMAGE;
+		Vec3 c = player.position();
+		AABB host = player.getBoundingBox();
+		double hostHalf = player.getBbWidth() * 0.5;
+		for (LivingEntity target : enemiesAround(player, c, reach + hostHalf + 2.0)) {
+			Vec3 to = target.position().subtract(c);
+			double gap = to.horizontalDistance() - hostHalf - target.getBbWidth() * 0.5;
+			AABB tb = target.getBoundingBox();
+			if (gap > reach || tb.maxY < host.minY || tb.minY > host.maxY) {
+				continue;
+			}
+			if (AbilityHelpers.hurtBurst(player, target, damage)) {
+				target.addEffect(new MobEffectInstance(MobEffects.WITHER, THORNS_WITHER_TICKS, 0, false, true, true), player);
+				if (!isBoss(target)) {
+					AbilityHelpers.knockbackFrom(target, c, surge ? 0.55 : 0.4);
+				}
+				SymbioteVfx.impact(player, target, surge ? 0.8f : 0.55f);
+			}
+		}
+	}
+
+	// ---------------- Tendril Grab (Shift + C; C throws, left click crushes, Shift+C sets down) ----------------
+
+	/** v0.17.5 moveset v3: a crush squeezes for this much, at most once per {@link #CRUSH_INTERVAL} ticks. */
+	public static final float CRUSH_DAMAGE = 6.0f;
+	public static final int CRUSH_INTERVAL = 10;
+	/** Ticks a released target is spared fall damage (it is also spared as soon as it lands -- the entry just lapses). */
+	private static final int SAFE_LANDING_TICKS = 100;
+
+	/** A held target. Holds the entity itself (cleared per player and in {@link #clearSessionState}). */
+	private static final class GrabHold {
+		final LivingEntity target;
+		final boolean suitAtStart;
+		long lastCrush = Long.MIN_VALUE / 2;
+		long lastWrap;
+
+		GrabHold(LivingEntity target, boolean suitAtStart, long now) {
+			this.target = target;
+			this.suitAtStart = suitAtStart;
+			this.lastWrap = now;
+		}
+	}
+
+	/** playerId -> what that host is holding. */
+	private static final Map<Integer, GrabHold> GRAB = new ConcurrentHashMap<>();
+	/** entity id -> game time until which it takes no fall damage (a set-down target, a released player). */
+	private static final Map<Integer, Long> SAFE_LANDING = new ConcurrentHashMap<>();
+
+	/**
+	 * v0.17.5 moveset v3 (user: "works on players and squad mates too"): anything alive that is not a boss, a Target Dummy, an armour
+	 * stand, a spectator or a creative player -- players and squadmates included, PvP or not (only the crush's damage asks).
+	 */
+	public static boolean grabbable(ServerPlayer player, Entity e) {
+		if (!(e instanceof LivingEntity target) || !target.isAlive() || target == player || target instanceof ArmorStand
+				|| target instanceof com.projecthero.mod.targetdummy.TargetDummyEntity || isBoss(target) || target.isSpectator()) {
+			return false;
+		}
+		return !(target instanceof Player p) || !p.getAbilities().invulnerable;
+	}
+
+	/** May this host's crush / throw hurt {@code target}? Not a squadmate, not a player PvP protects. */
+	private static boolean harmable(ServerPlayer player, LivingEntity target) {
+		return !Squads.areAllies(player, target) && com.projecthero.mod.combat.HeroTargets.canHarm(player, target);
+	}
 
 	private static void beginTendrilGrab(ServerPlayer player, long now) {
 		SymbioteState s = Symbiote.state(player);
@@ -590,7 +822,7 @@ public final class SymbioteAbilityManager {
 			return;
 		}
 		LivingEntity target = AbilityHelpers.raycastEntity(player, GRAB_RANGE);
-		if (target == null || !AbilityHelpers.isValidGrabTarget(target, player) || Squads.areAllies(player, target)) {
+		if (target == null || !grabbable(player, target)) {
 			// the tendril still lashes out and comes back empty
 			SymbioteAnim.play(player, SymbioteAnim.TENDRIL_STRIKE);
 			SymbioteTendrilEntity.fromHand(player, true, AbilityHelpers.aimPoint(player, GRAB_RANGE), null, 9, 3, 0.12f);
@@ -602,13 +834,14 @@ public final class SymbioteAbilityManager {
 		c.tendrilGrabHeld = true;
 		c.tendrilGrabStartTick = now;
 		player.setAttached(ModAttachments.SYMBIOTE_STATE, c);
+		GRAB.put(player.getId(), new GrabHold(target, Symbiote.isActive(player), now));
 
 		target.setNoGravity(true);
 		target.setDeltaMovement(Vec3.ZERO);
 		SymbioteAnim.play(player, SymbioteAnim.GRAB);
 		holdTendril(player, SymbioteTendrilEntity.fromHand(player, true,
-				target.position().add(0, target.getBbHeight() * 0.5, 0), target, GRAB_MAX_HOLD_TICKS + 10, 3, 0.15f));
-		SymbioteVfx.wrap(player, target, GRAB_MAX_HOLD_TICKS, 1.0f); // tendrils coil round the prey for the hold (was ink every 3 ticks)
+				target.position().add(0, target.getBbHeight() * 0.5, 0), target, GRAB_WRAP_TICKS + 10, 3, 0.15f));
+		SymbioteVfx.wrap(player, target, GRAB_WRAP_TICKS, 1.0f); // tendrils coil round the prey (topped up while it is held)
 		SymbioteSounds.organic(player, 0.9f, 0.5f);
 		player.displayClientMessage(Component.translatable("message.projecthero.symbiote.grab_seized"), true);
 	}
@@ -627,20 +860,37 @@ public final class SymbioteAbilityManager {
 		}
 	}
 
+	/** The held target: the entity the hold remembers, else by id in the host's level. */
+	private static LivingEntity grabbed(ServerPlayer player, SymbioteState s) {
+		GrabHold h = GRAB.get(player.getId());
+		if (h != null) {
+			return h.target;
+		}
+		return player.level().getEntity(s.tendrilGrabTargetId) instanceof LivingEntity le ? le : null;
+	}
+
+	/**
+	 * v0.17.5 moveset v3 (user: "Remove time limit of Shift+C grab move"): held in front of the host until C throws, Shift+C sets it
+	 * down, or the host dies / takes the suit off (if it was on for the grab) / changes dimension, or the target dies or is a boss.
+	 */
 	private static void tickTendrilGrab(ServerPlayer player, long now) {
 		SymbioteState s = Symbiote.state(player);
 		if (!s.tendrilGrabHeld) {
+			if (GRAB.containsKey(player.getId())) {
+				releaseGrabQuietly(player, s, now);
+			}
 			return;
 		}
-		ServerLevel level = AbilityHelpers.level(player);
-		Entity e = level.getEntity(s.tendrilGrabTargetId);
-		if (!(e instanceof LivingEntity target) || !target.isAlive()
+		LivingEntity target = grabbed(player, s);
+		GrabHold h = GRAB.get(player.getId());
+		if (h == null && target != null) {
+			h = new GrabHold(target, Symbiote.isActive(player), now); // an old save / a grab from before this version
+			GRAB.put(player.getId(), h);
+		}
+		if (target == null || !target.isAlive() || target.isRemoved() || target.level() != player.level() || !player.isAlive()
+				|| isBoss(target) || (h != null && h.suitAtStart && !Symbiote.isActive(player))
 				|| player.distanceToSqr(target) > (GRAB_RANGE * 1.5) * (GRAB_RANGE * 1.5)) {
 			releaseGrabQuietly(player, s, now);
-			return;
-		}
-		if (now - s.tendrilGrabStartTick >= GRAB_MAX_HOLD_TICKS) {
-			throwGrabbed(player, s, now);
 			return;
 		}
 		Vec3 hold = player.getEyePosition().add(player.getLookAngle().scale(GRAB_HOLD_DISTANCE * Math.max(1.0, player.getScale())));
@@ -648,33 +898,139 @@ public final class SymbioteAbilityManager {
 		target.teleportTo(hold.x, hold.y - target.getBbHeight() * 0.5, hold.z);
 		target.setDeltaMovement(Vec3.ZERO);
 		target.fallDistance = 0;
+		// keep the tendril and the coils going for as long as it is held
+		Integer tid = HELD_TENDRIL.get(player.getId());
+		if (tid != null && player.level().getEntity(tid) instanceof SymbioteTendrilEntity t && t.isAlive()) {
+			t.keepAlive(40);
+		} else {
+			holdTendril(player, SymbioteTendrilEntity.fromHand(player, true, hold, target, 60, 2, 0.15f));
+		}
+		if (h != null && now - h.lastWrap >= GRAB_WRAP_TICKS - 10) {
+			h.lastWrap = now;
+			SymbioteVfx.wrap(player, target, GRAB_WRAP_TICKS, 1.0f);
+		}
+	}
+
+	/** Is this host holding something with the grab? (tests) */
+	public static boolean holding(ServerPlayer player) {
+		return Symbiote.state(player).tendrilGrabHeld;
 	}
 
 	private static void throwGrabbed(ServerPlayer player, SymbioteState s, long now) {
-		ServerLevel level = AbilityHelpers.level(player);
-		Entity e = level.getEntity(s.tendrilGrabTargetId);
-		if (e instanceof LivingEntity target && target.isAlive()) {
+		LivingEntity target = grabbed(player, s);
+		if (target != null && target.isAlive()) {
 			target.setNoGravity(false);
 			Vec3 look = player.getLookAngle();
 			AbilityHelpers.push(target, look.scale(1.9).add(0, 0.4, 0));
-			AbilityHelpers.hurt(player, target, GRAB_THROW_DAMAGE);
+			if (harmable(player, target)) {
+				AbilityHelpers.hurt(player, target, GRAB_THROW_DAMAGE);
+			}
+			if (target instanceof Player) {
+				safeLanding(target, now); // "the grabbed player gets no fall damage after release"
+			}
 			SymbioteVfx.impact(player, target, 1.3f);
 			SymbioteSounds.organic(player, 1.0f, 0.4f);
 			SymbioteAnim.play(player, SymbioteAnim.THROW);
 		}
-		clearGrab(player, s, now, true);
+		clearGrab(player, now, true);
+	}
+
+	/**
+	 * Shift+C while holding (user: "presses shift+C to let them down gently"): the target is put down on the ground just in front of the
+	 * host -- no damage, no fall damage. Starts the grab's cooldown like a throw.
+	 */
+	private static void setDownGrabbed(ServerPlayer player, SymbioteState s, long now) {
+		LivingEntity target = grabbed(player, s);
+		if (target != null && target.isAlive()) {
+			ServerLevel level = AbilityHelpers.level(player);
+			Vec3 look = player.getLookAngle();
+			Vec3 flat = new Vec3(look.x, 0, look.z);
+			flat = flat.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : flat.normalize();
+			double out = player.getBbWidth() * 0.5 + target.getBbWidth() * 0.5 + 0.6;
+			Vec3 dest = groundPoint(level, player.position().add(flat.scale(out)));
+			if (!level.noCollision(target, target.getBoundingBox().move(dest.subtract(target.position())))) {
+				dest = player.position(); // no room in front: at the host's feet
+			}
+			target.setNoGravity(false);
+			target.teleportTo(dest.x, dest.y, dest.z);
+			target.setDeltaMovement(Vec3.ZERO);
+			target.fallDistance = 0;
+			target.hurtMarked = true;
+			safeLanding(target, now);
+			SymbioteAnim.play(player, SymbioteAnim.GRAB_SET_DOWN);
+			SymbioteSounds.organic(player, 0.6f, 0.9f);
+		}
+		clearGrab(player, now, true);
+	}
+
+	/**
+	 * Left click while holding (user: "left clicks to crush them"): the coils squeeze -- 6 damage, at most once every 10 ticks, the jaws
+	 * snarl. A squadmate or a player PvP protects is only squeezed (no damage, an action-bar hint). Detected from the client's attack
+	 * key ({@code SymbioteKitPayload.CRUSH}) or, as a backstop, a melee swing that reached an entity ({@link #registerEvents}, which
+	 * then cancels that punch). @return true if this click squeezed (false while it is too soon or nothing is held)
+	 */
+	public static boolean crush(ServerPlayer player) {
+		SymbioteState s = Symbiote.state(player);
+		if (!s.tendrilGrabHeld || !hasContext(player)) {
+			return false;
+		}
+		long now = player.level().getGameTime();
+		LivingEntity target = grabbed(player, s);
+		GrabHold h = GRAB.get(player.getId());
+		if (target == null || !target.isAlive() || (h != null && now - h.lastCrush < CRUSH_INTERVAL)) {
+			return false;
+		}
+		if (h != null) {
+			h.lastCrush = now;
+		}
+		SymbioteAnim.play(player, SymbioteAnim.GRAB_CRUSH);
+		SymbioteVfx.wrap(player, target, 12, 1.35f);
+		SymbioteSounds.organic(player, 1.0f, 0.45f);
+		AbilityHelpers.sound(player, SoundEvents.SLIME_SQUISH, 0.9f, 0.6f);
+		if (!harmable(player, target)) {
+			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.grab_crush_protected"), true);
+			return true;
+		}
+		if (AbilityHelpers.hurtBurst(player, target, CRUSH_DAMAGE)) {
+			SymbioteVfx.impact(player, target, 0.8f);
+			AbilityHelpers.sound(player, SoundEvents.PLAYER_ATTACK_CRIT, 0.8f, 0.5f);
+		}
+		return true;
+	}
+
+	private static void safeLanding(LivingEntity target, long now) {
+		target.fallDistance = 0;
+		SAFE_LANDING.put(target.getId(), now + SAFE_LANDING_TICKS);
+	}
+
+	/** Is {@code e} spared fall damage after a grab released it? */
+	public static boolean safeLanding(LivingEntity e) {
+		Long until = SAFE_LANDING.get(e.getId());
+		if (until == null) {
+			return false;
+		}
+		if (e.level().getGameTime() > until) {
+			SAFE_LANDING.remove(e.getId());
+			return false;
+		}
+		return true;
 	}
 
 	private static void releaseGrabQuietly(ServerPlayer player, SymbioteState s, long now) {
-		ServerLevel level = AbilityHelpers.level(player);
-		Entity e = level.getEntity(s.tendrilGrabTargetId);
-		if (e instanceof LivingEntity target) {
+		LivingEntity target = grabbed(player, s);
+		if (target != null) {
 			target.setNoGravity(false);
+			if (target.isAlive()) {
+				safeLanding(target, now); // whatever let it go, it is not hurt by the drop
+			}
 		}
-		clearGrab(player, s, now, false);
+		if (s.tendrilGrabHeld || GRAB.containsKey(player.getId())) {
+			clearGrab(player, now, false);
+		}
 	}
 
-	private static void clearGrab(ServerPlayer player, SymbioteState s, long now, boolean startCooldown) {
+	private static void clearGrab(ServerPlayer player, long now, boolean startCooldown) {
+		GRAB.remove(player.getId());
 		SymbioteState c = Symbiote.state(player).copy();
 		c.tendrilGrabTargetId = -1;
 		c.tendrilGrabHeld = false;
@@ -684,6 +1040,7 @@ public final class SymbioteAbilityManager {
 		player.setAttached(ModAttachments.SYMBIOTE_STATE, c);
 		dropHeldTendril(player);
 		SymbioteAnim.stop(player, SymbioteAnim.GRAB);
+		SymbioteAnim.stop(player, SymbioteAnim.GRAB_CRUSH);
 	}
 
 	// ---------------- Symbiote Lunge (X) ----------------
@@ -1108,7 +1465,7 @@ public final class SymbioteAbilityManager {
 	/** playerId -> {start y, start tick}. */
 	private static final Map<Integer, double[]> DIVE = new ConcurrentHashMap<>();
 
-	private static final int CD_ERUPTION = 240;         // 12 s
+	public static final int CD_ERUPTION = 160;          // 8 s (v0.17.5 moveset v3; was 12 s)
 	private static final int ERUPTION_STEPS = 8;
 	private static final double ERUPTION_STEP = 1.5;
 	private static final double ERUPTION_HIT_RADIUS = 1.7;
@@ -1726,10 +2083,28 @@ public final class SymbioteAbilityManager {
 
 	public static void registerEvents() {
 		net.fabricmc.fabric.api.event.player.AttackEntityCallback.EVENT.register((p, world, hand, entity, hitResult) -> {
+			// v0.17.5 moveset v3: holding a grab, a left click is the crush -- never a punch on the held target or anyone else
+			// (the client normally sends the crush itself and swallows the click; this is the backstop)
+			if (p != null && Symbiote.hasSymbiote(p) && p.getAttachedOrCreate(ModAttachments.SYMBIOTE_STATE).tendrilGrabHeld
+					&& SymbioteHostType.of(p) == SymbioteHostType.NORMAL) {
+				if (!world.isClientSide && p instanceof ServerPlayer sp) {
+					crush(sp);
+				}
+				return net.minecraft.world.InteractionResult.FAIL;
+			}
 			if (!world.isClientSide && p instanceof ServerPlayer sp && !sp.isSpectator()) {
 				onMeleeSwing(sp, entity);
 			}
 			return net.minecraft.world.InteractionResult.PASS;
+		});
+		// v0.17.5 moveset v3: a target the grab let go of (set down, a released player) takes no fall damage from it
+		net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
+			if (source.is(net.minecraft.tags.DamageTypeTags.IS_FALL) && !SAFE_LANDING.isEmpty() && safeLanding(entity)) {
+				entity.resetFallDistance();
+				SAFE_LANDING.remove(entity.getId());
+				return false;
+			}
+			return true;
 		});
 	}
 
@@ -1890,6 +2265,8 @@ public final class SymbioteAbilityManager {
 			tickDevour(player, now);
 			// v0.17.5 weapons + wings
 			SymbioteWeaponMoves.tick(player, now);
+			// v0.17.5 moveset v3
+			tickThornsAura(player, now);
 		} else {
 			stopMovesV2(player);
 			SymbioteState held = Symbiote.state(player);

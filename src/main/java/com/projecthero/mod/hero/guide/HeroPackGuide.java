@@ -537,12 +537,13 @@ public final class HeroPackGuide {
 
 	private static void symbioteMoves(List<Component> lines) {
 		head(lines, "projecthero.guide.symbiote.s.moves");
-		symbioteRow(lines, "R", "tendril_strike", "1.5");
-		symbioteRow(lines, "G", "spike_shot", "4");
-		symbioteRow(lines, "R x3", "tendril_slam", "1.5"); // v0.17.5 moveset v2
+		// v0.17.5 moveset v3: R and G 1 s, every Z 8 s, Spike Surge on Z in Thorns form, Spike Nova on Shift+G, the grab without a limit
+		symbioteRow(lines, "R", "tendril_strike", "1");
+		symbioteRow(lines, "G", "spike_shot", "1");
+		symbioteRow(lines, "R x3", "tendril_slam", "1"); // v0.17.5 moveset v2
 		symbioteRow(lines, "X", "leap", "2");
 		symbioteRow(lines, "X (air)", "dive_bomb", "6");
-		symbioteRow(lines, "Z", "barrage", "15");
+		symbioteRow(lines, "Z", "barrage", "8");
 		symbioteRow(lines, "C", "maw_bite", "5");
 		symbioteRow(lines, "V", "form", null);
 		symbioteRow(lines, "", "blade", null);
@@ -551,10 +552,11 @@ public final class HeroPackGuide {
 		symbioteRow(lines, "", "mace", null);
 		symbioteRow(lines, "", "whip", null);
 		symbioteRow(lines, "", "spikes", null);
-		symbioteRow(lines, "Z (Blade)", "blade_slash", "15");
-		symbioteRow(lines, "Z (Axe)", "cleave", "14");
-		symbioteRow(lines, "Z (Mace)", "ground_smash", "16");
-		symbioteRow(lines, "Z (Whip)", "lash", "10");
+		symbioteRow(lines, "Z (Blade)", "blade_slash", "8");
+		symbioteRow(lines, "Z (Axe)", "cleave", "8");
+		symbioteRow(lines, "Z (Mace)", "ground_smash", "8");
+		symbioteRow(lines, "Z (Whip)", "lash", "8");
+		symbioteRow(lines, "Z (Thorns)", "spike_surge", "10");
 		// v0.17.5 Symbiote Wings: double-tap Space in the air
 		symbioteRow(lines, "Space x2 (air)", "wings", "20");
 		blank(lines);
@@ -563,12 +565,13 @@ public final class HeroPackGuide {
 		para(lines, "projecthero.guide.symbiote.s.holds.body");
 		symbioteRow(lines, "Hold R", "impaling_spear", "8");
 		symbioteRow(lines, "Hold G", "spike_rain", "14");
-		symbioteRow(lines, "Hold Z", "ground_eruption", "12");
+		symbioteRow(lines, "Hold Z", "ground_eruption", "8");
 		symbioteRow(lines, "Hold C", "devour", "20");
+		symbioteRow(lines, "Hold V", "form_wheel", null);
 		blank(lines);
 		head(lines, "projecthero.guide.symbiote.s.combos");
-		symbioteRow(lines, "Sneak+R", "tendril_sweep", "10");
-		symbioteRow(lines, "Sneak+G", "spike_fan", "10");
+		symbioteRow(lines, "Sneak+R", "tendril_sweep", "4");
+		symbioteRow(lines, "Sneak+G", "spike_nova", "8");
 		symbioteRow(lines, "Sneak+X", "grapple", "3");
 		symbioteRow(lines, "Sneak+hold Z", "onslaught", "90");
 		symbioteRow(lines, "Sneak+V", "shield", "toggle");

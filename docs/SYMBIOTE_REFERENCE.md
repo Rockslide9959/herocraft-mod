@@ -843,3 +843,86 @@ Shots: `docs/screenshots/v0175/symbiote_weapons_wings/` -- `weapon_<blade|axe|ma
 `wings_backpack_*`; films `symbiote_weapon_cycle_growth_melt`, `symbiote_weapon_z_<blade_slash|cleave|ground_smash|lash>` (half speed),
 `symbiote_wings_flight_<behind|side>` (`.mp4` + `_sheet.png`). Harness `scratchpad/SymWWHarness.v0175.java.txt` (+ `SymWWHarnessMixin` camera,
 `SymWWHarnessSkinMixin` forced slim / wide skin), films via `scratchpad/symbiote/films_weapons_wings_v0175.js <harness out dir>`.
+
+## v0.17.5 -- Moveset v3 (Form wheel, Thorns aura + Spike Surge, Spike Nova, the grab without a limit, faster cooldowns)
+
+User: "I want to redo the moveset now that we have so many moves -- V - holding V for 0.5 seconds open a weapon wheel where you can choose
+what form you want to be in, make the thorns form hurt things that get close to you aswell and make the z move for this to make the spikes
+temporarily longer so that the range increases please. Shift+V - keep this the shield move. R - Keep this as tendril strike, lower cooldown to
+1 second. Shift+R - lower cooldown of tendril sweep to 4 seconds. make shift+G an aoe ability please. lower cooldown of g to 1 second. lower
+cooldown of z move. Remove time limit of Shift+C grab move, player press C to throw enemy, left clicks to crush them and presses shift+C to
+let them down gently, works on players and squad mates too". Normal host (Lethal Protector suit) only; Black Suit Spider-Man and Agent
+Venom keep their own kits. Shift + hold Z (the ultimate) is being replaced on a parallel branch and was not touched here.
+
+### Keys and numbers (only what changed)
+
+| Key | Move | Numbers | Cooldown (list index) |
+|---|---|---|---|
+| R tap | Tendril Strike | unchanged | **1 s** (0; was 1.5 s) |
+| Shift+R | Tendril Sweep | unchanged | **4 s** (12; was 10 s) |
+| G tap | Spike Shot | unchanged | **1 s** (1; was 4 s) |
+| Shift+G | **Spike Nova** (replaces the Spike Fan) | 16 spikes fly out flat in a ring from the chest (the look only: they pass through creatures and splat on blocks, ~7 blocks) + 12 ground tendrils lashing out + a 6-block GROUND_BURST; everything within 6 blocks (flat, + its half width; 3 up / down) takes **10**, **Wither II 3 s**, knockback 1.0 + 0.35 lift (not bosses) | **8 s** (`spikeConeReadyAt`, the Fan's own entry) |
+| Z tap | Tendril Barrage | unchanged | **8 s** (3; was 15 s) |
+| Z tap, a weapon out | Blade Slash / Cleave / Ground Smash / Lash | unchanged | **8 s** each (3; were 15 / 14 / 16 / 10 s) |
+| Z tap, Thorns | **Spike Surge** | the body spikes grow 2.5x longer for 6 s (grow out over 4 ticks, draw back over the last 8); the aura reaches **3.5** blocks and hits for **5** | **10 s** (**16**, new) |
+| Hold Z | Ground Eruption | unchanged | **8 s** (9; was 12 s) |
+| V tap | Form cycle | as before (Normal -> Blade -> Axe -> Mace -> Whip -> Thorns), now on the release under 10 ticks | none |
+| Hold V (10 ticks) | **Form wheel** | a radial wheel of the six Forms (client screen); point + let go of V or click; the centre keeps the current Form; Escape cancels; does not pause | none |
+| Shift+C | Tendril Grab | **no time limit**; players and squadmates can be grabbed (PvP or not); still no bosses / Target Dummy / armour stands / spectators / creative players | 5 s (5), started by a throw or a set-down |
+| C while holding | throw | as before (7 damage, not on a squadmate / PvP-protected player) | -- |
+| Left click while holding | **crush** | **6** damage, at most one per **10** ticks; the coils squeeze (WRAP 12 ticks), the holding arm clenches (`GRAB_CRUSH` pose), the jaws snarl. A squadmate or PvP-protected player: no damage, action-bar hint | -- |
+| Shift+C while holding | **set down** | put on the ground just in front (at the host's feet if there is no room), no damage, no fall damage | -- |
+| passive, Thorns form | **Thorns aura** | every 15 ticks: everything within **1.5** blocks (flat gap from the host's side to the target's side, with the bodies overlapping in height) takes **3**, Wither I 2 s, knockback 0.4 (0.55 surging; not bosses). Not squadmates, own / squadmates' pets, players with PvP off (`enemiesAround`); bosses take it. The Thorns IV reflection is unchanged | -- |
+
+Every Shift / hold variant still has its own cooldown: Spike Nova keeps the Fan's `spikeConeReadyAt`, Spike Surge is entry 16 (so it never
+blocks Barrage or a weapon's Z, which share entry 3), the crush has only its own 10-tick rate limit.
+
+### How it works
+
+- **Cooldown list**: `SymbioteState.COOLDOWN_SLOTS` 16 -> **18** (16 = Spike Surge; 17 is reserved for the parallel branch's Shift+Z
+  ultimate). Old saves read the new entries as ready.
+- **Spike Surge's clock** is its cooldown: `SymbioteAbilityManager.surgeAge(state, now)` = now - (entry 16 - 200) while under 120 ticks.
+  Every client reads it off the synced state (`SymbioteBodySpikes.surgeScale` lengthens each spike, roots 35% of the extra thicker), so
+  there is no new field or packet. Leaving Thorns ends the surge's effect (aura and look).
+- **V tap vs hold**: V without Sneak joins R / G / Z / C in `KEY_DOWN` (`waitsForRelease`, `holdTicks` = `FORM_WHEEL_TICKS` 10 for V,
+  `HOLD_TICKS` 8 for the rest). Released under 10 ticks: `cycleForm`. The client (`client/symbiote/SymbioteKitClient.tickWheelHold`,
+  called from `ProjectHeroModClient` next to the Green Lantern wheel hold) opens `SymbioteFormWheelScreen` at 10 ticks, sends
+  `SymbioteKitPayload.WHEEL_OPENED` (the server drops the pending V) and never sends V's release (the "screen opened" cleanup skips V,
+  like C for the construct wheel); V is then ignored until it is physically let go. Shift+V is still the Shield on the press.
+- **The wheel** (`SymbioteFormWheelScreen`): Beast Boy's Animal Wheel geometry (`PowerWheelScreen.band / sector / side`) in the Symbiote's
+  purple, the Forms in cycle order clockwise from the top, each slice a 9 x 9 drawn glyph (head / crescent / axe / spiked ball / curl /
+  spike burst) over the name (scaled to fit the slice); the centre names the hovered Form; under the wheel the hovered Form's one-line
+  description, wrapped with `TooltipWrap.wrap`, then the controls hint. A weapon slice is red with an item in the main hand. The pick goes
+  as `SymbioteKitPayload.PICK_FORM` -> `SymbioteAbilityManager.pickForm` -> `SymbioteVitalsManager.selectForm`, which applies the cycle's
+  rules but refuses a weapon with a full hand ("Empty your hand to grow a weapon") instead of skipping to Thorns. `cycleForm` and
+  `selectForm` share `applyForm` (a weapon from Thorns drops the spikes first).
+- **The grab** (`SymbioteAbilityManager` "Tendril Grab"): static `GRAB` (player id -> the held `LivingEntity`, whether the suit was on, last
+  crush / wrap tick) and `SAFE_LANDING` (entity id -> tick); both cleared per player and in `clearSessionState` (ServerStateReset). The hold
+  re-tops the tendril (`SymbioteTendrilEntity.keepAlive`) and the WRAP coils every 60 ticks; the pose holds the grab frame for as long as
+  `tendrilGrabHeld` (`SymbiotePose.apply`). Released quietly (gravity back, no fall damage) when the host dies / relogs / changes dimension
+  (`clearFor`, which used to leave the target floating with no gravity), takes the suit off (if it was on for the grab), is sonic-disrupted,
+  loses the kit, or the target dies, changes level or is a boss. The crush comes from the client (`SymbioteKitClient.startTick`: holding a
+  grab, attack-key clicks are swallowed -- no punch, no block breaking -- and sent as `SymbioteKitPayload.CRUSH`, the arm swings); as a
+  backstop the server's `AttackEntityCallback` turns any melee swing while holding into the crush and cancels the punch. Fall damage on a
+  `SAFE_LANDING` entity is negated by an `ALLOW_DAMAGE` hook (a set-down target; a thrown or released player; anything released quietly).
+- **Spike Nova** spikes: `SymbioteSpikeEntity.nova` (visual-only, 1.9 b/t, life = ceil(6 / 1.9) = 4 ticks); `SymbioteBodySpikes.window`
+  raises the body spikes for 30 ticks on `SPIKE_NOVA` and 36 on `SPIKE_SURGE`.
+- New anim ids 32-35 (`SPIKE_SURGE`, `SPIKE_NOVA`, `GRAB_CRUSH`, `GRAB_SET_DOWN`; 28-31 left free for the parallel branch), each with a pose.
+  The Lethal Protector mouth snarls on all of them (the default for any move).
+- **HUD**: G's Shift box / thin strip = Spike Nova's 8 s; in Thorns form Z's box shows Spike Surge's cooldown and lights while it runs
+  ("Surge 4.2s" tag); hold V fills the V box up to the wheel; holding a grab adds three tags ("C: Throw", "Click: Crush", "Shift+C: Set down")
+  and lights C. Left-Alt list: Shift+G "Spike Nova", V "Hold: Form Wheel", Z "Hold: Ground Eruption; a weapon: its Z; Thorns: Spike Surge".
+- **Guidebook** (Your Power, I): cooldowns updated, "Z (Thorns) Spike Surge", "Hold V Form Wheel", "Sneak+G Spike Nova"; Thorns and the grab
+  rewritten. JEI suit page summary updated. Lang: `scratchpad/symbiote/moveset_v3_lang_v0175.js` (key by key, re-runnable).
+
+### Tests
+
+`SymbioteMovesetV3GameTests`: the cooldown numbers (R / G 1 s, Shift+R 4 s, Z 8 s, every weapon Z 8 s, Ground Eruption 8 s, Spike Nova 8 s on
+its own entry, Spike Surge 10 s on entry 16 without touching entry 3, 18 entries, Shift variants never block the plain key); the Thorns aura
+stabs and withers a husk 0.6 blocks off and not a squadmate, nothing again inside 15 ticks, nothing in Normal form; a husk 2.6 blocks off is
+out of the aura until Spike Surge, then hit for the surge's 5; Spike Nova hits a ring of six husks with Wither II; the grab is still held
+after 5 s (the old limit was 3.5), a click crushes, a second click inside 10 ticks does not, the next one does, C throws (grab cooldown, no
+bite); Shift+C puts it down on the ground in front, unhurt, with gravity and a negated fall; a squadmate can be grabbed, squeezed without
+damage, thrown with no fall damage after; V taps still cycle, a wheel pick goes straight to Thorns / Whip, a weapon is refused with a full
+hand, a held V (or the wheel's message) does not cycle, Shift+V is the Shield. `SymbioteMovesetV2GameTests`: Sweep cooldown and the
+18-entry list updated.
