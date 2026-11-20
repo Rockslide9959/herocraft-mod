@@ -170,7 +170,10 @@ public final class SymbioteMonsterFirstPerson {
 				bone.updateRotation(0f, 0f, 0f);
 			}
 			bone.updatePosition(0f, 0f, 0f);
-			bone.updateScale(1f, 1f, 1f);
+			// the claws drawn bigger in first person (at body scale they read as small prongs past the huge forearm)
+			boolean claw = n.startsWith("finger" + side) && n.endsWith("c");
+			float k = claw ? 1.7f : 1f;
+			bone.updateScale(k, k, k);
 			for (GeoBone child : bone.getChildBones()) {
 				showOnly(child, side);
 			}

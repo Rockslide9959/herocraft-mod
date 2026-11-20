@@ -1024,3 +1024,23 @@ the phase start (39.95 s still the monster, 40 s the melt with the cooldown just
 swipe hits the golem in front and not the husk to the side, G's pound hits and launches the husk, 6 s cooldown; Shift+Z ends the form
 early with the 4-minute cooldown, refused while cooling, charges once ready, 18 entries; dying ends the form and starts the cooldown.
 `SymbioteMovesetV2GameTests`: the Shift + hold Z charge / cancel and the separate-cooldown checks now read the Monster form (entry 17).
+
+### Filming pass (fixes found on screen)
+
+- **Head rolled sideways**: the look yaw went on the head's rotY, but its parent frames lean ~56 degrees with the hunch, so it rolled the
+  face diagonally. `SymbioteMonsterModel.turnAboutWorldUp` now turns the head about the model's up axis expressed in its parent frame
+  (quaternion, back to GeckoLib's ZYX Euler angles); the never-keyed `neck` still takes the pitch.
+- **The view zoomed right in** during the charge, cocoon and melt: vanilla narrows the FOV with the movement-speed attribute (rooted =
+  -100%). `SymbioteMonsterFovMixin` keeps the FOV modifier at 1 while `SymbioteMonster.rooted`.
+- **First-person claws were invisible**: cancelling `renderHandsWithItems` skipped its `endBatch`, so the arms flushed later under the
+  wrong projection; the mixin ends the batch. The claws are drawn 1.7x (they read as small prongs past the forearm at body scale).
+- The charge's claw ring (the old Onslaught wind-up in `SymbioteVfxClient`) closed in from 9 blocks; it now starts at 3.4, tight round
+  the host. An additive eye-glow layer (`SymbioteMonsterTint.glow`, the suit's `eyeGlowStrength`) was added; the body's noise mottling
+  was calmed (lumps 30 -> 18).
+
+Shots: `docs/screenshots/v0175/symbiote_monster/` -- `00`-`07` the transformation stills, `turntable_<classic|carnage>_<1_front .. 8_front_left>`
++ `_face_<front|three_quarter|side_hunch>`, `move_<1..6>_*`, `hud_monster`, `hud_move_list`, `first_person_<idle|swing|swipe|pound>`,
+`melt_<1..4>_*`, `compare_titan_boss_<side|quarter>`; films (`.mp4` + `_sheet.png`) `symbiote_monster_transformation` (real time),
+`symbiote_monster_cocoon_slowmo` (6 tps), `symbiote_monster_all_moves`, `symbiote_monster_melt_back`. Harness
+`scratchpad/SymbioteMonsterHarness.v0175.java.txt` (+ `SymMonHarnessCameraMixin` / `SymMonHarnessGuiMixin`), films via
+`scratchpad/symbiote/films_monster_v0175.js <harness out dir>`.
