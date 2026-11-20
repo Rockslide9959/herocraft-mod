@@ -2,12 +2,16 @@
   "type": "minecraft:crafting_shaped",
   "category": "equipment",
   "pattern": [
-    "MM",
-    "MM"
+    " M ",
+    "MCM",
+    " M "
   ],
   "key": {
     "M": {
       "item": "minecraft:iron_ingot"
+    },
+    "C": {
+      "item": "minecraft:copper_ingot"
     }
   },
   "result": {

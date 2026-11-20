@@ -85,6 +85,10 @@ public final class MiraculousHud {
 	}
 
 	public static void render(GuiGraphics g, DeltaTracker delta) {
+		// v0.17.5 (user): a Secondary power with the keys (Power Armour, Falcon gear, the Symbiote suit over a Primary) owns the HUD
+		if (com.projecthero.mod.client.gui.VanillaHud.secondaryOwnsHud()) {
+			return;
+		}
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.player == null || mc.level == null || mc.options.hideGui) {
 			return;

@@ -121,6 +121,10 @@ public final class SpeedForceHud {
 	}
 
 	public static void render(GuiGraphics g, DeltaTracker delta) {
+		// v0.17.5 (user): a Secondary power with the keys (Power Armour, Falcon gear, the Symbiote suit over a Primary) owns the HUD
+		if (com.projecthero.mod.client.gui.VanillaHud.secondaryOwnsHud()) {
+			return;
+		}
 		Minecraft mc = Minecraft.getInstance();
 		Player p = mc.player;
 		if (mc.options.hideGui || mc.level == null || !shows(p)) {

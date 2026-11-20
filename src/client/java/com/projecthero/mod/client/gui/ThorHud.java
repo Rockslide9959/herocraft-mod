@@ -63,6 +63,10 @@ public final class ThorHud {
 	}
 
 	public static void render(GuiGraphics graphics, DeltaTracker deltaTracker) {
+		// v0.17.5 (user): a Secondary power with the keys (Power Armour, Falcon gear, the Symbiote suit over a Primary) owns the HUD
+		if (com.projecthero.mod.client.gui.VanillaHud.secondaryOwnsHud()) {
+			return;
+		}
 		Minecraft client = Minecraft.getInstance();
 		Player player = client.player;
 		if (player == null || client.options.hideGui) {

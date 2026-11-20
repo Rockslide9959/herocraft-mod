@@ -159,11 +159,14 @@ public class BeastTitanRocksGameTests implements FabricGameTest {
 			TitanFormEntity form = TitanShifter.formOf(p);
 			p.setXRot(10f);
 			p.setYRot(form.getYRot());
+			// v0.17.5 (CI flake): count every boulder seen in flight, tick by tick -- a boulder can burst on the barrier walls between
+			// two throws and its debris is capped, so a live-entity count at one moment could come up short
+			java.util.Set<java.util.UUID> seen = new java.util.HashSet<>();
+			helper.onEachTick(() -> rocks(helper, form).stream().filter(TitanRockEntity::isBoulder).forEach(r -> seen.add(r.getUUID())));
 			TitanKit.handle(p, 4, true);
 			helper.runAfterDelay(6, () -> helper.assertTrue(form.hasMoveFlag(TitanFormEntity.FLAG_HOLDING_ROCKS), "stones in the hand"));
-			helper.runAfterDelay(TitanMove.BOULDER_VOLLEY.impactTick + 5, () -> {
-				// some may have burst already: boulders still flying, or the debris of the ones that landed
-				helper.assertTrue(rocks(helper, form).size() >= 3, "the volley's boulders are real");
+			helper.runAfterDelay(TitanMove.BOULDER_VOLLEY.impactTick + 7, () -> {
+				helper.assertTrue(seen.size() >= 3, "three boulders thrown: " + seen.size() + " " + describe(helper, form));
 				helper.assertFalse(form.hasMoveFlag(TitanFormEntity.FLAG_HOLDING_ROCKS), "the hand is empty after the third");
 				helper.succeed();
 			});

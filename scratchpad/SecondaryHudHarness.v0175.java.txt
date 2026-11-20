@@ -1,0 +1,255 @@
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import com.projecthero.mod.client.gui.MoveListOverlay;
+import com.projecthero.mod.falcon.Falcon;
+import com.projecthero.mod.falcon.FalconAbilityManager;
+import com.projecthero.mod.falcon.item.FalconItems;
+import com.projecthero.mod.hero.AbilityRouter;
+import com.projecthero.mod.spider.SpiderMan;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.5): a Secondary power's HUD replaces the Primary's. Hulk (Primary) then the Symbiote suit on;
+ * Kryptonian (Primary) then the Falcon gear on. Enabled by run/secondaryhud.flag = "<out dir>". Copy to
+ * src/client/java/com/projecthero/mod/client/SecondaryHudHarness.java + client entrypoint while filming; remove both before committing.
+ */
+public final class SecondaryHudHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static File out;
+	private static final List<Runnable> PLAN = new ArrayList<>();
+	private static int planTick;
+	private static BlockPos site;
+	private static volatile boolean holdForward;
+	private static volatile float forcePitch = Float.NaN;
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("secondaryhud.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			out = new File(Files.readString(flag).trim());
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(SecondaryHudHarness::tick);
+		ClientTickEvents.START_CLIENT_TICK.register(mc -> {
+			if (mc.player != null) {
+				mc.options.keyUp.setDown(holdForward);
+				if (!Float.isNaN(forcePitch)) {
+					mc.player.setXRot(forcePitch);
+					mc.player.xRotO = forcePitch;
+					mc.player.setYRot(-90f);
+					mc.player.yRotO = -90f;
+				}
+			}
+		});
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(420_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "secondaryhud-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		mc.gui.getChat().clearMessages(false);
+		mc.getToasts().clear();
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		if (!name.startsWith("film_")) {
+			System.out.println("[HARNESS] shot " + name);
+		}
+	}
+
+	static void at(int ticks, Runnable r) {
+		while (PLAN.size() < ticks) {
+			PLAN.add(() -> {
+			});
+		}
+		Runnable prev = PLAN.get(ticks - 1);
+		PLAN.set(ticks - 1, () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	private static void film(Minecraft mc, String name, int from, int to) {
+		for (int t = from; t < to; t++) {
+			final int f = t - from;
+			at(t, () -> shot(mc, String.format("film_%s_%04d", name, f)));
+		}
+	}
+
+	private static void log(Minecraft mc, String what) {
+		server(mc, p -> System.out.println("[HARNESS] " + what + ": falcon=" + Falcon.hasPower(p) + " falconKeys=" + FalconAbilityManager.hasContext(p)
+				+ " spider=" + SpiderMan.hasPower(p) + " primaryOrder=" + p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.PRIMARY_ORDER, "")));
+	}
+
+	static void prepare(ServerLevel level) {
+		for (int x = -16; x <= 40; x++) {
+			for (int z = -14; z <= 14; z++) {
+				for (int y = -2; y <= 24; y++) {
+					BlockState st = y < 0 ? Blocks.DIRT.defaultBlockState() : y == 0 ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState();
+					level.setBlock(site.offset(x, y, z), st, 2 | 16);
+				}
+			}
+		}
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.getWindow().setWindowed(854, 480);
+				mc.execute(SecondaryHudHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 30) {
+			mc.options.fov().set(70);
+			mc.options.tutorialStep = net.minecraft.client.tutorial.TutorialSteps.NONE;
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(com.projecthero.mod.loot.finds.SupplyDrops.RULE).set(false, p.server);
+				BlockPos sp = p.blockPosition();
+				int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, sp.getX(), sp.getZ());
+				site = new BlockPos(sp.getX(), y - 1, sp.getZ());
+				prepare(level);
+				p.setGameMode(GameType.SURVIVAL);
+				
+				p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 20 * 60 * 30, 4, false, false));
+				p.connection.teleport(site.getX() + 0.5, site.getY() + 1, site.getZ() + 0.5, -90f, 0f);
+				System.out.println("[HARNESS] site " + site);
+			});
+		}
+		if (t == 45 && site == null) {
+			return;
+		}
+		if (t == 46) {
+			buildPlan(mc);
+		}
+		if (t < 50 || site == null) {
+			return;
+		}
+		if (planTick < PLAN.size()) {
+			PLAN.get(planTick++).run();
+		}
+		if (planTick >= PLAN.size() && PLAN.size() > 0) {
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	private static void buildPlan(Minecraft mc) {
+		int t = 80;
+		at(t, () -> {
+			mc.options.hideGui = false;
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			server(mc, p -> System.out.println("[HARNESS] hulk grant=" + com.projecthero.mod.hero.PowerGrants.grantHero(p, "hulk").message().getString()));
+		});
+		at(t + 30, () -> shot(mc, "a1_hulk_primary_hud"));
+		at(t + 32, () -> server(mc, p -> {
+			com.projecthero.mod.symbiote.Symbiote.grant(p, false);
+			System.out.println("[HARNESS] symbiote granted");
+		}));
+		at(t + 45, () -> shot(mc, "a2_hulk_with_symbiote_dormant"));
+		at(t + 47, () -> server(mc, p -> {
+			com.projecthero.mod.symbiote.Symbiote.toggle(p);
+			System.out.println("[HARNESS] suit toggled, owns=" + com.projecthero.mod.symbiote.Symbiote.ownsKeysOverPrimary(p));
+		}));
+		at(t + 110, () -> mc.gui.clear());
+		at(t + 112, () -> shot(mc, "a3_symbiote_suit_on_hud"));
+		at(t + 114, () -> server(mc, com.projecthero.mod.symbiote.Symbiote::toggle));
+		at(t + 175, () -> shot(mc, "a4_suit_off_hulk_back"));
+		// second pair: Kryptonian + the Falcon gear
+		at(t + 180, () -> server(mc, p -> {
+			System.out.println("[HARNESS] kryptonian grant=" + com.projecthero.mod.hero.PowerGrants.grantHero(p, "kryptonian").message().getString());
+		}));
+		at(t + 210, () -> shot(mc, "b1_kryptonian_primary_hud"));
+		at(t + 212, () -> server(mc, p -> {
+			FalconItems.equipFullSet(p);
+			System.out.println("[HARNESS] falcon on, keys=" + FalconAbilityManager.hasContext(p));
+		}));
+		at(t + 240, () -> mc.gui.clear());
+		at(t + 242, () -> shot(mc, "b2_falcon_gear_on_hud"));
+		at(t + 250, () -> {
+		});
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		rules.getRule(com.projecthero.mod.calling.SpawnCallings.RULE).set(false, null);
+		LevelSettings settings = new LevelSettings("SECHUD_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.NORMAL, true,
+				rules, WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(17051L, true, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

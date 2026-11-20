@@ -46,6 +46,15 @@ public final class VanillaHud {
 	 */
 	public static java.util.function.BooleanSupplier muteOthers = () -> false;
 
+	/**
+	 * v0.17.5 (user: "make the secondary power's HUD replace the primary power HUD"): true while a Secondary power owns the keys
+	 * ({@link #muteOthers}). Every Primary power's HUD returns at the top of its render then -- its bars, meters and text too,
+	 * not just the key column -- so only the Secondary's HUD is on screen.
+	 */
+	public static boolean secondaryOwnsHud() {
+		return muteOthers.getAsBoolean();
+	}
+
 	private VanillaHud() {
 	}
 

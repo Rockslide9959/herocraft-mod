@@ -49,6 +49,10 @@ public final class HulkHud {
 	}
 
 	public static void render(GuiGraphics g, DeltaTracker delta) {
+		// v0.17.5 (user): a Secondary power with the keys (Power Armour, Falcon gear, the Symbiote suit over a Primary) owns the HUD
+		if (com.projecthero.mod.client.gui.VanillaHud.secondaryOwnsHud()) {
+			return;
+		}
 		Minecraft mc = Minecraft.getInstance();
 		Player player = mc.player;
 		if (player == null || mc.options.hideGui || mc.level == null) {
