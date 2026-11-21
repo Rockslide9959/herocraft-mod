@@ -52,27 +52,3 @@ docs/screenshots/v0174/saiyan/*_sound.mp4
 # v0.17.4: side-by-sides and sheets that contain show frames (scratchpad/omnitrix_seq/compare.js, film.js --sbs)
 docs/screenshots/v0174/omnitrix_sequences/vs_show/
 
-# v0.17.4: originals of the borrowed Gyro suit skin (licence unchecked), kept by scratchpad/spin/fix_gyro_suit_skin.js
-scratchpad/spin/gyro_suit_before/
-# v0.17.4: Gyro suit skin from PlanetMinecraft (licence unchecked) -- local builds only until the licence is checked
-src/main/resources/assets/projecthero/textures/entity/spin/gyro_suit_*.png
-src/main/resources/assets/projecthero/textures/entity/spin/gyro_cape.png
-docs/screenshots/v0174/misc_models/gyro/
-scratchpad/spin/gyro_suit_original.png
-# v0.17.5 Sentry rework: suit textures made from the two PlanetMinecraft Sentry skins (the comics page says "ask me before using it in
-# a heropack or addon") -- local builds only until permission is given; the game falls back to the original textures without them.
-# Re-make with: node scratchpad/sentry/make_suit_textures.js
-src/main/resources/assets/projecthero/textures/entity/sentry/sentry_comics_*.png
-src/main/resources/assets/projecthero/textures/entity/sentry/sentry_void_*.png
-# v0.17.5 Symbiote "Lethal Protector" suit style: textures made from the user's PlanetMinecraft skin (author unknown, no licence stated)
-# -- local builds only until the author agrees; the game draws the style as Classic without them. Re-make with:
-#   node scratchpad/symbiote/make_lethal_protector.js   (reads docs/reference/symbiote/venom_lethal_protector.png)
-src/main/resources/assets/projecthero/textures/armor/symbiote_host_lethal.png
-src/main/resources/assets/projecthero/textures/armor/symbiote_host_lethal_tint.png
-src/main/resources/assets/projecthero/textures/armor/symbiote_host_lethal_fx.png
-src/main/resources/assets/projecthero/textures/entity/symbiote_monster_tint_lethal.png
-# v0.17.5 Captain America Battle Suit: textures made from the user's NameMC skin (https://namemc.com/skin/63b230543038f21b; author unknown,
-# no licence stated) -- local builds only until the licence is checked; the game draws cap_battle_suit_original_* without them.
-# Re-make with: node scratchpad/supersoldier/make_cap_suit_textures.js   (reads docs/reference/supersoldier/cap_suit.png)
-src/main/resources/assets/projecthero/textures/entity/supersoldier/cap_battle_suit_wide.png
-src/main/resources/assets/projecthero/textures/entity/supersoldier/cap_battle_suit_slim.png

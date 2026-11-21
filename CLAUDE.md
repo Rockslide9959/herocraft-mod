@@ -81,7 +81,7 @@ Solo hobby project. The user plays and tests in a CurseForge modpack, not in thi
 - New beams call `BeamClash.report(...)` every live tick, and their renderer checks `BeamClashClient.hides(entity)`.
 - Any new **static collection holding worlds, entities or block states** must be cleared in
   `diagnostics/ServerStateReset`, or it leaks whole worlds across world switches.
-- Borrowed skins and models (PlanetMinecraft and the like): note the source and check the licence before a public release.
+- Borrowed skins and models (PlanetMinecraft, NameMC and the like) ship publicly like everything else. Never gitignore or hold them back from a release; at most note the source in a code comment.
 
 ## Releasing
 
