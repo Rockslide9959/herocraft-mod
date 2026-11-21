@@ -85,6 +85,11 @@ tasks.matching { it.name == 'runGameTest' }.configureEach { task ->
 	task.onlyIf { gradle.startParameter.taskNames.any { it == 'runGameTest' || it.endsWith(':runGameTest') } }
 	// JUnit-style XML with a per-test time: build/reports/gametest.xml (how to find the slow tests; CI uploads it)
 	task.systemProperty 'fabric-api.gametest.report-file', layout.buildDirectory.file('reports/gametest.xml').get().asFile.absolutePath
+	// v0.17.6: on CI the gametest server ran on the JVM default heap (a quarter of the runner's RAM) and slice 3 died of
+	// OutOfMemoryError; give it an explicit 6 GB there (dev machines keep the default)
+	if (System.getenv('GITHUB_ACTIONS') == 'true') {
+		task.maxHeapSize = '6g'
+	}
 	if (project.hasProperty('testFilter')) {
 		task.systemProperty 'projecthero.gametest.filter', project.property('testFilter').toString()
 	}
