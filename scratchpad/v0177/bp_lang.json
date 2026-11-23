@@ -1,0 +1,8 @@
+{
+ "projecthero.black_panther.ability.kinetic_overload.desc": "Needs a full bar. Everything goes at once: a 10-block blast, 20 damage up close and 15 at the edge (capped on bosses). 5s cooldown.",
+ "projecthero.black_panther.ability.claw_combo.desc": "Pops the claws out if they are in, then three fast vibranium claw slashes in front of you, 7, 7 and 9 damage (the first lands on the press). The third leaves the target bleeding for 4s. 2s cooldown.",
+ "projecthero.black_panther.ability.pounce.desc": "Lunge up to 12 blocks onto what you aim at: 8 damage on landing, pins it for 2s (bosses are not pinned), then a free 10 damage strike. 12s cooldown.",
+ "projecthero.black_panther.ability.stalk.desc": "Toggle. While you sneak, mobs more than 6 blocks away lose track of you (bosses do not). A hit from behind does 3x damage to a creature, 1.75x to a player (never more than 20). Any hit ends Stalk. 10s cooldown.",
+ "projecthero.black_panther.ability.kinetic_return.desc": "Send the last arrow or shot that hit you (in the last 10s) straight back at the shooter: 1.25x the hit as it came in (at least 8), plus the stored energy -- it spends up to 40 Kinetic and adds 0.25 damage per point (up to +10). Never more than 20. 6s cooldown.",
+ "projecthero.guide.black_panther.passive.weave": "Vibranium Weave (suit): +12 armour and +4 toughness; arrows and bullets under 15 damage bounce off and charge the bar."
+}

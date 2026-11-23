@@ -23,7 +23,7 @@ public abstract class AbstractArrowMixin {
 			CallbackInfo ci) {
 		AbstractArrow self = (AbstractArrow) (Object) this;
 		if (self.getOwner() instanceof Player player && Punisher.hasPower(player)) {
-			self.setBaseDamage(self.getBaseDamage() * 2.0);
+			self.setBaseDamage(self.getBaseDamage() * com.projecthero.mod.punisher.PunisherConfig.ARROW_FACTOR); // v0.17.7: was x2
 		}
 	}
 }

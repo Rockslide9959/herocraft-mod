@@ -209,8 +209,9 @@ public final class SuperSoldier {
 		PowerToggles.modifier(player, Attributes.MOVEMENT_SPEED, SPEED_ID, SuperSoldierConfig.SPEED_BONUS,
 				AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		PowerToggles.modifier(player, Attributes.MAX_HEALTH, HEALTH_ID, SuperSoldierConfig.HEALTH_BONUS, AttributeModifier.Operation.ADD_VALUE);
-		// v0.14.11: +7 melee whatever is held (it used to need an empty hand) -- it stacks with a sword
-		PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, UNARMED_ID, SuperSoldierConfig.UNARMED_BONUS,
+		// v0.14.11: melee bonus whatever is held. v0.17.7 (Street tier): +7 bare-handed, +2 holding something (a sword stays at 10)
+		PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, UNARMED_ID,
+				player.getMainHandItem().isEmpty() ? SuperSoldierConfig.UNARMED_BONUS : SuperSoldierConfig.ARMED_BONUS,
 				AttributeModifier.Operation.ADD_VALUE);
 		if (s.onslaughtUntil > player.level().getGameTime()) {
 			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, ONSLAUGHT_ID, SuperSoldierConfig.ONSLAUGHT_ATTACK_BONUS,

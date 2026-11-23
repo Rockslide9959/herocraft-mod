@@ -152,7 +152,7 @@ public final class ModArmorMaterials {
 					ArmorItem.Type.HELMET, 3),
 			15,
 			SoundEvents.ARMOR_EQUIP_DIAMOND,
-			3.0f,
+			2.0f, // v0.17.7 Street tier: was 3 (diamond-level, the guide's "about diamond")
 			0.0f,
 			() -> Ingredient.of(Items.DIAMOND));
 

@@ -14,13 +14,15 @@ import net.minecraft.world.item.Items;
  */
 public enum ArmourTier {
 	//            slots armour tough  kb    speed  integ  dmg   drain cdMul  primary   secondary glow      frame tint
-	IRON(1,        3,  15f,   1f,   0.1f, -0.10f, 300f, 1.00f, 1.00f, 1.15f, 0xB8BCC2, 0x5A5F66, 0xFFB347, 0xFFFFFF),
-	GOLD(1,        3,  11f,   0f,   0.0f, -0.05f, 220f, 0.95f, 0.75f, 1.10f, 0xF2C641, 0x9C6A1A, 0xFFF2A0, 0xFFF0D8),
-	HERO_ALLOY(2,  4,  17f,   2f,   0.1f,  0.00f, 450f, 1.15f, 1.00f, 1.00f, 0x46505F, 0x3AA0FF, 0x96D6FF, 0xE6EEFF),
-	DIAMOND(3,     5,  20f,   5f,   0.15f, 0.00f, 650f, 1.30f, 1.00f, 0.95f, 0x6FE6DC, 0xE8FFFF, 0x9FFFFF, 0xEAFBFF),
-	NETHERITE(4,   6,  22f,   8f,   1.0f, -0.05f, 900f, 1.45f, 1.00f, 0.95f, 0x4A4246, 0x8A5A3A, 0xFF5A1F, 0xB8AEB2),
-	VIBRANIUM(5,   7,  24f,  10f,   0.3f,  0.05f, 1200f, 1.60f, 1.00f, 0.90f, 0x3A2A50, 0xC8CDDC, 0xB070FF, 0xD8CCEC),
-	CELESTIAL(6,   8,  26f,  12f,   0.4f,  0.10f, 1600f, 1.80f, 1.00f, 0.80f, 0xEEEAF6, 0xF2C03A, 0x96E6FF, 0xF4F2FF);
+	// v0.17.7 (Street tier): armour 12 -> 20 and toughness 0 -> 8 (Celestial = full diamond), damage x1.00 -> x1.25; kit hits are
+	// capped at the Street ranges (PowerArmourAbilities.melee / ability / ultimate). Higher tiers still win on integrity, slots and speed.
+	IRON(1,        3,  12f,   0f,   0.1f, -0.10f, 300f, 1.00f, 1.00f, 1.15f, 0xB8BCC2, 0x5A5F66, 0xFFB347, 0xFFFFFF),
+	GOLD(1,        3,  10f,   0f,   0.0f, -0.05f, 220f, 0.95f, 0.75f, 1.10f, 0xF2C641, 0x9C6A1A, 0xFFF2A0, 0xFFF0D8),
+	HERO_ALLOY(2,  4,  14f,   1f,   0.1f,  0.00f, 450f, 1.05f, 1.00f, 1.00f, 0x46505F, 0x3AA0FF, 0x96D6FF, 0xE6EEFF),
+	DIAMOND(3,     5,  16f,   2f,   0.15f, 0.00f, 650f, 1.10f, 1.00f, 0.95f, 0x6FE6DC, 0xE8FFFF, 0x9FFFFF, 0xEAFBFF),
+	NETHERITE(4,   6,  18f,   4f,   1.0f, -0.05f, 900f, 1.15f, 1.00f, 0.95f, 0x4A4246, 0x8A5A3A, 0xFF5A1F, 0xB8AEB2),
+	VIBRANIUM(5,   7,  19f,   6f,   0.3f,  0.05f, 1200f, 1.20f, 1.00f, 0.90f, 0x3A2A50, 0xC8CDDC, 0xB070FF, 0xD8CCEC),
+	CELESTIAL(6,   8,  20f,   8f,   0.4f,  0.10f, 1600f, 1.25f, 1.00f, 0.80f, 0xEEEAF6, 0xF2C03A, 0x96E6FF, 0xF4F2FF);
 
 	/** The body part of each upgrade slot, in unlock order (a tier with N slots has the first N). */
 	public static final BodyPart[] SLOT_ORDER = { BodyPart.HELMET, BodyPart.ARMS, BodyPart.BACK, BodyPart.LEGS, BodyPart.CHEST,

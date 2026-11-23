@@ -20,7 +20,7 @@ public class V01519GameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void punisherMeleeRetune(GameTestHelper helper) {
 		helper.assertTrue(PunisherConfig.BRUTAL_STRIKE_DAMAGE == 10f, "Brutal Strike 10");
-		helper.assertTrue(PunisherConfig.BREACH_KICK_DAMAGE == 15f, "Breach Kick (Shift+G) 15");
+		helper.assertTrue(PunisherConfig.BREACH_KICK_DAMAGE == 10f, "Breach Kick (Shift+G) 10 (v0.17.7 Street tier)");
 		helper.succeed();
 	}
 

@@ -83,6 +83,19 @@ public final class PowerArmourAbilities {
 		s.readyAt.put(key, now + Math.max(1, Math.round(base * s.suit.tier.cooldown)));
 	}
 
+	/** v0.17.7 (Street tier) ceilings: a kit hit never goes over its range's top, whatever the suit tier and Overclock. */
+	static float melee(float d) {
+		return Math.min(d, com.projecthero.mod.hero.PowerRank.STREET.meleeMax);
+	}
+
+	static float ability(float d) {
+		return Math.min(d, com.projecthero.mod.hero.PowerRank.STREET.abilityMax);
+	}
+
+	static float ultimate(float d) {
+		return Math.min(d, com.projecthero.mod.hero.PowerRank.STREET.ultimateMax);
+	}
+
 	/** Every kit hit: the tier's damage, +15% with Overclock. */
 	static float mul(SuitData suit) {
 		return suit.tier.damage * (suit.has(ModuleType.OVERCLOCK) ? PowerArmourConfig.OVERCLOCK_DAMAGE : 1f);
@@ -163,7 +176,8 @@ public final class PowerArmourAbilities {
 			return;
 		}
 		boolean fist = suit.has(ModuleType.POWER_FIST);
-		float damage = PowerArmourConfig.PUNCH_DAMAGE * mul(suit) * (1f + charge) * (fist ? PowerArmourConfig.POWER_FIST_MULT : 1f);
+		float damage = melee(PowerArmourConfig.PUNCH_DAMAGE * mul(suit) * (1f + PowerArmourConfig.PUNCH_CHARGE_BONUS * charge)
+				* (fist ? PowerArmourConfig.POWER_FIST_MULT : 1f));
 		Vec3 look = player.getLookAngle();
 		player.swing(InteractionHand.MAIN_HAND, true);
 		anim(s, charge >= 0.5f ? ANIM_PUNCH_HEAVY : ANIM_PUNCH, now);
@@ -212,7 +226,7 @@ public final class PowerArmourAbilities {
 		SuitData suit = s.suit;
 		boolean seismic = suit.has(ModuleType.SEISMIC_PLATES);
 		double r = seismic ? PowerArmourConfig.SEISMIC_RADIUS : PowerArmourConfig.STOMP_RADIUS;
-		float damage = PowerArmourConfig.STOMP_DAMAGE * mul(suit) * (seismic ? 1.2f : 1f);
+		float damage = ability(PowerArmourConfig.STOMP_DAMAGE * mul(suit) * (seismic ? 1.2f : 1f));
 		Vec3 c = player.position();
 		for (LivingEntity e : AbilityHelpers.enemiesAround(player, c, r)) {
 			if (Math.abs(e.getY() - c.y) > 2.5) {
@@ -284,7 +298,7 @@ public final class PowerArmourAbilities {
 		if (e instanceof LivingEntity target && target.isAlive()) {
 			Vec3 look = player.getLookAngle();
 			AbilityHelpers.push(target, new Vec3(look.x * 2.0, 0.3 + Math.max(0, look.y) * 1.2, look.z * 2.0));
-			THROWN.put(target.getUUID(), new Thrown(player.getUUID(), now + 40, PowerArmourConfig.THROW_DAMAGE * mul(s.suit)));
+			THROWN.put(target.getUUID(), new Thrown(player.getUUID(), now + 40, ability(PowerArmourConfig.THROW_DAMAGE * mul(s.suit))));
 			sound(player, SoundEvents.PLAYER_ATTACK_KNOCKBACK, 1f, 0.6f);
 		}
 	}
@@ -364,7 +378,7 @@ public final class PowerArmourAbilities {
 		}
 		Vec3 v = player.getDeltaMovement();
 		AbilityHelpers.launchSelf(player, new Vec3(run.dir.x * PowerArmourConfig.CHARGE_SPEED, Math.min(v.y, 0.1), run.dir.z * PowerArmourConfig.CHARGE_SPEED));
-		float damage = PowerArmourConfig.CHARGE_DAMAGE * mul(s.suit);
+		float damage = ability(PowerArmourConfig.CHARGE_DAMAGE * mul(s.suit));
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(0.7).expandTowards(run.dir.scale(0.8)),
 				e -> e != player && HeroTargets.canHarm(player, e))) {
 			if (run.hit.add(e.getId()) && AbilityHelpers.hurtBurst(player, e, damage)) {
@@ -412,7 +426,7 @@ public final class PowerArmourAbilities {
 		if (!s.suit.spend(cost)) {
 			s.suit.drain(s.suit.energy());
 		}
-		float damage = PowerArmourConfig.OVERLOAD_DAMAGE * mul(s.suit);
+		float damage = ultimate(PowerArmourConfig.OVERLOAD_DAMAGE * mul(s.suit));
 		Vec3 c = player.position().add(0, 1.0, 0);
 		double r = PowerArmourConfig.OVERLOAD_RADIUS;
 		for (LivingEntity e : AbilityHelpers.enemiesAround(player, c, r)) {

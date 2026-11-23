@@ -34,6 +34,7 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
  */
 public final class PunisherPassives {
 	private static final ResourceLocation SUPPRESS_SLOW = ProjectHeroMod.id("punisher_suppressive_slow");
+	private static final ResourceLocation UNARMED = ProjectHeroMod.id("punisher_unarmed");
 
 	private PunisherPassives() {
 	}
@@ -53,6 +54,10 @@ public final class PunisherPassives {
 	public static void reconcile(ServerPlayer player) {
 		// v0.15.18: Suppressive Fire is gone -- only ever removes its old slow
 		setModifier(player, Attributes.MOVEMENT_SPEED, SUPPRESS_SLOW, 0.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL, false);
+
+		// v0.17.7 (Street tier): combat training, +6 on a bare-handed punch (fist 7)
+		setModifier(player, Attributes.ATTACK_DAMAGE, UNARMED, PunisherConfig.UNARMED_BONUS, AttributeModifier.Operation.ADD_VALUE,
+				Punisher.hasPower(player) && player.getMainHandItem().isEmpty());
 
 		PunisherArmorSet.reconcile(player);
 	}

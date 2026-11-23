@@ -188,9 +188,9 @@ public final class BlackPantherAbilities {
 		shockwave(p, (float) BlackPantherConfig.OVERLOAD_RADIUS);
 		Vec3 c = p.position().add(0, 0.9, 0);
 		for (LivingEntity e : BlackPantherCombat.within(p, c, BlackPantherConfig.OVERLOAD_RADIUS, e -> BlackPantherCombat.isTarget(p, e))) {
-			// full damage up close, half at the edge
+			// full damage up close, three quarters at the edge (v0.17.7 Street ultimate: 20 -> 15)
 			double t = Math.sqrt(e.position().add(0, e.getBbHeight() * 0.5, 0).distanceToSqr(c)) / BlackPantherConfig.OVERLOAD_RADIUS;
-			BlackPantherCombat.strike(p, e, c, (float) (BlackPantherConfig.OVERLOAD_DAMAGE * (1.0 - 0.5 * t)), 2.2, 0.7);
+			BlackPantherCombat.strike(p, e, c, (float) (BlackPantherConfig.OVERLOAD_DAMAGE * (1.0 - 0.25 * t)), 2.2, 0.7);
 		}
 		level(p).sendParticles(BlackPanther.PURPLE_BIG, c.x, c.y, c.z, 90, 2.5, 1.0, 2.5, 0.0);
 		level(p).sendParticles(ParticleTypes.EXPLOSION_EMITTER, c.x, c.y, c.z, 1, 0, 0, 0, 0);
@@ -550,10 +550,10 @@ public final class BlackPantherAbilities {
 		sound(p, SoundEvents.TRIDENT_THROW.value(), 1.0f, 1.2f);
 	}
 
-	/** Kinetic Return: max(4, the shot x1.25), plus 0.25 per Kinetic point spent (up to 40 spent). */
+	/** Kinetic Return: max(8, the shot x1.25), plus 0.25 per Kinetic point spent (up to 40 spent); v0.17.7: never over 20. */
 	public static float returnDamage(float shotDamage, float kineticSpent) {
-		return Math.max(BlackPantherConfig.RETURN_MIN_DAMAGE, shotDamage * BlackPantherConfig.RETURN_FACTOR)
-				+ Math.min(BlackPantherConfig.RETURN_MAX_SPEND, Math.max(0f, kineticSpent)) * BlackPantherConfig.RETURN_PER_KINETIC;
+		return Math.min(BlackPantherConfig.MAX_HIT, Math.max(BlackPantherConfig.RETURN_MIN_DAMAGE, shotDamage * BlackPantherConfig.RETURN_FACTOR)
+				+ Math.min(BlackPantherConfig.RETURN_MAX_SPEND, Math.max(0f, kineticSpent)) * BlackPantherConfig.RETURN_PER_KINETIC);
 	}
 
 	// ---------------------------------------------------------------- tick

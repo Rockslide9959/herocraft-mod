@@ -1,5 +1,7 @@
 # Punisher — Project Hero reference
 
+> **v0.17.7 Street-tier balance pass:** damage / toughness numbers below are superseded where they differ -- see docs/POWER_TIERS_REFERENCE.md.
+
 Hero-Tier power, peer of Thor / Tony Stark / Spider-Man / Max Steel. The Punisher is **not**
 superhuman: everything comes from firearms, explosives, tactical gear and training. Built across
 **v0.8.1 – v0.8.5**. Package `com.projecthero.mod.firearm` (the generic gun engine, usable by any

@@ -1,0 +1,5 @@
+{
+ "projecthero.guide.power_tiers": "Power Tiers",
+ "projecthero.guide.power_tiers.body": "Every power is balanced to one of four tiers: Street, City, Planet and Cosmic. A tier sets how hard its basic hits, abilities and ultimate land (damage in health points, 2 = one heart) and how tough it keeps you. Buffs and marks can push a hit higher, but never past the tier's ultimate.",
+ "projecthero.guide.power_tiers.placed": "A power's tier shows under its name on its Guidebook page and in the I menu. Street: Super Soldier, the Punisher, Black Panther and Power Armour. More powers get their tier in later updates."
+}

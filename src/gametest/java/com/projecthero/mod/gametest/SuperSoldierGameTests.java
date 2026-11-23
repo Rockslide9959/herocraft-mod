@@ -124,7 +124,14 @@ public class SuperSoldierGameTests implements FabricGameTest {
 		helper.assertTrue(hasModifier(p, Attributes.ATTACK_DAMAGE, "super_soldier_unarmed"), "empty hand: +7 unarmed");
 		p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(Items.STICK));
 		SuperSoldier.reconcile(p);
-		helper.assertTrue(hasModifier(p, Attributes.ATTACK_DAMAGE, "super_soldier_unarmed"), "v0.14.11: holding something keeps the +7");
+		helper.assertTrue(hasModifier(p, Attributes.ATTACK_DAMAGE, "super_soldier_unarmed"), "v0.14.11: holding something keeps a bonus");
+		// v0.17.7 (Street tier): bare hands +7, holding something +2
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - (1.0 + SuperSoldierConfig.ARMED_BONUS)) < 1.0e-6,
+				"holding a stick: fist 1 + 2 = " + p.getAttributeValue(Attributes.ATTACK_DAMAGE));
+		p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+		SuperSoldier.reconcile(p);
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - (1.0 + SuperSoldierConfig.UNARMED_BONUS)) < 1.0e-6,
+				"bare hands: fist 1 + 7 = " + p.getAttributeValue(Attributes.ATTACK_DAMAGE));
 		// the jump modifier really carries a player about 2.25 blocks
 		double v = p.getAttributeValue(Attributes.JUMP_STRENGTH);
 		double y = 0.0;
@@ -344,7 +351,7 @@ public class SuperSoldierGameTests implements FabricGameTest {
 		Zombie z = zombieAt(helper, p, 2.0, 0.0);
 		pump(helper, p);
 		helper.assertTrue(SuperSoldierAbilities.flyingKick(p), "kicked");
-		helper.assertTrue(Math.abs(z.getHealth() - (200.0f - SuperSoldierConfig.KICK_DAMAGE)) < 0.05f, "12 up close, at once: " + z.getHealth());
+		helper.assertTrue(Math.abs(z.getHealth() - (200.0f - SuperSoldierConfig.KICK_DAMAGE)) < 0.05f, "10 up close, at once: " + z.getHealth());
 		helper.assertFalse(SuperSoldierAbilities.kicking(p), "no lunge needed");
 		helper.assertTrue(SuperSoldier.cooldownRemaining(p, SuperSoldierAbilities.FLYING_KICK) > 0, "cooldown started");
 

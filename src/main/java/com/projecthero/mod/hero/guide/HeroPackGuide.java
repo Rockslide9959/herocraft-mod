@@ -874,6 +874,14 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.powerclass");
 			para(lines, "projecthero.guide.powerclass.body");
 			blank(lines);
+			// v0.17.7 (user): the four balance tiers
+			head(lines, "projecthero.guide.power_tiers");
+			para(lines, "projecthero.guide.power_tiers.body");
+			for (com.projecthero.mod.hero.PowerRank r : com.projecthero.mod.hero.PowerRank.values()) {
+				lines.add(Component.literal("  ").append(r.guideLine()));
+			}
+			para(lines, "projecthero.guide.power_tiers.placed");
+			blank(lines);
 			// v0.16.1: the projectheroUniquePowers gamerule
 			head(lines, "projecthero.guide.unique_powers");
 			para(lines, "projecthero.guide.unique_powers.body");
@@ -3218,6 +3226,11 @@ public final class HeroPackGuide {
 			// v0.17.5: a chapter whose builder throws shows a placeholder line -- it used to take the whole book (and the game) down
 			report("Building chapter " + titleKey, e);
 			lines.add(pageError());
+		}
+		// v0.17.7 (user): a placed power shows its balance tier (Street / City / Planet / Cosmic) under the "Primary Power" line
+		com.projecthero.mod.hero.PowerRank rank = com.projecthero.mod.hero.PowerRank.ofGuideKey(titleKey);
+		if (rank != null) {
+			lines.add(Math.min(1, lines.size()), rank.guideLine());
 		}
 		return new Chapter(Component.translatable(titleKey), lines);
 	}

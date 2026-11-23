@@ -1,0 +1,10 @@
+{
+ "projecthero.super_soldier.ability.combo_strike.desc": "R: three fast punches on the enemy in front of you (7, 7, then a 9-damage finisher that knocks it back). Needs a target within 4 blocks. 5s cooldown.",
+ "projecthero.super_soldier.ability.shield_throw.desc": "C: throw the shield in your hand. It bounces from enemy to enemy, then flies back to you. Adamantium Shield: 9 per hit, up to 4 enemies. Vibranium Shield: 10 per hit, up to 5. Any other shield: 8 per hit, up to 3 enemies. All fly at least 25 blocks. No cooldown: throw it again as soon as it is back in your hand.",
+ "projecthero.super_soldier.ability.leaping_slam.desc": "Z: leap 4 blocks up and forward, then drive down into the ground: 10 damage to everything within 5 blocks (less at the edge), knocked back and up. No fall damage. 12s cooldown.",
+ "projecthero.super_soldier.ability.onslaught.desc": "Shift+Z, ULTIMATE: a shockwave (20 damage at the centre, 6 blocks), then 10s of +2 melee damage, Resistance I, Speed I and +25% damage on every move. Every punch shocks enemies within 3 blocks of the target for 7. 100s cooldown. No hit goes over 20.",
+ "projecthero.guide.super_soldier.passives.body": "+50% movement speed, +5 hearts, +7 melee damage bare-handed (+2 holding a weapon), 30% less damage taken, a 2-block jump and a longer safe fall, 20% knockback resistance, +15% attack speed, healing out of combat, and immunity to Poison and Nausea.",
+ "projecthero.super_soldier.ability.flying_kick.desc": "G: launch yourself feet-first at the enemy in front of you (up to 8 blocks away) for 10 damage and a big knockback, then spring back off it. No fall damage. 8s cooldown.",
+ "projecthero.super_soldier.ability.judo_takedown.desc": "Shift+G: grab the enemy in front of you (3.5 blocks), heave it over your shoulder and slam it into the ground behind you: 10 damage and stunned for 1.5s. Bosses are too big to throw but still take the hit. 10s cooldown.",
+ "item.projecthero.vibranium_shield.desc2": "Super Soldier C throw: 10 damage, 5 bounces, 30 blocks."
+}

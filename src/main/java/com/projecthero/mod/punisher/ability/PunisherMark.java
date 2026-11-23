@@ -116,7 +116,8 @@ public final class PunisherMark {
 		if (m == null || m.target != victim || victim.level().getGameTime() >= m.until) {
 			return amount;
 		}
-		return amount * (1f + PunisherConfig.MARK_DAMAGE_BONUS);
+		// v0.17.7: the bonus never lifts a hit past the Street tier's 20 (a hit already over it is left alone)
+		return Math.max(amount, Math.min(amount * (1f + PunisherConfig.MARK_DAMAGE_BONUS), PunisherConfig.MAX_HIT));
 	}
 
 	private static boolean live(Mark m) {

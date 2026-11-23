@@ -1,0 +1,174 @@
+// v0.17.7 power-tier harness: Guidebook "Power Tiers" section + the Street badge on the I menu / Guidebook pages of the four
+// Street powers. To use: copy to src/client/java/com/projecthero/mod/client/TierHarness.java, add
+// "com.projecthero.mod.client.TierHarness" to fabric.mod.json client entrypoints, write run/tier.flag = <out dir>.
+// Remove both from src before committing.
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+
+/** TEMP-HARNESS (not shipped). Kept as scratchpad/TierHarness.v0177.java.txt. */
+public final class TierHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks, planTick;
+	private static final List<Runnable> PLAN = new ArrayList<>();
+	private static File out;
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("tier.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			out = new File(Files.readString(flag).trim());
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(TierHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(300_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "tier-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		mc.gui.getChat().clearMessages(false);
+		mc.getToasts().clear();
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	static void at(int ticks, Runnable r) {
+		while (PLAN.size() < ticks) {
+			PLAN.add(() -> {
+			});
+		}
+		Runnable prev = PLAN.get(ticks - 1);
+		PLAN.set(ticks - 1, () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.getWindow().setWindowed(854, 480);
+				mc.execute(TierHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 30) {
+			mc.options.guiScale().set(2);
+			mc.options.tutorialStep = net.minecraft.client.tutorial.TutorialSteps.NONE;
+		}
+		if (t == 46) {
+			buildPlan(mc);
+		}
+		if (t < 50) {
+			return;
+		}
+		if (planTick < PLAN.size()) {
+			PLAN.get(planTick++).run();
+		} else if (PLAN.size() > 0) {
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	private static void guideChapter(Minecraft mc, int ch) {
+		com.projecthero.mod.client.gui.HeroPackGuideScreen.open();
+		try {
+			var m = com.projecthero.mod.client.gui.HeroPackGuideScreen.class.getDeclaredMethod("openChapter", int.class, int.class);
+			m.setAccessible(true);
+			m.invoke(mc.screen, ch, -1);
+		} catch (Exception e) {
+			System.out.println("[HARNESS] openChapter failed: " + e);
+		}
+	}
+
+	private static void buildPlan(Minecraft mc) {
+		int t = 10;
+		// Guidebook overview: the Power Tiers section sits after Primary / Secondary powers
+		at(t, () -> guideChapter(mc, 0));
+		at(t + 8, () -> { if (mc.screen != null) { System.out.println("[HARNESS] right=" + mc.screen.keyPressed(262, 0, 0)); } });
+		at(t + 10, () -> { if (mc.screen != null) { mc.screen.keyPressed(262, 0, 0); } });
+		at(t + 12, () -> shot(mc, "g1_overview_power_tiers"));
+		at(t + 14, () -> mc.setScreen(null));
+		String[] powers = { "super_soldier", "punisher", "black_panther" };
+		t += 20;
+		for (String id : powers) {
+			at(t, () -> server(mc, p -> {
+				com.projecthero.mod.hero.HeroTiers.wipeAll(p);
+				System.out.println("[HARNESS] " + id + "=" + com.projecthero.mod.hero.PowerGrants.grantHero(p, id).message().getString());
+			}));
+			at(t + 20, () -> mc.setScreen(com.projecthero.mod.client.gui.PowerInfoScreen.create()));
+			at(t + 28, () -> shot(mc, "i_" + id));
+			at(t + 29, () -> mc.setScreen(null));
+			t += 40;
+		}
+		// Power Armour's Guidebook page (it is a Secondary worn in a frame; its page carries the badge)
+		at(t, () -> guideChapter(mc, 80));
+		at(t + 8, () -> shot(mc, "g2_power_armour_page"));
+		at(t + 10, () -> {
+		});
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		rules.getRule(com.projecthero.mod.calling.SpawnCallings.RULE).set(false, null);
+		LevelSettings settings = new LevelSettings("TIER_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+				rules, WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(17051L, true, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

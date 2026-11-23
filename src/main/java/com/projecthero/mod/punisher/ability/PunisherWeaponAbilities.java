@@ -70,15 +70,15 @@ public final class PunisherWeaponAbilities {
 	public static final int PISTOL_SHIFT_CD = 400;
 	public static final int PISTOL_CHARGES = 3;
 	public static final float PISTOL_CHARGE_FACTOR = 2.0f;
-	public static final float PISTOL_SHOT_DAMAGE = 18f;
+	public static final float PISTOL_SHOT_DAMAGE = 10f; // v0.17.7 Street: was 18
 	public static final int PISTOL_SLOW_TICKS = 80;
 	public static final int PISTOL_SLOW_AMP = 1; // Slowness II
 
 	public static final int SHOTGUN_CD = 240;
 	public static final int SHOTGUN_SHIFT_CD = 400;
 	public static final int SHOTGUN_SHELLS = 3;
-	public static final float SHOTGUN_PELLET_DAMAGE = 15f;
-	public static final float SHOTGUN_WIDE_PELLET_DAMAGE = 10f;
+	public static final float SHOTGUN_PELLET_DAMAGE = 1.65f; // v0.17.7 Street: was 15 (6 pellets, about 10 on one target)
+	public static final float SHOTGUN_WIDE_PELLET_DAMAGE = 2.5f; // v0.17.7 Street: was 10 (a target in the fan takes about 4)
 	public static final int SHOTGUN_WIDE_PELLETS = 12;
 	public static final float SHOTGUN_WIDE_DEGREES = 90f;
 	public static final double SHOTGUN_RANGE = 5.0;
@@ -95,7 +95,7 @@ public final class PunisherWeaponAbilities {
 	public static final float SNIPER_ARMOR_IGNORE = 0.4f;
 	/** Shift+V Steady Shot: the wait before the round goes, and its multiplier on the gun's headshot damage. */
 	public static final int SNIPER_STEADY_TICKS = 60;
-	public static final float SNIPER_STEADY_FACTOR = 2.0f;
+	public static final float SNIPER_STEADY_FACTOR = 1.33f; // v0.17.7 Street: 15 headshot -> 20 (was x2 of 40)
 
 	/** The near-the-crosshair cone a lock-on searches when nothing is right under it. */
 	private static final double LOCK_CONE_COS = Math.cos(Math.toRadians(10.0));

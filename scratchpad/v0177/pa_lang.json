@@ -1,0 +1,12 @@
+{
+ "item.projecthero.power_armour_frame.tier_hint.iron": "Sturdy and slow: 12 armour, 300 integrity, 3 upgrade slots.",
+ "item.projecthero.power_armour_frame.tier_hint.gold": "Weaker plating (10 armour, 220 integrity), but the core drains 25% slower. 3 slots.",
+ "item.projecthero.power_armour_frame.tier_hint.hero_alloy": "Better plating: 14 armour, 1 toughness, 450 integrity, 4 slots, 5% more damage.",
+ "item.projecthero.power_armour_frame.tier_hint.diamond": "Strong: 16 armour, 2 toughness, 650 integrity, 5 slots, 10% more damage.",
+ "item.projecthero.power_armour_frame.tier_hint.netherite": "Very strong: 18 armour, 4 toughness, 900 integrity, 6 slots, 15% more damage. Fire and lava proof, no knockback.",
+ "item.projecthero.power_armour_frame.tier_hint.vibranium": "Absorbs impacts: 19 armour, 6 toughness, 1200 integrity, 7 slots, 20% more damage. Falls and blasts charge the core.",
+ "item.projecthero.power_armour_frame.tier_hint.celestial": "The best: 20 armour, 8 toughness, 1600 integrity, 8 slots, 25% more damage. A faint glow and the fastest servos.",
+ "item.projecthero.pa_module_overclock.desc": "Chest. +3 core output and +15% damage (still within the Street tier's limits), but the suit drains 25% faster.",
+ "projecthero.guide.power_armour.k.r": "Servo Punch: a hydraulic punch with big knockback, 7 damage. Hold to charge: up to 10, and it breaks weak blocks.",
+ "item.projecthero.pa_module_rail_cannon.desc": "Arm weapon. Hold Shift+R to charge, let go to fire a piercing beam (15 damage, up to 20 on better suits, 48 blocks)."
+}

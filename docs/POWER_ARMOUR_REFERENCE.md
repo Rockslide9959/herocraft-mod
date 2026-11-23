@@ -1,5 +1,7 @@
 # Power Armour (v0.17.5) — reference
 
+> **v0.17.7 Street-tier balance pass:** damage / toughness numbers below are superseded where they differ -- see docs/POWER_TIERS_REFERENCE.md.
+
 Design: `docs/POWER_ARMOUR_DESIGN.md` (approved 2026-11-16). A **Secondary power** you only have while sealed in a suit.
 
 Code: `com.projecthero.mod.powerarmour` (common: data, frame entity, items, charger, kit), `com.projecthero.mod.client.powerarmour`

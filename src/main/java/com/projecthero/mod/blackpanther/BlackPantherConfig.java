@@ -17,8 +17,10 @@ public final class BlackPantherConfig {
 	public static final int DRAIN_DELAY = 200;
 
 	public static final double SUIT_MELEE = 5.0; // the vibranium claws: only while they are out (N)
-	public static final double SUIT_ARMOR = 8.0;
-	public static final double SUIT_TOUGHNESS = 2.0;
+	public static final double SUIT_ARMOR = 12.0; // v0.17.7 Street tier toughness: was 8
+	public static final double SUIT_TOUGHNESS = 4.0; // v0.17.7: was 2
+	/** v0.17.7 (Street tier): no single hit goes over this, whatever stacks (Stalk, Kimoyo Scan, Kinetic Return). */
+	public static final float MAX_HIT = com.projecthero.mod.hero.PowerRank.STREET.ultimateMax;
 	/** Hold H this long to take the necklace off / put it back on. */
 	public static final int NECKLACE_HOLD_TICKS = 30;
 	/** Arrows and bullets below this much damage bounce off (the Iron Man bulletproof rule). */
@@ -32,13 +34,13 @@ public final class BlackPantherConfig {
 	public static final float PULSE_DAMAGE = 8f;
 	public static final double PULSE_RADIUS = 5.0;
 	public static final int PULSE_COOLDOWN = 50; // tester round: was 30
-	public static final float OVERLOAD_DAMAGE = 30f;
+	public static final float OVERLOAD_DAMAGE = 20f; // v0.17.7 Street ultimate: was 30 (15 at the edge)
 	public static final double OVERLOAD_RADIUS = 10.0;
 	public static final int OVERLOAD_COOLDOWN = 100;
 
 	// G
-	public static final float CLAW_DAMAGE = 5f; // tester round: was 6
-	public static final float CLAW_FINISH_DAMAGE = 8f; // was 9
+	public static final float CLAW_DAMAGE = 7f; // tester round: was 6, then 5; v0.17.7 Street melee: 7
+	public static final float CLAW_FINISH_DAMAGE = 9f; // was 9, then 8; v0.17.7 Street: 9
 	public static final double CLAW_REACH = 3.5;
 	public static final int CLAW_STEP = 6;
 	public static final int CLAW_COOLDOWN = 40; // was 24
@@ -47,7 +49,7 @@ public final class BlackPantherConfig {
 	public static final double POUNCE_RANGE = 12.0;
 	public static final double POUNCE_SPEED = 1.6;
 	public static final float POUNCE_LAND_DAMAGE = 8f;
-	public static final float POUNCE_STRIKE_DAMAGE = 12f;
+	public static final float POUNCE_STRIKE_DAMAGE = 10f; // v0.17.7 Street ability: was 12
 	public static final int POUNCE_PIN_TICKS = 40;
 	public static final int POUNCE_COOLDOWN = 240; // was 200
 
@@ -91,7 +93,7 @@ public final class BlackPantherConfig {
 	public static final int RETURN_WINDOW = 200;
 	public static final double RETURN_RANGE = 48.0;
 	public static final float RETURN_FACTOR = 1.25f; // tester round: scales with the stored bar too
-	public static final float RETURN_MIN_DAMAGE = 4f;
+	public static final float RETURN_MIN_DAMAGE = 8f; // v0.17.7 Street ability floor: was 4 (and it never goes over MAX_HIT)
 	/** Kinetic Return spends up to this much of the bar... */
 	public static final float RETURN_MAX_SPEND = 40f;
 	/** ...and adds this much damage per point spent. */

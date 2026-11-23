@@ -28,8 +28,9 @@ public final class BlackPantherCombat {
 		return HeroTargets.canHarm(owner, e);
 	}
 
-	/** A boss takes at most this much from one hit. */
+	/** A boss takes at most this much from one hit; v0.17.7: nothing takes more than the Street tier's 20. */
 	static float capped(LivingEntity target, float damage) {
+		damage = Math.min(damage, BlackPantherConfig.MAX_HIT);
 		return isBoss(target) ? Math.min(damage, target.getMaxHealth() * BlackPantherConfig.BOSS_MAX_FRACTION_PER_HIT) : damage;
 	}
 

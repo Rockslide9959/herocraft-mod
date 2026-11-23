@@ -13,8 +13,12 @@ public final class SuperSoldierConfig {
 	public static final double SPEED_BONUS = 0.5;
 	/** +5 hearts. */
 	public static final double HEALTH_BONUS = 10.0;
-	/** Extra melee damage while the main hand is empty. */
+	/** Extra melee damage while the main hand is empty (v0.17.7 Street tier: fist 8). */
 	public static final double UNARMED_BONUS = 7.0;
+	/** v0.17.7 (Street tier): extra melee damage while holding something -- a netherite sword hits for 10, not 15. */
+	public static final double ARMED_BONUS = 2.0;
+	/** v0.17.7 (Street tier): no single move hit goes over this, whatever buffs stack (Onslaught, Tactical Focus). */
+	public static final float MAX_HIT = com.projecthero.mod.hero.PowerRank.STREET.ultimateMax;
 	/** Damage taken is multiplied by this (30% less). */
 	public static final float DAMAGE_TAKEN_FACTOR = 0.7f;
 	/** Jump apex height in blocks (vanilla is about 1.25). 2.25 lets him hop up a two-block ledge. */
@@ -41,8 +45,8 @@ public final class SuperSoldierConfig {
 
 	// ---------------------------------------------------------------- R: Combo Strike
 	public static final int COMBO_COOLDOWN = 100;
-	public static final float COMBO_HIT_DAMAGE = 5.0f;
-	public static final float COMBO_FINISHER_DAMAGE = 7.0f;
+	public static final float COMBO_HIT_DAMAGE = 7.0f; // v0.17.7 Street: was 5
+	public static final float COMBO_FINISHER_DAMAGE = 9.0f; // v0.17.7 Street: was 7
 	/** Ticks between the three punches. */
 	public static final int COMBO_INTERVAL = 5;
 	public static final double COMBO_RANGE = 4.0;
@@ -57,7 +61,7 @@ public final class SuperSoldierConfig {
 
 	// ---------------------------------------------------------------- G: Flying Kick (v0.14.9)
 	public static final int KICK_COOLDOWN = 160;
-	public static final float KICK_DAMAGE = 12.0f;
+	public static final float KICK_DAMAGE = 10.0f; // v0.17.7 Street: was 12
 	/** How far away the enemy he lunges at may be. */
 	public static final double KICK_RANGE = 8.0;
 	/** Within this distance (feet to the target's box) the kick lands -- at once if he starts this close. */
@@ -70,7 +74,7 @@ public final class SuperSoldierConfig {
 
 	// ---------------------------------------------------------------- Shift+G: Judo Takedown (v0.14.9)
 	public static final int TAKEDOWN_COOLDOWN = 200;
-	public static final float TAKEDOWN_DAMAGE = 14.0f;
+	public static final float TAKEDOWN_DAMAGE = 10.0f; // v0.17.7 Street: was 14
 	public static final double TAKEDOWN_RANGE = 3.5;
 	/** Ticks between the grab (the enemy hoisted over his shoulder) and the slam behind him. */
 	public static final int TAKEDOWN_SLAM_DELAY = 5;
@@ -84,7 +88,7 @@ public final class SuperSoldierConfig {
 	public static final double SHIELD_RANGE = 25.0; // v0.14.11: was 24
 	public static final int SHIELD_THROW_COOLDOWN = 0; // v0.14.11: no cooldown (was 5 s) -- throw again as soon as it is back in your hand
 	/** An ordinary shield: weaker and shorter, but it still bounces between three enemies and still comes back. */
-	public static final float NORMAL_SHIELD_DAMAGE = 6.0f;
+	public static final float NORMAL_SHIELD_DAMAGE = 8.0f; // v0.17.7 Street: was 6
 	public static final int NORMAL_SHIELD_MAX_HITS = 3;
 	public static final double NORMAL_SHIELD_RANGE = 25.0; // v0.14.11: was 16, every shield flies 25 blocks
 	public static final int NORMAL_SHIELD_THROW_COOLDOWN = 0; // v0.14.11: no cooldown (was 6 s)
@@ -99,7 +103,7 @@ public final class SuperSoldierConfig {
 
 	// ---------------------------------------------------------------- Z: Leaping Slam
 	public static final int SLAM_COOLDOWN = 240;
-	public static final float SLAM_DAMAGE = 12.0f;
+	public static final float SLAM_DAMAGE = 10.0f; // v0.17.7 Street: was 12
 	public static final double SLAM_RADIUS = 5.0;
 	public static final double SLAM_HEIGHT = 4.0;
 	public static final double SLAM_FORWARD = 0.8;
@@ -112,12 +116,12 @@ public final class SuperSoldierConfig {
 	public static final int ONSLAUGHT_COOLDOWN = 2000;
 	public static final int ONSLAUGHT_DURATION = 200;
 	/** The opening shockwave. */
-	public static final float ONSLAUGHT_BURST_DAMAGE = 8.0f;
+	public static final float ONSLAUGHT_BURST_DAMAGE = 16.0f; // v0.17.7 Street: was 8; x1.25 Onslaught = 20 at the centre
 	public static final double ONSLAUGHT_BURST_RADIUS = 6.0;
 	/** Extra melee damage while it runs (attribute, on top of the unarmed bonus). */
-	public static final double ONSLAUGHT_ATTACK_BONUS = 5.0;
+	public static final double ONSLAUGHT_ATTACK_BONUS = 2.0; // v0.17.7 Street: was 5 (fist 10 while it runs)
 	/** Every melee hit during it shocks enemies this close to the target for this much. */
-	public static final float ONSLAUGHT_SHOCK_DAMAGE = 4.0f;
+	public static final float ONSLAUGHT_SHOCK_DAMAGE = 6.0f; // v0.17.7 Street: was 4
 	public static final double ONSLAUGHT_SHOCK_RADIUS = 3.0;
 
 	// ---------------------------------------------------------------- X: Tactical Roll

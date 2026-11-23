@@ -237,7 +237,7 @@ public final class PowerArmourWeapons {
 		if (first == null || !PowerArmourAbilities.pay(player, s, PowerArmourConfig.TESLA_COST)) {
 			return;
 		}
-		float damage = PowerArmourConfig.TESLA_DAMAGE * PowerArmourAbilities.mul(s.suit);
+		float damage = PowerArmourAbilities.ability(PowerArmourConfig.TESLA_DAMAGE * PowerArmourAbilities.mul(s.suit));
 		List<Vec3> points = new ArrayList<>();
 		points.add(muzzle(player));
 		List<LivingEntity> hit = new ArrayList<>();
@@ -274,7 +274,7 @@ public final class PowerArmourWeapons {
 		Vec3 eye = player.getEyePosition();
 		Vec3 dir = aim(player, s);
 		Vec3 end = rayEnd(player, eye, dir, PowerArmourConfig.RAIL_RANGE);
-		float damage = PowerArmourConfig.RAIL_DAMAGE * PowerArmourAbilities.mul(s.suit);
+		float damage = PowerArmourAbilities.ultimate(PowerArmourConfig.RAIL_DAMAGE * PowerArmourAbilities.mul(s.suit));
 		ServerLevel level = player.serverLevel();
 		for (Entity e : level.getEntities(player, new AABB(eye, end).inflate(1.0), e -> e instanceof LivingEntity && e.isPickable())) {
 			if (e.getBoundingBox().inflate(0.6).clip(eye, end).isPresent() && HeroTargets.canHarm(player, e)) {
@@ -298,7 +298,7 @@ public final class PowerArmourWeapons {
 		}
 		Vec3 look = player.getLookAngle();
 		Vec3 flat = new Vec3(look.x, 0, look.z).normalize();
-		float damage = PowerArmourConfig.PILEDRIVER_DAMAGE * PowerArmourAbilities.mul(s.suit);
+		float damage = PowerArmourAbilities.ability(PowerArmourConfig.PILEDRIVER_DAMAGE * PowerArmourAbilities.mul(s.suit));
 		ServerLevel level = player.serverLevel();
 		for (LivingEntity e : AbilityHelpers.enemiesAround(player, player.position().add(flat.scale(2.5)), 3.5)) {
 			Vec3 to = e.position().subtract(player.position());
@@ -380,7 +380,7 @@ public final class PowerArmourWeapons {
 		LivingEntity locked = lockTarget(player, s);
 		Vec3 look = player.getLookAngle();
 		Vec3 aimPoint = rayEnd(player, player.getEyePosition(), look, 32.0);
-		float damage = PowerArmourConfig.MISSILE_DAMAGE * PowerArmourAbilities.mul(s.suit);
+		float damage = PowerArmourAbilities.ability(PowerArmourConfig.MISSILE_DAMAGE * PowerArmourAbilities.mul(s.suit));
 		for (int i = 0; i < PowerArmourConfig.MISSILE_COUNT; i++) {
 			ArmourMissileEntity m = new ArmourMissileEntity(PowerArmourMod.MISSILE, level);
 			m.setOwner(player);

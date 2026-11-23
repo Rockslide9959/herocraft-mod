@@ -1,0 +1,6 @@
+[
+ {"file":"src/gametest/java/com/projecthero/mod/gametest/V01519GameTests.java","from":"PunisherConfig.BREACH_KICK_DAMAGE == 15f, \"Breach Kick (Shift+G) 15\");","to":"PunisherConfig.BREACH_KICK_DAMAGE == 10f, \"Breach Kick (Shift+G) 10 (v0.17.7 Street tier)\");"},
+ {"file":"src/gametest/java/com/projecthero/mod/gametest/PunisherWeaponAbilityV01518GameTests.java","from":"		// 28 vs armour 20: 21.28 normally; with 40% of the armour ignored (12): 25.31\n		helper.assertTrue(frontDealt > 24.5f,","to":"		// v0.17.7: 10 vs armour 20: 4.0 normally; with 40% of the armour ignored (12): 7.2\n		helper.assertTrue(frontDealt > 6.5f,"},
+ {"file":"src/gametest/java/com/projecthero/mod/gametest/PunisherWeaponAbilityV01518GameTests.java","from":"1000f - front.getHealth() < 22.5f,","to":"1000f - front.getHealth() < 5.0f,"},
+ {"file":"src/main/java/com/projecthero/mod/item/ModArmorMaterials.java","from":"			SoundEvents.ARMOR_EQUIP_DIAMOND,\n			3.0f,\n			0.0f,\n			() -> Ingredient.of(Items.DIAMOND));","to":"			SoundEvents.ARMOR_EQUIP_DIAMOND,\n			2.0f, // v0.17.7 Street tier: was 3 (diamond-level, the guide's \"about diamond\")\n			0.0f,\n			() -> Ingredient.of(Items.DIAMOND));"}
+]

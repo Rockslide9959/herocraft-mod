@@ -48,7 +48,13 @@ public final class PunisherConfig {
 	public static final int BRUTAL_STRIKE_COOLDOWN_TICKS = 2 * 20;
 
 	// Shift+G -- Breach Kick: a kick that throws the target about 10 blocks and stuns it
-	public static final float BREACH_KICK_DAMAGE = 15f;
+	public static final float BREACH_KICK_DAMAGE = 10f; // v0.17.7 Street melee: was 15
+	/** v0.17.7 (Street tier): combat training -- bare fists hit for 7 (1 + 6). */
+	public static final double UNARMED_BONUS = 6.0;
+	/** v0.17.7 (Street tier): no single hit goes over this, the Target Designation bonus included. */
+	public static final float MAX_HIT = com.projecthero.mod.hero.PowerRank.STREET.ultimateMax;
+	/** v0.17.7: bow / crossbow arrows deal this many times their damage (was 2). */
+	public static final double ARROW_FACTOR = 1.5;
 	/** Launch speed (blocks/tick) -- with air drag this carries a mob about 10 blocks. */
 	public static final double BREACH_KICK_SPEED = 1.35;
 	public static final double BREACH_KICK_LIFT = 0.42;
@@ -59,7 +65,7 @@ public final class PunisherConfig {
 	public static final int GRENADE_COOLDOWN_TICKS = 12 * 20;
 	public static final int GRENADE_FUSE_TICKS = 3 * 20;
 	public static final int GRENADE_MAX_COOK_TICKS = 3 * 20;
-	public static final float GRENADE_DAMAGE = 12f;
+	public static final float GRENADE_DAMAGE = 10f; // v0.17.7 Street ability: was 12 (and the block-breaking blast no longer hurts on top)
 	public static final double GRENADE_RADIUS = 4.5;
 	public static final float GRENADE_BLOCK_POWER = 1.6f; // small -- must not level a base
 	public static final float GRENADE_THROW_SPEED = 1.1f;
@@ -72,7 +78,7 @@ public final class PunisherConfig {
 	/** Missiles per second, spread at random over the marked area. */
 	public static final double WARZONE_MISSILES_PER_SECOND = 3.0;
 	public static final double WARZONE_BLAST_RADIUS = 5.0;
-	public static final float WARZONE_DAMAGE = 30f;
+	public static final float WARZONE_DAMAGE = 18f; // v0.17.7 Street ultimate: was 30 per missile
 	/** Fraction of the damage still dealt at the blast's edge (linear falloff from the centre). */
 	public static final float WARZONE_EDGE_DAMAGE = 0.4f;
 	public static final double WARZONE_DROP_HEIGHT = 45.0;

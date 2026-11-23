@@ -173,8 +173,8 @@ public class BlackPantherGameTests implements FabricGameTest {
 		double armour = p.getAttributeValue(Attributes.ARMOR);
 		double tough = p.getAttributeValue(Attributes.ARMOR_TOUGHNESS);
 		BlackPanther.suitUp(p);
-		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ARMOR) - (armour + 8.0)) < 0.01, "+8 armour suited");
-		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ARMOR_TOUGHNESS) - (tough + 2.0)) < 0.01, "+2 toughness suited");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ARMOR) - (armour + BlackPantherConfig.SUIT_ARMOR)) < 0.01, "+12 armour suited");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ARMOR_TOUGHNESS) - (tough + BlackPantherConfig.SUIT_TOUGHNESS)) < 0.01, "+4 toughness suited");
 		BlackPanther.suitDown(p);
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ARMOR) - armour) < 0.01, "gone with the suit");
 		helper.succeed();
@@ -239,7 +239,7 @@ public class BlackPantherGameTests implements FabricGameTest {
 		float hp = s.getHealth();
 		BlackPantherAbilities.kineticReturn(p);
 		float plain = hp - s.getHealth();
-		float expected = Math.max(4f, shot.damage() * 1.25f);
+		float expected = Math.min(20f, Math.max(8f, shot.damage() * 1.25f)); // v0.17.7: floor 8, Street ceiling 20
 		helper.assertTrue(Math.abs(plain - expected) < 0.05f, "empty bar: " + expected + " expected, dealt " + plain);
 		// 60 stored: 40 spent, +10
 		var n = BlackPanther.state(p).copy();
@@ -249,9 +249,10 @@ public class BlackPantherGameTests implements FabricGameTest {
 		hp = s.getHealth();
 		BlackPantherAbilities.kineticReturn(p);
 		float charged = hp - s.getHealth();
-		helper.assertTrue(Math.abs(charged - (expected + 10f)) < 0.05f, "40 Kinetic adds 10: " + (expected + 10f) + " expected, dealt " + charged);
+		helper.assertTrue(Math.abs(charged - Math.min(20f, expected + 10f)) < 0.05f, "40 Kinetic adds 10: " + Math.min(20f, expected + 10f) + " expected, dealt " + charged);
 		helper.assertTrue(Math.abs(BlackPanther.kinetic(p) - 20f) < 0.05f, "40 spent, got " + BlackPanther.kinetic(p));
-		helper.assertTrue(Math.abs(BlackPantherAbilities.returnDamage(10f, 100f) - 22.5f) < 0.01f, "the spend caps at 40");
+		helper.assertTrue(Math.abs(BlackPantherAbilities.returnDamage(4f, 100f) - 18f) < 0.01f, "the spend caps at 40");
+		helper.assertTrue(Math.abs(BlackPantherAbilities.returnDamage(30f, 100f) - 20f) < 0.01f, "v0.17.7: never over the Street tier's 20");
 		helper.succeed();
 	}
 

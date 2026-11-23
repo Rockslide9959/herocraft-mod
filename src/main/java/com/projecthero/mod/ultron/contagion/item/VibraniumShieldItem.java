@@ -16,7 +16,7 @@ import net.minecraft.world.item.TooltipFlag;
  * {@link #THROW_RANGE}; Adamantium: 9 / 4 / 25). Forged from Vibranium Ingots and an Adamantium Shield.
  */
 public class VibraniumShieldItem extends AdamantiumShieldItem {
-	public static final float THROW_DAMAGE = 12.0f;
+	public static final float THROW_DAMAGE = 10.0f; // v0.17.7 Street tier: was 12
 	public static final int THROW_HITS = 5;
 	public static final double THROW_RANGE = 30.0;
 

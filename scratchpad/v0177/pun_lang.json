@@ -1,0 +1,11 @@
+[
+ {"file":"src/main/resources/assets/projecthero/lang/en_us.json","from":"(there is no helmet) protect between iron and diamond,","to":"(there is no helmet) protect about as well as diamond,"},
+ {"file":"src/main/resources/assets/projecthero/lang/en_us.json","from":"It takes +30% damage from all your attacks and glows","to":"It takes +30% damage from all your attacks (never lifting a hit past 20) and glows"},
+ {"file":"src/main/resources/assets/projecthero/lang/en_us.json","from":"\"Breach Kick -- 15 damage,","to":"\"Breach Kick -- 10 damage,"},
+ {"file":"src/main/resources/assets/projecthero/lang/en_us.json","from":"goes off in your hand. 12s cooldown.\"","to":"goes off in your hand. Up to 10 damage (less further out). 12s cooldown.\""},
+ {"file":"src/main/resources/assets/projecthero/lang/en_us.json","from":"for 10s: 30 damage each, no block damage,","to":"for 10s: 18 damage each (less at the edge of a blast), no block damage,"},
+ {"file":"src/main/resources/assets/projecthero/lang/en_us.json","from":"Shift+V: an instant 18-damage shot","to":"Shift+V: an instant 10-damage shot"},
+ {"file":"src/main/resources/assets/projecthero/lang/en_us.json","from":"15 damage per pellet out to 5 blocks (12s). Shift+V: the same 3 shells in a 90-degree fan of 12 pellets, 10 damage each (20s).","to":"about 10 damage on one target out to 5 blocks (12s). Shift+V: the same 3 shells in a 90-degree fan of 12 pellets, 2.5 damage each (20s)."},
+ {"file":"src/main/resources/assets/projecthero/lang/en_us.json","from":"that deals double headshot damage wherever it lands (30s).","to":"that deals a boosted headshot (20 damage) wherever it lands (30s)."},
+ {"file":"src/main/resources/assets/projecthero/lang/en_us.json","from":"Headshot Feedback, and No Mercy:","to":"Headshot Feedback, Combat Training (bare fists hit for 7), Marksman (bow and crossbow arrows deal 1.5x and are never used up), and No Mercy:"}
+]

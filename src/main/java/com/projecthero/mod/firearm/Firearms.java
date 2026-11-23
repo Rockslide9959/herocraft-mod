@@ -59,7 +59,7 @@ public final class Firearms {
 
 		register(FirearmData.builder(SHOTGUN, AmmoKind.SHOTGUN)
 				.magazine(6)
-				.damage(3f, 4.5f)
+				.damage(1.6f, 2.4f) // v0.17.7 Street: was 3 / 4.5 a pellet (about 10 a pull up close)
 				.pellets(6)
 				.fireInterval(20)            // ~1 shot/sec
 				.automatic(false)
@@ -69,8 +69,8 @@ public final class Firearms {
 				.spread(6.5f)                // wide cone (v0.9.22: slightly wider, was 5.5)
 				.recoil(0.0f, 0.0f, 2.4f, 1.0f)
 				.adsSpreadFactor(0.7f)
-				.falloff(5.0, 20.0, 0.12f)   // strong 0-5, weak by 12, negligible 20+
 				.range(24.0)
+				.falloff(5.0, 20.0, 0.12f)   // strong 0-5, weak by 12, negligible 20+ (v0.17.7: after range(), which used to reset it)
 				.knockback(0.6)
 				.zoom(new float[0], 1.0f, false)
 				.sounds(GunSounds.SHOTGUN_FIRE, GunSounds.SHELL_IN, GunSounds.DRY, GunSounds.PUMP) // v0.15.16: synthesised gun sounds
@@ -79,7 +79,7 @@ public final class Firearms {
 
 		register(FirearmData.builder(SNIPER, AmmoKind.SNIPER)
 				.magazine(8)
-				.damage(28f, 40f)
+				.damage(10f, 15f) // v0.17.7 Street: was 28 / 40
 				.fireInterval(60)            // 3 s between shots
 				.automatic(false)
 				.cycle(24)                   // bolt cycle

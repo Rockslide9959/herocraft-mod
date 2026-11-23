@@ -1,0 +1,7 @@
+{
+ "projecthero.rank.street": "Street Tier",
+ "projecthero.rank.city": "City Tier",
+ "projecthero.rank.planet": "Planet Tier",
+ "projecthero.rank.cosmic": "Cosmic Tier",
+ "projecthero.rank.ranges": " -- melee %s-%s, abilities %s-%s, ultimate %s-%s damage"
+}

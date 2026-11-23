@@ -64,7 +64,9 @@ public final class PowerArmourConfig {
 	public static final float REPAIR_KIT_SHARE = 0.3f;
 
 	// ---- R Servo Punch
-	public static final float PUNCH_DAMAGE = 8f;
+	public static final float PUNCH_DAMAGE = 7f; // v0.17.7 Street melee: was 8
+	/** v0.17.7: a full charge adds this share of the punch (was 1.0, double): 7 -> 10. */
+	public static final float PUNCH_CHARGE_BONUS = 0.43f;
 	public static final double PUNCH_RANGE = 4.0;
 	public static final int PUNCH_CHARGE_TICKS = 20;
 	public static final int PUNCH_COOLDOWN = 10;
@@ -72,11 +74,11 @@ public final class PowerArmourConfig {
 	public static final float PUNCH_CHARGED_COST = 12f;
 	public static final float PUNCH_KNOCKBACK = 1.2f;
 	public static final float BREAK_HARDNESS = 1.5f;
-	public static final float POWER_FIST_MULT = 1.5f;
+	public static final float POWER_FIST_MULT = 1.25f; // v0.17.7: was 1.5
 	public static final double POWER_FIST_WAVE = 4.0;
 
 	// ---- G Ground Stomp
-	public static final float STOMP_DAMAGE = 7f;
+	public static final float STOMP_DAMAGE = 8f; // v0.17.7 Street ability: was 7
 	public static final double STOMP_RADIUS = 4.0;
 	public static final double SEISMIC_RADIUS = 6.0;
 	public static final int STOMP_COOLDOWN = 120;
@@ -92,7 +94,7 @@ public final class PowerArmourConfig {
 	public static final float BOSS_HEALTH = 100f;
 
 	// ---- Z Shoulder Charge
-	public static final float CHARGE_DAMAGE = 9f;
+	public static final float CHARGE_DAMAGE = 8f; // v0.17.7 Street ability: was 9
 	public static final int CHARGE_TICKS = 8;
 	public static final double CHARGE_SPEED = 1.1;
 	public static final int CHARGE_COOLDOWN = 80;
@@ -100,7 +102,7 @@ public final class PowerArmourConfig {
 	public static final float BREACH_HARDNESS = 3f;
 
 	// ---- Shift+Z Core Overload
-	public static final float OVERLOAD_DAMAGE = 24f;
+	public static final float OVERLOAD_DAMAGE = 16f; // v0.17.7 Street ultimate: was 24 (Celestial + Overclock reaches the 20 cap)
 	public static final double OVERLOAD_RADIUS = 6.0;
 	public static final int OVERLOAD_WINDUP = 20;
 	public static final int OVERLOAD_COOLDOWN = 900;
@@ -122,17 +124,17 @@ public final class PowerArmourConfig {
 	public static final float FLAMER_DAMAGE = 1.5f;
 	public static final double FLAMER_RANGE = 6.0;
 	public static final float FLAMER_COST = 1f;
-	public static final float TESLA_DAMAGE = 9f;
+	public static final float TESLA_DAMAGE = 8f; // v0.17.7 Street ability: was 9
 	public static final int TESLA_TARGETS = 4;
 	public static final int TESLA_COOLDOWN = 40;
 	public static final float TESLA_COST = 35f;
-	public static final float RAIL_DAMAGE = 28f;
+	public static final float RAIL_DAMAGE = 15f; // v0.17.7 Street: was 28 -- a charged shot, ultimate-sized (cap 20)
 	public static final int RAIL_CHARGE_TICKS = 30;
 	public static final int RAIL_BEAM_TICKS = 8;
 	public static final double RAIL_RANGE = 48.0;
 	public static final int RAIL_COOLDOWN = 120;
 	public static final float RAIL_COST = 110f;
-	public static final float PILEDRIVER_DAMAGE = 14f;
+	public static final float PILEDRIVER_DAMAGE = 9f; // v0.17.7 Street ability: was 14
 	public static final int PILEDRIVER_COOLDOWN = 100;
 	public static final float PILEDRIVER_COST = 45f;
 

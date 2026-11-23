@@ -124,13 +124,21 @@ public class FragGrenadeEntity extends ThrowableItemProjectile {
 		hasImpulse = false;
 	}
 
+	private static final net.minecraft.world.level.ExplosionDamageCalculator NO_ENTITY_DAMAGE = new net.minecraft.world.level.ExplosionDamageCalculator() {
+		@Override
+		public boolean shouldDamageEntity(net.minecraft.world.level.Explosion explosion, net.minecraft.world.entity.Entity entity) {
+			return false;
+		}
+	};
+
 	private void explode() {
 		if (level().isClientSide() || !isAlive()) {
 			return;
 		}
 		ServerLevel level = (ServerLevel) level();
 		boolean grief = com.projecthero.mod.hero.power.AbilityHelpers.canGrief();
-		level.explode(this, getX(), getY() + 0.2, getZ(), grief ? PunisherConfig.GRENADE_BLOCK_POWER : 0f,
+		// v0.17.7: the vanilla blast only breaks blocks now -- it used to hit for ~23 (the thrower too) on top of the grenade's own damage
+		level.explode(this, null, NO_ENTITY_DAMAGE, getX(), getY() + 0.2, getZ(), grief ? PunisherConfig.GRENADE_BLOCK_POWER : 0f, false,
 				grief ? Level.ExplosionInteraction.MOB : Level.ExplosionInteraction.NONE);
 		level.sendParticles(ParticleTypes.EXPLOSION, getX(), getY() + 0.2, getZ(), 1, 0, 0, 0, 0);
 		level.sendParticles(ParticleTypes.LARGE_SMOKE, getX(), getY() + 0.2, getZ(), 12, 0.6, 0.4, 0.6, 0.02);

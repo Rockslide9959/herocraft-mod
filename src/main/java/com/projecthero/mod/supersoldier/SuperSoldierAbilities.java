@@ -246,6 +246,7 @@ public final class SuperSoldierAbilities {
 		if (crit) {
 			dmg *= SuperSoldierConfig.FOCUS_CRIT_MULTIPLIER;
 		}
+		dmg = Math.min(dmg, SuperSoldierConfig.MAX_HIT); // v0.17.7: Street tier ceiling
 		boolean boss = isBoss(target);
 		if (boss) {
 			dmg = Math.min(dmg, target.getMaxHealth() * SuperSoldierConfig.BOSS_MAX_FRACTION_PER_HIT);

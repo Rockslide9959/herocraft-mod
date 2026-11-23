@@ -203,8 +203,8 @@ public class PunisherWeaponAbilityV01518GameTests implements FabricGameTest {
 		float frontDealt = 1000f - front.getHealth();
 		float backDealt = 1000f - back.getHealth();
 		helper.assertTrue(backDealt > 0f, "the round went through into the second target");
-		// 28 vs armour 20: 21.28 normally; with 40% of the armour ignored (12): 25.31
-		helper.assertTrue(frontDealt > 24.5f, "armour partly ignored, dealt " + frontDealt);
+		// v0.17.7: 10 vs armour 20: 4.0 normally; with 40% of the armour ignored (12): 7.2
+		helper.assertTrue(frontDealt > 6.5f, "armour partly ignored, dealt " + frontDealt);
 		helper.assertFalse(PunisherWeaponAbilities.piercingArmed(p), "used up by the shot");
 
 		front.setHealth(1000f);
@@ -212,7 +212,7 @@ public class PunisherWeaponAbilityV01518GameTests implements FabricGameTest {
 		readyToFire(p, gun);
 		FirearmShooting.fire(p, gun, d);
 		helper.assertTrue(back.getHealth() == 1000f, "a normal round stops at the first target");
-		helper.assertTrue(1000f - front.getHealth() < 22.5f, "and pays full armour, dealt " + (1000f - front.getHealth()));
+		helper.assertTrue(1000f - front.getHealth() < 5.0f, "and pays full armour, dealt " + (1000f - front.getHealth()));
 		helper.succeed();
 	}
 

@@ -1,5 +1,7 @@
 # Super Soldier (Hero-Tier power)
 
+> **v0.17.7 Street-tier balance pass:** damage / toughness numbers below are superseded where they differ -- see docs/POWER_TIERS_REFERENCE.md.
+
 Package `com.projecthero.mod.supersoldier` (client: `com.projecthero.mod.client.supersoldier`). Hero-Tier key
 `super_soldier`. Added in v0.14.8; v0.14.9 gave him bare-handed G moves, the craftable Adamantium Shield (thrown with C)
 and the craftable Captain America suit. A Captain-America-style peak human: always on (no transformation, H stays the power
