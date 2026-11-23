@@ -2,6 +2,8 @@
   "replace": false,
   "values": [
     "projecthero:hive_biomass",
-    "projecthero:hive_pod"
+    "projecthero:hive_pod",
+    "projecthero:crimson_egg",
+    "projecthero:carnage_biomass"
   ]
 }

@@ -132,6 +132,9 @@ public final class ProjectHeroJeiPlugin implements IModPlugin {
 				case APOKOLIPS -> com.projecthero.mod.hideout.item.HideoutItems.MOTHER_BOX_FRAGMENT;
 				case SYMBIOTE -> com.projecthero.mod.hideout.item.HideoutItems.HIVE_HEART;
 				case FROST -> com.projecthero.mod.hideout.item.HideoutItems.FROSTBRAND;
+				case GRAVE -> com.projecthero.mod.hideout.item.HideoutItems.GRAVECALLER_BELL;
+				case CARNAGE -> com.projecthero.mod.hideout.item.HideoutItems.BROOD_FANG;
+				case OATH -> com.projecthero.mod.hideout.item.HideoutItems.OATH_SIGIL;
 			};
 			registration.addItemStackInfo(new ItemStack(artifact),
 					net.minecraft.network.chat.Component.translatable("projecthero.guide.hideouts.a." + f.getSerializedName()),
@@ -139,6 +142,12 @@ public final class ProjectHeroJeiPlugin implements IModPlugin {
 		}
 		registration.addItemStackInfo(new ItemStack(com.projecthero.mod.hideout.block.HideoutBlocks.CORE_ITEM),
 				net.minecraft.network.chat.Component.translatable("projecthero.guide.hideouts.clearing.body"));
+		// v0.17.7: the new hideout blocks (ballista, Carnage's biomass and egg walls)
+		registration.addItemStackInfo(new ItemStack(com.projecthero.mod.hideout.block.HideoutBlocks.BALLISTA_ITEM),
+				net.minecraft.network.chat.Component.translatable("projecthero.jei.oath_ballista"));
+		registration.addItemStackInfo(java.util.List.of(new ItemStack(com.projecthero.mod.hideout.block.HideoutBlocks.CRIMSON_BIOMASS_ITEM),
+				new ItemStack(com.projecthero.mod.hideout.block.HideoutBlocks.CRIMSON_EGG_ITEM)),
+				net.minecraft.network.chat.Component.translatable("projecthero.jei.crimson_biomass"));
 		// v0.17.7: the alarm & stealth blocks and the Keycard
 		for (net.minecraft.world.item.Item i : new net.minecraft.world.item.Item[] { com.projecthero.mod.alarm.block.AlarmBlocks.PANEL_ITEM,
 				com.projecthero.mod.alarm.block.AlarmBlocks.LAMP_ITEM, com.projecthero.mod.alarm.block.AlarmBlocks.BLAST_DOOR_ITEM,

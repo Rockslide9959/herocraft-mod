@@ -19,6 +19,33 @@ public final class HideoutAlarms {
 	private HideoutAlarms() {
 	}
 
+	/** Within this many blocks of a tripped Gravebound grave, players catch the Crypt Curse. */
+	public static final double CURSE_RADIUS = 6.0;
+
+	/**
+	 * v0.17.7: a Gravebound Curse trap (a cursed headstone on a tripwire) went off: everyone within
+	 * {@link #CURSE_RADIUS} catches the short <b>Crypt Curse</b> -- Wither II (6 s), Darkness (8 s), Slowness II (6 s) and
+	 * Hunger (10 s). Deliberately not the Gravebound Curse itself (that schedules a 12-wave Zombie Raid): the curse traps
+	 * are a crawl hazard, not a world event. Returns how many players were cursed (test hook too).
+	 */
+	public static int curse(ServerLevel level, BlockPos at) {
+		level.sendParticles(net.minecraft.core.particles.ParticleTypes.SOUL, at.getX() + 0.5, at.getY() + 1.0, at.getZ() + 0.5, 40, 2.0, 1.0, 2.0, 0.05);
+		level.sendParticles(net.minecraft.core.particles.ParticleTypes.SCULK_SOUL, at.getX() + 0.5, at.getY() + 0.5, at.getZ() + 0.5, 20, 1.5, 0.5, 1.5, 0.02);
+		int n = 0;
+		for (ServerPlayer p : HideoutClearing.playersNear(level, at, (int) CURSE_RADIUS)) {
+			if (p.isCreative() || p.isSpectator()) {
+				continue;
+			}
+			p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.WITHER, 120, 1));
+			p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.DARKNESS, 160, 0));
+			p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN, 120, 1));
+			p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.HUNGER, 200, 1));
+			p.displayClientMessage(Component.translatable("projecthero.hideout.crypt_curse").withStyle(s -> s.withColor(HideoutFaction.GRAVE.colour())), false);
+			n++;
+		}
+		return n;
+	}
+
 	public static void trigger(ServerLevel level, BlockPos alarm, HideoutFaction faction) {
 		var players = HideoutClearing.playersNear(level, alarm, 24);
 		int squad = Math.min(6, BASE_SQUAD + Math.max(0, players.size() - 1));
@@ -28,6 +55,12 @@ public final class HideoutAlarms {
 			case APOKOLIPS -> level.playSound(null, alarm, SoundEvents.WITHER_SPAWN, SoundSource.HOSTILE, 0.8f, 1.6f);
 			case SYMBIOTE -> level.playSound(null, alarm, SoundEvents.TURTLE_EGG_HATCH, SoundSource.BLOCKS, 2.0f, 0.5f);
 			case FROST -> level.playSound(null, alarm, SoundEvents.GOAT_HORN_SOUND_VARIANTS.get(1).value(), SoundSource.HOSTILE, 3.0f, 0.7f);
+			case GRAVE -> {
+				level.playSound(null, alarm, SoundEvents.SOUL_ESCAPE.value(), SoundSource.HOSTILE, 3.0f, 0.5f);
+				curse(level, alarm);
+			}
+			case CARNAGE -> level.playSound(null, alarm, SoundEvents.TURTLE_EGG_HATCH, SoundSource.BLOCKS, 2.0f, 0.4f);
+			case OATH -> level.playSound(null, alarm, SoundEvents.GOAT_HORN_SOUND_VARIANTS.get(3).value(), SoundSource.HOSTILE, 3.0f, 0.8f);
 		}
 		Component msg = Component.translatable("projecthero.hideout.alarm." + faction.getSerializedName()).withStyle(s -> s.withColor(faction.colour()));
 		for (ServerPlayer p : players) {

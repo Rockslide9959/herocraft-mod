@@ -87,6 +87,7 @@ public class VillainHideoutGameTests implements FabricGameTest {
 			case ULTRON -> com.projecthero.mod.ultron.UltronUprising.TYPE_ID;
 			case APOKOLIPS -> com.projecthero.mod.darkseid.raid.DarkseidRaid.TYPE_ID;
 			case FROST -> com.projecthero.mod.frostgiant.FrostGiantAssault.TYPE_ID;
+			case GRAVE -> com.projecthero.mod.event.EventTypes.ZOMBIE_RAID; // v0.17.7
 			default -> null;
 		};
 		return type == null ? null : EventTypes.create(type, UUID.randomUUID());
@@ -215,6 +216,23 @@ public class VillainHideoutGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE, batch = "hideout_frost", timeoutTicks = 200)
 	public void frostGiantHallClears(GameTestHelper helper) {
 		hideoutFlow(helper, HideoutFaction.FROST, 5);
+	}
+
+	// v0.17.7: the three new Tier 3 hideouts get the same full check (zone, panels, keycard door, roles, boss, clearing, calm)
+
+	@GameTest(template = EMPTY_STRUCTURE, batch = "hideout_gravebound", timeoutTicks = 200)
+	public void graveboundCryptClears(GameTestHelper helper) {
+		hideoutFlow(helper, HideoutFaction.GRAVE, 10);
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, batch = "hideout_carnage", timeoutTicks = 200)
+	public void carnageNestClears(GameTestHelper helper) {
+		hideoutFlow(helper, HideoutFaction.CARNAGE, 10);
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, batch = "hideout_oathbreaker", timeoutTicks = 200)
+	public void oathbreakerKeepClears(GameTestHelper helper) {
+		hideoutFlow(helper, HideoutFaction.OATH, 10);
 	}
 
 	/** Each hideout's vault rolls only its own faction's artifact (the near_hideout condition on the artifact pools). */

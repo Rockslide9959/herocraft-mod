@@ -35,6 +35,24 @@
     },
     "kind=frost,phase=2": {
       "model": "projecthero:block/hideout_vent_frost"
+    },
+    "kind=curse,phase=0": {
+      "model": "projecthero:block/hideout_vent_curse"
+    },
+    "kind=curse,phase=1": {
+      "model": "projecthero:block/hideout_vent_curse_hot"
+    },
+    "kind=curse,phase=2": {
+      "model": "projecthero:block/hideout_vent_curse"
+    },
+    "kind=crimson,phase=0": {
+      "model": "projecthero:block/hideout_vent_crimson"
+    },
+    "kind=crimson,phase=1": {
+      "model": "projecthero:block/hideout_vent_crimson_hot"
+    },
+    "kind=crimson,phase=2": {
+      "model": "projecthero:block/hideout_vent_crimson"
     }
   }
 }

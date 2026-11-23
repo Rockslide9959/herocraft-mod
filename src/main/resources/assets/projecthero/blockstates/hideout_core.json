@@ -29,6 +29,24 @@
     },
     "faction=frost,sealed=true": {
       "model": "projecthero:block/hideout_core_frost_sealed"
+    },
+    "faction=gravebound,sealed=false": {
+      "model": "projecthero:block/hideout_core_gravebound"
+    },
+    "faction=gravebound,sealed=true": {
+      "model": "projecthero:block/hideout_core_gravebound_sealed"
+    },
+    "faction=carnage,sealed=false": {
+      "model": "projecthero:block/hideout_core_carnage"
+    },
+    "faction=carnage,sealed=true": {
+      "model": "projecthero:block/hideout_core_carnage_sealed"
+    },
+    "faction=oathbreaker,sealed=false": {
+      "model": "projecthero:block/hideout_core_oathbreaker"
+    },
+    "faction=oathbreaker,sealed=true": {
+      "model": "projecthero:block/hideout_core_oathbreaker_sealed"
     }
   }
 }

@@ -74,6 +74,51 @@
     "facing=west,faction=frost": {
       "model": "projecthero:block/hideout_seal_frost",
       "y": 270
+    },
+    "facing=north,faction=gravebound": {
+      "model": "projecthero:block/hideout_seal_gravebound"
+    },
+    "facing=east,faction=gravebound": {
+      "model": "projecthero:block/hideout_seal_gravebound",
+      "y": 90
+    },
+    "facing=south,faction=gravebound": {
+      "model": "projecthero:block/hideout_seal_gravebound",
+      "y": 180
+    },
+    "facing=west,faction=gravebound": {
+      "model": "projecthero:block/hideout_seal_gravebound",
+      "y": 270
+    },
+    "facing=north,faction=carnage": {
+      "model": "projecthero:block/hideout_seal_carnage"
+    },
+    "facing=east,faction=carnage": {
+      "model": "projecthero:block/hideout_seal_carnage",
+      "y": 90
+    },
+    "facing=south,faction=carnage": {
+      "model": "projecthero:block/hideout_seal_carnage",
+      "y": 180
+    },
+    "facing=west,faction=carnage": {
+      "model": "projecthero:block/hideout_seal_carnage",
+      "y": 270
+    },
+    "facing=north,faction=oathbreaker": {
+      "model": "projecthero:block/hideout_seal_oathbreaker"
+    },
+    "facing=east,faction=oathbreaker": {
+      "model": "projecthero:block/hideout_seal_oathbreaker",
+      "y": 90
+    },
+    "facing=south,faction=oathbreaker": {
+      "model": "projecthero:block/hideout_seal_oathbreaker",
+      "y": 180
+    },
+    "facing=west,faction=oathbreaker": {
+      "model": "projecthero:block/hideout_seal_oathbreaker",
+      "y": 270
     }
   }
 }

@@ -40,12 +40,38 @@ public final class HideoutEntityTypes {
 			EntityType.Builder.<com.projecthero.mod.hideout.boss.FrostGiantJarlBoss>of(com.projecthero.mod.hideout.boss.FrostGiantJarlBoss::new,
 					MobCategory.MONSTER).sized(1.6f, 6.5f).eyeHeight(5.8f).clientTrackingRange(12).updateInterval(2).build("frost_giant_jarl"));
 
+	/** v0.17.7: the Crypt Lord (Gravebound Crypt): a raid-zombie player rig, scaled x1.7 by its SCALE attribute. */
+	public static final EntityType<com.projecthero.mod.hideout.boss.CryptLordBoss> CRYPT_LORD = register("crypt_lord",
+			EntityType.Builder.<com.projecthero.mod.hideout.boss.CryptLordBoss>of(com.projecthero.mod.hideout.boss.CryptLordBoss::new,
+					MobCategory.MONSTER).sized(0.6f, 1.95f).eyeHeight(1.74f).clientTrackingRange(10).build("crypt_lord"));
+
+	/** v0.17.7: the Brood Spawn of Carnage (Carnage Nest): Carnage's player model, scaled x1.6. */
+	public static final EntityType<com.projecthero.mod.hideout.boss.BroodSpawnBoss> BROOD_SPAWN = register("brood_spawn",
+			EntityType.Builder.<com.projecthero.mod.hideout.boss.BroodSpawnBoss>of(com.projecthero.mod.hideout.boss.BroodSpawnBoss::new,
+					MobCategory.MONSTER).sized(0.6f, 1.8f).eyeHeight(1.62f).clientTrackingRange(10).build("brood_spawn"));
+
+	/** v0.17.7: the Oathbound Champion (Oathbreaker Keep): a player-model knight, scaled x1.5. */
+	public static final EntityType<com.projecthero.mod.hideout.boss.OathboundChampionBoss> OATHBOUND_CHAMPION = register("oathbound_champion",
+			EntityType.Builder.<com.projecthero.mod.hideout.boss.OathboundChampionBoss>of(com.projecthero.mod.hideout.boss.OathboundChampionBoss::new,
+					MobCategory.MONSTER).sized(0.6f, 1.8f).eyeHeight(1.62f).fireImmune().clientTrackingRange(10).build("oathbound_champion"));
+
+	/** v0.17.7: the Carnage Nest's Crimson Thralls (HideoutSoldier, crimson kinds). */
+	public static final EntityType<com.projecthero.mod.hideout.mob.HideoutSoldier> CRIMSON_THRALL = register("crimson_thrall",
+			EntityType.Builder.<com.projecthero.mod.hideout.mob.HideoutSoldier>of(com.projecthero.mod.hideout.mob.HideoutSoldier::new,
+					MobCategory.MONSTER).sized(0.6f, 1.8f).eyeHeight(1.62f).clientTrackingRange(8).build("crimson_thrall"));
+
+	/** v0.17.7: the Oathbreaker Keep's Oath-bound Knights (HideoutSoldier, oath kinds). */
+	public static final EntityType<com.projecthero.mod.hideout.mob.HideoutSoldier> OATH_KNIGHT = register("oath_knight",
+			EntityType.Builder.<com.projecthero.mod.hideout.mob.HideoutSoldier>of(com.projecthero.mod.hideout.mob.HideoutSoldier::new,
+					MobCategory.MONSTER).sized(0.6f, 1.8f).eyeHeight(1.62f).clientTrackingRange(8).build("oath_knight"));
+
 	private HideoutEntityTypes() {
 	}
 
 	/** Every mini-boss type (tests, the guide). */
 	public static java.util.List<EntityType<? extends net.minecraft.world.entity.Mob>> bosses() {
-		return java.util.List.of(KINGPIN_ENFORCER, FORGE_OVERSEER, PARADEMON_COMMANDER, HIVE_MOTHER, FROST_GIANT_JARL);
+		return java.util.List.of(KINGPIN_ENFORCER, FORGE_OVERSEER, PARADEMON_COMMANDER, HIVE_MOTHER, FROST_GIANT_JARL, CRYPT_LORD, BROOD_SPAWN,
+				OATHBOUND_CHAMPION);
 	}
 
 	public static void initialize() {
@@ -54,6 +80,11 @@ public final class HideoutEntityTypes {
 		FabricDefaultAttributeRegistry.register(PARADEMON_COMMANDER, com.projecthero.mod.hideout.boss.ParademonCommanderBoss.createAttributes());
 		FabricDefaultAttributeRegistry.register(HIVE_MOTHER, com.projecthero.mod.hideout.boss.HiveMotherBoss.createAttributes());
 		FabricDefaultAttributeRegistry.register(FROST_GIANT_JARL, com.projecthero.mod.hideout.boss.FrostGiantJarlBoss.createAttributes());
+		FabricDefaultAttributeRegistry.register(CRYPT_LORD, com.projecthero.mod.hideout.boss.CryptLordBoss.createAttributes());
+		FabricDefaultAttributeRegistry.register(BROOD_SPAWN, com.projecthero.mod.hideout.boss.BroodSpawnBoss.createAttributes());
+		FabricDefaultAttributeRegistry.register(OATHBOUND_CHAMPION, com.projecthero.mod.hideout.boss.OathboundChampionBoss.createAttributes());
+		FabricDefaultAttributeRegistry.register(CRIMSON_THRALL, com.projecthero.mod.hideout.mob.HideoutSoldier.createAttributes());
+		FabricDefaultAttributeRegistry.register(OATH_KNIGHT, com.projecthero.mod.hideout.mob.HideoutSoldier.createAttributes());
 	}
 
 	private static <T extends Entity> EntityType<T> register(String path, EntityType<T> type) {

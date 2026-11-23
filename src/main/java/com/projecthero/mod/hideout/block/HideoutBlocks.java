@@ -26,6 +26,11 @@ public final class HideoutBlocks {
 	public static HideoutVentBlock VENT;
 	public static HiveBiomassBlock HIVE_BIOMASS;
 	public static HiveBiomassBlock HIVE_POD;
+	// v0.17.7: the Carnage Nest's red biomass and pulsing egg walls, the Oathbreaker Keep's ballistae
+	public static CrimsonBiomassBlock CRIMSON_BIOMASS;
+	public static CrimsonBiomassBlock CRIMSON_EGG;
+	public static OathBallistaBlock BALLISTA;
+	public static net.minecraft.world.level.block.entity.BlockEntityType<OathBallistaBlock.Entity> BALLISTA_ENTITY;
 
 	public static BlockItem CORE_ITEM;
 	public static BlockItem SEAL_ITEM;
@@ -33,6 +38,9 @@ public final class HideoutBlocks {
 	public static BlockItem VENT_ITEM;
 	public static BlockItem HIVE_BIOMASS_ITEM;
 	public static BlockItem HIVE_POD_ITEM;
+	public static BlockItem CRIMSON_BIOMASS_ITEM;
+	public static BlockItem CRIMSON_EGG_ITEM;
+	public static BlockItem BALLISTA_ITEM;
 
 	private HideoutBlocks() {
 	}
@@ -56,12 +64,24 @@ public final class HideoutBlocks {
 		HIVE_POD = block("hive_pod", new HiveBiomassBlock(BlockBehaviour.Properties.of()
 				.mapColor(MapColor.SNOW).strength(0.8f, 1.0f).sound(SoundType.HONEY_BLOCK).lightLevel(s -> 6)));
 
+		CRIMSON_BIOMASS = block("carnage_biomass", new CrimsonBiomassBlock(BlockBehaviour.Properties.of()
+				.mapColor(MapColor.COLOR_RED).strength(1.2f, 3.0f).sound(SoundType.SLIME_BLOCK).speedFactor(0.7f).jumpFactor(0.8f)));
+		CRIMSON_EGG = block("crimson_egg", new CrimsonBiomassBlock(BlockBehaviour.Properties.of()
+				.mapColor(MapColor.CRIMSON_HYPHAE).strength(0.8f, 1.0f).sound(SoundType.HONEY_BLOCK).lightLevel(s -> 7)));
+		BALLISTA = block("oath_ballista", new OathBallistaBlock(BlockBehaviour.Properties.of()
+				.mapColor(MapColor.WOOD).strength(3.0f, 6.0f).sound(SoundType.WOOD).noOcclusion()));
+		BALLISTA_ENTITY = Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE, ProjectHeroMod.id("oath_ballista"),
+				net.minecraft.world.level.block.entity.BlockEntityType.Builder.of(OathBallistaBlock.Entity::new, BALLISTA).build(null));
+
 		CORE_ITEM = item("hideout_core", CORE);
 		SEAL_ITEM = item("hideout_seal", SEAL);
 		ALARM_ITEM = item("hideout_alarm", ALARM);
 		VENT_ITEM = item("hideout_vent", VENT);
 		HIVE_BIOMASS_ITEM = item("hive_biomass", HIVE_BIOMASS);
 		HIVE_POD_ITEM = item("hive_pod", HIVE_POD);
+		CRIMSON_BIOMASS_ITEM = item("carnage_biomass", CRIMSON_BIOMASS);
+		CRIMSON_EGG_ITEM = item("crimson_egg", CRIMSON_EGG);
+		BALLISTA_ITEM = item("oath_ballista", BALLISTA);
 	}
 
 	private static <B extends Block> B block(String path, B block) {

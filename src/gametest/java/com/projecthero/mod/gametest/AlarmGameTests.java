@@ -457,6 +457,9 @@ public class AlarmGameTests implements FabricGameTest {
 		if (boss instanceof FrostGiantJarlBoss b) {
 			return b.phase();
 		}
+		if (boss instanceof com.projecthero.mod.hideout.HideoutBoss b) {
+			return b.phase(); // v0.17.7: the three new mini-bosses
+		}
 		return null;
 	}
 }
