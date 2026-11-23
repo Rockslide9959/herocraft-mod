@@ -180,6 +180,18 @@ public final class ProjectHeroJeiPlugin implements IModPlugin {
 			registration.addItemStackInfo(new ItemStack(i), net.minecraft.network.chat.Component.translatable(i.getDescriptionId() + ".hint"),
 					net.minecraft.network.chat.Component.translatable("projecthero.jei.sky_fortress"));
 		}
+		// v0.17.7: the Ancient Temple -- its blocks, the four weights and the Bound King's Ankh
+		for (net.minecraft.world.item.Item i : com.projecthero.mod.temple.block.TempleBlocks.infoItems()) {
+			registration.addItemStackInfo(new ItemStack(i), net.minecraft.network.chat.Component.translatable(i.getDescriptionId() + ".hint"),
+					net.minecraft.network.chat.Component.translatable("projecthero.jei.temple"));
+		}
+		for (net.minecraft.world.item.Item i : com.projecthero.mod.temple.item.TempleItems.weights()) {
+			registration.addItemStackInfo(new ItemStack(i), net.minecraft.network.chat.Component.translatable("item.projecthero.temple_weight.hint",
+					com.projecthero.mod.temple.block.WeightAltarBlockEntity.TARGET), net.minecraft.network.chat.Component.translatable("projecthero.jei.temple"));
+		}
+		registration.addItemStackInfo(new ItemStack(com.projecthero.mod.temple.item.TempleItems.BOUND_KINGS_ANKH),
+				net.minecraft.network.chat.Component.translatable("item.projecthero.bound_kings_ankh.hint"),
+				net.minecraft.network.chat.Component.translatable("projecthero.jei.temple"));
 		// v0.17.5: Sentry -- the serum (only from The Vault's O.X.E. vat) and the vat itself
 		registration.addItemStackInfo(new ItemStack(com.projecthero.mod.sentry.item.SentryItems.SENTRY_SERUM),
 				net.minecraft.network.chat.Component.translatable("item.projecthero.sentry_serum.hint"));

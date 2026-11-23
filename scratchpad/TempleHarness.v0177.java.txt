@@ -1,0 +1,466 @@
+// v0.17.7 Ancient Temple harness. To use: copy to src/client/java/com/projecthero/mod/client/TempleHarness.java, add
+// "com.projecthero.mod.client.TempleHarness" to fabric.mod.json client entrypoints, write run/temple.flag = <out dir>, run
+// node scratchpad/low_graphics_options.js run/options.txt, then ./gradlew runClient. Remove both from src before committing.
+// Films: frames named film_<name>_NNN.png -> node scratchpad/v0177/temple_films_v0177.js <out dir>/screenshots
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import com.projecthero.mod.temple.block.CrusherCoreBlockEntity;
+import com.projecthero.mod.temple.block.TempleBlocks;
+import com.projecthero.mod.temple.block.TempleGateBlock;
+import com.projecthero.mod.temple.block.TempleMirrorBlock;
+import com.projecthero.mod.temple.entity.AnkhatepBoss;
+import com.projecthero.mod.temple.worldgen.TempleBuilder;
+import com.projecthero.mod.temple.worldgen.TemplePiece;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped). Kept as scratchpad/TempleHarness.v0177.java.txt. */
+public final class TempleHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks, planTick;
+	private static final List<Runnable> PLAN = new ArrayList<>();
+	private static File out;
+
+	static final BlockPos DESERT = new BlockPos(0, 100, 0);
+	static final BlockPos JUNGLE = new BlockPos(400, 100, 0);
+
+	record View(String name, double cx, double cy, double cz, double lx, double ly, double lz, boolean gui, int delay) {
+	}
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("temple.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			out = new File(Files.readString(flag).trim());
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(TempleHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(720_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "temple-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		mc.gui.getChat().clearMessages(false);
+		mc.getToasts().clear();
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	static void at(int ticks, Runnable r) {
+		while (PLAN.size() < ticks) {
+			PLAN.add(() -> {
+			});
+		}
+		Runnable prev = PLAN.get(ticks - 1);
+		PLAN.set(ticks - 1, () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	static TemplePiece piece(BlockPos o, boolean desert) {
+		return new TemplePiece(o, Rotation.NONE, desert);
+	}
+
+	static void view(Minecraft mc, BlockPos o, View v) {
+		mc.options.hideGui = !v.gui;
+		Vec3 cam = new Vec3(o.getX() + v.cx, o.getY() + v.cy, o.getZ() + v.cz);
+		Vec3 d = new Vec3(o.getX() + v.lx, o.getY() + v.ly, o.getZ() + v.lz).subtract(cam);
+		float yaw = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+		float pitch = (float) -Math.toDegrees(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)));
+		server(mc, p -> {
+			p.getAbilities().mayfly = true;
+			p.getAbilities().flying = true;
+			p.onUpdateAbilities();
+			p.connection.teleport(cam.x, cam.y - 1.62, cam.z, yaw, pitch);
+		});
+	}
+
+	/** A thin crust round the surface (rock under the platform), air everywhere else, so the underground is a floating cutaway. */
+	static void prepare(ServerLevel level, BlockPos o, boolean desert) {
+		BlockState top = desert ? Blocks.SAND.defaultBlockState() : Blocks.GRASS_BLOCK.defaultBlockState();
+		for (int x = -45; x <= 45; x++) {
+			for (int z = -55; z <= 30; z++) {
+				for (int y = -3; y <= 0; y++) {
+					level.setBlock(o.offset(x, y, z), y < 0 ? (desert ? Blocks.SANDSTONE : Blocks.DIRT).defaultBlockState() : top, 2 | 16);
+				}
+			}
+		}
+		if (!desert) {
+			// a few jungle trees round the site
+			for (int[] t : new int[][] { { -26, -30 }, { 24, -28 }, { -30, 6 }, { 28, 12 }, { -20, -44 }, { 18, -46 } }) {
+				for (int y = 1; y <= 9; y++) {
+					level.setBlock(o.offset(t[0], y, t[1]), Blocks.JUNGLE_LOG.defaultBlockState(), 2 | 16);
+				}
+				for (int dx = -3; dx <= 3; dx++) {
+					for (int dz = -3; dz <= 3; dz++) {
+						for (int dy = 7; dy <= 10; dy++) {
+							if (dx * dx + dz * dz + (dy - 8) * (dy - 8) <= 10 && level.getBlockState(o.offset(t[0] + dx, dy, t[1] + dz)).isAir()) {
+								level.setBlock(o.offset(t[0] + dx, dy, t[1] + dz), Blocks.JUNGLE_LEAVES.defaultBlockState()
+										.setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true), 2 | 16);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	static void freezeAll(ServerPlayer p, boolean noAi) {
+		for (Mob m : p.serverLevel().getEntitiesOfClass(Mob.class, new AABB(-100, -100, -100, 600, 300, 400))) {
+			m.setNoAi(noAi);
+		}
+	}
+
+	static AnkhatepBoss king(ServerPlayer p) {
+		var l = p.serverLevel().getEntitiesOfClass(AnkhatepBoss.class, new AABB(-50, 0, 100, 50, 120, 260));
+		return l.isEmpty() ? null : l.get(0);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.getWindow().setWindowed(854, 480);
+				mc.execute(TempleHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 30) {
+			mc.options.fov().set(80);
+			mc.options.tutorialStep = net.minecraft.client.tutorial.TutorialSteps.NONE;
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			mc.options.renderDistance().set(8);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOFIRETICK).set(false, p.server);
+				p.setGameMode(GameType.CREATIVE);
+				p.server.getPlayerList().setViewDistance(8); // the options file is on the low-graphics 2 chunks
+				p.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 20 * 60 * 30, 0, false, false));
+			});
+			buildPlan(mc);
+		}
+		if (t < 50) {
+			return;
+		}
+		if (planTick < PLAN.size()) {
+			PLAN.get(planTick++).run();
+		} else if (!PLAN.isEmpty()) {
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	private static void buildPlan(Minecraft mc) {
+		int t = 1;
+		at(t, () -> view(mc, DESERT, new View("pre", 0, 40, -70, 0, 0, 0, false, 0)));
+		at(t + 20, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			prepare(level, DESERT, true);
+			piece(DESERT, true).buildAll(level);
+			System.out.println("[HARNESS] built desert; king home " + piece(DESERT, true).kingHome());
+		}));
+		at(t + 60, () -> view(mc, JUNGLE, new View("pre", 0, 40, -70, 0, 0, 0, false, 0)));
+		at(t + 80, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			prepare(level, JUNGLE, false);
+			piece(JUNGLE, false).buildAll(level);
+			freezeAll(p, true);
+			System.out.println("[HARNESS] built jungle");
+		}));
+		int k = t + 130;
+		if (SECOND_PASS) {
+			secondPass(mc, k);
+			return;
+		}
+		List<Object[]> views = new ArrayList<>();
+		views.add(new Object[] { JUNGLE, new View("02_exterior_jungle", -34, 22, -50, 0, 6, -2, false, 120) });
+		views.add(new Object[] { JUNGLE, new View("02b_hall_of_trials_jungle", 10.5, -4, 52, -4, -11, 70, false, 90) });
+		views.add(new Object[] { DESERT, new View("01_exterior_desert", -34, 22, -50, 0, 6, -2, false, 120) });
+		views.add(new Object[] { DESERT, new View("01b_exterior_desert_front", 6, 6, -34, 0, 6, -10, false, 40) });
+		views.add(new Object[] { DESERT, new View("03_surface_hall", -10, 4.5, -12, 2, 1.5, 2, false, 50) });
+		views.add(new Object[] { DESERT, new View("04_vestibule", -4, -8.5, 9, 3, -10.5, 15, true, 60) });
+		views.add(new Object[] { DESERT, new View("05_dart_hall", 0, -9.4, 17.6, 0, -10.2, 34, true, 50) });
+		views.add(new Object[] { DESERT, new View("06_collapsing_floor", 5.5, -7.5, 37.6, -2, -12.5, 45, false, 50) });
+		views.add(new Object[] { DESERT, new View("07_hall_of_trials", 10.5, -4, 52, -4, -11, 70, true, 60) });
+		views.add(new Object[] { DESERT, new View("08_glyph_mural", -7.5, -9.6, 60, -13, -9.4, 60, false, 40) });
+		views.add(new Object[] { DESERT, new View("09_light_puzzle", 11, -6.5, 78, 6, -10, 64, false, 50) });
+		views.add(new Object[] { DESERT, new View("10_weight_altar", 3.5, -8.6, 67.5, 0, -11, 72, false, 40) });
+		views.add(new Object[] { DESERT, new View("11_seals", 0, -8.6, 73.5, 0, -10, 79, false, 40) });
+		for (Object[] vv : views) {
+			BlockPos o = (BlockPos) vv[0];
+			View v = (View) vv[1];
+			at(k, () -> view(mc, o, v));
+			at(k + v.delay, () -> shot(mc, v.name));
+			k += v.delay + 4;
+		}
+		// the light puzzle solved: turn the mirrors, watch the beam reach the seal
+		at(k, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			TemplePiece pc = piece(DESERT, true);
+			for (int i = 0; i < TempleBuilder.MIRRORS.length; i++) {
+				BlockPos m = pc.world(TempleBuilder.MIRRORS[i]);
+				level.setBlock(m, level.getBlockState(m).setValue(TempleMirrorBlock.FACING, TempleBuilder.MIRROR_SOLVED[i]), 3);
+			}
+		}));
+		at(k + 2, () -> view(mc, DESERT, new View("09b", 11, -6.5, 78, 6, -10, 64, false, 0)));
+		at(k + 14, () -> shot(mc, "09b_light_puzzle_solved"));
+		at(k + 40, () -> shot(mc, "09c_light_seal_broken"));
+		k += 46;
+		// the Crushing Corridor: inside view, then the film from above (ceiling lifted for the camera)
+		at(k, () -> server(mc, p -> TempleGateBlock.open(p.serverLevel(), piece(DESERT, true).world(TempleBuilder.TRIALS_GATE), TempleGateBlock.Group.TRIALS, 6)));
+		at(k + 2, () -> view(mc, DESERT, new View("12", 0, -9.4, 80.5, 0, -10, 111, false, 0)));
+		at(k + 50, () -> shot(mc, "12_crushing_corridor"));
+		k += 56;
+		at(k, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			for (int z = 82; z <= 112; z++) {
+				for (int x = -3; x <= 3; x++) {
+					level.setBlock(DESERT.offset(x, -7, z), Blocks.AIR.defaultBlockState(), 2);
+				}
+			}
+		}));
+		at(k + 2, () -> {
+			mc.options.hideGui = true;
+			server(mc, p -> {
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				p.connection.teleport(DESERT.getX() + 9.5, DESERT.getY() + 4.0 - 1.62, DESERT.getZ() + 96.5, 90f, 62f);
+			});
+		});
+		at(k + 60, () -> server(mc, p -> {
+			var be = p.serverLevel().getBlockEntity(piece(DESERT, true).world(TempleBuilder.CRUSHER_CORE));
+			if (be instanceof CrusherCoreBlockEntity core) {
+				core.start(p.serverLevel());
+			}
+		}));
+		for (int i = 0; i < 140; i++) {
+			final int n = i;
+			at(k + 62 + i * 2, () -> shot(mc, String.format("film_crusher_%03d", n)));
+		}
+		k += 62 + 280 + 10;
+		// the crypt, the Sentinel, the hall of the bound, the throne room
+		List<View> deep = List.of(
+				new View("13_flooded_crypt", -8, -15, 121.5, 2, -19.5, 132, false, 90),
+				new View("14_tomb_sentinel", 0, -17.2, 126.5, 0, -18, 131.5, true, 40),
+				new View("15_hall_of_the_bound", -6, -16, 144.5, 3, -18.5, 153, false, 50),
+				new View("16_throne_room", 0, -14, 158.5, 0, -19, 178, false, 60),
+				new View("17_ankhatep_phase1", 2.5, -17.6, 169.2, 0, -18.6, 175.5, true, 60));
+		for (View v : deep) {
+			at(k, () -> view(mc, DESERT, v));
+			at(k + v.delay, () -> shot(mc, v.name));
+			k += v.delay + 4;
+		}
+		// the Sand Wave, filmed from above the arena (his AI runs; the camera is creative so he never targets it)
+		at(k, () -> view(mc, DESERT, new View("wave", 10, -11.5, 164, 0, -21, 175, false, 0)));
+		at(k + 30, () -> server(mc, p -> {
+			AnkhatepBoss b = king(p);
+			if (b != null) {
+				b.setNoAi(false);
+				b.startMove(AnkhatepBoss.MOVE_WAVE);
+			}
+		}));
+		for (int i = 0; i < 52; i++) {
+			final int n = i;
+			at(k + 31 + i, () -> shot(mc, String.format("film_sandwave_%03d", n)));
+		}
+		k += 31 + 52 + 10;
+		// phase 2: half health -> he breaks his chains (filmed), then the unbound close-up
+		at(k, () -> view(mc, DESERT, new View("chains", 3.5, -17.4, 168.8, 0, -18.8, 175.5, true, 0)));
+		at(k + 20, () -> server(mc, p -> {
+			AnkhatepBoss b = king(p);
+			if (b != null) {
+				b.setHealth((float) (AnkhatepBoss.MAX_HEALTH * 0.5) + 2f);
+				b.hurt(p.serverLevel().damageSources().generic(), 5f);
+			}
+		}));
+		for (int i = 0; i < 30; i++) {
+			final int n = i;
+			at(k + 21 + i * 2, () -> shot(mc, String.format("film_chains_%03d", n)));
+		}
+		k += 21 + 60 + 20;
+		at(k, () -> view(mc, DESERT, new View("18", 2.5, -17.6, 169.2, 0, -18.6, 175.5, true, 0)));
+		at(k + 30, () -> shot(mc, "18_ankhatep_phase2"));
+		k += 36;
+		// the treasury (open its gate), the cutaway
+		at(k, () -> server(mc, p -> {
+			freezeAll(p, true);
+			TempleGateBlock.open(p.serverLevel(), piece(DESERT, true).world(TempleBuilder.VAULT_GATE), TempleGateBlock.Group.VAULT, 6);
+		}));
+		at(k + 2, () -> view(mc, DESERT, new View("19", 0, -18.8, 185.5, 0, -21, 192, false, 0)));
+		at(k + 40, () -> shot(mc, "19_treasury"));
+		k += 46;
+		at(k, () -> view(mc, DESERT, new View("20", 75, 12, 90, 0, -12, 90, false, 0)));
+		at(k + 120, () -> shot(mc, "20_cutaway_side"));
+		at(k + 130, () -> {
+		});
+	}
+
+	/** Second pass: the exteriors at a real view distance, a closer crusher film, a closer Sand Wave, the phase shots, the cutaway. */
+	static final boolean SECOND_PASS = true;
+	static final boolean EXTERIOR_ONLY = true;
+
+	private static void secondPass(Minecraft mc, int k) {
+		View[][] ext = { { new View("02_exterior_jungle", -34, 22, -50, 0, 6, -2, false, 160) }, { new View("01_exterior_desert", -34, 22, -50, 0, 6, -2, false, 160) },
+				{ new View("01b_exterior_desert_front", 6, 6, -34, 0, 6, -10, false, 60) }, { new View("01c_exterior_desert_side", 38, 18, 10, 0, 4, -4, false, 80) } };
+		BlockPos[] at = { JUNGLE, DESERT, DESERT, DESERT };
+		for (int i = 0; i < ext.length; i++) {
+			View v = ext[i][0];
+			BlockPos o = at[i];
+			at(k, () -> view(mc, o, v));
+			at(k + v.delay, () -> shot(mc, v.name));
+			k += v.delay + 4;
+		}
+		if (EXTERIOR_ONLY) {
+			at(k, () -> view(mc, DESERT, new View("20", 40, 4, 90, 0, -12, 90, false, 0)));
+			at(k + 160, () -> shot(mc, "20_cutaway_side"));
+			at(k + 170, () -> {
+			});
+			return;
+		}
+		// the corridor film, closer: lift the ceiling, camera low over the east wall
+		at(k, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			TempleGateBlock.open(level, piece(DESERT, true).world(TempleBuilder.TRIALS_GATE), TempleGateBlock.Group.TRIALS, 6);
+			for (int z = 82; z <= 112; z++) {
+				for (int x = -3; x <= 3; x++) {
+					level.setBlock(DESERT.offset(x, -7, z), Blocks.AIR.defaultBlockState(), 2);
+				}
+			}
+		}));
+		at(k + 2, () -> {
+			mc.options.hideGui = true;
+			server(mc, p -> {
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				p.connection.teleport(DESERT.getX() + 6.5, DESERT.getY() - 3.5 - 1.62, DESERT.getZ() + 86.5, 30f, 38f);
+			});
+		});
+		at(k + 70, () -> server(mc, p -> {
+			if (p.serverLevel().getBlockEntity(piece(DESERT, true).world(TempleBuilder.CRUSHER_CORE)) instanceof CrusherCoreBlockEntity core) {
+				core.start(p.serverLevel());
+			}
+		}));
+		for (int i = 0; i < 140; i++) {
+			final int n = i;
+			at(k + 72 + i * 2, () -> shot(mc, String.format("film_crusher_%03d", n)));
+		}
+		k += 72 + 280 + 10;
+		at(k, () -> view(mc, DESERT, new View("17", 2.2, -18.0, 170.2, 0, -18.8, 175.5, true, 0)));
+		at(k + 60, () -> shot(mc, "17_ankhatep_phase1"));
+		k += 64;
+		at(k, () -> view(mc, DESERT, new View("wave", 6, -16, 167, 0, -21, 175, false, 0)));
+		at(k + 30, () -> server(mc, p -> {
+			AnkhatepBoss b = king(p);
+			if (b != null) {
+				b.setNoAi(false);
+				b.startMove(AnkhatepBoss.MOVE_WAVE);
+			}
+		}));
+		for (int i = 0; i < 52; i++) {
+			final int n = i;
+			at(k + 31 + i, () -> shot(mc, String.format("film_sandwave_%03d", n)));
+		}
+		k += 31 + 52 + 10;
+		at(k, () -> view(mc, DESERT, new View("chains", 2.2, -18.0, 170.2, 0, -18.8, 175.5, true, 0)));
+		at(k + 20, () -> server(mc, p -> {
+			AnkhatepBoss b = king(p);
+			if (b != null) {
+				b.setHealth((float) (AnkhatepBoss.MAX_HEALTH * 0.5) + 2f);
+				b.hurt(p.serverLevel().damageSources().generic(), 5f);
+			}
+		}));
+		for (int i = 0; i < 30; i++) {
+			final int n = i;
+			at(k + 21 + i * 2, () -> shot(mc, String.format("film_chains_%03d", n)));
+		}
+		k += 21 + 60 + 30;
+		at(k, () -> shot(mc, "18_ankhatep_phase2"));
+		k += 6;
+		at(k, () -> server(mc, p -> freezeAll(p, true)));
+		at(k + 2, () -> view(mc, DESERT, new View("20", 60, 6, 90, 0, -12, 90, false, 0)));
+		at(k + 160, () -> shot(mc, "20_cutaway_side"));
+		at(k + 170, () -> {
+		});
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		rules.getRule(com.projecthero.mod.calling.SpawnCallings.RULE).set(false, null);
+		LevelSettings settings = new LevelSettings("TEMPLE_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.NORMAL, true,
+				rules, WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(17077L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

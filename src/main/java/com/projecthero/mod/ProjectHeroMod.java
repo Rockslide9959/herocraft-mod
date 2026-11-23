@@ -331,6 +331,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.hideout.HideoutMod.initialize(); // v0.17.5: Tier 3 villain hideouts
 		com.projecthero.mod.vaultdungeon.VaultDungeonMod.initialize(); // v0.17.5: Tier 4 dungeon, The Vault
 		com.projecthero.mod.skyfortress.SkyFortressMod.initialize(); // v0.17.7: Tier 4 dungeon, the Sky Fortress
+		com.projecthero.mod.temple.TempleMod.initialize(); // v0.17.7: Tier 4 dungeon, the Ancient Temple (Ankhatep)
 		// v0.16.2 City part A: the City structure type + City Map trade (part B's CityBlocks registers the job-site blocks)
 		com.projecthero.mod.city.CityWorldgen.initialize();
 		CraterAmbience.initialize();

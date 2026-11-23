@@ -946,6 +946,9 @@ public final class HeroPackGuide {
 			blank(lines);
 			head(lines, "projecthero.guide.structures.hideouts");
 			para(lines, "projecthero.guide.structures.hideouts.body");
+			// v0.17.7: the Ancient Temple (Tier 4 dungeon; full guide in Villain Hideouts)
+			blank(lines);
+			para(lines, "projecthero.guide.structures.temple");
 		}));
 
 		out.add(chapter("projecthero.guide.devices", lines -> {
@@ -2394,6 +2397,10 @@ public final class HeroPackGuide {
 				lines.add(Component.literal(" • ").withStyle(s -> s.withColor(trim))
 						.append(Component.translatable("projecthero.guide.loot.gear.tier" + t).withStyle(ChatFormatting.GRAY)));
 			}
+			// v0.17.7: the Ancient Temple, the second Tier 4 dungeon (com.projecthero.mod.temple)
+			blank(lines);
+			head(lines, "projecthero.guide.loot.temple");
+			para(lines, "projecthero.guide.loot.temple.body");
 		}));
 
 		// v0.17.5: Villain Hideouts (CH_HIDEOUTS) -- the five Tier 3 lairs, clearing, the raid calm, traps, bosses, artifacts
@@ -2455,6 +2462,17 @@ public final class HeroPackGuide {
 			}
 			lines.add(Component.literal(" • ").withStyle(s -> s.withColor(com.projecthero.mod.skyfortress.SkyFortressMod.COLOUR))
 					.append(Component.translatable("projecthero.guide.hideouts.sky.a.kestrel_thruster").withStyle(ChatFormatting.GRAY)));
+			// v0.17.7: the Ancient Temple (Tier 4) -- a sub-section like The Vault (chapter counts unchanged)
+			blank(lines);
+			lines.add(Component.translatable("projecthero.guide.hideouts.temple").withStyle(s -> s.withColor(0xE8C060).withBold(true)));
+			para(lines, "projecthero.guide.hideouts.temple.body");
+			for (String part : new String[] { "wings", "wards", "trials", "foes", "ankhatep", "clearing" }) {
+				blank(lines);
+				head(lines, "projecthero.guide.hideouts.temple." + part);
+				para(lines, "projecthero.guide.hideouts.temple." + part + ".body");
+			}
+			blank(lines);
+			para(lines, "projecthero.guide.hideouts.temple.artifact");
 		}));
 
 		// v0.17.5: Sentry & the Void (CH_SENTRY) -- the two meters, both kits, the takeover and how to come back

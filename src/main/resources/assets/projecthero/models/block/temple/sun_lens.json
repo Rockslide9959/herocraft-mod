@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "projecthero:block/temple/sun_lens_front",
+    "side": "projecthero:block/temple/sun_lens_side",
+    "top": "projecthero:block/temple/sun_lens_side"
+  }
+}

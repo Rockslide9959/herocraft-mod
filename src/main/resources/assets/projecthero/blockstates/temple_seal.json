@@ -1,0 +1,22 @@
+{
+  "variants": {
+    "broken=false,kind=glyph": {
+      "model": "projecthero:block/temple/temple_seal_glyph"
+    },
+    "broken=true,kind=glyph": {
+      "model": "projecthero:block/temple/temple_seal_glyph_broken"
+    },
+    "broken=false,kind=light": {
+      "model": "projecthero:block/temple/temple_seal_light"
+    },
+    "broken=true,kind=light": {
+      "model": "projecthero:block/temple/temple_seal_light_broken"
+    },
+    "broken=false,kind=weight": {
+      "model": "projecthero:block/temple/temple_seal_weight"
+    },
+    "broken=true,kind=weight": {
+      "model": "projecthero:block/temple/temple_seal_weight_broken"
+    }
+  }
+}

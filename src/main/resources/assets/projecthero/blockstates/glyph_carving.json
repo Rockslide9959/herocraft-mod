@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "glyph=0": {
+      "model": "projecthero:block/temple/glyph_carving_0"
+    },
+    "glyph=1": {
+      "model": "projecthero:block/temple/glyph_carving_1"
+    },
+    "glyph=2": {
+      "model": "projecthero:block/temple/glyph_carving_2"
+    },
+    "glyph=3": {
+      "model": "projecthero:block/temple/glyph_carving_3"
+    }
+  }
+}

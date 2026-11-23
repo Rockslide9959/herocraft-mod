@@ -15,6 +15,7 @@
       "com.projecthero.mod.gametest.WorldPlacesGameTests",
       "com.projecthero.mod.gametest.VillainHideoutGameTests",
       "com.projecthero.mod.gametest.AlarmGameTests",
+      "com.projecthero.mod.gametest.AncientTempleGameTests",
       "com.projecthero.mod.gametest.SiteUpgradeGameTests",
       "com.projecthero.mod.gametest.VaultDungeonGameTests",
       "com.projecthero.mod.gametest.VaultSitesGameTests",

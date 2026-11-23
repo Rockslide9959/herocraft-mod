@@ -1,0 +1,36 @@
+{
+  "variants": {
+    "facing=north,powered=false": {
+      "model": "projecthero:block/temple/ward_gong",
+      "y": 0
+    },
+    "facing=north,powered=true": {
+      "model": "projecthero:block/temple/ward_gong",
+      "y": 0
+    },
+    "facing=east,powered=false": {
+      "model": "projecthero:block/temple/ward_gong",
+      "y": 90
+    },
+    "facing=east,powered=true": {
+      "model": "projecthero:block/temple/ward_gong",
+      "y": 90
+    },
+    "facing=south,powered=false": {
+      "model": "projecthero:block/temple/ward_gong",
+      "y": 180
+    },
+    "facing=south,powered=true": {
+      "model": "projecthero:block/temple/ward_gong",
+      "y": 180
+    },
+    "facing=west,powered=false": {
+      "model": "projecthero:block/temple/ward_gong",
+      "y": 270
+    },
+    "facing=west,powered=true": {
+      "model": "projecthero:block/temple/ward_gong",
+      "y": 270
+    }
+  }
+}

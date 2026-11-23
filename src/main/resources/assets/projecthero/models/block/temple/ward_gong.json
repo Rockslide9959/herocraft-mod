@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "projecthero:block/temple/ward_gong_front",
+    "side": "projecthero:block/temple/ward_gong_side",
+    "top": "projecthero:block/temple/ward_gong_side"
+  }
+}

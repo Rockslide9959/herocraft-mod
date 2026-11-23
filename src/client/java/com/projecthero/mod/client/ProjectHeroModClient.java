@@ -163,6 +163,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.hideout.HideoutClient.initialize(); // v0.17.5: hideout mini-boss renderers, Cortex Shard reveal
 		com.projecthero.mod.client.vaultdungeon.VaultDungeonClient.initialize(); // v0.17.5: The Vault's guards + Warden Kross (taser line)
 		com.projecthero.mod.client.skyfortress.SkyFortressClient.initialize(); // v0.17.7: Sky Fortress crew, Admiral Kestrel, missiles, shield layer
+		com.projecthero.mod.client.temple.TempleClient.initialize(); // v0.17.7: the Ancient Temple (temple mobs, Ankhatep, block layers)
 		com.projecthero.mod.client.undead.UndeadClient.initialize(); // v0.17.3
 		com.projecthero.mod.client.undead.UndeadKitFx.initialize(); // v0.17.3 Undead kit: the meteor / vortex / rib effects packet
 		com.projecthero.mod.client.saiyan.SaiyanClient.initialize(); // v0.17.3: HUD, H transform, flight

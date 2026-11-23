@@ -1,0 +1,36 @@
+{
+  "variants": {
+    "facing=north,high=false": {
+      "model": "projecthero:block/temple/dart_trap",
+      "y": 0
+    },
+    "facing=north,high=true": {
+      "model": "projecthero:block/temple/dart_trap_high",
+      "y": 0
+    },
+    "facing=east,high=false": {
+      "model": "projecthero:block/temple/dart_trap",
+      "y": 90
+    },
+    "facing=east,high=true": {
+      "model": "projecthero:block/temple/dart_trap_high",
+      "y": 90
+    },
+    "facing=south,high=false": {
+      "model": "projecthero:block/temple/dart_trap",
+      "y": 180
+    },
+    "facing=south,high=true": {
+      "model": "projecthero:block/temple/dart_trap_high",
+      "y": 180
+    },
+    "facing=west,high=false": {
+      "model": "projecthero:block/temple/dart_trap",
+      "y": 270
+    },
+    "facing=west,high=true": {
+      "model": "projecthero:block/temple/dart_trap_high",
+      "y": 270
+    }
+  }
+}

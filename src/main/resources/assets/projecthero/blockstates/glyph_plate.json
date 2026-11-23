@@ -1,0 +1,52 @@
+{
+  "variants": {
+    "glyph=0,lit=false,pressed=false": {
+      "model": "projecthero:block/temple/glyph_plate_0"
+    },
+    "glyph=0,lit=false,pressed=true": {
+      "model": "projecthero:block/temple/glyph_plate_0"
+    },
+    "glyph=0,lit=true,pressed=false": {
+      "model": "projecthero:block/temple/glyph_plate_0_lit"
+    },
+    "glyph=0,lit=true,pressed=true": {
+      "model": "projecthero:block/temple/glyph_plate_0_lit"
+    },
+    "glyph=1,lit=false,pressed=false": {
+      "model": "projecthero:block/temple/glyph_plate_1"
+    },
+    "glyph=1,lit=false,pressed=true": {
+      "model": "projecthero:block/temple/glyph_plate_1"
+    },
+    "glyph=1,lit=true,pressed=false": {
+      "model": "projecthero:block/temple/glyph_plate_1_lit"
+    },
+    "glyph=1,lit=true,pressed=true": {
+      "model": "projecthero:block/temple/glyph_plate_1_lit"
+    },
+    "glyph=2,lit=false,pressed=false": {
+      "model": "projecthero:block/temple/glyph_plate_2"
+    },
+    "glyph=2,lit=false,pressed=true": {
+      "model": "projecthero:block/temple/glyph_plate_2"
+    },
+    "glyph=2,lit=true,pressed=false": {
+      "model": "projecthero:block/temple/glyph_plate_2_lit"
+    },
+    "glyph=2,lit=true,pressed=true": {
+      "model": "projecthero:block/temple/glyph_plate_2_lit"
+    },
+    "glyph=3,lit=false,pressed=false": {
+      "model": "projecthero:block/temple/glyph_plate_3"
+    },
+    "glyph=3,lit=false,pressed=true": {
+      "model": "projecthero:block/temple/glyph_plate_3"
+    },
+    "glyph=3,lit=true,pressed=false": {
+      "model": "projecthero:block/temple/glyph_plate_3_lit"
+    },
+    "glyph=3,lit=true,pressed=true": {
+      "model": "projecthero:block/temple/glyph_plate_3_lit"
+    }
+  }
+}
