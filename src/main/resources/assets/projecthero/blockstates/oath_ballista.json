@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "projecthero:block/oath_ballista"
+    },
+    "facing=east": {
+      "model": "projecthero:block/oath_ballista",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "projecthero:block/oath_ballista",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "projecthero:block/oath_ballista",
+      "y": 270
+    }
+  }
+}

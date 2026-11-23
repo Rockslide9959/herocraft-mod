@@ -1,0 +1,8 @@
+{
+  "type": "projecthero:villain_hideout",
+  "faction": "oathbreaker",
+  "biomes": "#projecthero:hideout/oathbreaker_keep",
+  "step": "surface_structures",
+  "terrain_adaptation": "none",
+  "spawn_overrides": {}
+}

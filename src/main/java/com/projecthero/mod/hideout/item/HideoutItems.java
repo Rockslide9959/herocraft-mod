@@ -18,6 +18,10 @@ public final class HideoutItems {
 	public static Item MOTHER_BOX_FRAGMENT;
 	public static Item HIVE_HEART;
 	public static Item FROSTBRAND;
+	// v0.17.7: the three new hideouts' artifacts
+	public static Item GRAVECALLER_BELL;
+	public static Item BROOD_FANG;
+	public static Item OATH_SIGIL;
 
 	private HideoutItems() {
 	}
@@ -29,14 +33,20 @@ public final class HideoutItems {
 				.fireResistant()));
 		HIVE_HEART = item("hive_heart", new HiveHeartItem(HeroRarity.props(HeroRarity.LEGENDARY).stacksTo(1)));
 		FROSTBRAND = item("frostbrand", new FrostbrandItem(HeroRarity.props(HeroRarity.EPIC)));
+		GRAVECALLER_BELL = item("gravecaller_bell", new GravecallerBellItem(HeroRarity.props(HeroRarity.EPIC).stacksTo(1)));
+		BROOD_FANG = item("brood_fang", new BroodFangItem(HeroRarity.props(HeroRarity.EPIC)));
+		OATH_SIGIL = item("oath_sigil", new OathSigilItem(HeroRarity.props(HeroRarity.LEGENDARY).stacksTo(1).fireResistant()));
 	}
 
 	public static void addToCreativeTab(CreativeModeTab.Output output) {
-		for (Item i : new Item[] { GILDED_CANE, CORTEX_SHARD, MOTHER_BOX_FRAGMENT, HIVE_HEART, FROSTBRAND }) {
+		for (Item i : new Item[] { GILDED_CANE, CORTEX_SHARD, MOTHER_BOX_FRAGMENT, HIVE_HEART, FROSTBRAND, GRAVECALLER_BELL, BROOD_FANG, OATH_SIGIL }) {
 			output.accept(i);
 		}
 		output.accept(HideoutBlocks.HIVE_BIOMASS_ITEM);
 		output.accept(HideoutBlocks.HIVE_POD_ITEM);
+		output.accept(HideoutBlocks.CRIMSON_BIOMASS_ITEM);
+		output.accept(HideoutBlocks.CRIMSON_EGG_ITEM);
+		output.accept(HideoutBlocks.BALLISTA_ITEM);
 	}
 
 	private static Item item(String path, Item item) {

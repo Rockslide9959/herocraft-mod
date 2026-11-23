@@ -47,6 +47,9 @@ public abstract class HideoutBuilder {
 			case APOKOLIPS -> ApokolipsOutpostBuilder.INSTANCE;
 			case SYMBIOTE -> SymbioteHiveBuilder.INSTANCE;
 			case FROST -> FrostHallBuilder.INSTANCE;
+			case GRAVE -> GraveboundCryptBuilder.INSTANCE;
+			case CARNAGE -> CarnageNestBuilder.INSTANCE;
+			case OATH -> OathbreakerKeepBuilder.INSTANCE;
 		};
 	}
 }

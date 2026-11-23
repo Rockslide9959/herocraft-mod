@@ -49,13 +49,19 @@ import org.joml.Vector3f;
  * black spikes burst up: 10, a launch and Wither. Entering it also births two infested spiders.</li>
  * <li>{@link Kind#ICE_SPIKES} (Frost Giant Jarl, "Winter's Wrath") -- a line of ice spikes marches from the Jarl to the
  * target: 10 + freeze + Slowness II; plus a blizzard aura (Slowness I and frost within 12 every 2 s).</li>
+ * <li>{@link Kind#REQUIEM_RINGS} (Crypt Lord, "Requiem") -- three rings of soul-fire graves round him (3, 6, 9 blocks)
+ * erupt one after another, 0.4 s apart: 9 + Wither + Slowness III. Entering it raises three Risen.</li>
+ * <li>{@link Kind#CRIMSON_SPIKES} (Brood Spawn of Carnage, "Bloodbath") -- four lines of red spikes burst out from it in a
+ * cross, then four more in an X: 9, a launch and Wither. Entering it births three of Carnage's brood.</li>
+ * <li>{@link Kind#JUDGEMENT_BLADES} (Oathbound Champion, "Oath Broken") -- three lines of spectral blades fall in a fan
+ * toward the target, marching outwards: 10 + soul fire. Entering it calls two Oath-bound Knights to his side.</li>
  * <li>{@link Kind#NONE} (Kingpin's Enforcer, "Untouchable") -- the threshold, announcement and buff only; his Bull Rush
  * runs in his own move system.</li>
  * </ul>
  * The shared threat table is untouched (the boss keeps choosing targets through it). Strikes are transient.
  */
 public final class HideoutPhase {
-	public enum Kind { NONE, PLASMA_MINES, FIREBOMB_RUN, BIOMASS_ERUPTION, ICE_SPIKES }
+	public enum Kind { NONE, PLASMA_MINES, FIREBOMB_RUN, BIOMASS_ERUPTION, ICE_SPIKES, REQUIEM_RINGS, CRIMSON_SPIKES, JUDGEMENT_BLADES }
 
 	/** One telegraphed spot: goes off at {@code fireAt} (game time). */
 	public record Strike(Vec3 pos, long fireAt, float radius, float damage) {
@@ -117,6 +123,25 @@ public final class HideoutPhase {
 				.withStyle(s -> s.withColor(faction.colour()).withBold(true));
 		for (ServerPlayer p : level.getPlayers(p -> p.distanceToSqr(boss) < 48 * 48)) {
 			p.displayClientMessage(msg, false);
+		}
+		// v0.17.7: the three new bosses call help as they turn
+		com.projecthero.mod.hideout.HideoutGuards.Role help = switch (kind) {
+			case REQUIEM_RINGS -> com.projecthero.mod.hideout.HideoutGuards.Role.RISEN;
+			case CRIMSON_SPIKES -> com.projecthero.mod.hideout.HideoutGuards.Role.BROODLING;
+			case JUDGEMENT_BLADES -> com.projecthero.mod.hideout.HideoutGuards.Role.KNIGHT;
+			default -> null;
+		};
+		if (help != null) {
+			int n = kind == Kind.JUDGEMENT_BLADES ? 2 : 3;
+			for (int i = 0; i < n; i++) {
+				BlockPos spot = com.projecthero.mod.hideout.HideoutGuards.findSpot(level, boss.blockPosition(), 2, 6, boss.getRandom());
+				if (spot != null) {
+					Mob m = com.projecthero.mod.hideout.HideoutGuards.reinforcementOf(level, faction, help, spot, boss.getRandom());
+					if (m != null && boss.getTarget() != null) {
+						m.setTarget(boss.getTarget());
+					}
+				}
+			}
 		}
 		if (kind == Kind.BIOMASS_ERUPTION) {
 			for (int i = 0; i < 2; i++) {
@@ -198,6 +223,43 @@ public final class HideoutPhase {
 				}
 				level.playSound(null, boss.blockPosition(), SoundEvents.GLASS_BREAK, SoundSource.HOSTILE, 2.0f, 0.5f);
 			}
+			case REQUIEM_RINGS -> {
+				Vec3 c = boss.position();
+				int[] counts = { 8, 14, 20 };
+				for (int r = 0; r < 3; r++) {
+					double radius = 3 * (r + 1);
+					double off = boss.getRandom().nextDouble() * Math.PI;
+					for (int i = 0; i < counts[r]; i++) {
+						double a = off + i * Mth.TWO_PI / counts[r];
+						strikes.add(new Strike(ground(level, c.add(Math.cos(a) * radius, 0, Math.sin(a) * radius)), now + 26 + r * 8, 1.3f, 9f));
+					}
+				}
+				level.playSound(null, boss.blockPosition(), SoundEvents.BELL_RESONATE, SoundSource.HOSTILE, 2.0f, 0.5f);
+			}
+			case CRIMSON_SPIKES -> {
+				Vec3 c = boss.position();
+				double base = Math.atan2(at.z - c.z, at.x - c.x);
+				for (int wave = 0; wave < 2; wave++) {
+					for (int arm = 0; arm < 4; arm++) {
+						double a = base + arm * Math.PI / 2 + wave * Math.PI / 4;
+						for (int i = 1; i <= 7; i++) {
+							strikes.add(new Strike(ground(level, c.add(Math.cos(a) * i * 1.5, 0, Math.sin(a) * i * 1.5)), now + 22 + wave * 18 + i * 2, 1.1f, 9f));
+						}
+					}
+				}
+				level.playSound(null, boss.blockPosition(), SoundEvents.WARDEN_ROAR, SoundSource.HOSTILE, 1.6f, 1.5f);
+			}
+			case JUDGEMENT_BLADES -> {
+				Vec3 c = boss.position();
+				double base = Math.atan2(at.z - c.z, at.x - c.x);
+				for (int line = -1; line <= 1; line++) {
+					double a = base + line * Math.toRadians(22);
+					for (int i = 1; i <= 7; i++) {
+						strikes.add(new Strike(ground(level, c.add(Math.cos(a) * i * 2.0, 0, Math.sin(a) * i * 2.0)), now + 24 + i * 3, 1.4f, 10f));
+					}
+				}
+				level.playSound(null, boss.blockPosition(), SoundEvents.TRIDENT_THUNDER.value(), SoundSource.HOSTILE, 1.2f, 1.4f);
+			}
 			default -> {
 			}
 		}
@@ -238,6 +300,9 @@ public final class HideoutPhase {
 			case FIREBOMB_RUN -> ParticleTypes.FLAME;
 			case BIOMASS_ERUPTION -> ParticleTypes.SQUID_INK;
 			case ICE_SPIKES -> ParticleTypes.SNOWFLAKE;
+			case REQUIEM_RINGS -> ParticleTypes.SOUL;
+			case CRIMSON_SPIKES -> ParticleTypes.CRIMSON_SPORE;
+			case JUDGEMENT_BLADES -> ParticleTypes.SOUL_FIRE_FLAME;
 			default -> ParticleTypes.CRIT;
 		};
 	}
@@ -277,6 +342,35 @@ public final class HideoutPhase {
 				level.sendParticles(ParticleTypes.SNOWFLAKE, c.x, c.y + 1.0, c.z, 12, 0.4, 0.8, 0.4, 0.05);
 				level.playSound(null, c.x, c.y, c.z, SoundEvents.GLASS_BREAK, SoundSource.HOSTILE, 1.0f, 0.7f);
 			}
+			case REQUIEM_RINGS -> {
+				for (int i = 0; i < 5; i++) {
+					level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, c.x, c.y + i * 0.45, c.z, 5, 0.25, 0.1, 0.25, 0.02);
+				}
+				level.sendParticles(ParticleTypes.SOUL, c.x, c.y + 1.2, c.z, 3, 0.2, 0.4, 0.2, 0.03);
+				level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.SOUL_SOIL.defaultBlockState()), c.x, c.y + 0.3, c.z, 10, 0.4, 0.2, 0.4, 0.15);
+				if (level.random.nextInt(3) == 0) {
+					level.playSound(null, c.x, c.y, c.z, SoundEvents.SOUL_ESCAPE.value(), SoundSource.HOSTILE, 0.9f, 0.8f);
+				}
+			}
+			case CRIMSON_SPIKES -> {
+				level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.RED_CONCRETE.defaultBlockState()), c.x, c.y + 0.8, c.z, 16, 0.3, 0.8, 0.3, 0.2);
+				for (int i = 0; i < 4; i++) {
+					level.sendParticles(dust(0xC01018, 1.4f), c.x, c.y + i * 0.5, c.z, 4, 0.12, 0.1, 0.12, 0.0);
+				}
+				if (level.random.nextInt(3) == 0) {
+					level.playSound(null, c.x, c.y, c.z, SoundEvents.SLIME_ATTACK, SoundSource.HOSTILE, 1.0f, 0.5f);
+				}
+			}
+			case JUDGEMENT_BLADES -> {
+				for (int i = 0; i < 8; i++) {
+					level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, c.x, c.y + 4.0 - i * 0.5, c.z, 2, 0.05, 0.05, 0.05, 0.0);
+				}
+				level.sendParticles(ParticleTypes.CRIT, c.x, c.y + 0.4, c.z, 12, 0.5, 0.2, 0.5, 0.3);
+				level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, c.x, c.y + 0.2, c.z, 14, 0.6, 0.05, 0.6, 0.04);
+				if (level.random.nextInt(2) == 0) {
+					level.playSound(null, c.x, c.y, c.z, SoundEvents.ANVIL_LAND, SoundSource.HOSTILE, 0.5f, 1.6f);
+				}
+			}
 			default -> {
 			}
 		}
@@ -300,6 +394,16 @@ public final class HideoutPhase {
 					e.push(0, 0.5, 0);
 					e.hurtMarked = true;
 				}
+				case REQUIEM_RINGS -> {
+					e.addEffect(new MobEffectInstance(MobEffects.WITHER, 60, 0));
+					e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 40, 2));
+				}
+				case CRIMSON_SPIKES -> {
+					e.push(0, 0.8, 0);
+					e.hurtMarked = true;
+					e.addEffect(new MobEffectInstance(MobEffects.WITHER, 50, 0));
+				}
+				case JUDGEMENT_BLADES -> e.igniteForSeconds(3f);
 				default -> {
 				}
 			}

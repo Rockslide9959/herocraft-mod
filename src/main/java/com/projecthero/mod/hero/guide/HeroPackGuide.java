@@ -942,6 +942,10 @@ public final class HeroPackGuide {
 			blank(lines);
 			head(lines, "projecthero.guide.structures.sky_fortress");
 			para(lines, "projecthero.guide.structures.sky_fortress.body");
+			// v0.17.7: the eight villain hideouts (three new: Gravebound Crypt, Carnage Nest, Oathbreaker Keep)
+			blank(lines);
+			head(lines, "projecthero.guide.structures.hideouts");
+			para(lines, "projecthero.guide.structures.hideouts.body");
 		}));
 
 		out.add(chapter("projecthero.guide.devices", lines -> {

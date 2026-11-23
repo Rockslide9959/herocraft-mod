@@ -15,7 +15,11 @@ public enum HideoutFaction implements StringRepresentable {
 	ULTRON("ultron", "ultron_forge", 0xE0281E),
 	APOKOLIPS("apokolips", "apokolips_outpost", 0xFF7A1A),
 	SYMBIOTE("symbiote", "symbiote_hive", 0xE8E8F0),
-	FROST("frost", "frost_giant_hall", 0x7FD8FF);
+	FROST("frost", "frost_giant_hall", 0x7FD8FF),
+	// v0.17.7: three more Tier 3 hideouts (docs/STRUCTURES_V0177_DESIGN.md section 4)
+	GRAVE("gravebound", "gravebound_crypt", 0x9A6BE0),
+	CARNAGE("carnage", "carnage_nest", 0xD8222C),
+	OATH("oathbreaker", "oathbreaker_keep", 0x4FC9D9);
 
 	private final String name;
 	private final String structure;

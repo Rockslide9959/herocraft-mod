@@ -1,0 +1,19 @@
+{
+  "structures": [
+    {
+      "structure": "projecthero:carnage_nest",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 1707732,
+    "spacing": 150,
+    "separation": 60,
+    "frequency": 0.85,
+    "exclusion_zone": {
+      "other_set": "projecthero:kingpins_front",
+      "chunk_count": 6
+    }
+  }
+}

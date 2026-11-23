@@ -42,7 +42,13 @@ public final class HideoutGuards {
 		// Symbiote hosts
 		HOST_ZOMBIE, HOST_HUSK, HOST_SKELETON, HOST_SPIDER, HOST_VINDICATOR,
 		// Frost
-		HOUND, RAIDER, SHAMAN
+		HOUND, RAIDER, SHAMAN,
+		// v0.17.7 Gravebound (the Zombie Raid's player-model undead)
+		RISEN, RISEN_ARMOURED, ACID, BONE_BLADE, JUGGERNAUT, CURSED,
+		// v0.17.7 Carnage (Crimson Thralls + Carnage's brood)
+		THRALL, THRALL_BRUTE, THRALL_STALKER, THRALL_SPITTER, BROODLING,
+		// v0.17.7 Oathbreaker (Oath-bound Knights)
+		KNIGHT, SQUIRE, ARBALIST, OATHSWORN
 	}
 
 	private HideoutGuards() {
@@ -56,6 +62,9 @@ public final class HideoutGuards {
 			case PARADEMON, PARADEMON_RANGED, PARADEMON_ELITE, PARADEMON_BRUTE -> HideoutFaction.APOKOLIPS;
 			case HOST_ZOMBIE, HOST_HUSK, HOST_SKELETON, HOST_SPIDER, HOST_VINDICATOR -> HideoutFaction.SYMBIOTE;
 			case HOUND, RAIDER, SHAMAN -> HideoutFaction.FROST;
+			case RISEN, RISEN_ARMOURED, ACID, BONE_BLADE, JUGGERNAUT, CURSED -> HideoutFaction.GRAVE;
+			case THRALL, THRALL_BRUTE, THRALL_STALKER, THRALL_SPITTER, BROODLING -> HideoutFaction.CARNAGE;
+			case KNIGHT, SQUIRE, ARBALIST, OATHSWORN -> HideoutFaction.OATH;
 		};
 	}
 
@@ -82,6 +91,14 @@ public final class HideoutGuards {
 			case HOUND -> FrostGiantEntityTypes.HOUND;
 			case RAIDER -> FrostGiantEntityTypes.RAIDER;
 			case SHAMAN -> FrostGiantEntityTypes.SHAMAN;
+			case RISEN, RISEN_ARMOURED -> com.projecthero.mod.event.entity.RaidEntityTypes.RAID_ZOMBIE;
+			case ACID -> com.projecthero.mod.event.entity.RaidEntityTypes.ACID_ZOMBIE;
+			case BONE_BLADE -> com.projecthero.mod.event.entity.RaidEntityTypes.SWORD_SKELETON;
+			case JUGGERNAUT -> com.projecthero.mod.event.entity.RaidEntityTypes.JUGGERNAUT_ZOMBIE;
+			case CURSED -> com.projecthero.mod.event.entity.RaidEntityTypes.CURSED_ZOMBIE;
+			case THRALL, THRALL_BRUTE, THRALL_STALKER, THRALL_SPITTER -> HideoutEntityTypes.CRIMSON_THRALL;
+			case BROODLING -> com.projecthero.mod.carnage.CarnageEntityTypes.CRIMSON_SPAWN;
+			case KNIGHT, SQUIRE, ARBALIST, OATHSWORN -> HideoutEntityTypes.OATH_KNIGHT;
 		};
 	}
 
@@ -115,6 +132,16 @@ public final class HideoutGuards {
 			case PARADEMON_ELITE -> ((ParademonEntity) mob).setup(ParademonEntity.Variant.ELITE, null);
 			case PARADEMON_BRUTE -> ((ParademonEntity) mob).setup(ParademonEntity.Variant.BRUTE, null);
 			case HOST_ZOMBIE, HOST_HUSK, HOST_SKELETON, HOST_SPIDER, HOST_VINDICATOR -> SymbioteHost.mark(mob);
+			case RISEN -> ((com.projecthero.mod.event.entity.RaidZombie) mob).setVariant(com.projecthero.mod.event.entity.RaidZombie.Variant.BASIC);
+			case RISEN_ARMOURED -> ((com.projecthero.mod.event.entity.RaidZombie) mob).setVariant(com.projecthero.mod.event.entity.RaidZombie.Variant.ARMOURED);
+			case THRALL -> ((com.projecthero.mod.hideout.mob.HideoutSoldier) mob).setKind(com.projecthero.mod.hideout.mob.HideoutSoldier.Kind.THRALL);
+			case THRALL_BRUTE -> ((com.projecthero.mod.hideout.mob.HideoutSoldier) mob).setKind(com.projecthero.mod.hideout.mob.HideoutSoldier.Kind.BRUTE);
+			case THRALL_STALKER -> ((com.projecthero.mod.hideout.mob.HideoutSoldier) mob).setKind(com.projecthero.mod.hideout.mob.HideoutSoldier.Kind.STALKER);
+			case THRALL_SPITTER -> ((com.projecthero.mod.hideout.mob.HideoutSoldier) mob).setKind(com.projecthero.mod.hideout.mob.HideoutSoldier.Kind.SPITTER);
+			case KNIGHT -> ((com.projecthero.mod.hideout.mob.HideoutSoldier) mob).setKind(com.projecthero.mod.hideout.mob.HideoutSoldier.Kind.KNIGHT);
+			case SQUIRE -> ((com.projecthero.mod.hideout.mob.HideoutSoldier) mob).setKind(com.projecthero.mod.hideout.mob.HideoutSoldier.Kind.SQUIRE);
+			case ARBALIST -> ((com.projecthero.mod.hideout.mob.HideoutSoldier) mob).setKind(com.projecthero.mod.hideout.mob.HideoutSoldier.Kind.ARBALIST);
+			case OATHSWORN -> ((com.projecthero.mod.hideout.mob.HideoutSoldier) mob).setKind(com.projecthero.mod.hideout.mob.HideoutSoldier.Kind.OATHSWORN);
 			default -> {
 			}
 		}
@@ -142,7 +169,23 @@ public final class HideoutGuards {
 				default -> Role.HOST_ZOMBIE;
 			};
 			case FROST -> Role.HOUND;
+			case GRAVE -> switch (random.nextInt(4)) {
+				case 0 -> Role.BONE_BLADE;
+				case 1 -> Role.ACID;
+				default -> Role.RISEN;
+			};
+			case CARNAGE -> switch (random.nextInt(4)) {
+				case 0 -> Role.THRALL_STALKER;
+				case 1 -> Role.BROODLING;
+				default -> Role.THRALL;
+			};
+			case OATH -> random.nextInt(3) == 0 ? Role.ARBALIST : (random.nextBoolean() ? Role.KNIGHT : Role.SQUIRE);
 		};
+		return reinforcementOf(level, faction, role, spot, random);
+	}
+
+	/** v0.17.7: a guard of a given {@code role} arriving the faction's way (bosses calling help). */
+	public static Mob reinforcementOf(ServerLevel level, HideoutFaction faction, Role role, BlockPos spot, RandomSource random) {
 		Mob mob = spawn(level, role, spot, random.nextFloat() * 360f, 12);
 		if (mob == null) {
 			return null;
@@ -155,6 +198,14 @@ public final class HideoutGuards {
 			case SYMBIOTE -> level.sendParticles(ParticleTypes.SQUID_INK, x, y, z, 30, 0.4, 0.6, 0.4, 0.1);
 			case ULTRON -> level.sendParticles(ParticleTypes.ELECTRIC_SPARK, x, y, z, 20, 0.4, 0.6, 0.4, 0.1);
 			case FROST -> level.sendParticles(ParticleTypes.SNOWFLAKE, x, y, z, 30, 0.5, 0.6, 0.5, 0.05);
+			case GRAVE -> { // clawing up out of the ground
+				level.sendParticles(ParticleTypes.SOUL, x, y, z, 14, 0.4, 0.5, 0.4, 0.04);
+				level.sendParticles(new net.minecraft.core.particles.BlockParticleOption(ParticleTypes.BLOCK,
+						net.minecraft.world.level.block.Blocks.ROOTED_DIRT.defaultBlockState()), x, mob.getY() + 0.1, z, 24, 0.4, 0.1, 0.4, 0.1);
+			}
+			case CARNAGE -> level.sendParticles(new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(0.8f, 0.05f, 0.07f), 1.4f),
+					x, y, z, 30, 0.4, 0.6, 0.4, 0.05);
+			case OATH -> level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, x, y, z, 20, 0.4, 0.6, 0.4, 0.03);
 			default -> level.sendParticles(ParticleTypes.POOF, x, y, z, 8, 0.3, 0.4, 0.3, 0.02);
 		}
 		return mob;

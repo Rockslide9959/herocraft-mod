@@ -221,6 +221,7 @@ public class CarnageAttackEntity extends Entity {
 
 	private boolean victim(Entity e) {
 		return e instanceof LivingEntity l && l.isAlive() && l != owner && !(l instanceof CarnageEntity) && !(l instanceof CrimsonSpawnEntity)
+				&& !(owner != null && owner.isAlliedTo(l)) // v0.17.7: the Carnage Nest's boss / thralls never hit their own side
 				&& !(l instanceof Player p && (p.isSpectator() || p.isCreative()));
 	}
 

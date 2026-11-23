@@ -61,6 +61,7 @@ public final class HideoutCalm {
 			case com.projecthero.mod.ultron.UltronUprising.TYPE_ID -> HideoutFaction.ULTRON;
 			case com.projecthero.mod.darkseid.raid.DarkseidRaid.TYPE_ID -> HideoutFaction.APOKOLIPS;
 			case com.projecthero.mod.frostgiant.FrostGiantAssault.TYPE_ID -> HideoutFaction.FROST;
+			case com.projecthero.mod.event.EventTypes.ZOMBIE_RAID -> HideoutFaction.GRAVE; // v0.17.7
 			default -> null;
 		};
 	}

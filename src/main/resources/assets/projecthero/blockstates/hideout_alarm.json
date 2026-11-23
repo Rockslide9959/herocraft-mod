@@ -29,6 +29,24 @@
     },
     "faction=frost,spent=true": {
       "model": "projecthero:block/hideout_alarm_frost_spent"
+    },
+    "faction=gravebound,spent=false": {
+      "model": "projecthero:block/hideout_alarm_gravebound"
+    },
+    "faction=gravebound,spent=true": {
+      "model": "projecthero:block/hideout_alarm_gravebound_spent"
+    },
+    "faction=carnage,spent=false": {
+      "model": "projecthero:block/hideout_alarm_carnage"
+    },
+    "faction=carnage,spent=true": {
+      "model": "projecthero:block/hideout_alarm_carnage_spent"
+    },
+    "faction=oathbreaker,spent=false": {
+      "model": "projecthero:block/hideout_alarm_oathbreaker"
+    },
+    "faction=oathbreaker,spent=true": {
+      "model": "projecthero:block/hideout_alarm_oathbreaker_spent"
     }
   }
 }

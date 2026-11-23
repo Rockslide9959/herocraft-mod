@@ -118,6 +118,9 @@ public final class CursedZombieSpawns {
 		if (!level.isLoaded(pos)) {
 			return;
 		}
+		if (com.projecthero.mod.hideout.HideoutCalm.calmed(level, com.projecthero.mod.hideout.HideoutFaction.GRAVE, pos)) {
+			return; // v0.17.7: a cleared Gravebound Crypt nearby -- no Cursed Zombies rise around it for a while
+		}
 		CursedZombie cursed = RaidEntityTypes.CURSED_ZOMBIE.create(level);
 		if (cursed == null) {
 			return;

@@ -100,6 +100,66 @@
           "name": "projecthero:frostbrand"
         }
       ]
+    },
+    {
+      "rolls": 1,
+      "conditions": [
+        {
+          "condition": "projecthero:near_hideout",
+          "faction": "gravebound",
+          "radius": 32
+        },
+        {
+          "condition": "minecraft:random_chance",
+          "chance": 0.2
+        }
+      ],
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "projecthero:gravecaller_bell"
+        }
+      ]
+    },
+    {
+      "rolls": 1,
+      "conditions": [
+        {
+          "condition": "projecthero:near_hideout",
+          "faction": "carnage",
+          "radius": 32
+        },
+        {
+          "condition": "minecraft:random_chance",
+          "chance": 0.2
+        }
+      ],
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "projecthero:brood_fang"
+        }
+      ]
+    },
+    {
+      "rolls": 1,
+      "conditions": [
+        {
+          "condition": "projecthero:near_hideout",
+          "faction": "oathbreaker",
+          "radius": 32
+        },
+        {
+          "condition": "minecraft:random_chance",
+          "chance": 0.15
+        }
+      ],
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "projecthero:oath_sigil"
+        }
+      ]
     }
   ]
 }

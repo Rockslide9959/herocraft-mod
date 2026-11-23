@@ -1,0 +1,8 @@
+{
+  "type": "projecthero:villain_hideout",
+  "faction": "gravebound",
+  "biomes": "#projecthero:hideout/gravebound_crypt",
+  "step": "surface_structures",
+  "terrain_adaptation": "none",
+  "spawn_overrides": {}
+}

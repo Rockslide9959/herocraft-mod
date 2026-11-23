@@ -1,0 +1,19 @@
+{
+  "structures": [
+    {
+      "structure": "projecthero:oathbreaker_keep",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 1707733,
+    "spacing": 150,
+    "separation": 60,
+    "frequency": 0.85,
+    "exclusion_zone": {
+      "other_set": "projecthero:ultron_forge",
+      "chunk_count": 6
+    }
+  }
+}

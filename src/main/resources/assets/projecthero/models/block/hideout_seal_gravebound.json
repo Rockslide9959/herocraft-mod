@@ -1,0 +1,10 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "top": "projecthero:block/hideout_seal_top",
+    "bottom": "projecthero:block/hideout_seal_side",
+    "side": "projecthero:block/hideout_seal_side",
+    "front": "projecthero:block/hideout_seal_gravebound_front",
+    "particle": "projecthero:block/hideout_seal_side"
+  }
+}

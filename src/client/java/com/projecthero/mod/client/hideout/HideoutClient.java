@@ -31,6 +31,14 @@ public final class HideoutClient {
 		EntityRendererRegistry.register(HideoutEntityTypes.PARADEMON_COMMANDER, ParademonCommanderRenderer::new);
 		EntityRendererRegistry.register(HideoutEntityTypes.HIVE_MOTHER, HiveMotherRenderer::new);
 		EntityRendererRegistry.register(HideoutEntityTypes.FROST_GIANT_JARL, ctx -> new com.projecthero.mod.client.frostgiant.FrostGiantRenderer<>(ctx, 1.6f));
+		// v0.17.7: the three new hideouts' mini-bosses and soldiers (all player models)
+		EntityRendererRegistry.register(HideoutEntityTypes.CRYPT_LORD, ctx -> new MiniBossRenderer<>(ctx, "crypt_lord", MiniBossRenderer::cryptLord));
+		EntityRendererRegistry.register(HideoutEntityTypes.BROOD_SPAWN, ctx -> new MiniBossRenderer<>(ctx, "brood_spawn", MiniBossRenderer::broodSpawn));
+		EntityRendererRegistry.register(HideoutEntityTypes.OATHBOUND_CHAMPION, ctx -> new MiniBossRenderer<>(ctx, "oathbound_champion", MiniBossRenderer::champion));
+		EntityRendererRegistry.register(HideoutEntityTypes.CRIMSON_THRALL, HideoutSoldierRenderer::new);
+		EntityRendererRegistry.register(HideoutEntityTypes.OATH_KNIGHT, HideoutSoldierRenderer::new);
+		net.fabricmc.fabric.api.blockrenderlayer.v1.BlockRenderLayerMap.INSTANCE.putBlock(com.projecthero.mod.hideout.block.HideoutBlocks.BALLISTA,
+				net.minecraft.client.renderer.RenderType.cutout());
 		CortexShardItem.clientReveal = () -> revealTicks = CortexShardItem.REVEAL_TICKS;
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> {
 			if (revealTicks > 0) {

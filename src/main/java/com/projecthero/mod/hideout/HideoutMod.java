@@ -23,5 +23,6 @@ public final class HideoutMod {
 		HideoutWorldgen.initialize();
 		NearHideoutCondition.initialize();
 		HideoutAlarmProfiles.register(); // v0.17.7: each hideout is an alarm zone
+		OathPatrols.initialize(); // v0.17.7: the Oathbreaker faction's night patrols (calmed by a cleared Keep)
 	}
 }

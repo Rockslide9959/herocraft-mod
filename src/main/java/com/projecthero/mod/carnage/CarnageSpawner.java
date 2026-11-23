@@ -60,8 +60,9 @@ public final class CarnageSpawner {
 			if (p.isSpectator() || p.isCreative()) {
 				continue;
 			}
-			if (com.projecthero.mod.hideout.HideoutCalm.calmed(level, com.projecthero.mod.hideout.HideoutFaction.SYMBIOTE, p.blockPosition())) {
-				continue; // v0.17.5: a cleared Symbiote Hive nearby keeps Carnage away for a while
+			if (com.projecthero.mod.hideout.HideoutCalm.calmed(level, com.projecthero.mod.hideout.HideoutFaction.SYMBIOTE, p.blockPosition())
+					|| com.projecthero.mod.hideout.HideoutCalm.calmed(level, com.projecthero.mod.hideout.HideoutFaction.CARNAGE, p.blockPosition())) {
+				continue; // v0.17.5: a cleared Symbiote Hive nearby keeps Carnage away for a while (v0.17.7: or a cleared Carnage Nest)
 			}
 			double chance = Symbiote.hasSymbiote(p) ? cfg.symbioteHostChancePerMinute : cfg.spawnChancePerMinute;
 			if (level.random.nextDouble() < chance && dropNear(level, p, 24, 40)) {

@@ -31,7 +31,11 @@ import net.minecraft.world.phys.AABB;
  */
 public class HideoutVentBlock extends Block {
 	public enum Kind implements StringRepresentable {
-		FIRE("fire"), PLASMA("plasma"), BIOMASS("biomass"), FROST("frost");
+		FIRE("fire"), PLASMA("plasma"), BIOMASS("biomass"), FROST("frost"),
+		/** v0.17.7: Gravebound soul fire (Wither + Slowness). */
+		CURSE("curse"),
+		/** v0.17.7: Carnage's red biomass (a snare of goo + Wither). */
+		CRIMSON("crimson");
 
 		private final String name;
 
@@ -124,6 +128,16 @@ public class HideoutVentBlock extends Block {
 				level.sendParticles(ParticleTypes.SNOWFLAKE, x, y, z, 40, 0.2, 1.2, 0.2, 0.05);
 				level.playSound(null, pos, SoundEvents.POWDER_SNOW_BREAK, SoundSource.BLOCKS, 1.2f, 0.6f);
 			}
+			case CURSE -> {
+				level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, x, y, z, 40, 0.2, 1.2, 0.2, 0.05);
+				level.sendParticles(ParticleTypes.SOUL, x, y, z, 8, 0.2, 0.8, 0.2, 0.03);
+				level.playSound(null, pos, SoundEvents.SOUL_ESCAPE.value(), SoundSource.BLOCKS, 1.4f, 0.6f);
+			}
+			case CRIMSON -> {
+				level.sendParticles(new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(0.8f, 0.05f, 0.07f), 1.6f),
+						x, y, z, 40, 0.25, 1.0, 0.25, 0.05);
+				level.playSound(null, pos, SoundEvents.SLIME_SQUISH, SoundSource.BLOCKS, 1.2f, 0.4f);
+			}
 		}
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, column, LivingEntity::isAlive)) {
 			if (e instanceof Player p && (p.isCreative() || p.isSpectator())) {
@@ -148,6 +162,16 @@ public class HideoutVentBlock extends Block {
 					e.setTicksFrozen(Math.min(e.getTicksRequiredToFreeze() + 120, e.getTicksFrozen() + 160));
 					e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 1));
 				}
+				case CURSE -> {
+					e.hurt(level.damageSources().magic(), 4.0f);
+					e.addEffect(new MobEffectInstance(MobEffects.WITHER, 80, 0));
+					e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 1));
+				}
+				case CRIMSON -> {
+					e.hurt(level.damageSources().magic(), 4.0f);
+					e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 50, 3));
+					e.addEffect(new MobEffectInstance(MobEffects.WITHER, 50, 0));
+				}
 			}
 		}
 	}
@@ -162,6 +186,8 @@ public class HideoutVentBlock extends Block {
 			case PLASMA -> ParticleTypes.ELECTRIC_SPARK;
 			case BIOMASS -> ParticleTypes.SQUID_INK;
 			case FROST -> ParticleTypes.SNOWFLAKE;
+			case CURSE -> ParticleTypes.SOUL_FIRE_FLAME;
+			case CRIMSON -> ParticleTypes.CRIMSON_SPORE;
 		};
 		level.addParticle(particle, pos.getX() + 0.3 + random.nextDouble() * 0.4, pos.getY() + 1.02, pos.getZ() + 0.3 + random.nextDouble() * 0.4,
 				0, 0.03, 0);

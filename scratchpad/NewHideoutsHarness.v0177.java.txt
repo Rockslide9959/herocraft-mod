@@ -1,0 +1,380 @@
+// v0.17.7 three new hideouts harness (Gravebound Crypt, Carnage Nest, Oathbreaker Keep). To use: copy to
+// src/client/java/com/projecthero/mod/client/NewHideoutsHarness.java, add "com.projecthero.mod.client.NewHideoutsHarness"
+// to fabric.mod.json client entrypoints, write run/newhideouts.flag = <out dir>, run node scratchpad/low_graphics_options.js
+// run/options.txt, then ./gradlew runClient. Remove both from src before committing.
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import com.projecthero.mod.hideout.HideoutBoss;
+import com.projecthero.mod.hideout.HideoutFaction;
+import com.projecthero.mod.hideout.worldgen.HideoutPiece;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.monster.Husk;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped). Kept as scratchpad/NewHideoutsHarness.v0177.java.txt. */
+public final class NewHideoutsHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks, planTick;
+	private static final List<Runnable> PLAN = new ArrayList<>();
+	private static File out;
+	/** Second flag line "outside": only the exterior and cutaway views (a re-shoot with a longer render distance). */
+	private static boolean outsideOnly;
+	static final HideoutFaction[] NEW = { HideoutFaction.GRAVE, HideoutFaction.CARNAGE, HideoutFaction.OATH };
+
+	record View(String name, double cx, double cy, double cz, double lx, double ly, double lz, boolean gui) {
+	}
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("newhideouts.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			String[] lines = Files.readString(flag).trim().split("\\R");
+			out = new File(lines[0].trim());
+			outsideOnly = lines.length > 1 && lines[1].trim().equals("outside");
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(NewHideoutsHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "newhideouts-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		mc.gui.getChat().clearMessages(false);
+		mc.getToasts().clear();
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	static void at(int ticks, Runnable r) {
+		while (PLAN.size() < ticks) {
+			PLAN.add(() -> {
+			});
+		}
+		Runnable prev = PLAN.get(ticks - 1);
+		PLAN.set(ticks - 1, () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	static BlockPos origin(HideoutFaction f) {
+		return new BlockPos((f.ordinal() - 5) * 300 + 2000, 100, 0);
+	}
+
+	static HideoutPiece piece(HideoutFaction f) {
+		return new HideoutPiece(f, origin(f), Rotation.NONE);
+	}
+
+	static int[] anchor(HideoutFaction f) {
+		return switch (f) {
+			case GRAVE -> new int[] { 0, -17, 46 };
+			case CARNAGE -> new int[] { 0, -22, 34 };
+			default -> new int[] { 0, -14, 24 };
+		};
+	}
+
+	static Vec3 local(HideoutFaction f, double x, double y, double z) {
+		BlockPos o = origin(f);
+		return new Vec3(o.getX() + x, o.getY() + y, o.getZ() + z);
+	}
+
+	static void view(Minecraft mc, HideoutFaction f, View v) {
+		mc.options.hideGui = !v.gui;
+		Vec3 cam = local(f, v.cx, v.cy, v.cz);
+		Vec3 d = local(f, v.lx, v.ly, v.lz).subtract(cam);
+		float yaw = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+		float pitch = (float) -Math.toDegrees(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)));
+		server(mc, p -> {
+			p.getAbilities().mayfly = true;
+			p.getAbilities().flying = true;
+			p.onUpdateAbilities();
+			p.connection.teleport(cam.x, cam.y - 1.62, cam.z, yaw, pitch);
+		});
+	}
+
+	static List<View> views(HideoutFaction f) {
+		int[] a = anchor(f);
+		int ax = a[0], ay = a[1], az = a[2];
+		List<View> v = new ArrayList<>();
+		switch (f) {
+			case GRAVE -> {
+				v.add(new View("1_outside", -30, 18, -36, 0, 2, 4, false));
+				v.add(new View("1b_graveyard", 12, 5, -14, -2, 1, 2, false));
+				v.add(new View("2_chapel", 0, 3.2, 5.5, 0, 1.5, 16, false));
+				v.add(new View("2b_ossuary", 0, -5.5, 25.5, 0, -7.5, 38, false));
+			}
+			case CARNAGE -> {
+				v.add(new View("1_outside", -32, 22, -30, 0, -2, 6, false));
+				v.add(new View("1b_station", -4, 7, -20, -14, 3, -10, false));
+				v.add(new View("2_crater", 10, 4, -6, 0, -3, 6, false));
+				v.add(new View("2b_hatchery", 0, -10.5, 10.5, 0, -12.5, 22, false));
+			}
+			default -> {
+				v.add(new View("1_outside", -36, 24, -42, 0, 6, 4, false));
+				v.add(new View("1b_walls", 26, 16, -26, 12, 9, -8, false));
+				v.add(new View("2_courtyard", 3, 13, -6, 0, 3, 12, false));
+				v.add(new View("2b_great_hall", 0, 3.2, 9.5, 0, 2, 17, false));
+			}
+		}
+		v.add(new View("3_cutaway_side", ax + 50, ay + 18, az + 18, ax, ay, az + 36, false));
+		v.add(new View("4_checkpoint", ax - 3.5, ay + 4, az + 0.5, ax + 2, ay + 1.2, az + 8, true));
+		v.add(new View("5_gauntlet", ax, ay + 2.6, az + 10.5, ax, ay + 1.4, az + 26, true));
+		v.add(new View("6_quarters", ax - 5, ay + 4.5, az + 28.5, ax + 2, ay + 1.5, az + 35, true));
+		v.add(new View("7_arena", ax, ay + 6, az + 39.5, ax, ay - 1, az + 52, false));
+		v.add(new View("7b_boss", ax + 1.5, ay + 2.2, az + 44, ax, ay + 1.2, az + 49, false));
+		v.add(new View("8_vault_room", ax, ay + 2.2, az + 60.5, ax, ay - 0.5, az + 66, false));
+		return v;
+	}
+
+	/** A clean site: rock down to 30 under everything, grass / stone on top, air above. */
+	static void prepare(ServerLevel level, HideoutFaction f) {
+		BlockPos o = origin(f);
+		BlockState top = f == HideoutFaction.OATH ? Blocks.STONE.defaultBlockState() : Blocks.GRASS_BLOCK.defaultBlockState();
+		// the superflat world is all air up here: only the rock and the top layer need writing
+		for (int x = -40; x <= 40; x++) {
+			for (int z = -40; z <= 118; z++) {
+				for (int y = -27; y <= 0; y++) {
+					level.setBlock(o.offset(x, y, z), y < 0 ? Blocks.STONE.defaultBlockState() : top, 2 | 16);
+				}
+			}
+		}
+	}
+
+	/** Carves the rock away beside the wing so the cutaway shows the shells. */
+	static void cutaway(ServerLevel level, HideoutFaction f) {
+		BlockPos o = origin(f);
+		int[] a = anchor(f);
+		for (int x = 12; x <= 40; x++) {
+			for (int z = a[2] - 6; z <= a[2] + 72; z++) {
+				for (int y = a[1] - 6; y <= 0; y++) {
+					level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2 | 16);
+				}
+			}
+		}
+	}
+
+	static void freezeNear(ServerPlayer p, boolean noAi) {
+		for (Mob m : p.serverLevel().getEntitiesOfClass(Mob.class, p.getBoundingBox().inflate(90))) {
+			m.setNoAi(noAi);
+		}
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.getWindow().setWindowed(854, 480);
+				mc.execute(NewHideoutsHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 30) {
+			mc.options.fov().set(80);
+			mc.options.tutorialStep = net.minecraft.client.tutorial.TutorialSteps.NONE;
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			mc.options.renderDistance().set(8);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOFIRETICK).set(false, p.server);
+				p.setGameMode(GameType.CREATIVE);
+				p.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 20 * 60 * 30, 0, false, false));
+			});
+			buildPlan(mc);
+		}
+		if (t < 50) {
+			return;
+		}
+		if (planTick < PLAN.size()) {
+			PLAN.get(planTick++).run();
+		} else if (!PLAN.isEmpty()) {
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	static Mob boss(ServerPlayer p) {
+		var found = p.serverLevel().getEntitiesOfClass(Mob.class, p.getBoundingBox().inflate(80), m -> m instanceof HideoutBoss);
+		return found.isEmpty() ? null : found.get(0);
+	}
+
+	/** Phase 2 for the arena's boss: a dummy target in front of it, the boss awake, everything else frozen. */
+	static void startPhase2(ServerPlayer p, HideoutFaction f, double dx, double dz) {
+		ServerLevel level = p.serverLevel();
+		freezeNear(p, true);
+		Mob b = boss(p);
+		System.out.println("[HARNESS] boss " + f + ": " + b);
+		if (b == null) {
+			return;
+		}
+		b.setNoAi(false);
+		Husk dummy = EntityType.HUSK.create(level);
+		dummy.moveTo(b.getX() + dx, b.getY(), b.getZ() + dz, 180f, 0f);
+		dummy.setNoAi(true);
+		dummy.setInvulnerable(true);
+		level.addFreshEntity(dummy);
+		b.setTarget(dummy);
+		((HideoutBoss) b).phase().enter(level);
+		System.out.println("[HARNESS] strikes " + ((HideoutBoss) b).phase().startAttack(level));
+	}
+
+	private static void buildPlan(Minecraft mc) {
+		// build all three first (and carve the cutaway trench), then let the server catch up before any shot
+		int t = 1;
+		for (HideoutFaction f : NEW) {
+			at(t, () -> view(mc, f, new View("pre", 0, 40, -60, 0, 0, 0, false)));
+			at(t + 40, () -> server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				prepare(level, f);
+				piece(f).buildAll(level);
+				cutaway(level, f);
+				System.out.println("[HARNESS] built " + f + " core=" + piece(f).corePos() + " vault=" + piece(f).vaultPos());
+			}));
+			at(t + 120, () -> server(mc, p -> freezeNear(p, true)));
+			t += 160;
+		}
+		t += 200;
+		for (HideoutFaction f : NEW) {
+			int k = t;
+			for (View v : views(f)) {
+				if (outsideOnly && !(v.name.startsWith("1") || v.name.startsWith("3"))) {
+					continue;
+				}
+				int wait = v.name.startsWith("3_") ? 160 : v.name.startsWith("1_") ? 200 : v.name.startsWith("1b") ? 120 : 50;
+				at(k, () -> view(mc, f, v));
+				at(k + 30, () -> server(mc, p -> freezeNear(p, true)));
+				at(k + wait, () -> shot(mc, f.getSerializedName() + "_" + v.name));
+				k += wait + 4;
+			}
+			if (outsideOnly) {
+				t = k + 10;
+				continue;
+			}
+			// phase 2 in the arena: two shots (telegraph, eruption)
+			int[] a = anchor(f);
+			View pv = new View("9_phase2", a[0] + 8, a[1] + 5, a[2] + 41, a[0], a[1] - 1, a[2] + 49, true);
+			at(k, () -> view(mc, f, pv));
+			at(k + 30, () -> server(mc, p -> startPhase2(p, f, 1.5, -4)));
+			at(k + 44, () -> shot(mc, f.getSerializedName() + "_9_phase2_telegraph"));
+			at(k + 60, () -> shot(mc, f.getSerializedName() + "_9b_phase2_strike"));
+			at(k + 74, () -> shot(mc, f.getSerializedName() + "_9c_phase2_after"));
+			t = k + 84;
+		}
+		if (outsideOnly) {
+			at(t + 10, () -> {
+			});
+			return;
+		}
+		// ---- film: the Crypt Lord's Requiem rings (phase 2), 60 frames
+		HideoutFaction g = HideoutFaction.GRAVE;
+		int[] a = anchor(g);
+		int film = t + 4;
+		at(film, () -> view(mc, g, new View("film", a[0], a[1] + 5, a[2] + 39.5, a[0], a[1] - 1, a[2] + 49, false)));
+		at(film + 30, () -> server(mc, p -> {
+			Mob b = boss(p);
+			if (b != null) {
+				((HideoutBoss) b).phase().startAttack(p.serverLevel());
+			}
+		}));
+		for (int i = 0; i < 60; i++) {
+			final int n = i;
+			at(film + 31 + i, () -> shot(mc, String.format("film_crypt_lord_requiem_%03d", n)));
+		}
+		// ---- film 2: the Oathbound Champion's Judgement Blades, 50 frames (same arena trick)
+		HideoutFaction o = HideoutFaction.OATH;
+		int[] oa = anchor(o);
+		int film2 = film + 100;
+		at(film2, () -> view(mc, o, new View("film2", oa[0], oa[1] + 5, oa[2] + 39.5, oa[0], oa[1] - 1, oa[2] + 49, false)));
+		at(film2 + 30, () -> server(mc, p -> {
+			Mob b = boss(p);
+			if (b != null) {
+				((HideoutBoss) b).phase().startAttack(p.serverLevel());
+			}
+		}));
+		for (int i = 0; i < 50; i++) {
+			final int n = i;
+			at(film2 + 31 + i, () -> shot(mc, String.format("film2_champion_blades_%03d", n)));
+		}
+		at(film2 + 90, () -> {
+		});
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		rules.getRule(com.projecthero.mod.calling.SpawnCallings.RULE).set(false, null);
+		LevelSettings settings = new LevelSettings("NEWHIDE_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.NORMAL, true,
+				rules, WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(17077L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

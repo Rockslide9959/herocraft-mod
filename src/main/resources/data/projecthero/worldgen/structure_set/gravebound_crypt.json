@@ -1,0 +1,19 @@
+{
+  "structures": [
+    {
+      "structure": "projecthero:gravebound_crypt",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 1707731,
+    "spacing": 150,
+    "separation": 60,
+    "frequency": 0.85,
+    "exclusion_zone": {
+      "other_set": "projecthero:symbiote_hive",
+      "chunk_count": 6
+    }
+  }
+}
