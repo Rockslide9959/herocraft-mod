@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "projecthero:block/parachute_crate_top",
+    "side": "projecthero:block/parachute_crate_side"
+  }
+}

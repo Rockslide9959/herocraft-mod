@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "running=true": {
+      "model": "projecthero:block/sky_turbine_on"
+    },
+    "running=false": {
+      "model": "projecthero:block/sky_turbine_off"
+    }
+  }
+}

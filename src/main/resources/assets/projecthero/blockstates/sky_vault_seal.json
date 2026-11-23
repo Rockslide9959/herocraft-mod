@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "projecthero:block/sky_vault_seal"
+    },
+    "facing=east": {
+      "model": "projecthero:block/sky_vault_seal",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "projecthero:block/sky_vault_seal",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "projecthero:block/sky_vault_seal",
+      "y": 270
+    }
+  }
+}

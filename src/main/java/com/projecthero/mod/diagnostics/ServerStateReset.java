@@ -80,6 +80,7 @@ public final class ServerStateReset {
 	public static void clearAll() {
 		com.projecthero.mod.squad.SquadKnockdown.clearSessionState(); // v0.17.5: squad knockdowns (boss bars hold players)
 		com.projecthero.mod.loot.LootMod.clearSessionState(); // v0.17.5: Med Kit heal timers
+		com.projecthero.mod.skyfortress.SkyFortressMod.clearSessionState(); // v0.17.7: Sky Fortress launch-pad flings + turbine sabotage progress
 		com.projecthero.mod.gear.GearMod.clearSessionState(); // v0.17.5: Utility Belt spare charges
 		com.projecthero.mod.targetdummy.TargetDummyLabels.clearSessionState(); // v0.17.5: Target Dummy ability-key presses
 		com.projecthero.mod.powerarmour.PowerArmourMod.clearSessionState(); // v0.17.5: Power Armour -- grips, charges, thrown mobs, beams
