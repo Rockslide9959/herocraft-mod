@@ -51,7 +51,7 @@ public class HeroOutpostPiece extends FindPiece {
 	public static final String[] AUTHORS = { "Night Owl", "Captain Ember", "The Iron Wasp" };
 
 	public HeroOutpostPiece(int centerX, int surfaceY, int centerZ) {
-		super(FindsMod.HERO_OUTPOST_PIECE, centerX, surfaceY, centerZ, HALF, 7, 10, 3);
+		super(FindsMod.HERO_OUTPOST_PIECE, centerX, surfaceY, centerZ, HALF, 7, 10, 3, 3);
 	}
 
 	public HeroOutpostPiece(StructurePieceSerializationContext context, CompoundTag tag) {
@@ -60,11 +60,16 @@ public class HeroOutpostPiece extends FindPiece {
 
 	@Override
 	public BlockPos vaultPos() {
-		return localToWorld(3, groundY + 1, 1);
+		return localToWorld(3, floorY() + 1, 1);
 	}
 
 	public BlockPos lecternPos() {
-		return localToWorld(0, groundY + 1, -2);
+		return localToWorld(0, floorY() + 1, -2);
+	}
+
+	/** v0.17.7: the room's floor (layout 2, the dugout, is sunk two blocks into the ground). */
+	public int floorY() {
+		return layout == 2 ? groundY - 2 : groundY;
 	}
 
 	/** How many mobs this variant of the outpost spawns (2-4). */
@@ -122,12 +127,29 @@ public class HeroOutpostPiece extends FindPiece {
 
 	@Override
 	public void build(WorldGenLevel level, BoundingBox box) {
-		int g = groundY;
+		int g = floorY();
+		int ground = groundY;
+		boolean dugout = layout == 2;
 		// ---- clear the site (trees, tall grass) and lay a footing + floor
 		for (int dx = -RX - 1; dx <= RX + 1; dx++) {
 			for (int dz = -RZ - 1; dz <= RZ + 2; dz++) {
 				boolean inside = Math.abs(dx) <= RX && Math.abs(dz) <= RZ;
-				clear(level, box, dx, dz, g + 1, g + 8);
+				if (dugout && !inside) {
+					// the dugout's surroundings stay at ground level, banked up against its walls
+					clear(level, box, dx, dz, ground + 1, ground + 10);
+					footing(level, box, dx, dz, ground - 1, Blocks.DIRT.defaultBlockState());
+					put(level, box, dx, ground, dz, Blocks.DIRT.defaultBlockState());
+					put(level, box, dx, ground - 1, dz, Blocks.DIRT.defaultBlockState());
+					boolean ring = Math.abs(dx) == RX + 1 || Math.abs(dz) == RZ + 1;
+					boolean trench = dx == 0 && dz > RZ;
+					if (ring && !trench && lnoise(dx, dz, 42) < 0.8) {
+						put(level, box, dx, ground + 1, dz, Blocks.GRASS_BLOCK.defaultBlockState());
+					} else {
+						put(level, box, dx, ground, dz, Blocks.GRASS_BLOCK.defaultBlockState());
+					}
+					continue;
+				}
+				clear(level, box, dx, dz, g + 1, ground + 10);
 				footing(level, box, dx, dz, g - 1, Blocks.DIRT.defaultBlockState());
 				int x = wx(dx, dz), z = wz(dx, dz);
 				put(level, box, dx, g, dz, inside ? floorBlock(x, z)
@@ -150,7 +172,7 @@ public class HeroOutpostPiece extends FindPiece {
 					if (door && y <= 2) {
 						continue;
 					}
-					boolean windowSpot = y == 2 && !corner && ((Math.abs(dx) == RX && dz == 0) || (dz == -RZ && Math.abs(dx) == 2));
+					boolean windowSpot = !dugout && y == 2 && !corner && ((Math.abs(dx) == RX && dz == 0) || (dz == -RZ && Math.abs(dx) == 2));
 					BlockState s = corner ? cornerBlock() : windowSpot ? (noise(x, z, 33) < 0.5 ? window() : Blocks.AIR.defaultBlockState())
 							: wallBlock(x, y, z);
 					put(level, box, dx, g + y, dz, s);
@@ -159,7 +181,7 @@ public class HeroOutpostPiece extends FindPiece {
 				if (h >= 2 && noise(x, z, 34) < 0.3) {
 					put(level, box, dx, g + h + 1, dz, Blocks.OAK_LEAVES.defaultBlockState().setValue(LeavesBlock.PERSISTENT, true));
 				}
-				if (!corner && h >= 2 && noise(x, z, 35) < 0.35) {
+				if (!dugout && !corner && h >= 2 && noise(x, z, 35) < 0.35) {
 					Direction out = Math.abs(dz) == RZ ? (dz > 0 ? Direction.SOUTH : Direction.NORTH) : (dx > 0 ? Direction.EAST : Direction.WEST);
 					int ox = dx + out.getStepX(), oz = dz + out.getStepZ();
 					BlockState vine = Blocks.VINE.defaultBlockState().setValue(VineBlock.getPropertyForFace(out.getOpposite()), true);
@@ -213,6 +235,14 @@ public class HeroOutpostPiece extends FindPiece {
 		clear(level, box, 2, 1, g + 1, g + 2);
 		lectern(level, box);
 
+		// ---- v0.17.7 layouts and decoration
+		if (dugout) {
+			dugoutExtras(level, box, g, ground);
+		} else if (layout == 1) {
+			tower(level, box, g);
+		}
+		firepit(level, box, ground);
+
 		// ---- the lingering mobs
 		int[][] spots = { { -1, 1 }, { 1, 0 }, { -2, 2 }, { 1, 2 } };
 		for (int i = 0; i < mobCount(); i++) {
@@ -263,5 +293,77 @@ public class HeroOutpostPiece extends FindPiece {
 		mob.setItemSlot(EquipmentSlot.HEAD, new ItemStack(zombie ? Items.LEATHER_HELMET : Items.CHAINMAIL_HELMET));
 		mob.setDropChance(EquipmentSlot.HEAD, 0f);
 		level.addFreshEntityWithPassengers(mob);
+	}
+
+	/** v0.17.7 layout 2: steps up out of the door, a sod-and-moss roof, a radio mast on the corner. */
+	private void dugoutExtras(WorldGenLevel level, BoundingBox box, int f, int ground) {
+		put(level, box, 0, f + 1, RZ + 1, stair(Blocks.COBBLESTONE_STAIRS, Direction.SOUTH, false));
+		clear(level, box, 0, RZ + 1, f + 2, ground + 2);
+		clear(level, box, 0, RZ + 2, ground + 1, ground + 2);
+		for (int dx = -RX + 1; dx <= RX - 1; dx++) {
+			for (int dz = -RZ + 1; dz <= RZ - 1; dz++) {
+				if (get(level, dx, f + WALL + 1, dz).getBlock() instanceof SlabBlock && lnoise(dx, dz, 43) < 0.35) {
+					put(level, box, dx, f + WALL + 2, dz, Blocks.MOSS_CARPET.defaultBlockState());
+				}
+			}
+		}
+		for (int y = f + WALL + 2; y <= f + WALL + 4; y++) {
+			put(level, box, RX, y, -RZ, Blocks.SPRUCE_FENCE.defaultBlockState());
+		}
+		put(level, box, RX, f + WALL + 5, -RZ, Blocks.LIGHTNING_ROD.defaultBlockState());
+		put(level, box, RX - 1, f + WALL + 4, -RZ, Blocks.TRIPWIRE_HOOK.defaultBlockState()
+				.setValue(net.minecraft.world.level.block.TripWireHookBlock.FACING, Direction.WEST));
+	}
+
+	/** v0.17.7 layout 1: a lookout tower off the back corner, its top half fallen in. */
+	private void tower(WorldGenLevel level, BoundingBox box, int f) {
+		for (int dx = 4; dx <= 6; dx++) {
+			for (int dz = -6; dz <= -4; dz++) {
+				clear(level, box, dx, dz, f + 1, f + 9);
+				footing(level, box, dx, dz, f, Blocks.COBBLESTONE.defaultBlockState());
+			}
+		}
+		BlockState post = cornerBlock();
+		int[][] posts = { { 4, -6 }, { 6, -6 }, { 4, -4 }, { 6, -4 } };
+		for (int i = 0; i < posts.length; i++) {
+			int top = i == 3 ? f + 4 : f + 7;
+			for (int y = f + 1; y <= top; y++) {
+				put(level, box, posts[i][0], y, posts[i][1], post);
+			}
+		}
+		for (int y = f + 1; y <= f + 5; y++) {
+			put(level, box, 5, y, -6, wallBlock(wx(5, -6), y, wz(5, -6)));
+			put(level, box, 5, y, -5, Blocks.LADDER.defaultBlockState().setValue(net.minecraft.world.level.block.LadderBlock.FACING, Direction.SOUTH));
+		}
+		for (int dx = 4; dx <= 6; dx++) {
+			for (int dz = -6; dz <= -4; dz++) {
+				if ((dx == 5 && dz == -5) || (dx == 6 && dz == -4)) {
+					continue; // the ladder hole, and the corner that fell
+				}
+				if ((dx == 4 || dx == 6) && (dz == -6 || dz == -4)) {
+					continue; // the posts
+				}
+				put(level, box, dx, f + 6, dz, roofSlab().setValue(SlabBlock.TYPE, SlabType.BOTTOM));
+			}
+		}
+		put(level, box, 4, f + 8, -6, Blocks.LANTERN.defaultBlockState());
+		put(level, box, 5, f + 7, -6, Blocks.SPRUCE_FENCE.defaultBlockState());
+		put(level, box, 4, f + 7, -5, Blocks.SPRUCE_FENCE.defaultBlockState());
+		// the fallen corner, lying by the tower
+		putSoft(level, box, 6, f + 1, -2, post.getBlock() instanceof net.minecraft.world.level.block.RotatedPillarBlock
+				? post.setValue(net.minecraft.world.level.block.RotatedPillarBlock.AXIS, Direction.Axis.Z) : post);
+		putSoft(level, box, 6, f + 1, -1, roofSlab());
+		putSoft(level, box, 5, f + 1, -2, Blocks.SPRUCE_FENCE.defaultBlockState());
+	}
+
+	/** v0.17.7 decoration: a cold firepit with log seats in front of the outpost. */
+	private void firepit(WorldGenLevel level, BoundingBox box, int ground) {
+		put(level, box, -3, ground, 5, Blocks.COARSE_DIRT.defaultBlockState());
+		putSoft(level, box, -3, ground + 1, 5, Blocks.CAMPFIRE.defaultBlockState().setValue(net.minecraft.world.level.block.CampfireBlock.LIT, false));
+		putSoft(level, box, -5, ground + 1, 5, Blocks.STRIPPED_SPRUCE_LOG.defaultBlockState()
+				.setValue(net.minecraft.world.level.block.RotatedPillarBlock.AXIS, Direction.Axis.Z));
+		putSoft(level, box, -3, ground + 1, 6, Blocks.STRIPPED_SPRUCE_LOG.defaultBlockState()
+				.setValue(net.minecraft.world.level.block.RotatedPillarBlock.AXIS, Direction.Axis.X));
+		putSoft(level, box, -4, ground + 1, 4, Blocks.COBBLESTONE_SLAB.defaultBlockState());
 	}
 }

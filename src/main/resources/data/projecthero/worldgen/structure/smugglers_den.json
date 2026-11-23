@@ -1,0 +1,6 @@
+{
+  "type": "projecthero:smugglers_den",
+  "biomes": "#projecthero:smugglers_den_biomes",
+  "step": "top_layer_modification",
+  "spawn_overrides": {}
+}

@@ -1,0 +1,18 @@
+{
+  "structures": [
+    {
+      "structure": "projecthero:abandoned_workshop",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 1777103,
+    "spacing": 22,
+    "separation": 7,
+    "exclusion_zone": {
+      "other_set": "minecraft:villages",
+      "chunk_count": 2
+    }
+  }
+}

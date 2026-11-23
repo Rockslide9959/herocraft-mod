@@ -30,7 +30,7 @@ public class HiddenCachePiece extends FindPiece {
 	private static final int CEILING = 2;
 
 	public HiddenCachePiece(int centerX, int surfaceY, int centerZ) {
-		super(FindsMod.HIDDEN_CACHE_PIECE, centerX, surfaceY, centerZ, HALF, 7, 6, 3);
+		super(FindsMod.HIDDEN_CACHE_PIECE, centerX, surfaceY, centerZ, HALF, 7, 6, 3, 3);
 	}
 
 	public HiddenCachePiece(StructurePieceSerializationContext context, CompoundTag tag) {
@@ -44,7 +44,7 @@ public class HiddenCachePiece extends FindPiece {
 
 	/** The marker's bottom block (cairn / flag pole / sign), right over the filled-in shaft. */
 	public BlockPos markerPos() {
-		return localToWorld(0, groundY + 1, 0);
+		return layout == 2 ? localToWorld(1, groundY + 1, 0) : localToWorld(0, groundY + 1, 0);
 	}
 
 	@Override
@@ -54,11 +54,13 @@ public class HiddenCachePiece extends FindPiece {
 		int ceiling = groundY - CEILING;
 
 		// ---- the room
-		for (int dx = -2; dx <= 2; dx++) {
+		// v0.17.7: layout 1 is a wider room (7 x 5 with pillars), layouts 0 and 2 the 5 x 5 one
+		int rx = layout == 1 ? 3 : 2;
+		for (int dx = -rx; dx <= rx; dx++) {
 			for (int dz = -2; dz <= 2; dz++) {
 				int x = wx(dx, dz), z = wz(dx, dz);
 				for (int y = floor; y <= ceiling; y++) {
-					boolean shell = Math.abs(dx) == 2 || Math.abs(dz) == 2 || y == floor || y == ceiling;
+					boolean shell = Math.abs(dx) == rx || Math.abs(dz) == 2 || y == floor || y == ceiling;
 					BlockState s;
 					if (!shell) {
 						s = Blocks.AIR.defaultBlockState();
@@ -84,6 +86,27 @@ public class HiddenCachePiece extends FindPiece {
 		vault(level, box, 0, fy, -1, Direction.SOUTH);
 		put(level, box, 1, fy, 1, Blocks.LANTERN.defaultBlockState());
 		put(level, box, -1, fy + 1, 1, Blocks.COBWEB.defaultBlockState());
+		// v0.17.7 decoration: a supply barrel with a candle, a bedroll, a crate
+		put(level, box, -1, fy, -1, Blocks.BARREL.defaultBlockState());
+		put(level, box, -1, fy + 1, -1, Blocks.CANDLE.defaultBlockState());
+		put(level, box, 1, fy, -1, sandy ? Blocks.DECORATED_POT.defaultBlockState() : Blocks.SPRUCE_PLANKS.defaultBlockState());
+		if (layout == 1) {
+			// pillars and shelves in the wide room
+			for (int s : new int[] { -2, 2 }) {
+				put(level, box, s, fy, 1, Blocks.STRIPPED_SPRUCE_LOG.defaultBlockState());
+				put(level, box, s, fy + 1, 1, Blocks.STRIPPED_SPRUCE_LOG.defaultBlockState());
+				put(level, box, s, fy, -1, s < 0 ? Blocks.BOOKSHELF.defaultBlockState() : Blocks.BARREL.defaultBlockState());
+				put(level, box, s, fy + 1, -1, Blocks.SPRUCE_SLAB.defaultBlockState());
+			}
+			put(level, box, -2, fy, 0, Blocks.BROWN_CARPET.defaultBlockState());
+			put(level, box, 2, fy, 0, Blocks.CARTOGRAPHY_TABLE.defaultBlockState());
+		} else {
+			put(level, box, -1, fy, 0, Blocks.BROWN_CARPET.defaultBlockState());
+		}
+		if (layout == 2) {
+			stump(level, box, sandy, fy, ceiling);
+			return;
+		}
 
 		// ---- the filled-in shaft and the disturbed earth on top
 		for (int y = ceiling + 1; y <= groundY - 1; y++) {
@@ -138,5 +161,51 @@ public class HiddenCachePiece extends FindPiece {
 				put(level, box, -1, m, 0, Blocks.TORCH.defaultBlockState());
 			}
 		}
+	}
+
+	/**
+	 * v0.17.7 layout 2: the cache's way in is a hollow tree stump on churned earth. A ladder runs down the hollow, through
+	 * the ceiling, into the room. The stump itself is the marker.
+	 */
+	private void stump(WorldGenLevel level, BoundingBox box, boolean sandy, int fy, int ceiling) {
+		int g = groundY;
+		net.minecraft.world.level.block.Block log = sandy ? Blocks.STRIPPED_ACACIA_LOG : switch (variant) {
+			case 1 -> Blocks.SPRUCE_LOG;
+			case 2 -> Blocks.DARK_OAK_LOG;
+			default -> Blocks.OAK_LOG;
+		};
+		for (int dx = -1; dx <= 1; dx++) {
+			for (int dz = -1; dz <= 1; dz++) {
+				put(level, box, dx, g, dz, Blocks.COARSE_DIRT.defaultBlockState());
+				if (dx == 0 && dz == 0) {
+					continue;
+				}
+				boolean corner = dx != 0 && dz != 0;
+				int h = corner ? (noise(wx(dx, dz), wz(dx, dz), 21) < 0.5 ? 0 : 1) : 1 + (noise(wx(dx, dz), wz(dx, dz), 22) < 0.5 ? 1 : 0);
+				if (dx == 1 && dz == 0) {
+					h = Math.max(h, 1); // the marker block
+				}
+				clear(level, box, dx, dz, g + 1, g + 3);
+				for (int y = 1; y <= h; y++) {
+					put(level, box, dx, g + y, dz, log.defaultBlockState());
+				}
+				if (h > 0 && noise(wx(dx, dz), wz(dx, dz), 23) < 0.4) {
+					put(level, box, dx, g + h + 1, dz, Blocks.MOSS_CARPET.defaultBlockState());
+				}
+			}
+		}
+		// the hollow: a ladder from the room ceiling up to the rim (a two-block drop into the room), on the north side of the shaft
+		put(level, box, 0, g + 1, 0, Blocks.AIR.defaultBlockState());
+		put(level, box, 0, g + 2, 0, Blocks.AIR.defaultBlockState());
+		for (int y = ceiling; y <= g + 1; y++) {
+			if (y < g) {
+				put(level, box, 0, y, -1, log.defaultBlockState());
+			}
+			put(level, box, 0, y, 0, Blocks.LADDER.defaultBlockState().setValue(net.minecraft.world.level.block.LadderBlock.FACING, Direction.SOUTH));
+		}
+		// roots and a mushroom round the stump
+		put(level, box, -2, g + 1, 1, Blocks.BROWN_MUSHROOM.defaultBlockState());
+		put(level, box, 2, g + 1, -1, Blocks.FERN.defaultBlockState());
+		put(level, box, 1, ceiling - 1, 0, Blocks.HANGING_ROOTS.defaultBlockState());
 	}
 }

@@ -182,9 +182,17 @@ public class CityStructure extends Structure {
 		if (!context.validBiome().test(biome) || siteProblem(context, cx, cz) != null) {
 			return Optional.empty();
 		}
-		return JigsawPlacement.addPieces(context, startPool, Optional.empty(), maxDepth, new BlockPos(cx, 0, cz), true,
+		Optional<GenerationStub> stub = JigsawPlacement.addPieces(context, startPool, Optional.empty(), maxDepth, new BlockPos(cx, 0, cz), true,
 				Optional.of(Heightmap.Types.WORLD_SURFACE_WG), maxDistanceFromCenter, aliasesFor(villageStyle(biome)),
 				JigsawStructure.DEFAULT_DIMENSION_PADDING, JigsawStructure.DEFAULT_LIQUID_SETTINGS);
+		// v0.17.7: one or two Rooftop Vigilante Stashes on flat City roofs, added after the jigsaw has laid the town out
+		long seed = context.seed() ^ chunkPos.toLong() * 0x2545F4914F6CDD1DL;
+		return stub.map(s -> new GenerationStub(s.position(), builder -> {
+			for (net.minecraft.world.level.levelgen.structure.StructurePiece piece : s.getPiecesBuilder().build().pieces()) {
+				builder.addPiece(piece);
+			}
+			com.projecthero.mod.loot.finds.RooftopStashPiece.addTo(builder, seed);
+		}));
 	}
 
 	@Override

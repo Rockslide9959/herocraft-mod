@@ -29,6 +29,20 @@ public final class FindsMod {
 	public static final StructurePieceType HIDDEN_CACHE_PIECE = pieceType("hidden_cache", HiddenCachePiece::new);
 	public static final StructurePieceType HERO_OUTPOST_PIECE = pieceType("hero_outpost", HeroOutpostPiece::new);
 
+	// v0.17.7 small world places (docs/WORLD_PLACES_REFERENCE.md)
+	public static final StructureType<FindStructure> RUINED_HERO_BASE_TYPE = structureType(FindStructure.Kind.RUINED_HERO_BASE);
+	public static final StructureType<FindStructure> PARADEMON_POD_TYPE = structureType(FindStructure.Kind.PARADEMON_POD);
+	public static final StructureType<FindStructure> ABANDONED_WORKSHOP_TYPE = structureType(FindStructure.Kind.ABANDONED_WORKSHOP);
+	public static final StructureType<FindStructure> SMUGGLERS_DEN_TYPE = structureType(FindStructure.Kind.SMUGGLERS_DEN);
+	public static final StructureType<FindStructure> TECH_METEOR_TYPE = structureType(FindStructure.Kind.TECH_METEOR);
+	public static final StructurePieceType RUINED_HERO_BASE_PIECE = pieceType("ruined_hero_base", RuinedHeroBasePiece::new);
+	public static final StructurePieceType PARADEMON_POD_PIECE = pieceType("crashed_parademon_pod", CrashedParademonPodPiece::new);
+	public static final StructurePieceType ABANDONED_WORKSHOP_PIECE = pieceType("abandoned_workshop", AbandonedWorkshopPiece::new);
+	public static final StructurePieceType SMUGGLERS_DEN_PIECE = pieceType("smugglers_den", SmugglersDenPiece::new);
+	public static final StructurePieceType TECH_METEOR_PIECE = pieceType("tech_meteor", TechMeteorPiece::new);
+	/** Only ever part of a City ({@code CityStructure} adds it after the jigsaw). */
+	public static final StructurePieceType ROOFTOP_STASH_PIECE = pieceType("rooftop_stash", RooftopStashPiece::new);
+
 	public static final EntityType<SupplyDropEntity> SUPPLY_DROP = Registry.register(BuiltInRegistries.ENTITY_TYPE,
 			ResourceKey.create(Registries.ENTITY_TYPE, ProjectHeroMod.id("supply_drop")),
 			EntityType.Builder.<SupplyDropEntity>of(SupplyDropEntity::new, MobCategory.MISC)
@@ -38,6 +52,11 @@ public final class FindsMod {
 	public static final ResourceKey<Structure> CRASHED_DRONE = key("crashed_drone");
 	public static final ResourceKey<Structure> HIDDEN_CACHE = key("hidden_cache");
 	public static final ResourceKey<Structure> HERO_OUTPOST = key("hero_outpost");
+	public static final ResourceKey<Structure> RUINED_HERO_BASE = key("ruined_hero_base");
+	public static final ResourceKey<Structure> PARADEMON_POD = key("crashed_parademon_pod");
+	public static final ResourceKey<Structure> ABANDONED_WORKSHOP = key("abandoned_workshop");
+	public static final ResourceKey<Structure> SMUGGLERS_DEN = key("smugglers_den");
+	public static final ResourceKey<Structure> TECH_METEOR = key("tech_meteor");
 
 	private FindsMod() {
 	}

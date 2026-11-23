@@ -1,0 +1,18 @@
+{
+  "structures": [
+    {
+      "structure": "projecthero:crashed_parademon_pod",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 1777102,
+    "spacing": 26,
+    "separation": 8,
+    "exclusion_zone": {
+      "other_set": "minecraft:villages",
+      "chunk_count": 3
+    }
+  }
+}

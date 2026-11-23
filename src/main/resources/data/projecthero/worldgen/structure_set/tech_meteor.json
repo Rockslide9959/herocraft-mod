@@ -1,0 +1,14 @@
+{
+  "structures": [
+    {
+      "structure": "projecthero:tech_meteor",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 1777105,
+    "spacing": 20,
+    "separation": 6
+  }
+}

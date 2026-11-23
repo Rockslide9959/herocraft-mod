@@ -1,0 +1,573 @@
+// v0.17.7 small world places harness. To use: copy to src/client/java/com/projecthero/mod/client/WorldPlacesHarness.java,
+// add "com.projecthero.mod.client.WorldPlacesHarness" to fabric.mod.json client entrypoints, write run/places.flag =
+// <out dir>, run `node scratchpad/low_graphics_options.js run/options.txt`, then ./gradlew runClient.
+// Builds every new place / layout (and the finds' new layouts, the supply-drop dressing, a smugglers' den on a cliff)
+// on real terrain near the player and shoots an overview + an inside view; locates naturally generated places; finds
+// a City and shoots its rooftop stashes (and the three stash layouts on other City roofs). Remove both from src before
+// committing.
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import com.mojang.datafixers.util.Pair;
+import com.projecthero.mod.city.CityStructure;
+import com.projecthero.mod.loot.HeroVault;
+import com.projecthero.mod.loot.finds.FindPiece;
+import com.projecthero.mod.loot.finds.FindStructure;
+import com.projecthero.mod.loot.finds.RooftopStashPiece;
+import com.projecthero.mod.loot.finds.SmugglersDenPiece;
+import com.projecthero.mod.loot.finds.SupplyDropEntity;
+import com.projecthero.mod.loot.finds.SupplyDrops;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.gui.screens.inventory.BookViewScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderSet;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.HorizontalDirectionalBlock;
+import net.minecraft.world.level.chunk.status.ChunkStatus;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.level.levelgen.structure.BoundingBox;
+import net.minecraft.world.level.levelgen.structure.PoolElementStructurePiece;
+import net.minecraft.world.level.levelgen.structure.Structure;
+import net.minecraft.world.level.levelgen.structure.StructurePiece;
+import net.minecraft.world.level.levelgen.structure.StructureStart;
+
+/** TEMP-HARNESS (not shipped). Kept as scratchpad/WorldPlacesHarness.v0177.java.txt. */
+public final class WorldPlacesHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static File out;
+	private static BlockPos base;
+	private static final List<Runnable> PLAN = new ArrayList<>();
+	private static final List<Integer> AT = new ArrayList<>();
+	private static volatile FindPiece current;
+	private static volatile BlockPos naturalAt;
+	private static volatile BlockPos cityAt;
+	private static final List<BoundingBox> STASHES = new ArrayList<>();
+	private static final List<BoundingBox> ROOFS = new ArrayList<>();
+	private static int planned = -1;
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("places.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			out = new File(Files.readString(flag).trim());
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(WorldPlacesHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(840_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] watchdog");
+			Runtime.getRuntime().halt(3);
+		}, "places-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	private static void lookFrom(Minecraft mc, double x, double y, double z, double tx, double ty, double tz) {
+		double dx = tx - x, dy = ty - y, dz = tz - z;
+		float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pitch = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		server(mc, p -> p.connection.teleport(x, y - 1.62, z, yaw, pitch));
+	}
+
+	private static void at(int tick, Runnable r) {
+		AT.add(tick);
+		PLAN.add(r);
+	}
+
+	/** A dry, flat column near (x0, z0): {x, z}. Uses the generator's noise heights. */
+	private static int[] findSpot(Minecraft mc, int x0, int z0, int r) {
+		ServerLevel lvl = mc.getSingleplayerServer().overworld();
+		var gen = lvl.getChunkSource().getGenerator();
+		var rs = lvl.getChunkSource().randomState();
+		for (int dz = 0; dz < 4000; dz += 24) {
+			for (int x = x0; x < x0 + 160; x += 3) {
+				int z = z0 + dz;
+				int s = gen.getFirstOccupiedHeight(x, z, Heightmap.Types.WORLD_SURFACE_WG, lvl, rs);
+				if (s != gen.getFirstOccupiedHeight(x, z, Heightmap.Types.OCEAN_FLOOR_WG, lvl, rs) || s < 64) {
+					continue;
+				}
+				int min = s, max = s;
+				for (int[] o : new int[][] { { -r, -r }, { r, -r }, { -r, r }, { r, r }, { 0, r }, { r, 0 } }) {
+					int y = gen.getFirstOccupiedHeight(x + o[0], z + o[1], Heightmap.Types.OCEAN_FLOOR_WG, lvl, rs);
+					min = Math.min(min, y);
+					max = Math.max(max, y);
+				}
+				if (max - min <= 2) {
+					return new int[] { x, z };
+				}
+			}
+		}
+		return new int[] { x0, z0 };
+	}
+
+	private static int t;
+
+	private static void place(Minecraft mc, int slot, String name, FindStructure.Kind kind, int variant, int layout) {
+		int[] spot = findSpot(mc, base.getX() + 180 * slot, base.getZ() + 80, 9);
+		int x = spot[0], z = spot[1];
+		at(t, () -> server(mc, p -> p.connection.teleport(x + 0.5, 160, z + 14.5, 180f, 40f)));
+		t += 70;
+		at(t, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			int surface = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+			FindPiece piece = FindStructure.createPiece(kind, x, surface, z).force(variant, layout, 0);
+			if (piece instanceof SmugglersDenPiece den) {
+				cliff(level, x, surface - 1, z);
+				den.measure(level);
+			}
+			clearTrees(level, x, surface, z, 15);
+			piece.build(level, piece.getBoundingBox());
+			current = piece;
+			System.out.println("[HARNESS] built " + name + " at " + x + "," + surface + "," + z + " vault=" + piece.vaultPos() + " "
+					+ level.getBlockState(piece.vaultPos()) + " stash=" + piece.stashPos());
+		}));
+		t += 12;
+		at(t, () -> {
+			FindPiece p = current;
+			int g = p.groundY();
+			if (p instanceof SmugglersDenPiece) {
+				lookFrom(mc, x + 9.5, g + 7, z + 13.5, x + 0.5, g + 3, z - 3.5);
+			} else {
+				int d = p.getBoundingBox().getXSpan() <= 15 ? 8 : 11;
+				int cy = Math.max(g + d - 2, mc.level.getHeight(Heightmap.Types.MOTION_BLOCKING, x + d, z + d + 1) + 3);
+				lookFrom(mc, x + d + 0.5, cy, z + d + 1.5, x + 0.5, g + 1, z + 0.5);
+			}
+		});
+		t += 30;
+		at(t, () -> shot(mc, name + "_overview"));
+		t += 2;
+		at(t, () -> {
+			FindPiece p = current;
+			BlockPos v = p.vaultPos();
+			if (p instanceof SmugglersDenPiece) {
+				lookFrom(mc, x + 0.5, p.groundY() + 2.4, z - 4.5, x + 0.5, p.groundY() + 1.4, z - 9.5);
+				return;
+			}
+			Direction d = mc.level.getBlockState(v).hasProperty(HorizontalDirectionalBlock.FACING)
+					? mc.level.getBlockState(v).getValue(HorizontalDirectionalBlock.FACING) : Direction.SOUTH;
+			BlockPos eye = v.relative(d, 3).relative(d.getClockWise(), 1);
+			lookFrom(mc, eye.getX() + 0.5, eye.getY() + 2.1, eye.getZ() + 0.5, v.getX() + 0.5, v.getY() + 0.5, v.getZ() + 0.5);
+		});
+		t += 22;
+		at(t, () -> shot(mc, name + "_inside"));
+		t += 2;
+	}
+
+	/** An earthy cliff north of (x, z): rock rising 9-11 blocks from local z -2 on, grass on top. */
+	private static void cliff(ServerLevel level, int x, int g, int z) {
+		for (int dx = -14; dx <= 14; dx++) {
+			for (int dz = -16; dz <= -2; dz++) {
+				int edge = dz == -2 ? (Math.abs(dx) > 4 && (dx * 7 & 3) == 0 ? 6 : 9) : 9 + ((dx * 31 + dz * 17) & 1) + (dz < -6 ? 1 : 0);
+				for (int y = g - 3; y <= g + edge; y++) {
+					var s = y == g + edge ? Blocks.GRASS_BLOCK : y >= g + edge - 2 ? Blocks.DIRT
+							: ((dx * 13 + y * 7 + dz * 5) & 7) == 0 ? Blocks.ANDESITE : ((dx * 3 + y * 11 + dz) & 15) == 0 ? Blocks.GRAVEL : Blocks.STONE;
+					level.setBlock(new BlockPos(x + dx, y, z + dz), s.defaultBlockState(), 2);
+				}
+				for (int y = g + edge + 1; y <= g + 14; y++) {
+					level.setBlock(new BlockPos(x + dx, y, z + dz), Blocks.AIR.defaultBlockState(), 2);
+				}
+			}
+		}
+	}
+
+	private static void plan(Minecraft mc) {
+		t = 0;
+		int slot = 0;
+		Object[][] targets = {
+				{ "ruined_hero_base_l0", FindStructure.Kind.RUINED_HERO_BASE, 0, 0 },
+				{ "ruined_hero_base_l1", FindStructure.Kind.RUINED_HERO_BASE, 1, 1 },
+				{ "ruined_hero_base_l2", FindStructure.Kind.RUINED_HERO_BASE, 2, 2 },
+				{ "crashed_parademon_pod_l0", FindStructure.Kind.PARADEMON_POD, 0, 0 },
+				{ "crashed_parademon_pod_l1", FindStructure.Kind.PARADEMON_POD, 1, 1 },
+				{ "crashed_parademon_pod_l2", FindStructure.Kind.PARADEMON_POD, 2, 2 },
+				{ "abandoned_workshop_l0", FindStructure.Kind.ABANDONED_WORKSHOP, 0, 0 },
+				{ "abandoned_workshop_l1", FindStructure.Kind.ABANDONED_WORKSHOP, 1, 1 },
+				{ "abandoned_workshop_l2", FindStructure.Kind.ABANDONED_WORKSHOP, 2, 2 },
+				{ "tech_meteor_l0", FindStructure.Kind.TECH_METEOR, 0, 0 },
+				{ "tech_meteor_l1", FindStructure.Kind.TECH_METEOR, 1, 1 },
+				{ "tech_meteor_l2", FindStructure.Kind.TECH_METEOR, 2, 2 },
+				{ "smugglers_den_v0_vines", FindStructure.Kind.SMUGGLERS_DEN, 0, 0 },
+				{ "smugglers_den_v1_waterfall", FindStructure.Kind.SMUGGLERS_DEN, 1, 1 },
+				{ "smugglers_den_v2_adit", FindStructure.Kind.SMUGGLERS_DEN, 2, 1 },
+				{ "crashed_drone_l1_fixed_wing", FindStructure.Kind.CRASHED_DRONE, 1, 1 },
+				{ "crashed_drone_l2_cargo", FindStructure.Kind.CRASHED_DRONE, 0, 2 },
+				{ "hidden_cache_l1_wide", FindStructure.Kind.HIDDEN_CACHE, 0, 1 },
+				{ "hidden_cache_l2_stump", FindStructure.Kind.HIDDEN_CACHE, 1, 2 },
+				{ "hero_outpost_l1_tower", FindStructure.Kind.HERO_OUTPOST, 0, 1 },
+				{ "hero_outpost_l2_dugout", FindStructure.Kind.HERO_OUTPOST, 1, 2 },
+		};
+		boolean only = Files.exists(Path.of("places_only"));
+		String filter = null;
+		try {
+			filter = only ? Files.readString(Path.of("places_only")).trim() : null;
+		} catch (Exception e) {
+		}
+		for (Object[] tg : targets) {
+			if (filter != null && !filter.isEmpty() && java.util.Arrays.stream(filter.split(",")).noneMatch(f -> ((String) tg[0]).contains(f.trim()))) {
+				continue;
+			}
+			place(mc, slot++, (String) tg[0], (FindStructure.Kind) tg[1], (Integer) tg[2], (Integer) tg[3]);
+		}
+		if (filter == null || filter.isEmpty() || filter.contains("supply")) {
+			supplyDeco(mc, slot++);
+		}
+		at(t, () -> mc.setScreen(new BookViewScreen(BookViewScreen.BookAccess.fromItem(
+				com.projecthero.mod.loot.finds.RuinedHeroBasePiece.notes(1)))));
+		t += 10;
+		at(t, () -> shot(mc, "ruined_hero_base_notes_p1"));
+		t += 2;
+		at(t, () -> mc.setScreen(null));
+		t += 2;
+		if (filter == null || filter.isEmpty() || filter.contains("natural")) {
+			natural(mc);
+		}
+		if (filter == null || filter.isEmpty() || filter.contains("city")) {
+			city(mc);
+		}
+		at(t + 10, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+		planned = t + 10;
+	}
+
+	private static void supplyDeco(Minecraft mc, int slot) {
+		int[] spot = findSpot(mc, base.getX() + 180 * slot, base.getZ() + 80, 9);
+		int x = spot[0], z = spot[1];
+		at(t, () -> server(mc, p -> p.connection.teleport(x + 0.5, 160, z + 14.5, 180f, 40f)));
+		t += 70;
+		at(t, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			clearTrees(level, x, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z), z, 15);
+			for (int v = 0; v < 3; v++) {
+				int vx = x - 7 + v * 7;
+				int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, vx, z);
+				BlockPos at = new BlockPos(vx, y, z);
+				SupplyDropEntity crate = SupplyDropEntity.create(level, vx + 0.5, y, z + 0.5, 1, Direction.SOUTH);
+				level.addFreshEntity(crate);
+				HeroVault.place(level, at, 1, Direction.SOUTH);
+				crate.decorate(level, at, v);
+				System.out.println("[HARNESS] supply deco " + v + " -> " + crate.decoration().size() + " blocks");
+			}
+		}));
+		t += 12;
+		at(t, () -> server(mc, p -> {
+			int y = p.serverLevel().getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+			mc.execute(() -> lookFrom(mc, x + 0.5, y + 11, z + 7.5, x + 0.5, y, z - 0.5));
+		}));
+		t += 30;
+		at(t, () -> shot(mc, "supply_drop_dressing_all"));
+		t += 2;
+	}
+
+	private static void natural(Minecraft mc) {
+		boolean denOnly = Files.exists(Path.of("places_den_only"));
+		for (FindStructure.Kind kind : denOnly ? new FindStructure.Kind[] { FindStructure.Kind.SMUGGLERS_DEN }
+				: new FindStructure.Kind[] { FindStructure.Kind.RUINED_HERO_BASE, FindStructure.Kind.PARADEMON_POD,
+				FindStructure.Kind.ABANDONED_WORKSHOP, FindStructure.Kind.SMUGGLERS_DEN, FindStructure.Kind.TECH_METEOR }) {
+			at(t, () -> server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				Holder<Structure> h = level.registryAccess().registryOrThrow(Registries.STRUCTURE)
+						.getHolderOrThrow(net.minecraft.resources.ResourceKey.create(Registries.STRUCTURE, com.projecthero.mod.ProjectHeroMod.id(kind.id)));
+				StringBuilder sb = new StringBuilder();
+				BlockPos first = null;
+				int found = 0;
+				long sum = 0;
+				for (int gx = -1; gx <= 1; gx++) {
+					for (int gz = -1; gz <= 1; gz++) {
+						BlockPos from = base.offset(gx * 512, 0, gz * 512);
+						long t0 = System.nanoTime();
+						Pair<BlockPos, Holder<Structure>> r = level.getChunkSource().getGenerator().findNearestMapStructure(level, HolderSet.direct(h), from, 40, false);
+						if (r != null) {
+							int d = (int) Math.sqrt(r.getFirst().distSqr(new BlockPos(from.getX(), r.getFirst().getY(), from.getZ())));
+							found++;
+							sum += d;
+							sb.append(String.format(" ->%d[%dms]", d, (System.nanoTime() - t0) / 1_000_000));
+							if (first == null || gx == 0 && gz == 0) {
+								first = r.getFirst();
+							}
+						} else {
+							sb.append(" ->none");
+						}
+					}
+				}
+				System.out.println("[HARNESS] locate " + kind.id + ": " + found + "/9 probes, mean nearest " + (found == 0 ? -1 : sum / found) + ";" + sb);
+				naturalAt = first;
+				if (first != null) {
+					p.connection.teleport(first.getX() + 8.5, 170, first.getZ() + 8.5, 0f, 90f);
+				}
+			}));
+			t += 180;
+			at(t, () -> server(mc, p -> {
+				BlockPos n = naturalAt;
+				if (n == null) {
+					return;
+				}
+				ServerLevel level = p.serverLevel();
+				int cxn = n.getX() + 8, czn = n.getZ() + 8;
+				int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, cxn, czn);
+				System.out.println("[HARNESS] natural " + kind.id + " centre " + cxn + "," + y + "," + czn);
+				double ex = cxn + 12.5, ey = y + 10, ez = czn + 12.5;
+				double dx = cxn + 0.5 - ex, dy = y - 1 - ey, dz = czn + 0.5 - ez;
+				float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+				float pitch = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+				p.connection.teleport(ex, ey - 1.62, ez, yaw, pitch);
+			}));
+			t += 60;
+			at(t, () -> shot(mc, "natural_" + kind.id));
+			t += 2;
+		}
+	}
+
+	private static void city(Minecraft mc) {
+		at(t, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			Holder<Structure> h = level.registryAccess().registryOrThrow(Registries.STRUCTURE).getHolderOrThrow(CityStructure.KEY);
+			long t0 = System.nanoTime();
+			Pair<BlockPos, Holder<Structure>> r = level.getChunkSource().getGenerator().findNearestMapStructure(level, HolderSet.direct(h), base, 8, false);
+			System.out.println("[HARNESS] city -> " + (r == null ? "none" : r.getFirst()) + " in " + (System.nanoTime() - t0) / 1_000_000 + " ms");
+			if (r == null) {
+				return;
+			}
+			BlockPos c = r.getFirst();
+			var chunk = level.getChunk(c.getX() >> 4, c.getZ() >> 4, ChunkStatus.STRUCTURE_STARTS);
+			StructureStart start = chunk.getStartForStructure(h.value());
+			if (start == null || !start.isValid()) {
+				System.out.println("[HARNESS] no city start at " + c);
+				return;
+			}
+			for (StructurePiece piece : start.getPieces()) {
+				if (piece instanceof RooftopStashPiece) {
+					STASHES.add(piece.getBoundingBox());
+				} else if (piece instanceof PoolElementStructurePiece pe) {
+					String s = pe.getElement().toString();
+					for (String roof : RooftopStashPiece.ROOFS) {
+						if (s.contains(roof)) {
+							ROOFS.add(pe.getBoundingBox());
+						}
+					}
+				}
+			}
+			System.out.println("[HARNESS] city stashes " + STASHES + " roofs " + ROOFS.size());
+			cityAt = c;
+			p.connection.teleport(c.getX(), 200, c.getZ(), 0f, 90f);
+		}));
+		t += 240;
+		for (int i = 0; i < 2; i++) {
+			final int k = i;
+			at(t, () -> server(mc, p -> {
+				if (STASHES.size() <= k) {
+					return;
+				}
+				BoundingBox b = STASHES.get(k);
+				int cx = (b.minX() + b.maxX()) / 2, cz = (b.minZ() + b.maxZ()) / 2;
+				p.connection.teleport(cx + 0.5, b.maxY() + 30, cz + 0.5, 0f, 90f);
+			}));
+			t += 140;
+			at(t, () -> server(mc, p -> {
+				if (STASHES.size() <= k) {
+					return;
+				}
+				BoundingBox b = STASHES.get(k);
+				BlockPos found = null;
+				for (BlockPos q : BlockPos.betweenClosed(b.minX(), b.minY(), b.minZ(), b.maxX(), b.maxY(), b.maxZ())) {
+					if (p.serverLevel().getBlockState(q).is(com.projecthero.mod.loot.LootItems.HERO_VAULT)) {
+						found = q.immutable();
+					}
+				}
+				System.out.println("[HARNESS] natural stash " + k + " vault " + found);
+				if (found == null) {
+					return;
+				}
+				BlockPos v = found;
+				double[] e = clearView(p.serverLevel(), v);
+				mc.execute(() -> lookFrom(mc, e[0], e[1], e[2], v.getX() + 0.5, v.getY(), v.getZ() + 0.5));
+			}));
+			t += 50;
+			at(t, () -> shot(mc, "natural_rooftop_stash_" + k));
+			t += 2;
+		}
+		// the three layouts on other City roofs (the first roofs whose chunk has a flat patch)
+		for (int layout = 0; layout < 3; layout++) {
+			final int l = layout;
+			at(t, () -> server(mc, p -> {
+				while (!ROOFS.isEmpty()) {
+					RooftopStashPiece piece = RooftopStashPiece.forBuilding(ROOFS.remove(ROOFS.size() - 1));
+					if (piece == null) {
+						continue;
+					}
+					BoundingBox bb = piece.getBoundingBox();
+					p.connection.teleport(bb.getCenter().getX() + 0.5, bb.maxY() + 30, bb.getCenter().getZ() + 0.5, 0f, 90f);
+					current = piece;
+					return;
+				}
+				current = null;
+			}));
+			t += 140;
+			at(t, () -> server(mc, p -> {
+				RooftopStashPiece piece = current instanceof RooftopStashPiece r ? r : null;
+				while (piece != null) {
+					piece.force(l, l, 0);
+					piece.build(p.serverLevel(), piece.getBoundingBox());
+					System.out.println("[HARNESS] built rooftop layout " + l + " roof " + piece.roofY() + " vault " + p.serverLevel().getBlockState(piece.vaultPos()));
+					if (piece.roofY() >= 0) {
+						break;
+					}
+					piece = null;
+					while (!ROOFS.isEmpty() && piece == null) {
+						piece = RooftopStashPiece.forBuilding(ROOFS.remove(ROOFS.size() - 1));
+					}
+				}
+				if (piece == null) {
+					return;
+				}
+				BlockPos v = piece.vaultPos();
+				double[] e = clearView(p.serverLevel(), v);
+				p.connection.teleport(e[0], e[1] - 1.62, e[2], 0f, 0f);
+				mc.execute(() -> lookFrom(mc, e[0], e[1], e[2], v.getX() + 0.5, v.getY(), v.getZ() + 0.5));
+			}));
+			t += 90;
+			at(t, () -> shot(mc, "rooftop_stash_l" + l));
+			t += 2;
+		}
+	}
+
+	/** A camera position about 9 blocks from v with a clear line of sight to it (tries the four diagonals, then higher). */
+	private static double[] clearView(ServerLevel level, BlockPos v) {
+		net.minecraft.world.phys.Vec3 target = net.minecraft.world.phys.Vec3.atCenterOf(v);
+		for (int up : new int[] { 6, 9, 12 }) {
+			for (int[] o : new int[][] { { 6, 7 }, { -6, 7 }, { 6, -7 }, { -6, -7 }, { 0, 8 }, { 8, 0 }, { 0, -8 }, { -8, 0 } }) {
+				net.minecraft.world.phys.Vec3 eye = new net.minecraft.world.phys.Vec3(v.getX() + o[0] + 0.5, v.getY() + up, v.getZ() + o[1] + 0.5);
+				var hit = level.clip(new net.minecraft.world.level.ClipContext(eye, target, net.minecraft.world.level.ClipContext.Block.COLLIDER,
+						net.minecraft.world.level.ClipContext.Fluid.NONE, net.minecraft.world.phys.shapes.CollisionContext.empty()));
+				if (hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS || hit.getBlockPos().equals(v)) {
+					return new double[] { eye.x, eye.y, eye.z };
+				}
+			}
+		}
+		return new double[] { v.getX() + 6.5, v.getY() + 6, v.getZ() + 7.5 };
+	}
+
+	/** Harness only: clears trees round a spot so the camera sees the place. */
+	private static void clearTrees(ServerLevel level, int x, int y, int z, int r) {
+		for (BlockPos q : BlockPos.betweenClosed(x - r, y - 2, z - r, x + r, y + 24, z + r)) {
+			var s = level.getBlockState(q);
+			if (s.is(net.minecraft.tags.BlockTags.LEAVES) && !s.getValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT)
+					|| s.is(net.minecraft.tags.BlockTags.LOGS) && level.getBlockState(q.below()).is(net.minecraft.tags.BlockTags.DIRT)
+					|| s.is(net.minecraft.tags.BlockTags.LOGS) && level.getBlockState(q.below()).is(net.minecraft.tags.BlockTags.LOGS)
+					|| s.is(Blocks.BAMBOO)) {
+				level.setBlock(q, Blocks.AIR.defaultBlockState(), 2);
+			}
+		}
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(WorldPlacesHarness::createWorld);
+			}
+			return;
+		}
+		int tk = ++inWorldTicks;
+		if (tk == 40) {
+			mc.options.fov().set(75);
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			mc.options.renderDistance().set(5);
+			mc.options.entityDistanceScaling().set(1.0);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(5000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(SupplyDrops.RULE).set(false, p.server);
+				p.setGameMode(GameType.SPECTATOR);
+				base = p.blockPosition();
+			});
+		}
+		if (tk == 60 && base != null) {
+			mc.options.hideGui = true;
+			plan(mc);
+		}
+		if (tk > 60) {
+			int s = tk - 61;
+			for (int i = 0; i < AT.size(); i++) {
+				if (AT.get(i) == s) {
+					PLAN.get(i).run();
+				}
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		mc.getWindow().setWindowed(1024, 576);
+		LevelSettings settings = new LevelSettings("PLACES_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.EASY, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(5175L, true, false),
+				reg -> reg.registryOrThrow(Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.NORMAL).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

@@ -934,6 +934,10 @@ public final class HeroPackGuide {
 				lines.add(Component.translatable("projecthero.guide.structure." + s).withStyle(ChatFormatting.WHITE));
 				para(lines, "projecthero.guide.structure." + s + ".desc");
 			}
+			// v0.17.7: the small world places (detailed in Loot & Progression)
+			blank(lines);
+			head(lines, "projecthero.guide.structures.places");
+			para(lines, "projecthero.guide.structures.places.body");
 		}));
 
 		out.add(chapter("projecthero.guide.devices", lines -> {
@@ -2305,6 +2309,15 @@ public final class HeroPackGuide {
 			for (String f : new String[] { "crashed_drone", "hidden_cache", "hero_outpost", "supply_drop" }) {
 				lines.add(Component.literal(" • ").withStyle(s -> s.withColor(com.projecthero.mod.loot.HeroVault.trimColour(1)))
 						.append(Component.translatable("projecthero.guide.loot.find." + f).withStyle(ChatFormatting.GRAY)));
+			}
+			blank(lines);
+			// v0.17.7 small world places (com.projecthero.mod.loot.finds, docs/WORLD_PLACES_REFERENCE.md)
+			head(lines, "projecthero.guide.loot.places");
+			para(lines, "projecthero.guide.loot.places.body");
+			for (String f : new String[] { "ruined_hero_base", "crashed_parademon_pod", "abandoned_workshop", "smugglers_den", "rooftop_stash",
+					"tech_meteor" }) {
+				lines.add(Component.literal(" • ").withStyle(s -> s.withColor(com.projecthero.mod.loot.HeroVault.trimColour(1)))
+						.append(Component.translatable("projecthero.guide.loot.place." + f).withStyle(ChatFormatting.GRAY)));
 			}
 			blank(lines);
 			// v0.17.5 Tier 2 Sites: the 19 old sites' annexes, guard squads and Site Vaults (com.projecthero.mod.loot.sites)
