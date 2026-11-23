@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "projecthero:block/launch_pad_top",
+    "side": "projecthero:block/launch_pad_side",
+    "bottom": "projecthero:block/launch_pad_bottom"
+  }
+}

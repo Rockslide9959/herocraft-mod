@@ -18,6 +18,7 @@
       "com.projecthero.mod.gametest.SiteUpgradeGameTests",
       "com.projecthero.mod.gametest.VaultDungeonGameTests",
       "com.projecthero.mod.gametest.VaultSitesGameTests",
+      "com.projecthero.mod.gametest.SkyFortressGameTests",
       "com.projecthero.mod.gametest.WardrobeV0165GameTests",
       "com.projecthero.mod.gametest.HulkMindV0164GameTests",
       "com.projecthero.mod.gametest.HulkMovesV0164GameTests",

@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "projecthero:block/wind_vent_top",
+    "side": "projecthero:block/wind_vent_side",
+    "bottom": "projecthero:block/wind_vent_side"
+  }
+}

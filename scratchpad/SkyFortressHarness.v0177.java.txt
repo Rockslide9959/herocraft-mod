@@ -1,0 +1,361 @@
+// v0.17.7 Sky Fortress harness. To use: copy to src/client/java/com/projecthero/mod/client/SkyFortressHarness.java, add
+// "com.projecthero.mod.client.SkyFortressHarness" to fabric.mod.json client entrypoints, write run/sky.flag = <out dir>,
+// run node scratchpad/low_graphics_options.js run/options.txt, then ./gradlew runClient. Remove both from src before committing.
+// The fortress is built with its deck at y 40 over a flat world (ground y -61) so the whole ship and the ground post fit the
+// test client's view distance; real worlds put the deck at y 196 (SkyFortressStructure.DECK_Y).
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import com.projecthero.mod.alarm.AlarmZones;
+import com.projecthero.mod.skyfortress.entity.AdmiralKestrelBoss;
+import com.projecthero.mod.skyfortress.item.SkyFortressItems;
+import com.projecthero.mod.skyfortress.worldgen.LaunchPadPiece;
+import com.projecthero.mod.skyfortress.worldgen.SkyFortressBuilder;
+import com.projecthero.mod.skyfortress.worldgen.SkyFortressPiece;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.monster.Husk;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped). Kept as scratchpad/SkyFortressHarness.v0177.java.txt. */
+public final class SkyFortressHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks, planTick;
+	private static final List<Runnable> PLAN = new ArrayList<>();
+	private static File out;
+	static final BlockPos FORT = new BlockPos(0, 40, 0);
+	static final int GROUND = -61;
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("sky.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			out = new File(Files.readString(flag).trim());
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(SkyFortressHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "sky-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		mc.gui.getChat().clearMessages(false);
+		mc.getToasts().clear();
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	static void at(int ticks, Runnable r) {
+		while (PLAN.size() < ticks) {
+			PLAN.add(() -> {
+			});
+		}
+		Runnable prev = PLAN.get(ticks - 1);
+		PLAN.set(ticks - 1, () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	static SkyFortressPiece fort() {
+		return new SkyFortressPiece(FORT, Rotation.NONE);
+	}
+
+	static BlockPos padPos() {
+		BlockPos h = fort().world(SkyFortressBuilder.HATCH);
+		return new BlockPos(h.getX(), GROUND, h.getZ());
+	}
+
+	/** Fortress-local -> world (rotation NONE: just the offset). */
+	static Vec3 L(double x, double y, double z) {
+		return new Vec3(FORT.getX() + x, FORT.getY() + y, FORT.getZ() + z);
+	}
+
+	static void look(Minecraft mc, Vec3 cam, Vec3 at, boolean gui) {
+		mc.options.hideGui = !gui;
+		Vec3 d = at.subtract(cam);
+		float yaw = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+		float pitch = (float) -Math.toDegrees(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)));
+		server(mc, p -> {
+			p.setGameMode(GameType.CREATIVE);
+			p.getAbilities().mayfly = true;
+			p.getAbilities().flying = true;
+			p.onUpdateAbilities();
+			p.connection.teleport(cam.x, cam.y - 1.62, cam.z, yaw, pitch);
+		});
+	}
+
+	static void freeze(ServerPlayer p, boolean noAi, double r) {
+		for (Mob m : p.serverLevel().getEntitiesOfClass(Mob.class, p.getBoundingBox().inflate(r))) {
+			m.setNoAi(noAi);
+		}
+	}
+
+	static AdmiralKestrelBoss kestrel(ServerPlayer p) {
+		var l = p.serverLevel().getEntitiesOfClass(AdmiralKestrelBoss.class, p.getBoundingBox().inflate(120));
+		return l.isEmpty() ? null : l.get(0);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.getWindow().setWindowed(854, 480);
+				mc.execute(SkyFortressHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 30) {
+			mc.options.fov().set(80);
+			mc.options.tutorialStep = net.minecraft.client.tutorial.TutorialSteps.NONE;
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			mc.options.renderDistance().set(10);
+			if (mc.getSingleplayerServer() != null) {
+				mc.getSingleplayerServer().getPlayerList().setViewDistance(10);
+			}
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				p.setGameMode(GameType.CREATIVE);
+				p.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 20 * 60 * 30, 0, false, false));
+			});
+			buildPlan(mc);
+		}
+		if (t < 50) {
+			return;
+		}
+		if (planTick < PLAN.size()) {
+			PLAN.get(planTick++).run();
+		} else if (!PLAN.isEmpty()) {
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	private static void buildPlan(Minecraft mc) {
+		// stand near the build so the chunks load, then build both pieces and register the zone
+		at(1, () -> look(mc, L(-40, 30, -70), L(0, 5, -5), false));
+		at(60, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			SkyFortressPiece f = fort();
+			f.buildAll(level);
+			LaunchPadPiece pad = new LaunchPadPiece(padPos(), Rotation.NONE, false);
+			System.out.println("[HARNESS] fortress box " + f.getBoundingBox());
+			freeze(p, true, 120);
+			var box = f.getBoundingBox();
+			AlarmZones.get(level).removeWithin(box);
+			AlarmZones.get(level).register(box, com.projecthero.mod.skyfortress.SkyFortressMod.PROFILE);
+			System.out.println("[HARNESS] pad at " + padPos() + " pad box " + pad.getBoundingBox());
+		}));
+		// the ground post: needs its own chunks
+		at(64, () -> look(mc, Vec3.atCenterOf(padPos()).add(16, 10, -18), Vec3.atCenterOf(padPos()), false));
+		at(124, () -> server(mc, p -> {
+			LaunchPadPiece pad = new LaunchPadPiece(padPos(), Rotation.NONE, false);
+			pad.buildAll(p.serverLevel());
+			freeze(p, true, 60);
+		}));
+		int k = 170;
+		record V(String name, Vec3 cam, Vec3 at, int delay, boolean gui) {
+		}
+		Vec3 pc = Vec3.atBottomCenterOf(padPos());
+		List<V> views = List.of(
+				new V("01_pad_post", pc.add(15, 8, -17), pc.add(0, 1, 0), 50, false),
+				new V("02_fortress_from_below", pc.add(22, 2, -26), L(0, -4, -6), 120, false),
+				new V("03_fortress_flying", L(-34, 22, -52), L(0, 2, -6), 120, false),
+				new V("04_fortress_side", L(-46, 4, 2), L(0, 2, -4), 90, false),
+				new V("04b_fortress_stern", L(30, 18, 66), L(0, 4, 0), 90, false),
+				new V("05_hangar", L(10, 4.4, -42.5), L(-5, 1.5, -28), 50, true),
+				new V("06_engine_room", L(0.5, 4.2, -19), L(0.5, 2, -4), 50, true),
+				new V("07_turbine_core", L(-2.5, 3.0, -13.5), L(-7, 2.4, -15), 40, true),
+				new V("08_cell_block", L(5, 4.4, -1), L(-10, 1.5, 10), 50, true),
+				new V("09_shield_door", L(0.5, 3.0, 9), L(0.5, 2.2, 15), 40, true),
+				new V("10_bridge", L(6.5, 12.2, 30.5), L(-1, 10, 19), 50, true),
+				new V("11_flight_deck", L(13, 16, 16), L(-2, 9, -22), 60, true),
+				new V("12_cabin_vault", L(0.5, 11, -37.5), L(0.5, 9.5, -42), 40, true));
+		for (V v : views) {
+			at(k, () -> look(mc, v.cam, v.at, v.gui));
+			at(k + v.delay, () -> shot(mc, v.name));
+			k += v.delay + 4;
+		}
+		// ---- Kestrel portraits: frozen, moved in front of the camera
+		at(k, () -> look(mc, L(0.5, 11.2, -7), L(0.5, 10.4, -12.5), false));
+		at(k + 20, () -> server(mc, p -> {
+			AdmiralKestrelBoss b = kestrel(p);
+			if (b != null) {
+				b.setNoAi(true);
+				b.moveTo(FORT.getX() + 0.5, FORT.getY() + 9, FORT.getZ() - 12.5, 0f, 0f);
+				b.setYHeadRot(0f);
+				b.setYBodyRot(0f);
+			}
+		}));
+		at(k + 40, () -> shot(mc, "13a_kestrel_portrait"));
+		at(k + 42, () -> look(mc, L(3.5, 11, -9.5), L(0.5, 10.4, -12.5), false));
+		at(k + 56, () -> shot(mc, "13b_kestrel_portrait_side"));
+		at(k + 58, () -> look(mc, L(-1.5, 11, -16.5), L(0.5, 10.4, -12.5), false));
+		at(k + 72, () -> shot(mc, "13c_kestrel_portrait_back"));
+		k += 76;
+		// ---- Kestrel phase 1 (missile pose) and phase 2 (airborne, wings open), stills
+		Vec3 deckCam = L(4.5, 11.5, -7.5);
+		at(k, () -> look(mc, deckCam, L(0.5, 10.4, -12.5), true));
+		at(k + 40, () -> server(mc, p -> {
+			AdmiralKestrelBoss b = kestrel(p);
+			if (b != null) {
+				b.setNoAi(false);
+				b.startMissiles();
+				b.setNoAi(true);
+			}
+		}));
+		at(k + 52, () -> shot(mc, "13_kestrel_phase1_missiles"));
+		at(k + 56, () -> server(mc, p -> {
+			AdmiralKestrelBoss b = kestrel(p);
+			if (b != null) {
+				b.setNoAi(false);
+				b.startTransform(p.serverLevel());
+			}
+		}));
+		at(k + 80, () -> shot(mc, "14_kestrel_transform"));
+		at(k + 104, () -> server(mc, p -> {
+			AdmiralKestrelBoss b = kestrel(p);
+			if (b != null) {
+				b.setNoAi(true);
+				b.moveTo(FORT.getX() + 0.5, FORT.getY() + 13, FORT.getZ() - 12.5, 20f, 0f);
+			}
+		}));
+		at(k + 116, () -> shot(mc, "15_kestrel_phase2_airborne"));
+		at(k + 118, () -> look(mc, L(0.5, 14, -6.5), L(0.5, 14.4, -12.5), true));
+		at(k + 140, () -> shot(mc, "16_kestrel_phase2_close"));
+		// ---- the Deck Officer on his bridge
+		at(k + 146, () -> look(mc, L(-5.5, 11.2, 29.5), L(4, 10, 22), true));
+		at(k + 186, () -> shot(mc, "17_deck_officer"));
+		k += 192;
+		// ---- film 1: the Launch Pad fling, third person, a survival player holding the pass
+		int f1 = k;
+		at(f1, () -> look(mc, pc.add(0, 1, 6), pc, true));
+		at(f1 + 30, () -> {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			server(mc, p -> {
+				freeze(p, true, 40);
+				p.setGameMode(GameType.SURVIVAL);
+				p.getAbilities().invulnerable = true;
+				p.getAbilities().flying = false;
+				p.getAbilities().mayfly = false;
+				p.onUpdateAbilities();
+				p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(SkyFortressItems.FORTRESS_PASS));
+				p.connection.teleport(pc.x, pc.y + 1.2, pc.z + 4.0, 180f, -28f);
+			});
+		});
+		at(f1 + 44, () -> server(mc, p -> p.connection.teleport(pc.x, pc.y + 1.05, pc.z, 180f, -28f)));
+		for (int i = 0; i < 110; i++) {
+			final int n = i;
+			at(f1 + 42 + i, () -> shot(mc, String.format("film_fling_%03d", n)));
+		}
+		k = f1 + 160;
+		// ---- film 2: Kestrel's strafing run down the deck at a dummy
+		int f2 = k;
+		at(f2, () -> {
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, p -> p.getInventory().clearContent());
+			look(mc, L(-13, 15, -2), L(0, 9, -14), true);
+		});
+		at(f2 + 40, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			AdmiralKestrelBoss b = kestrel(p);
+			if (b == null) {
+				return;
+			}
+			b.setNoAi(false);
+			b.moveTo(FORT.getX() + 0.5, FORT.getY() + 9, FORT.getZ() + 2.5, 180f, 0f);
+			Husk dummy = EntityType.HUSK.create(level);
+			Vec3 d = L(0.5, 9, -16.5);
+			dummy.moveTo(d.x, d.y, d.z, 0f, 0f);
+			dummy.setNoAi(true);
+			dummy.setInvulnerable(true);
+			level.addFreshEntity(dummy);
+			b.setTarget(dummy);
+			b.startStrafe();
+		}));
+		for (int i = 0; i < 90; i++) {
+			final int n = i;
+			at(f2 + 41 + i, () -> shot(mc, String.format("film_strafe_%03d", n)));
+		}
+		at(f2 + 140, () -> {
+		});
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		rules.getRule(com.projecthero.mod.calling.SpawnCallings.RULE).set(false, null);
+		LevelSettings settings = new LevelSettings("SKY_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.NORMAL, true,
+				rules, WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(17077L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

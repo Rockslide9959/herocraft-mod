@@ -55,6 +55,7 @@
     "projecthero:core_charger",
     "projecthero:alarm_lamp",
     "projecthero:security_camera",
-    "projecthero:laser_tripwire"
+    "projecthero:laser_tripwire",
+    "projecthero:launch_pad"
   ]
 }

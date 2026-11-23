@@ -162,6 +162,15 @@ public final class ProjectHeroJeiPlugin implements IModPlugin {
 				com.projecthero.mod.loot.sites.SiteUpgrade.WARD_ITEM }) {
 			registration.addItemStackInfo(new ItemStack(i), net.minecraft.network.chat.Component.translatable(i.getDescriptionId() + ".hint"));
 		}
+		// v0.17.7: the Sky Fortress -- the pass, the parachute, Kestrel's Thruster and its blocks
+		for (net.minecraft.world.item.Item i : com.projecthero.mod.skyfortress.item.SkyFortressItems.all()) {
+			registration.addItemStackInfo(new ItemStack(i), net.minecraft.network.chat.Component.translatable(i.getDescriptionId() + ".hint"),
+					net.minecraft.network.chat.Component.translatable("projecthero.jei.sky_fortress"));
+		}
+		for (net.minecraft.world.item.Item i : com.projecthero.mod.skyfortress.block.SkyFortressBlocks.all()) {
+			registration.addItemStackInfo(new ItemStack(i), net.minecraft.network.chat.Component.translatable(i.getDescriptionId() + ".hint"),
+					net.minecraft.network.chat.Component.translatable("projecthero.jei.sky_fortress"));
+		}
 		// v0.17.5: Sentry -- the serum (only from The Vault's O.X.E. vat) and the vat itself
 		registration.addItemStackInfo(new ItemStack(com.projecthero.mod.sentry.item.SentryItems.SENTRY_SERUM),
 				net.minecraft.network.chat.Component.translatable("item.projecthero.sentry_serum.hint"));

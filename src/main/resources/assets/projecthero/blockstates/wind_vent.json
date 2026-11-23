@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "projecthero:block/wind_vent"
+    },
+    "facing=east": {
+      "model": "projecthero:block/wind_vent",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "projecthero:block/wind_vent",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "projecthero:block/wind_vent",
+      "y": 270
+    }
+  }
+}

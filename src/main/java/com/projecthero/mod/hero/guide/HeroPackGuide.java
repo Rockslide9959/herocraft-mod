@@ -938,6 +938,10 @@ public final class HeroPackGuide {
 			blank(lines);
 			head(lines, "projecthero.guide.structures.places");
 			para(lines, "projecthero.guide.structures.places.body");
+			// v0.17.7: the Sky Fortress (Tier 4; detailed in Villain Hideouts)
+			blank(lines);
+			head(lines, "projecthero.guide.structures.sky_fortress");
+			para(lines, "projecthero.guide.structures.sky_fortress.body");
 		}));
 
 		out.add(chapter("projecthero.guide.devices", lines -> {
@@ -2328,6 +2332,10 @@ public final class HeroPackGuide {
 						.append(Component.translatable("projecthero.guide.loot.site." + site.id).withStyle(ChatFormatting.GRAY)));
 			}
 			blank(lines);
+			// v0.17.7: the Sky Fortress, a Tier 4 dungeon (com.projecthero.mod.skyfortress)
+			lines.add(Component.literal(" • ").withStyle(s -> s.withColor(com.projecthero.mod.loot.HeroVault.trimColour(4)))
+					.append(Component.translatable("projecthero.guide.loot.dungeon.sky_fortress").withStyle(ChatFormatting.GRAY)));
+			blank(lines);
 			head(lines, "projecthero.guide.loot.rarity");
 			para(lines, "projecthero.guide.loot.rarity.body");
 			for (com.projecthero.mod.loot.HeroRarity r : com.projecthero.mod.loot.HeroRarity.values()) {
@@ -2432,6 +2440,17 @@ public final class HeroPackGuide {
 				lines.add(Component.literal(" • ").withStyle(s -> s.withColor(0x5FE8E8))
 						.append(Component.translatable("projecthero.guide.hideouts.vault.a." + a).withStyle(ChatFormatting.GRAY)));
 			}
+			// v0.17.7: the Sky Fortress (Tier 4) -- a sub-section too (chapter counts unchanged)
+			blank(lines);
+			lines.add(Component.translatable("projecthero.guide.hideouts.sky").withStyle(s -> s.withColor(com.projecthero.mod.skyfortress.SkyFortressMod.COLOUR).withBold(true)));
+			para(lines, "projecthero.guide.hideouts.sky.body");
+			for (String part : new String[] { "launch", "wings", "turbines", "cells", "officer", "kestrel", "hazards", "clearing" }) {
+				blank(lines);
+				head(lines, "projecthero.guide.hideouts.sky." + part);
+				para(lines, "projecthero.guide.hideouts.sky." + part + ".body");
+			}
+			lines.add(Component.literal(" • ").withStyle(s -> s.withColor(com.projecthero.mod.skyfortress.SkyFortressMod.COLOUR))
+					.append(Component.translatable("projecthero.guide.hideouts.sky.a.kestrel_thruster").withStyle(ChatFormatting.GRAY)));
 		}));
 
 		// v0.17.5: Sentry & the Void (CH_SENTRY) -- the two meters, both kits, the takeover and how to come back
