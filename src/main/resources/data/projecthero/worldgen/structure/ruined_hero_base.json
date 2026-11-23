@@ -1,0 +1,6 @@
+{
+  "type": "projecthero:ruined_hero_base",
+  "biomes": "#projecthero:ruined_hero_base_biomes",
+  "step": "top_layer_modification",
+  "spawn_overrides": {}
+}

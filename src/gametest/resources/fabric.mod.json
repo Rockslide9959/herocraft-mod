@@ -12,6 +12,7 @@
       "com.projecthero.mod.gametest.GearTierGameTests",
       "com.projecthero.mod.gametest.BackpackGameTests",
       "com.projecthero.mod.gametest.TierOneFindsGameTests",
+      "com.projecthero.mod.gametest.WorldPlacesGameTests",
       "com.projecthero.mod.gametest.VillainHideoutGameTests",
       "com.projecthero.mod.gametest.SiteUpgradeGameTests",
       "com.projecthero.mod.gametest.VaultDungeonGameTests",
