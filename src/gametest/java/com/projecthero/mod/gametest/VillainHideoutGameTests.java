@@ -54,7 +54,7 @@ public class VillainHideoutGameTests implements FabricGameTest {
 	}
 
 	private static HideoutPiece build(GameTestHelper helper, HideoutFaction faction, Rotation rot) {
-		BlockPos origin = helper.absolutePos(new BlockPos(4, 30, 4));
+		BlockPos origin = helper.absolutePos(new BlockPos(4, 60, 4)); // v0.17.7: the crawl wings reach 40 blocks down
 		HideoutState.get(helper.getLevel()).resetForTest();
 		HideoutPiece piece = new HideoutPiece(faction, origin, rot);
 		clear(helper.getLevel(), piece);
@@ -95,6 +95,26 @@ public class VillainHideoutGameTests implements FabricGameTest {
 	/** The whole clearing flow for one faction. */
 	private static void hideoutFlow(GameTestHelper helper, HideoutFaction faction, int minGuards) {
 		ServerLevel level = helper.getLevel();
+		// v0.17.7: the crawl wings reach ~90 blocks from the test -- force those chunks so their mobs are loaded and found
+		BoundingBox fb = piece0(helper, faction).getBoundingBox();
+		force(level, fb, true);
+		helper.runAfterDelay(40, () -> hideoutChecks(helper, faction, minGuards, fb));
+	}
+
+	private static HideoutPiece piece0(GameTestHelper helper, HideoutFaction faction) {
+		return new HideoutPiece(faction, helper.absolutePos(new BlockPos(4, 60, 4)), Rotation.CLOCKWISE_90);
+	}
+
+	private static void force(ServerLevel level, BoundingBox b, boolean on) {
+		for (int cx = b.minX() >> 4; cx <= b.maxX() >> 4; cx++) {
+			for (int cz = b.minZ() >> 4; cz <= b.maxZ() >> 4; cz++) {
+				level.setChunkForced(cx, cz, on);
+			}
+		}
+	}
+
+	private static void hideoutChecks(GameTestHelper helper, HideoutFaction faction, int minGuards, BoundingBox forced) {
+		ServerLevel level = helper.getLevel();
 		HideoutPiece piece = build(helper, faction, Rotation.CLOCKWISE_90);
 		try {
 			BlockPos core = piece.corePos();
@@ -117,6 +137,19 @@ public class VillainHideoutGameTests implements FabricGameTest {
 				}
 			}
 			helper.assertTrue(traps >= 2, faction + ": traps placed (got " + traps + ")");
+			// v0.17.7: the hideout is an alarm zone with panels, a keycard door and the guard roles
+			com.projecthero.mod.alarm.AlarmZone zone = com.projecthero.mod.alarm.AlarmZones.get(level).zoneAt(core);
+			helper.assertTrue(zone != null && zone.profileId.equals(com.projecthero.mod.hideout.HideoutAlarmProfiles.id(faction)), faction + ": an alarm zone over the hideout");
+			com.projecthero.mod.alarm.AlarmZones.scan(level, zone);
+			helper.assertTrue(zone.panels.size() >= 3, faction + ": three Alarm Panels (got " + zone.panels.size() + ")");
+			helper.assertTrue(zone.lamps.size() >= 6 && zone.spawns.size() >= 6, faction + ": lamps and spawn points (" + zone.lamps.size() + ", " + zone.spawns.size() + ")");
+			long locked = zone.doors.stream().filter(l -> level.getBlockState(BlockPos.of(l)).getValue(com.projecthero.mod.alarm.block.BlastDoorBlock.LOCKED)).count();
+			helper.assertTrue(locked >= 3, faction + ": the keycard Blast Door (" + locked + " panels)");
+			java.util.function.Function<com.projecthero.mod.alarm.GuardRole, Long> role = r -> guards.stream().filter(m -> com.projecthero.mod.alarm.AlarmGuards.hasRole(m, r)).count();
+			helper.assertTrue(role.apply(com.projecthero.mod.alarm.GuardRole.CAPTAIN) == 1, faction + ": exactly one Captain");
+			helper.assertTrue(role.apply(com.projecthero.mod.alarm.GuardRole.RUNNER) >= 2, faction + ": a runner outside and one inside");
+			helper.assertTrue(role.apply(com.projecthero.mod.alarm.GuardRole.SNIPER) >= 1 && role.apply(com.projecthero.mod.alarm.GuardRole.MEDIC) >= 1
+					&& role.apply(com.projecthero.mod.alarm.GuardRole.SHIELD) >= 1, faction + ": a sniper, a medic and a shield-bearer");
 
 			ServerPlayer player = mock(helper, Vec3.atCenterOf(core).add(1.5, 0, 0));
 			helper.assertTrue(coreState.getDestroyProgress(player, level, core) == 0f, faction + ": the sealed core can't be broken");
@@ -153,6 +186,8 @@ public class VillainHideoutGameTests implements FabricGameTest {
 		} finally {
 			clear(level, piece);
 			HideoutState.get(level).resetForTest();
+			com.projecthero.mod.alarm.AlarmZones.get(level).removeWithin(piece.getBoundingBox());
+			force(level, forced, false);
 		}
 		helper.succeed();
 	}

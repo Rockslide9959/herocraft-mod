@@ -25,6 +25,8 @@ import net.minecraft.world.level.Level;
  */
 public class FrostGiantJarlBoss extends FrostGiantWarlordEntity implements HideoutBoss {
 	private final HideoutBossLink link = new HideoutBossLink(this, HideoutFaction.FROST, BossEvent.BossBarColor.BLUE, threat());
+	/** v0.17.7: the second phase (see HideoutPhase). */
+	final HideoutPhase phase = new HideoutPhase(this, HideoutFaction.FROST, HideoutPhase.Kind.ICE_SPIKES, 0.5f, 140);
 
 	public FrostGiantJarlBoss(EntityType<? extends FrostGiantJarlBoss> type, Level level) {
 		super(type, level);
@@ -44,6 +46,11 @@ public class FrostGiantJarlBoss extends FrostGiantWarlordEntity implements Hideo
 	@Override
 	public HideoutBossLink hideoutLink() {
 		return link;
+	}
+
+	/** v0.17.7: the second phase (test hook). */
+	public HideoutPhase phase() {
+		return phase;
 	}
 
 	@Override
@@ -66,7 +73,17 @@ public class FrostGiantJarlBoss extends FrostGiantWarlordEntity implements Hideo
 		super.aiStep();
 		if (level() instanceof ServerLevel server && isAlive()) {
 			link.tick(server);
+			phase.tick(server, busy());
 		}
+	}
+
+	@Override
+	public boolean hurt(DamageSource source, float amount) {
+		boolean hurt = super.hurt(source, amount);
+		if (hurt && level() instanceof ServerLevel server) {
+			phase.hurtCheck(server);
+		}
+		return hurt;
 	}
 
 	@Override
@@ -93,11 +110,13 @@ public class FrostGiantJarlBoss extends FrostGiantWarlordEntity implements Hideo
 	public void addAdditionalSaveData(CompoundTag tag) {
 		super.addAdditionalSaveData(tag);
 		link.save(tag);
+		phase.save(tag);
 	}
 
 	@Override
 	public void readAdditionalSaveData(CompoundTag tag) {
 		super.readAdditionalSaveData(tag);
 		link.load(tag);
+		phase.load(tag);
 	}
 }

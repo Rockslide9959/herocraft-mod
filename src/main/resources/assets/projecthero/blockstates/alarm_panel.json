@@ -1,0 +1,124 @@
+{
+  "variants": {
+    "alert=false,facing=north,sabotaged=false,style=tech": {
+      "model": "projecthero:block/alarm_panel_tech_idle"
+    },
+    "alert=true,facing=north,sabotaged=false,style=tech": {
+      "model": "projecthero:block/alarm_panel_tech_alert"
+    },
+    "alert=false,facing=north,sabotaged=true,style=tech": {
+      "model": "projecthero:block/alarm_panel_tech_dead"
+    },
+    "alert=true,facing=north,sabotaged=true,style=tech": {
+      "model": "projecthero:block/alarm_panel_tech_dead"
+    },
+    "alert=false,facing=east,sabotaged=false,style=tech": {
+      "model": "projecthero:block/alarm_panel_tech_idle",
+      "y": 90
+    },
+    "alert=true,facing=east,sabotaged=false,style=tech": {
+      "model": "projecthero:block/alarm_panel_tech_alert",
+      "y": 90
+    },
+    "alert=false,facing=east,sabotaged=true,style=tech": {
+      "model": "projecthero:block/alarm_panel_tech_dead",
+      "y": 90
+    },
+    "alert=true,facing=east,sabotaged=true,style=tech": {
+      "model": "projecthero:block/alarm_panel_tech_dead",
+      "y": 90
+    },
+    "alert=false,facing=south,sabotaged=false,style=tech": {
+      "model": "projecthero:block/alarm_panel_tech_idle",
+      "y": 180
+    },
+    "alert=true,facing=south,sabotaged=false,style=tech": {
+      "model": "projecthero:block/alarm_panel_tech_alert",
+      "y": 180
+    },
+    "alert=false,facing=south,sabotaged=true,style=tech": {
+      "model": "projecthero:block/alarm_panel_tech_dead",
+      "y": 180
+    },
+    "alert=true,facing=south,sabotaged=true,style=tech": {
+      "model": "projecthero:block/alarm_panel_tech_dead",
+      "y": 180
+    },
+    "alert=false,facing=west,sabotaged=false,style=tech": {
+      "model": "projecthero:block/alarm_panel_tech_idle",
+      "y": 270
+    },
+    "alert=true,facing=west,sabotaged=false,style=tech": {
+      "model": "projecthero:block/alarm_panel_tech_alert",
+      "y": 270
+    },
+    "alert=false,facing=west,sabotaged=true,style=tech": {
+      "model": "projecthero:block/alarm_panel_tech_dead",
+      "y": 270
+    },
+    "alert=true,facing=west,sabotaged=true,style=tech": {
+      "model": "projecthero:block/alarm_panel_tech_dead",
+      "y": 270
+    },
+    "alert=false,facing=north,sabotaged=false,style=ancient": {
+      "model": "projecthero:block/alarm_panel_ancient_idle"
+    },
+    "alert=true,facing=north,sabotaged=false,style=ancient": {
+      "model": "projecthero:block/alarm_panel_ancient_alert"
+    },
+    "alert=false,facing=north,sabotaged=true,style=ancient": {
+      "model": "projecthero:block/alarm_panel_ancient_dead"
+    },
+    "alert=true,facing=north,sabotaged=true,style=ancient": {
+      "model": "projecthero:block/alarm_panel_ancient_dead"
+    },
+    "alert=false,facing=east,sabotaged=false,style=ancient": {
+      "model": "projecthero:block/alarm_panel_ancient_idle",
+      "y": 90
+    },
+    "alert=true,facing=east,sabotaged=false,style=ancient": {
+      "model": "projecthero:block/alarm_panel_ancient_alert",
+      "y": 90
+    },
+    "alert=false,facing=east,sabotaged=true,style=ancient": {
+      "model": "projecthero:block/alarm_panel_ancient_dead",
+      "y": 90
+    },
+    "alert=true,facing=east,sabotaged=true,style=ancient": {
+      "model": "projecthero:block/alarm_panel_ancient_dead",
+      "y": 90
+    },
+    "alert=false,facing=south,sabotaged=false,style=ancient": {
+      "model": "projecthero:block/alarm_panel_ancient_idle",
+      "y": 180
+    },
+    "alert=true,facing=south,sabotaged=false,style=ancient": {
+      "model": "projecthero:block/alarm_panel_ancient_alert",
+      "y": 180
+    },
+    "alert=false,facing=south,sabotaged=true,style=ancient": {
+      "model": "projecthero:block/alarm_panel_ancient_dead",
+      "y": 180
+    },
+    "alert=true,facing=south,sabotaged=true,style=ancient": {
+      "model": "projecthero:block/alarm_panel_ancient_dead",
+      "y": 180
+    },
+    "alert=false,facing=west,sabotaged=false,style=ancient": {
+      "model": "projecthero:block/alarm_panel_ancient_idle",
+      "y": 270
+    },
+    "alert=true,facing=west,sabotaged=false,style=ancient": {
+      "model": "projecthero:block/alarm_panel_ancient_alert",
+      "y": 270
+    },
+    "alert=false,facing=west,sabotaged=true,style=ancient": {
+      "model": "projecthero:block/alarm_panel_ancient_dead",
+      "y": 270
+    },
+    "alert=true,facing=west,sabotaged=true,style=ancient": {
+      "model": "projecthero:block/alarm_panel_ancient_dead",
+      "y": 270
+    }
+  }
+}

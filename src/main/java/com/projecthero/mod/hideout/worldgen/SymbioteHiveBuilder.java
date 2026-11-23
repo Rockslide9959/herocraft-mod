@@ -6,6 +6,7 @@ import static com.projecthero.mod.hideout.HideoutGuards.Role.HOST_SPIDER;
 import static com.projecthero.mod.hideout.HideoutGuards.Role.HOST_VINDICATOR;
 import static com.projecthero.mod.hideout.HideoutGuards.Role.HOST_ZOMBIE;
 
+import com.projecthero.mod.alarm.GuardRole;
 import com.projecthero.mod.hideout.HideoutEntityTypes;
 import com.projecthero.mod.hideout.block.HideoutBlocks;
 import com.projecthero.mod.hideout.block.HideoutVentBlock;
@@ -35,11 +36,105 @@ public final class SymbioteHiveBuilder extends HideoutBuilder {
 	public static final SymbioteHiveBuilder INSTANCE = new SymbioteHiveBuilder();
 
 	static final int FLOOR = -29;
-	static final BlockPos CORE = new BlockPos(0, -27, 25);
-	static final BlockPos VAULT = new BlockPos(0, -28, 30);
+	// v0.17.7: the Brood Lab (crawl wing) below the den; its stairwell opens at z 24
+	static final int AX = 0;
+	static final int AY = -37;
+	static final int AZ = 24 + (FLOOR - AY);
+	static final BlockPos CORE = CrawlWing.core(AX, AY, AZ);
+	static final BlockPos VAULT = CrawlWing.vault(AX, AY, AZ);
+	static final CrawlTheme THEME = theme();
+
+	private static CrawlTheme theme() {
+		CrawlTheme t = new CrawlTheme();
+		t.wall = Blocks.DEEPSLATE_BRICKS.defaultBlockState();
+		t.floor = Blocks.BLACKSTONE.defaultBlockState();
+		t.ceiling = t.wall;
+		t.trim = HideoutBlocks.HIVE_POD.defaultBlockState();
+		t.pillar = HideoutBlocks.HIVE_BIOMASS.defaultBlockState();
+		t.light = Blocks.OCHRE_FROGLIGHT.defaultBlockState();
+		t.accent = Blocks.BLACK_CONCRETE.defaultBlockState();
+		t.stairs = Blocks.DEEPSLATE_BRICK_STAIRS;
+		t.vent = HideoutVentBlock.Kind.BIOMASS;
+		t.tech = false;
+		t.grunt = HOST_ZOMBIE;
+		t.elite = HOST_VINDICATOR;
+		t.ranged = HOST_SKELETON;
+		t.shield = HOST_ZOMBIE;
+		t.captain = HOST_VINDICATOR;
+		t.runner = HOST_ZOMBIE;
+		t.sniper = HOST_SKELETON;
+		t.boss = HideoutEntityTypes.HIVE_MOTHER;
+		t.decor = new CrawlTheme.Decor() {
+			/** Biomass creeping over the old lab's walls. */
+			private void overgrow(HideoutCanvas c, int x0, int y, int z0, int x1, int z1, int salt) {
+				for (int x = x0 - 1; x <= x1 + 1; x++) {
+					for (int z = z0 - 1; z <= z1 + 1; z++) {
+						boolean wall = x == x0 - 1 || x == x1 + 1 || z == z0 - 1 || z == z1 + 1;
+						if (!wall) {
+							continue;
+						}
+						for (int yy = y + 1; yy <= y + 5; yy++) {
+							double n = c.noise(x, yy, z, salt);
+							BlockState s = c.get(x, yy, z);
+							if (n < 0.35 && s.is(Blocks.DEEPSLATE_BRICKS)) {
+								c.set(x, yy, z, n < 0.06 ? HideoutBlocks.HIVE_POD.defaultBlockState() : HideoutBlocks.HIVE_BIOMASS.defaultBlockState());
+							}
+						}
+					}
+				}
+			}
+
+			@Override
+			public void checkpoint(HideoutCanvas c, int x0, int y, int z0, int x1, int z1) {
+				overground(c, x0, y, z0, x1, z1, 50);
+				c.set(x1, y + 1, z1, Blocks.BONE_BLOCK);
+				c.set(x1, y + 2, z1, Blocks.COBWEB);
+			}
+
+			private void overground(HideoutCanvas c, int x0, int y, int z0, int x1, int z1, int salt) {
+				overgrow(c, x0, y, z0, x1, z1, salt);
+			}
+
+			@Override
+			public void quarters(HideoutCanvas c, int x0, int y, int z0, int x1, int z1) {
+				// the brood chamber: walls crusted with pods, a bone throne, cocoons
+				overgrow(c, x0, y, z0, x1 + 4, z1, 51);
+				int cx = x0 + 6;
+				c.fill(cx - 1, y + 1, z1, cx + 1, y + 1, z1, Blocks.BONE_BLOCK.defaultBlockState());
+				c.fill(cx - 1, y + 2, z1, cx - 1, y + 3, z1, Blocks.BONE_BLOCK.defaultBlockState());
+				c.fill(cx + 1, y + 2, z1, cx + 1, y + 3, z1, Blocks.BONE_BLOCK.defaultBlockState());
+				for (int[] p : new int[][] { { x0, z0 + 3 }, { x0 + 1, z1 - 1 } }) {
+					c.set(p[0], y + 1, p[1], Blocks.BONE_BLOCK);
+					c.set(p[0], y + 2, p[1], Blocks.COBWEB);
+				}
+			}
+
+			@Override
+			public void arena(HideoutCanvas c, int x0, int y, int z0, int x1, int z1) {
+				// the Hive Mother's nest: black pools, biomass mounds and egg clusters
+				overgrow(c, x0, y, z0, x1, z1, 52);
+				for (int[] p : new int[][] { { x0 + 3, z0 + 9 }, { x1 - 3, z0 + 9 }, { x0 + 3, z1 - 6 }, { x1 - 4, z1 - 6 } }) {
+					c.fill(p[0] - 1, y, p[1] - 1, p[0] + 1, y, p[1] + 1, Blocks.BLACK_CONCRETE.defaultBlockState());
+					c.set(p[0], y + 1, p[1], HideoutBlocks.HIVE_POD.defaultBlockState());
+					if (c.noise(p[0], p[1], 53) < 0.5) {
+						c.set(p[0], y + 2, p[1], HideoutBlocks.HIVE_POD.defaultBlockState());
+					}
+				}
+				for (int[] p : new int[][] { { x0, z0 + 3 }, { x1, z1 }, { x0, z1 - 1 }, { x1, z0 + 12 } }) {
+					c.fill(p[0], y + 1, p[1], p[0], y + 3, p[1], HideoutBlocks.HIVE_BIOMASS.defaultBlockState());
+				}
+			}
+
+			@Override
+			public void vault(HideoutCanvas c, int x0, int y, int z0, int x1, int z1) {
+				overgrow(c, x0, y, z0, x1, z1, 54);
+			}
+		};
+		return t;
+	}
 
 	private SymbioteHiveBuilder() {
-		super(-16, -34, -16, 31, 3, 34);
+		super(-16, AY - 3, -16, 31, 3, AZ + CrawlWing.END_Z);
 	}
 
 	@Override
@@ -210,6 +305,21 @@ public final class SymbioteHiveBuilder extends HideoutBuilder {
 		c.guard(HOST_SKELETON, -7, FLOOR + 1, -4, Direction.EAST, 6);
 		c.guard(HOST_HUSK, 2, FLOOR + 1, 6, Direction.NORTH, 6);
 		c.guard(HOST_SPIDER, -3, FLOOR + 1, -7, Direction.SOUTH, 6);
+		// v0.17.7 outer defences: an overgrown console (Alarm Panel #1), its runner, a sniper on a biomass column
+		c.alarmPanel(-10, FLOOR + 1, 1, Direction.EAST);
+		c.set(-10, FLOOR + 2, 1, biomass);
+		c.guard(HOST_ZOMBIE, 8, FLOOR + 1, -6, Direction.WEST, 4, GuardRole.RUNNER);
+		c.fill(8, FLOOR + 1, 7, 9, FLOOR + 4, 8, biomass);
+		c.guard(HOST_SKELETON, 8, FLOOR + 5, 7, Direction.WEST, 1, GuardRole.SNIPER);
+		c.guard(HOST_ZOMBIE, -2, FLOOR + 1, 8, Direction.NORTH, 5, GuardRole.SHIELD);
+		c.guard(HOST_HUSK, 5, FLOOR + 1, -9, Direction.SOUTH, 5, GuardRole.MEDIC);
+		for (int[] p : new int[][] { { -8, -6 }, { 6, 10 } }) {
+			c.fill(p[0], FLOOR + 1, p[1], p[0], FLOOR + 3, p[1], biomass);
+			c.alarmLamp(p[0], FLOOR + 4, p[1]);
+		}
+		c.spawnPoint(-9, FLOOR + 1, 6);
+		c.spawnPoint(9, FLOOR + 1, -2);
+		c.spawnPoint(0, FLOOR + 1, -10);
 
 		// ------------------------------------------------ the nursery (east) and its strand alarm
 		c.tripwireZ(-1, 1, FLOOR + 1, 13);
@@ -230,13 +340,11 @@ public final class SymbioteHiveBuilder extends HideoutBuilder {
 		c.vent(1, FLOOR, 14, HideoutVentBlock.Kind.BIOMASS);
 
 		// ------------------------------------------------ the den
-		c.fill(-1, FLOOR + 1, 24, 1, FLOOR + 1, 26, HideoutBlocks.HIVE_POD.defaultBlockState());
-		c.set(0, FLOOR + 1, 25, biomass);
-		c.core(CORE.getX(), CORE.getY(), CORE.getZ());
-		c.sealedVault(VAULT.getX(), VAULT.getY(), VAULT.getZ(), Direction.NORTH);
-		c.fill(-1, FLOOR + 1, 31, 1, FLOOR + 3, 31, biomass);
-		c.set(-1, FLOOR + 1, 30, biomass);
-		c.set(1, FLOOR + 1, 30, biomass);
+		// v0.17.7: the core and vault moved down to the Brood Lab; the stairwell opens in the den floor (drawn last)
+		c.fill(-6, FLOOR + 1, 16, -5, FLOOR + 2, 17, HideoutBlocks.HIVE_POD.defaultBlockState());
+		c.fill(5, FLOOR + 1, 28, 6, FLOOR + 1, 29, HideoutBlocks.HIVE_POD.defaultBlockState());
+		c.alarmLamp(-6, FLOOR + 3, 16);
+		c.spawnPoint(5, FLOOR + 1, 18);
 		for (int[] p : new int[][] { { -6, 20 }, { 6, 24 }, { -5, 27 } }) {
 			c.set(p[0], FLOOR + 1, p[1], Blocks.BONE_BLOCK);
 			c.set(p[0], FLOOR + 2, p[1], Blocks.COBWEB);
@@ -245,6 +353,10 @@ public final class SymbioteHiveBuilder extends HideoutBuilder {
 		c.guard(HOST_ZOMBIE, -4, FLOOR + 1, 20, Direction.NORTH, 5);
 		c.guard(HOST_ZOMBIE, 4, FLOOR + 1, 20, Direction.NORTH, 5);
 		c.guard(HOST_VINDICATOR, 3, FLOOR + 1, 28, Direction.NORTH, 4);
-		c.boss(HideoutEntityTypes.HIVE_MOTHER, 0, FLOOR + 1, 18, Direction.NORTH, c.corePos(CORE.getX(), CORE.getY(), CORE.getZ()));
+		c.guard(HOST_SPIDER, -4, FLOOR + 1, 26, Direction.EAST, 4);
+
+		// ------------------------------------------------ v0.17.7: the Brood Lab and its stairwell
+		CrawlWing.build(c, THEME, AX, AY, AZ);
+		CrawlWing.stairwell(c, THEME, AX, AY, AZ, FLOOR);
 	}
 }

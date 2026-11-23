@@ -5,6 +5,7 @@ import static com.projecthero.mod.hideout.HideoutGuards.Role.HEAVY;
 import static com.projecthero.mod.hideout.HideoutGuards.Role.LANCER;
 import static com.projecthero.mod.hideout.HideoutGuards.Role.SENTINEL;
 
+import com.projecthero.mod.alarm.GuardRole;
 import com.projecthero.mod.hideout.HideoutEntityTypes;
 import com.projecthero.mod.hideout.block.HideoutVentBlock;
 
@@ -35,11 +36,95 @@ import net.minecraft.world.level.block.state.properties.RailShape;
 public final class UltronForgeBuilder extends HideoutBuilder {
 	public static final UltronForgeBuilder INSTANCE = new UltronForgeBuilder();
 
-	static final BlockPos CORE = new BlockPos(4, 2, 12);
-	static final BlockPos VAULT = new BlockPos(4, 1, 17);
+	// v0.17.7: the Deep Forge (crawl wing) below the control room; its stairwell opens at z 9
+	static final int YTOP = 0;
+	static final int AX = 4;
+	static final int AY = -16;
+	static final int AZ = 9 + (YTOP - AY);
+	static final BlockPos CORE = CrawlWing.core(AX, AY, AZ);
+	static final BlockPos VAULT = CrawlWing.vault(AX, AY, AZ);
+	static final CrawlTheme THEME = theme();
 
 	private UltronForgeBuilder() {
-		super(-15, -2, -28, 15, 14, 19);
+		super(-15, AY - 3, -28, 15, 14, AZ + CrawlWing.END_Z);
+	}
+
+	private static CrawlTheme theme() {
+		CrawlTheme t = new CrawlTheme();
+		t.wall = Blocks.POLISHED_DEEPSLATE.defaultBlockState();
+		t.floor = Blocks.POLISHED_BLACKSTONE.defaultBlockState();
+		t.ceiling = Blocks.DEEPSLATE_TILES.defaultBlockState();
+		t.trim = Blocks.IRON_BLOCK.defaultBlockState();
+		t.pillar = Blocks.DEEPSLATE_TILES.defaultBlockState();
+		t.light = Blocks.SEA_LANTERN.defaultBlockState();
+		t.accent = Blocks.RED_CONCRETE.defaultBlockState();
+		t.stairs = Blocks.POLISHED_DEEPSLATE_STAIRS;
+		t.vent = HideoutVentBlock.Kind.PLASMA;
+		t.grunt = SENTINEL;
+		t.elite = HEAVY;
+		t.ranged = LANCER;
+		t.shield = HEAVY;
+		t.captain = HEAVY;
+		t.runner = SENTINEL;
+		t.sniper = LANCER;
+		t.boss = HideoutEntityTypes.FORGE_OVERSEER;
+		t.decor = new CrawlTheme.Decor() {
+			@Override
+			public void checkpoint(HideoutCanvas c, int x0, int y, int z0, int x1, int z1) {
+				// a scanner arch over the way through, charging pods in the east wall
+				int cx = (x0 + x1) / 2;
+				c.fill(cx - 2, y + 1, z1 - 1, cx - 2, y + 4, z1 - 1, Blocks.IRON_BLOCK.defaultBlockState());
+				c.fill(cx + 2, y + 1, z1 - 1, cx + 2, y + 4, z1 - 1, Blocks.IRON_BLOCK.defaultBlockState());
+				c.fill(cx - 1, y + 4, z1 - 1, cx + 1, y + 4, z1 - 1, Blocks.RED_STAINED_GLASS.defaultBlockState());
+				for (int z = z0 + 1; z <= z0 + 5; z += 2) {
+					c.set(x1, y + 1, z, Blocks.IRON_BLOCK);
+					c.set(x1, y + 2, z, Blocks.RED_STAINED_GLASS);
+				}
+			}
+
+			@Override
+			public void quarters(HideoutCanvas c, int x0, int y, int z0, int x1, int z1) {
+				// the command node: a holotable, server racks along the west wall
+				int cx = x0 + 5;
+				int cz = (z0 + z1) / 2;
+				c.fill(cx - 1, y + 1, cz + 1, cx + 1, y + 1, cz + 2, Blocks.IRON_BLOCK.defaultBlockState());
+				c.fill(cx - 1, y + 2, cz + 1, cx + 1, y + 2, cz + 2, Blocks.LIGHT_BLUE_STAINED_GLASS.defaultBlockState());
+				c.set(cx, y + 3, cz + 1, Blocks.END_ROD);
+				for (int z = z0 + 2; z <= z1; z++) {
+					for (int yy = y + 1; yy <= y + 3; yy++) {
+						c.set(x0, yy, z, (z + yy) % 3 == 0 ? Blocks.RED_STAINED_GLASS.defaultBlockState() : Blocks.IRON_BLOCK.defaultBlockState());
+					}
+				}
+			}
+
+			@Override
+			public void arena(HideoutCanvas c, int x0, int y, int z0, int x1, int z1) {
+				// the assembly pit: half-built robot frames round the walls, a crane rail overhead, a furnace core
+				for (int z = z0 + 4; z <= z1 - 3; z += 4) {
+					for (int x : new int[] { x0, x1 }) {
+						c.fill(x, y + 1, z, x, y + 2, z, Blocks.IRON_BLOCK.defaultBlockState());
+						c.set(x, y + 3, z, Blocks.RED_STAINED_GLASS);
+						c.set(x, y + 4, z, Blocks.CHAIN);
+					}
+				}
+				for (int x = x0; x <= x1; x++) {
+					c.set(x, y + 9, (z0 + z1) / 2, Blocks.IRON_BLOCK);
+				}
+				int cx = (x0 + x1) / 2;
+				c.fill(cx - 1, y, z1 - 1, cx + 1, y, z1, Blocks.MAGMA_BLOCK.defaultBlockState());
+			}
+
+			@Override
+			public void vault(HideoutCanvas c, int x0, int y, int z0, int x1, int z1) {
+				for (int z = z0; z <= z1; z++) {
+					for (int yy = y + 1; yy <= y + 3; yy++) {
+						c.set(x0, yy, z, (z + yy) % 2 == 0 ? Blocks.RED_STAINED_GLASS.defaultBlockState() : Blocks.IRON_BLOCK.defaultBlockState());
+						c.set(x1, yy, z, (z + yy) % 2 == 1 ? Blocks.RED_STAINED_GLASS.defaultBlockState() : Blocks.IRON_BLOCK.defaultBlockState());
+					}
+				}
+			}
+		};
+		return t;
 	}
 
 	@Override
@@ -130,6 +215,12 @@ public final class UltronForgeBuilder extends HideoutBuilder {
 		c.tripwireX(-3, 4, 1, -14); // the hook at x 4 hangs on the hall's east wall... (x 5)
 		c.guard(SENTINEL, -2, 1, -16, Direction.NORTH, 5);
 		c.guard(SENTINEL, 2, 1, -12, Direction.NORTH, 5);
+		// v0.17.7 outer defences: Alarm Panel #1 by the inner door, its runner, a camera over the blast door
+		c.alarmPanel(-4, 1, -13, Direction.EAST);
+		c.guard(SENTINEL, -3, 1, -15, Direction.EAST, 3, GuardRole.RUNNER);
+		c.camera(4, 4, -17, Direction.SOUTH);
+		c.alarmLamp(0, 10, -14);
+		c.spawnPoint(3, 1, -15);
 
 		// ------------------------------------------------ the assembly hall (z -10..5)
 		for (int side : new int[] { -1, 1 }) {
@@ -171,7 +262,13 @@ public final class UltronForgeBuilder extends HideoutBuilder {
 		c.guard(DRONE, -3, 5, -6, Direction.NORTH, 8);
 		c.guard(DRONE, 4, 5, 0, Direction.NORTH, 8);
 		c.guard(HEAVY, 0, 1, 2, Direction.NORTH, 6);
-		c.guard(LANCER, -3, 1, -3, Direction.NORTH, 6);
+		c.guard(LANCER, -3, 1, -3, Direction.NORTH, 6, GuardRole.SNIPER);
+		c.guard(DRONE, 9, 1, -2, Direction.WEST, 5, GuardRole.MEDIC);
+		c.camera(-12, 6, -10, Direction.SOUTH);
+		c.alarmLamp(-10, 10, 4);
+		c.alarmLamp(10, 10, -8);
+		c.spawnPoint(-10, 1, -8);
+		c.spawnPoint(10, 1, 0);
 		c.guard(SENTINEL, 11, 1, 3, Direction.WEST, 5);
 
 		// ------------------------------------------------ back wall (z 6) with the drone-bay door; bay / core-room wall (x -5)
@@ -209,12 +306,10 @@ public final class UltronForgeBuilder extends HideoutBuilder {
 
 		// ------------------------------------------------ the core room (x -4..13, z 7..17)
 		c.fill(-4, 0, 7, 13, 0, 17, Blocks.POLISHED_DEEPSLATE.defaultBlockState());
-		// the dais
-		c.fill(2, 1, 10, 6, 1, 14, iron);
-		c.fill(3, 1, 11, 5, 1, 13, red);
-		c.set(4, 1, 12, Blocks.CHISELED_POLISHED_BLACKSTONE);
-		c.core(CORE.getX(), CORE.getY(), CORE.getZ());
-		for (int[] p : new int[][] { { 2, 10 }, { 6, 10 }, { 2, 14 }, { 6, 14 } }) {
+		// v0.17.7: the control room -- the dais became the stairwell down to the Deep Forge (drawn by build at the end)
+		c.fill(2, 0, 13, 6, 0, 15, red);
+		for (int[] p : new int[][] { { 1, 9 }, { 7, 9 }, { 1, 14 }, { 7, 14 } }) {
+			c.set(p[0], 1, p[1], Blocks.IRON_BLOCK);
 			c.set(p[0], 2, p[1], Blocks.END_ROD);
 			c.fill(p[0], 6, p[1], p[0], 9, p[1], Blocks.CHAIN.defaultBlockState().setValue(ChainBlock.AXIS, Direction.Axis.Y));
 			c.set(p[0], 5, p[1], Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true));
@@ -228,8 +323,8 @@ public final class UltronForgeBuilder extends HideoutBuilder {
 			c.set(14, 1, z, Blocks.REDSTONE_BLOCK);
 			c.set(14, 3, z, Blocks.REDSTONE_BLOCK);
 		}
-		// the sealed vault behind the dais
-		c.sealedVault(VAULT.getX(), VAULT.getY(), VAULT.getZ(), Direction.NORTH);
+		// a reactor column against the back wall
+		c.set(4, 1, 17, Blocks.IRON_BLOCK);
 		c.fill(3, 1, 17, 3, 3, 17, Blocks.IRON_BLOCK.defaultBlockState());
 		c.fill(5, 1, 17, 5, 3, 17, Blocks.IRON_BLOCK.defaultBlockState());
 		c.set(4, 2, 17, Blocks.RED_STAINED_GLASS);
@@ -238,6 +333,25 @@ public final class UltronForgeBuilder extends HideoutBuilder {
 		lamp(c, 10, 9, 9, 10, 10, 9);
 		lamp(c, 10, 9, 15, 10, 10, 15);
 		c.guard(SENTINEL, 11, 1, 10, Direction.WEST, 4);
-		c.boss(HideoutEntityTypes.FORGE_OVERSEER, 4, 1, 8, Direction.NORTH, c.corePos(CORE.getX(), CORE.getY(), CORE.getZ()));
+		c.guard(HEAVY, 8, 1, 15, Direction.NORTH, 4, GuardRole.SHIELD);
+		c.alarmLamp(-2, 10, 9);
+		c.camera(12, 5, 7, Direction.SOUTH);
+
+		// ------------------------------------------------ v0.17.7: the roof turret nest (sniper perch)
+		c.fill(-2, 11, 6, 2, 11, 10, iron);
+		for (int x = -2; x <= 2; x++) {
+			c.set(x, 12, 6, bars(true));
+			c.set(x, 12, 10, bars(true));
+		}
+		for (int z = 7; z <= 9; z++) {
+			c.set(-2, 12, z, bars(false));
+			c.set(2, 12, z, bars(false));
+		}
+		c.set(0, 12, 8, Blocks.AIR.defaultBlockState());
+		c.guard(LANCER, 0, 12, 8, Direction.NORTH, 1, GuardRole.SNIPER);
+
+		// ------------------------------------------------ v0.17.7: the Deep Forge and its stairwell
+		CrawlWing.build(c, THEME, AX, AY, AZ);
+		CrawlWing.stairwell(c, THEME, AX, AY, AZ, YTOP);
 	}
 }

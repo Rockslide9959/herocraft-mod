@@ -66,6 +66,7 @@
 		"TitansTogetherDamageMixin",
 		"LivingEntityThorStormMixin",
 		"LivingEntityUltronDamageMixin",
+		"LivingEntityAlarmDamageMixin",
 		"LivingEntityRepulsorFlightMixin",
 		"LivingEntitySupermanSuitMixin",
 		"MobGoalsAccessor",

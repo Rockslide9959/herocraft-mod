@@ -1,0 +1,34 @@
+{
+  "variants": {
+    "facing=north,live=false": {
+      "model": "projecthero:block/security_camera"
+    },
+    "facing=north,live=true": {
+      "model": "projecthero:block/security_camera"
+    },
+    "facing=east,live=false": {
+      "model": "projecthero:block/security_camera",
+      "y": 90
+    },
+    "facing=east,live=true": {
+      "model": "projecthero:block/security_camera",
+      "y": 90
+    },
+    "facing=south,live=false": {
+      "model": "projecthero:block/security_camera",
+      "y": 180
+    },
+    "facing=south,live=true": {
+      "model": "projecthero:block/security_camera",
+      "y": 180
+    },
+    "facing=west,live=false": {
+      "model": "projecthero:block/security_camera",
+      "y": 270
+    },
+    "facing=west,live=true": {
+      "model": "projecthero:block/security_camera",
+      "y": 270
+    }
+  }
+}

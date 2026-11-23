@@ -13,6 +13,7 @@
       "com.projecthero.mod.gametest.BackpackGameTests",
       "com.projecthero.mod.gametest.TierOneFindsGameTests",
       "com.projecthero.mod.gametest.VillainHideoutGameTests",
+      "com.projecthero.mod.gametest.AlarmGameTests",
       "com.projecthero.mod.gametest.SiteUpgradeGameTests",
       "com.projecthero.mod.gametest.VaultDungeonGameTests",
       "com.projecthero.mod.gametest.WardrobeV0165GameTests",

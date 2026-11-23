@@ -85,6 +85,10 @@ public class HideoutPiece extends StructurePiece {
 	/** Builds the whole hideout in one go on a live level (gametests, the harness). */
 	public void buildAll(ServerLevel level) {
 		HideoutBuilder.of(faction).build(canvas(level, getBoundingBox()));
+		// v0.17.7: no structure start on a live build, so register the alarm zone by hand (a rebuild starts a fresh zone)
+		com.projecthero.mod.alarm.AlarmZones zones = com.projecthero.mod.alarm.AlarmZones.get(level);
+		zones.removeWithin(getBoundingBox());
+		zones.register(getBoundingBox(), com.projecthero.mod.hideout.HideoutAlarmProfiles.id(faction));
 	}
 
 	/** World position of the core. */

@@ -1,0 +1,375 @@
+// v0.17.7 alarm framework + rebuilt hideouts harness. To use: copy to
+// src/client/java/com/projecthero/mod/client/AlarmHideoutsHarness.java, add "com.projecthero.mod.client.AlarmHideoutsHarness"
+// to fabric.mod.json client entrypoints, write run/alarm.flag = <out dir>, run node scratchpad/low_graphics_options.js
+// run/options.txt, then ./gradlew runClient. Remove both from src before committing.
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import com.projecthero.mod.alarm.AlarmDirector;
+import com.projecthero.mod.alarm.AlarmZone;
+import com.projecthero.mod.alarm.AlarmZones;
+import com.projecthero.mod.hideout.HideoutFaction;
+import com.projecthero.mod.hideout.boss.FrostGiantJarlBoss;
+import com.projecthero.mod.hideout.worldgen.HideoutPiece;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.monster.Husk;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped). Kept as scratchpad/AlarmHideoutsHarness.v0177.java.txt. */
+public final class AlarmHideoutsHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks, planTick;
+	private static final List<Runnable> PLAN = new ArrayList<>();
+	private static File out;
+	/** Second pass: only the outside / cutaway views (longer chunk waits), the alarm scene and the film. */
+	static final boolean SECOND_PASS = true;
+
+	record View(String name, double cx, double cy, double cz, double lx, double ly, double lz, boolean gui) {
+	}
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("alarm.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			out = new File(Files.readString(flag).trim());
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(AlarmHideoutsHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(540_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "alarm-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		mc.gui.getChat().clearMessages(false);
+		mc.getToasts().clear();
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	static void at(int ticks, Runnable r) {
+		while (PLAN.size() < ticks) {
+			PLAN.add(() -> {
+			});
+		}
+		Runnable prev = PLAN.get(ticks - 1);
+		PLAN.set(ticks - 1, () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	static BlockPos origin(HideoutFaction f) {
+		return new BlockPos(f.ordinal() * 260, 100, 0);
+	}
+
+	static HideoutPiece piece(HideoutFaction f) {
+		return new HideoutPiece(f, origin(f), Rotation.NONE);
+	}
+
+	/** The crawl wing's anchor (matches the builders' AX / AY / AZ). */
+	static int[] anchor(HideoutFaction f) {
+		return switch (f) {
+			case KINGPIN -> new int[] { 6, -20, 25 };
+			case ULTRON -> new int[] { 4, -16, 25 };
+			case APOKOLIPS -> new int[] { 0, -18, 15 };
+			case SYMBIOTE -> new int[] { 0, -37, 32 };
+			case FROST -> new int[] { -5, -16, 32 };
+		};
+	}
+
+	static Vec3 local(HideoutFaction f, double x, double y, double z) {
+		BlockPos o = origin(f);
+		return new Vec3(o.getX() + x, o.getY() + y, o.getZ() + z);
+	}
+
+	static void view(Minecraft mc, HideoutFaction f, View v) {
+		mc.options.hideGui = !v.gui;
+		Vec3 cam = local(f, v.cx, v.cy, v.cz);
+		Vec3 d = local(f, v.lx, v.ly, v.lz).subtract(cam);
+		float yaw = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+		float pitch = (float) -Math.toDegrees(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)));
+		server(mc, p -> {
+			p.getAbilities().mayfly = true;
+			p.getAbilities().flying = true;
+			p.onUpdateAbilities();
+			p.connection.teleport(cam.x, cam.y - 1.62, cam.z, yaw, pitch);
+		});
+	}
+
+	static List<View> views(HideoutFaction f) {
+		int[] a = anchor(f);
+		int ax = a[0], ay = a[1], az = a[2];
+		List<View> v = new ArrayList<>();
+		switch (f) {
+			case KINGPIN -> {
+				v.add(new View("1_outside", -30, 22, -42, 2, 2, 10, false));
+				v.add(new View("2_back_lot", -22, 14, 46, 3, 2, 22, false));
+			}
+			case ULTRON -> {
+				v.add(new View("1_outside", -30, 18, -46, 0, 3, -5, false));
+				v.add(new View("2_roof_turret", 14, 17, -4, 0, 11, 8, false));
+			}
+			case APOKOLIPS -> v.add(new View("1_outside", -34, 24, -36, 0, 6, 0, false));
+			case SYMBIOTE -> {
+				v.add(new View("1_outside", -12, 10, -14, 0, -1, 0, false));
+				v.add(new View("2_great_chamber", 9, -23.5, -8, -6, -27, 2, false));
+			}
+			case FROST -> {
+				v.add(new View("1_outside", -34, 16, -40, -4, 6, 0, false));
+				v.add(new View("2_watchtower", -26, 10, -26, -14, 7, -17, false));
+			}
+		}
+		if (f != HideoutFaction.SYMBIOTE) {
+			v.add(new View("3_cutaway_side", ax + 48, ay + 16, az + 18, ax, ay, az + 36, false));
+		}
+		v.add(new View("4_checkpoint", ax - 3.5, ay + 4, az + 0.5, ax + 2, ay + 1.2, az + 8, true));
+		v.add(new View("5_gauntlet", ax, ay + 2.6, az + 10.5, ax, ay + 1.4, az + 26, true));
+		v.add(new View("6_quarters", ax - 5, ay + 4.5, az + 28.5, ax + 2, ay + 1.5, az + 35, true));
+		v.add(new View("7_arena", ax, ay + 6, az + 39.5, ax, ay - 1, az + 52, false));
+		v.add(new View("8_vault_room", ax, ay + 2.2, az + 60.5, ax, ay - 0.5, az + 66, false));
+		return v;
+	}
+
+	/** A clean site: a thin crust (rock only under the Symbiote hive), air above. */
+	static void prepare(ServerLevel level, HideoutFaction f) {
+		BlockPos o = origin(f);
+		BlockState top = switch (f) {
+			case FROST -> Blocks.SNOW_BLOCK.defaultBlockState();
+			case APOKOLIPS -> Blocks.RED_SAND.defaultBlockState();
+			case ULTRON -> Blocks.STONE.defaultBlockState();
+			default -> Blocks.GRASS_BLOCK.defaultBlockState();
+		};
+		for (int x = -36; x <= 36; x++) {
+			for (int z = -48; z <= 50; z++) {
+				int y0 = f == HideoutFaction.SYMBIOTE && x >= -20 && x <= 36 && z <= 34 ? -44 : -2;
+				for (int y = y0; y <= 30; y++) {
+					BlockState s = y < 0 ? Blocks.STONE.defaultBlockState() : y == 0 ? top : Blocks.AIR.defaultBlockState();
+					if (f == HideoutFaction.ULTRON && y > 0 && y <= 6 && z > 4) {
+						s = Blocks.STONE.defaultBlockState();
+					}
+					level.setBlock(o.offset(x, y, z), s, 2 | 16);
+				}
+			}
+		}
+	}
+
+	static void freezeNear(ServerPlayer p, boolean noAi) {
+		for (Mob m : p.serverLevel().getEntitiesOfClass(Mob.class, p.getBoundingBox().inflate(70))) {
+			m.setNoAi(noAi);
+		}
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.getWindow().setWindowed(854, 480);
+				mc.execute(AlarmHideoutsHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 30) {
+			mc.options.fov().set(80);
+			mc.options.tutorialStep = net.minecraft.client.tutorial.TutorialSteps.NONE;
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			mc.options.renderDistance().set(8);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOFIRETICK).set(false, p.server);
+				p.setGameMode(GameType.CREATIVE);
+				p.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 20 * 60 * 30, 0, false, false));
+			});
+			buildPlan(mc);
+		}
+		if (t < 50) {
+			return;
+		}
+		if (planTick < PLAN.size()) {
+			PLAN.get(planTick++).run();
+		} else if (!PLAN.isEmpty()) {
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	private static void buildPlan(Minecraft mc) {
+		int t = 1;
+		for (HideoutFaction f : HideoutFaction.values()) {
+			at(t, () -> view(mc, f, new View("pre", 0, 40, -60, 0, 0, 0, false)));
+			at(t + 25, () -> server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				prepare(level, f);
+				piece(f).buildAll(level);
+				System.out.println("[HARNESS] built " + f + " core=" + piece(f).corePos() + " vault=" + piece(f).vaultPos());
+			}));
+			int k = t + 60;
+			for (View v : views(f)) {
+				if (SECOND_PASS && !(v.name.startsWith("1_") || v.name.startsWith("3_"))) {
+					continue; // the interiors came out fine on the first pass
+				}
+				int wait = v.name.startsWith("3_") ? 120 : v.name.startsWith("1_") ? 90 : 44;
+				at(k, () -> view(mc, f, v));
+				at(k + 30, () -> server(mc, p -> freezeNear(p, true)));
+				at(k + wait, () -> shot(mc, f.getSerializedName() + "_" + v.name));
+				k += wait + 4;
+			}
+			t = k + 6;
+		}
+		// ---- the alarm going off in Kingpin's Captain's quarters, seen as a survival intruder
+		HideoutFaction kp = HideoutFaction.KINGPIN;
+		int[] a = anchor(kp);
+		View q = new View("q", a[0] - 4, a[1] + 2.6, a[2] + 29.5, a[0] + 1, a[1] + 1.6, a[2] + 34, true);
+		int s = t;
+		at(s, () -> server(mc, p -> {
+			p.setGameMode(GameType.SURVIVAL);
+			p.getAbilities().invulnerable = true;
+			p.getAbilities().mayfly = true;
+			p.onUpdateAbilities();
+		}));
+		at(s + 2, () -> view(mc, kp, q));
+		at(s + 40, () -> server(mc, p -> {
+			// live guards (their sensing must tick), but the runners held so the alarm waits for the shots
+			for (Mob m : p.serverLevel().getEntitiesOfClass(Mob.class, p.getBoundingBox().inflate(70))) {
+				m.setNoAi(com.projecthero.mod.alarm.AlarmGuards.hasRole(m, com.projecthero.mod.alarm.GuardRole.RUNNER));
+			}
+		}));
+		at(s + 50, () -> shot(mc, "alarm_1_suspicious"));
+		at(s + 56, () -> shot(mc, "alarm_1b_suspicious"));
+		at(s + 100, () -> shot(mc, "alarm_2_spotted"));
+		at(s + 102, () -> server(mc, p -> {
+			p.setGameMode(GameType.CREATIVE); // no swarm for the alert shots
+			freezeNear(p, true);
+		}));
+		at(s + 104, () -> server(mc, p -> {
+			AlarmZone z = AlarmZones.get(p.serverLevel()).zoneAt(p.blockPosition());
+			System.out.println("[HARNESS] zone at quarters: " + (z == null ? "none" : z.state + " guards=" + z.guards().size()));
+			if (z != null) {
+				AlarmDirector.raise(p.serverLevel(), z, AlarmDirector.Cause.SCRIPT, p.blockPosition(), null);
+			}
+		}));
+		at(s + 130, () -> shot(mc, "alarm_3_alert"));
+		at(s + 160, () -> shot(mc, "alarm_4_alert_later"));
+		// the gauntlet with its lasers, calm eye (Ultron)
+		HideoutFaction ul = HideoutFaction.ULTRON;
+		int[] u = anchor(ul);
+		at(s + 170, () -> view(mc, ul, new View("g", u[0] - 0.4, u[1] + 2.2, u[2] + 11.5, u[0], u[1] + 1.4, u[2] + 22, true)));
+		at(s + 215, () -> shot(mc, "hud_calm_gauntlet_lasers"));
+		// ---- the Frost Giant Jarl's phase 2: Winter's Wrath and an Ice Spike line, filmed
+		HideoutFaction fr = HideoutFaction.FROST;
+		int[] fa = anchor(fr);
+		int film = s + 225;
+		final FrostGiantJarlBoss[] jarl = new FrostGiantJarlBoss[1];
+		at(film, () -> server(mc, p -> p.setGameMode(GameType.CREATIVE)));
+		at(film + 2, () -> view(mc, fr, new View("film", fa[0] + 9, fa[1] + 5, fa[2] + 40, fa[0], fa[1] - 1, fa[2] + 48, true)));
+		at(film + 40, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			freezeNear(p, true);
+			var found = level.getEntitiesOfClass(FrostGiantJarlBoss.class, p.getBoundingBox().inflate(60));
+			System.out.println("[HARNESS] jarl found: " + found.size());
+			if (found.isEmpty()) {
+				return;
+			}
+			FrostGiantJarlBoss b = found.get(0);
+			Husk dummy = EntityType.HUSK.create(level);
+			Vec3 d = local(fr, fa[0] + 1, fa[1] - 1, fa[2] + 41);
+			dummy.moveTo(d.x, d.y, d.z, 180f, 0f);
+			dummy.setNoAi(true);
+			dummy.setInvulnerable(true);
+			level.addFreshEntity(dummy);
+			b.setTarget(dummy);
+			b.phase().enter(level);
+			jarl[0] = b;
+		}));
+		at(film + 50, () -> server(mc, p -> {
+			if (jarl[0] != null) {
+				System.out.println("[HARNESS] strikes " + jarl[0].phase().startAttack(p.serverLevel()));
+			}
+		}));
+		for (int i = 0; i < 48; i++) {
+			final int n = i;
+			at(film + 51 + i, () -> shot(mc, String.format("film_jarl_ice_spikes_%03d", n)));
+		}
+		at(film + 110, () -> {
+		});
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		rules.getRule(com.projecthero.mod.calling.SpawnCallings.RULE).set(false, null);
+		LevelSettings settings = new LevelSettings("ALARM_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.NORMAL, true,
+				rules, WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(17077L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

@@ -50,6 +50,8 @@ public class ForgeOverseerBoss extends UltronHeavyEntity implements HideoutBoss 
 	static final byte MOVE_DEPLOY = 2;
 
 	private final HideoutBossLink link = new HideoutBossLink(this, HideoutFaction.ULTRON, BossEvent.BossBarColor.RED, this::busy);
+	/** v0.17.7: the second phase (see HideoutPhase). */
+	final HideoutPhase phase = new HideoutPhase(this, HideoutFaction.ULTRON, HideoutPhase.Kind.PLASMA_MINES, 0.5f, 160);
 	private byte move = MOVE_NONE;
 	private int moveTicks;
 	private int beamCooldown = 60;
@@ -81,6 +83,11 @@ public class ForgeOverseerBoss extends UltronHeavyEntity implements HideoutBoss 
 		return link;
 	}
 
+	/** v0.17.7: the second phase (test hook). */
+	public HideoutPhase phase() {
+		return phase;
+	}
+
 	@Override
 	public UltronSkin skin() {
 		return UltronSkin.OVERSEER;
@@ -101,6 +108,7 @@ public class ForgeOverseerBoss extends UltronHeavyEntity implements HideoutBoss 
 		boolean hurt = super.hurt(source, amount);
 		if (hurt && !level().isClientSide()) {
 			link.onHurt(source, amount);
+			phase.hurtCheck((ServerLevel) level());
 		}
 		return hurt;
 	}
@@ -112,6 +120,7 @@ public class ForgeOverseerBoss extends UltronHeavyEntity implements HideoutBoss 
 			return;
 		}
 		link.tick(server);
+		phase.tick(server, busy() || isStunned());
 		if (isStunned()) {
 			return;
 		}
@@ -260,11 +269,13 @@ public class ForgeOverseerBoss extends UltronHeavyEntity implements HideoutBoss 
 	public void addAdditionalSaveData(CompoundTag tag) {
 		super.addAdditionalSaveData(tag);
 		link.save(tag);
+		phase.save(tag);
 	}
 
 	@Override
 	public void readAdditionalSaveData(CompoundTag tag) {
 		super.readAdditionalSaveData(tag);
 		link.load(tag);
+		phase.load(tag);
 	}
 }

@@ -6,7 +6,9 @@ import static com.projecthero.mod.hideout.HideoutGuards.Role.SHOTGUN;
 import static com.projecthero.mod.hideout.HideoutGuards.Role.SNIPER;
 import static com.projecthero.mod.hideout.HideoutGuards.Role.THUG;
 
+import com.projecthero.mod.alarm.GuardRole;
 import com.projecthero.mod.hideout.HideoutEntityTypes;
+import com.projecthero.mod.hideout.block.HideoutVentBlock;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -37,11 +39,88 @@ import net.minecraft.world.level.block.state.properties.SlabType;
 public final class KingpinFrontBuilder extends HideoutBuilder {
 	public static final KingpinFrontBuilder INSTANCE = new KingpinFrontBuilder();
 
-	static final BlockPos CORE = new BlockPos(6, -6, 16);
-	static final BlockPos VAULT = new BlockPos(6, -7, 20);
+	// v0.17.7: the crawl wing below the counting room (the old vault room); its stairwell opens at z 13
+	static final int YTOP = -8;
+	static final int AX = 6;
+	static final int AY = -20;
+	static final int AZ = 13 + (YTOP - AY);
+	static final BlockPos CORE = CrawlWing.core(AX, AY, AZ);
+	static final BlockPos VAULT = CrawlWing.vault(AX, AY, AZ);
+	static final CrawlTheme THEME = theme();
 
 	private KingpinFrontBuilder() {
-		super(-12, -10, -16, 15, 13, 22);
+		super(-12, AY - 3, -16, AX + CrawlWing.HALF_WIDTH, 13, AZ + CrawlWing.END_Z);
+	}
+
+	private static CrawlTheme theme() {
+		CrawlTheme t = new CrawlTheme();
+		t.wall = Blocks.POLISHED_BLACKSTONE_BRICKS.defaultBlockState();
+		t.floor = Blocks.POLISHED_DEEPSLATE.defaultBlockState();
+		t.ceiling = t.wall;
+		t.trim = Blocks.DARK_OAK_PLANKS.defaultBlockState();
+		t.pillar = Blocks.CHISELED_POLISHED_BLACKSTONE.defaultBlockState();
+		t.light = Blocks.SEA_LANTERN.defaultBlockState();
+		t.accent = Blocks.GOLD_BLOCK.defaultBlockState();
+		t.stairs = Blocks.POLISHED_BLACKSTONE_BRICK_STAIRS;
+		t.vent = HideoutVentBlock.Kind.FIRE;
+		t.grunt = THUG;
+		t.elite = ENFORCER;
+		t.ranged = PISTOL;
+		t.shield = THUG;
+		t.captain = ENFORCER;
+		t.runner = THUG;
+		t.sniper = SNIPER;
+		t.boss = HideoutEntityTypes.KINGPIN_ENFORCER;
+		t.decor = new CrawlTheme.Decor() {
+			@Override
+			public void checkpoint(HideoutCanvas c, int x0, int y, int z0, int x1, int z1) {
+				// a security desk with monitors and a locker row
+				c.fill(x1 - 1, y + 1, z0 + 2, x1, y + 1, z0 + 5, Blocks.DARK_OAK_PLANKS.defaultBlockState());
+				c.set(x1, y + 2, z0 + 3, Blocks.BLACK_STAINED_GLASS);
+				c.set(x1, y + 2, z0 + 4, Blocks.BLACK_STAINED_GLASS);
+				c.fill(x0, y + 1, z1 - 1, x0, y + 3, z1, Blocks.IRON_BLOCK.defaultBlockState());
+			}
+
+			@Override
+			public void quarters(HideoutCanvas c, int x0, int y, int z0, int x1, int z1) {
+				// the Captain's office: a desk, a red rug, a bookcase wall, a safe and a city map
+				c.fill(x0 + 4, y, z0 + 3, x0 + 8, y, z0 + 7, Blocks.RED_WOOL.defaultBlockState());
+				c.fill(x0 + 5, y + 1, z0 + 6, x0 + 7, y + 1, z0 + 6, Blocks.DARK_OAK_PLANKS.defaultBlockState());
+				c.set(x0 + 6, y + 2, z0 + 6, Blocks.LANTERN);
+				c.fill(x0, y + 1, z0 + 2, x0, y + 4, z1, Blocks.BOOKSHELF.defaultBlockState());
+				c.fill(x0 + 1, y + 1, z1, x0 + 2, y + 2, z1, Blocks.IRON_BLOCK.defaultBlockState());
+				c.fill(x0 + 3, y + 3, z1 + 1, x0 + 7, y + 5, z1 + 1, Blocks.LIGHT_GRAY_CONCRETE.defaultBlockState());
+				for (int[] p : new int[][] { { 4, 4 }, { 6, 3 }, { 5, 5 }, { 7, 4 } }) {
+					c.set(x0 + p[0], y + p[1], z1 + 1, Blocks.RED_CONCRETE);
+				}
+			}
+
+			@Override
+			public void arena(HideoutCanvas c, int x0, int y, int z0, int x1, int z1) {
+				// the fight club: a roped ring of chains, cash pallets and crates round the walls
+				int cx = (x0 + x1) / 2;
+				int cz = (z0 + z1) / 2;
+				for (int[] p : new int[][] { { -4, -4 }, { 4, -4 }, { -4, 4 }, { 4, 4 } }) {
+					c.fill(cx + p[0], y + 1, cz + p[1], cx + p[0], y + 2, cz + p[1], Blocks.DARK_OAK_FENCE.defaultBlockState());
+				}
+				for (int[] p : new int[][] { { x0, z0 + 1 }, { x0 + 1, z0 + 1 }, { x1, z0 + 2 }, { x0, z1 - 4 }, { x1, z1 - 5 }, { x1 - 1, z1 - 5 } }) {
+					c.set(p[0], y + 1, p[1], Blocks.GREEN_WOOL);
+					c.set(p[0], y + 2, p[1], c.noise(p[0], p[1], 30) < 0.5 ? Blocks.GOLD_BLOCK.defaultBlockState() : Blocks.EMERALD_BLOCK.defaultBlockState());
+				}
+				for (int z = z0 + 6; z <= z1 - 7; z += 3) {
+					c.set(x0, y + 1, z, Blocks.BARREL);
+					c.set(x1, y + 1, z, Blocks.SPRUCE_PLANKS);
+				}
+			}
+
+			@Override
+			public void vault(HideoutCanvas c, int x0, int y, int z0, int x1, int z1) {
+				c.fill(x0, y + 1, z0, x0, y + 2, z1, Blocks.GOLD_BLOCK.defaultBlockState());
+				c.fill(x1, y + 1, z0, x1, y + 2, z1, Blocks.GOLD_BLOCK.defaultBlockState());
+				c.fill(x0 + 1, y + 1, z0, x1 - 1, y + 1, z0 + 1, Blocks.RED_CARPET.defaultBlockState());
+			}
+		};
+		return t;
 	}
 
 	@Override
@@ -239,7 +318,12 @@ public final class KingpinFrontBuilder extends HideoutBuilder {
 		c.guard(PISTOL, -1, 1, 7, Direction.NORTH, 6);
 		c.guard(SHOTGUN, 4, 1, 10, Direction.NORTH, 6);
 		c.guard(ENFORCER, 0, 1, 4, Direction.NORTH, 6);
-		c.guard(SNIPER, 4, 7, 10, Direction.NORTH, 3);
+		c.guard(SNIPER, 4, 7, 10, Direction.NORTH, 3, GuardRole.SNIPER);
+		c.alarmLamp(-5, 11, 4);
+		c.alarmLamp(5, 11, 8);
+		c.camera(10, 5, 11, Direction.NORTH);
+		c.spawnPoint(-8, 1, 6);
+		c.spawnPoint(9, 1, 0);
 
 		// ------------------------------------------------ the upper office (over the shop, y 7..10)
 		for (int x = -8; x <= -4; x++) {
@@ -251,6 +335,13 @@ public final class KingpinFrontBuilder extends HideoutBuilder {
 		c.container(-9, 7, -10, Blocks.BARREL.defaultBlockState(), HideoutCanvas.table("chests/vault_tier1"));
 		c.set(0, 10, -7, lanternHang);
 		c.guard(PISTOL, 0, 7, -6, Direction.NORTH, 5);
+		c.alarmLamp(-3, 6, -9);
+		c.alarmLamp(4, 6, -5);
+
+		// ------------------------------------------------ v0.17.7: the back lot, then the crawl wing and its stairwell
+		backLot(c, brick, stone);
+		CrawlWing.build(c, THEME, AX, AY, AZ);
+		CrawlWing.stairwell(c, THEME, AX, AY, AZ, YTOP);
 	}
 
 	private void basement(HideoutCanvas c, BlockState stone, BlockState lanternHang) {
@@ -312,17 +403,20 @@ public final class KingpinFrontBuilder extends HideoutBuilder {
 			c.fill(p[0], -7, p[1], p[0], -3, p[1], Blocks.POLISHED_BLACKSTONE_BRICK_WALL.defaultBlockState());
 			c.set(p[0], -4, p[1], Blocks.GOLD_BLOCK);
 		}
-		// red carpet from the door to the pedestal
-		c.fill(6, -7, 11, 7, -7, 14, Blocks.RED_CARPET.defaultBlockState());
-		// the pedestal and the core
-		c.fill(5, -7, 15, 7, -7, 17, Blocks.GOLD_BLOCK.defaultBlockState());
-		c.set(6, -7, 16, Blocks.CHISELED_POLISHED_BLACKSTONE);
-		c.core(CORE.getX(), CORE.getY(), CORE.getZ());
-		// the sealed vault on the back wall, behind bars
-		c.sealedVault(VAULT.getX(), VAULT.getY(), VAULT.getZ(), Direction.NORTH);
+		// v0.17.7: the counting room -- the core and vault moved down to the crawl wing; a stairwell opens where the
+		// pedestal stood (drawn last, by build); a counting table and a money press on the back wall
+		c.fill(6, -7, 11, 7, -7, 12, Blocks.RED_CARPET.defaultBlockState());
+		c.fill(4, -7, 18, 8, -7, 19, Blocks.DARK_OAK_PLANKS.defaultBlockState());
+		c.fill(4, -6, 18, 8, -6, 19, Blocks.GREEN_CARPET.defaultBlockState());
+		c.set(6, -7, 20, Blocks.IRON_BLOCK);
+		c.set(6, -6, 20, Blocks.PISTON);
 		c.set(5, -7, 20, Blocks.CHISELED_POLISHED_BLACKSTONE);
 		c.set(7, -7, 20, Blocks.CHISELED_POLISHED_BLACKSTONE);
-		c.set(6, -6, 20, Blocks.CHISELED_POLISHED_BLACKSTONE);
+		c.alarmLamp(-1, -3, 15);
+		c.alarmLamp(13, -3, 15);
+		c.camera(12, -4, 10, Direction.SOUTH);
+		c.spawnPoint(1, -7, 17);
+		c.spawnPoint(11, -7, 17);
 		// money pallets and gold stacks
 		for (int[] p : new int[][] { { 0, 15 }, { 1, 19 }, { 11, 15 }, { 12, 19 }, { 10, 19 } }) {
 			c.set(p[0], -7, p[1], Blocks.GREEN_WOOL);
@@ -340,7 +434,88 @@ public final class KingpinFrontBuilder extends HideoutBuilder {
 			c.set(p[0], -3, p[1], Blocks.SEA_LANTERN);
 		}
 		c.guard(THUG, 3, -7, 11, Direction.NORTH, 5);
-		c.guard(THUG, 10, -7, 11, Direction.NORTH, 5);
-		c.boss(HideoutEntityTypes.KINGPIN_ENFORCER, 6, -7, 13, Direction.NORTH, c.corePos(CORE.getX(), CORE.getY(), CORE.getZ()));
+		c.guard(SHOTGUN, 10, -7, 11, Direction.NORTH, 5);
+		c.guard(THUG, 2, -7, 17, Direction.EAST, 4, GuardRole.MEDIC);
+	}
+
+	/**
+	 * v0.17.7 outer defences: the fenced back lot behind the warehouse -- a guard booth with Alarm Panel #1 and the
+	 * Alarm Runner, a water tower with a Sniper on it, a parked truck, floodlights, a camera on the warehouse wall.
+	 */
+	private void backLot(HideoutCanvas c, BlockState brick, BlockState stone) {
+		for (int x = -12; x <= 15; x++) {
+			for (int z = 13; z <= 36; z++) {
+				c.footing(x, -1, z, 12, Blocks.DIRT.defaultBlockState());
+				double n = c.noise(x, z, 40);
+				c.set(x, 0, z, n < 0.55 ? Blocks.GRAVEL.defaultBlockState() : n < 0.8 ? Blocks.COARSE_DIRT.defaultBlockState()
+						: Blocks.SMOOTH_STONE.defaultBlockState());
+				c.air(x, 1, z, x, 12, z);
+			}
+		}
+		// chain-link fence (iron bars) with a gate in the south side
+		for (int x = -12; x <= 15; x++) {
+			if (Math.abs(x - 2) > 1) {
+				c.fill(x, 1, 36, x, 2, 36, bars(true));
+			}
+		}
+		for (int z = 13; z <= 36; z++) {
+			c.fill(-12, 1, z, -12, 2, z, bars(false));
+			c.fill(15, 1, z, 15, 2, z, bars(false));
+		}
+		c.fill(1, 1, 36, 1, 3, 36, Blocks.STONE_BRICK_WALL.defaultBlockState());
+		c.fill(3, 1, 36, 3, 3, 36, Blocks.STONE_BRICK_WALL.defaultBlockState());
+		// the guard booth (x 9..14, z 15..20): brick, a window, Alarm Panel #1 inside
+		c.room(9, 0, 15, 14, 4, 20, brick);
+		c.fill(10, 0, 16, 13, 0, 19, Blocks.SMOOTH_STONE.defaultBlockState());
+		c.fill(9, 2, 17, 9, 2, 18, pane(false));
+		c.fill(10, 2, 15, 12, 2, 15, pane(true));
+		c.air(9, 1, 19, 9, 2, 19);
+		c.alarmPanel(13, 1, 18, Direction.WEST);
+		c.set(13, 1, 16, Blocks.DARK_OAK_PLANKS);
+		c.set(13, 2, 16, Blocks.LANTERN);
+		c.alarmLamp(11, 4, 17);
+		c.alarmLamp(12, 5, 19);
+		c.guard(THUG, 11, 1, 18, Direction.WEST, 3, GuardRole.RUNNER);
+		// the water tower (x -10..-6, z 26..30): four legs, a platform at y 8 with the sniper, a tank above
+		for (int[] l : new int[][] { { -10, 26 }, { -6, 26 }, { -10, 30 }, { -6, 30 } }) {
+			c.fill(l[0], 1, l[1], l[0], 7, l[1], Blocks.DARK_OAK_FENCE.defaultBlockState());
+		}
+		c.fill(-10, 8, 26, -6, 8, 30, Blocks.SPRUCE_PLANKS.defaultBlockState());
+		c.fill(-9, 11, 27, -7, 13, 29, Blocks.SPRUCE_PLANKS.defaultBlockState());
+		c.set(-8, 14, 28, Blocks.SPRUCE_SLAB);
+		for (int x = -10; x <= -6; x++) {
+			c.set(x, 9, 26, Blocks.DARK_OAK_FENCE.defaultBlockState());
+			c.set(x, 9, 30, Blocks.DARK_OAK_FENCE.defaultBlockState());
+		}
+		for (int y = 1; y <= 8; y++) {
+			c.set(-8, y, 31, Blocks.LADDER.defaultBlockState().setValue(LadderBlock.FACING, Direction.SOUTH));
+		}
+		c.set(-8, 8, 31, Blocks.LADDER.defaultBlockState().setValue(LadderBlock.FACING, Direction.SOUTH));
+		c.fill(-8, 1, 32, -8, 8, 32, Blocks.DARK_OAK_PLANKS.defaultBlockState());
+		c.guard(SNIPER, -8, 9, 28, Direction.NORTH, 2, GuardRole.SNIPER);
+		// the truck (x 1..4, z 21..28)
+		c.fill(1, 1, 21, 4, 1, 28, Blocks.BLACK_CONCRETE.defaultBlockState());
+		c.fill(1, 2, 21, 4, 4, 25, Blocks.WHITE_CONCRETE.defaultBlockState());
+		c.fill(1, 2, 26, 4, 3, 28, Blocks.GRAY_CONCRETE.defaultBlockState());
+		c.fill(2, 3, 28, 3, 3, 28, Blocks.BLACK_STAINED_GLASS.defaultBlockState());
+		for (int[] w : new int[][] { { 0, 22 }, { 5, 22 }, { 0, 27 }, { 5, 27 } }) {
+			c.set(w[0], 1, w[1], Blocks.BLACK_WOOL);
+		}
+		// crates, floodlights, spawn points, a camera on the warehouse wall
+		for (int[] p : new int[][] { { -10, 15 }, { -9, 15 }, { -10, 16 }, { 7, 33 }, { 8, 33 }, { 7, 34 } }) {
+			c.set(p[0], 1, p[1], c.noise(p[0], p[1], 41) < 0.5 ? Blocks.BARREL.defaultBlockState() : Blocks.SPRUCE_PLANKS.defaultBlockState());
+		}
+		c.container(-9, 2, 15, Blocks.BARREL.defaultBlockState(), HideoutCanvas.table("chests/vault_tier1"));
+		for (int[] p : new int[][] { { -11, 14 }, { 14, 35 }, { -11, 35 } }) {
+			c.fill(p[0], 1, p[1], p[0], 4, p[1], Blocks.IRON_BARS.defaultBlockState());
+			c.set(p[0], 5, p[1], Blocks.SEA_LANTERN);
+		}
+		c.camera(0, 4, 13, Direction.SOUTH);
+		c.alarmLamp(-4, 6, 12);
+		c.alarmLamp(4, 6, 12);
+		c.spawnPoint(-4, 1, 20);
+		c.spawnPoint(7, 1, 30);
+		c.guard(THUG, -3, 1, 24, Direction.EAST, 6);
+		c.guard(SHOTGUN, 8, 1, 26, Direction.WEST, 5, GuardRole.SHIELD);
 	}
 }

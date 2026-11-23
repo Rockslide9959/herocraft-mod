@@ -139,6 +139,15 @@ public final class ProjectHeroJeiPlugin implements IModPlugin {
 		}
 		registration.addItemStackInfo(new ItemStack(com.projecthero.mod.hideout.block.HideoutBlocks.CORE_ITEM),
 				net.minecraft.network.chat.Component.translatable("projecthero.guide.hideouts.clearing.body"));
+		// v0.17.7: the alarm & stealth blocks and the Keycard
+		for (net.minecraft.world.item.Item i : new net.minecraft.world.item.Item[] { com.projecthero.mod.alarm.block.AlarmBlocks.PANEL_ITEM,
+				com.projecthero.mod.alarm.block.AlarmBlocks.LAMP_ITEM, com.projecthero.mod.alarm.block.AlarmBlocks.BLAST_DOOR_ITEM,
+				com.projecthero.mod.alarm.block.AlarmBlocks.CAMERA_ITEM, com.projecthero.mod.alarm.block.AlarmBlocks.LASER_ITEM,
+				com.projecthero.mod.alarm.block.AlarmBlocks.SPAWN_POINT_ITEM, com.projecthero.mod.alarm.AlarmKeycards.KEYCARD }) {
+			registration.addItemStackInfo(new ItemStack(i),
+					net.minecraft.network.chat.Component.translatable("projecthero.jei.alarm." + net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(i).getPath()),
+					net.minecraft.network.chat.Component.translatable("projecthero.jei.alarm.system"));
+		}
 		// v0.17.5: The Vault (Tier 4) -- its three artifacts and its blocks
 		for (net.minecraft.world.item.Item i : com.projecthero.mod.vaultdungeon.item.VaultItems.all()) {
 			registration.addItemStackInfo(new ItemStack(i),

@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "top": "projecthero:block/alarm_panel_ancient_top",
+    "front": "projecthero:block/alarm_panel_ancient_front_idle",
+    "side": "projecthero:block/alarm_panel_ancient_side"
+  }
+}

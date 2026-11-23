@@ -1,0 +1,56 @@
+{
+  "variants": {
+    "facing=down,live=false": {
+      "model": "projecthero:block/laser_tripwire_dead",
+      "x": 180
+    },
+    "facing=down,live=true": {
+      "model": "projecthero:block/laser_tripwire",
+      "x": 180
+    },
+    "facing=up,live=false": {
+      "model": "projecthero:block/laser_tripwire_dead"
+    },
+    "facing=up,live=true": {
+      "model": "projecthero:block/laser_tripwire"
+    },
+    "facing=north,live=false": {
+      "model": "projecthero:block/laser_tripwire_dead",
+      "x": 90
+    },
+    "facing=north,live=true": {
+      "model": "projecthero:block/laser_tripwire",
+      "x": 90
+    },
+    "facing=south,live=false": {
+      "model": "projecthero:block/laser_tripwire_dead",
+      "x": 90,
+      "y": 180
+    },
+    "facing=south,live=true": {
+      "model": "projecthero:block/laser_tripwire",
+      "x": 90,
+      "y": 180
+    },
+    "facing=west,live=false": {
+      "model": "projecthero:block/laser_tripwire_dead",
+      "x": 90,
+      "y": 270
+    },
+    "facing=west,live=true": {
+      "model": "projecthero:block/laser_tripwire",
+      "x": 90,
+      "y": 270
+    },
+    "facing=east,live=false": {
+      "model": "projecthero:block/laser_tripwire_dead",
+      "x": 90,
+      "y": 90
+    },
+    "facing=east,live=true": {
+      "model": "projecthero:block/laser_tripwire",
+      "x": 90,
+      "y": 90
+    }
+  }
+}

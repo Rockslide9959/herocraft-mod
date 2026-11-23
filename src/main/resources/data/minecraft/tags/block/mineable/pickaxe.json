@@ -52,6 +52,9 @@
     "projecthero:vault_turret",
     "projecthero:vault_console",
     "projecthero:lockdown_track",
-    "projecthero:core_charger"
+    "projecthero:core_charger",
+    "projecthero:alarm_lamp",
+    "projecthero:security_camera",
+    "projecthero:laser_tripwire"
   ]
 }

@@ -54,6 +54,8 @@ public class KingpinEnforcerBoss extends SyndicateEnforcer implements HideoutBos
 	static final double STOMP_RADIUS = 6.0;
 
 	private final HideoutBossLink link = new HideoutBossLink(this, HideoutFaction.KINGPIN, BossEvent.BossBarColor.YELLOW, this::busy);
+	/** v0.17.7: the second phase (see HideoutPhase). */
+	final HideoutPhase phase = new HideoutPhase(this, HideoutFaction.KINGPIN, HideoutPhase.Kind.NONE, 0.45f, 0);
 	private boolean calledBoys;
 	int moveTicks;
 	byte move; // 0 none, 1 combo, 2 stomp
@@ -81,6 +83,11 @@ public class KingpinEnforcerBoss extends SyndicateEnforcer implements HideoutBos
 	@Override
 	public HideoutBossLink hideoutLink() {
 		return link;
+	}
+
+	/** v0.17.7: the second phase (test hook). */
+	public HideoutPhase phase() {
+		return phase;
 	}
 
 	boolean busy() {
@@ -117,6 +124,7 @@ public class KingpinEnforcerBoss extends SyndicateEnforcer implements HideoutBos
 		boolean hurt = super.hurt(source, amount);
 		if (hurt && level() instanceof ServerLevel server) {
 			link.onHurt(source, amount);
+			phase.hurtCheck((ServerLevel) level());
 			if (!calledBoys && getHealth() < getMaxHealth() * 0.5f) {
 				calledBoys = true;
 				callBoys(server);
@@ -130,6 +138,11 @@ public class KingpinEnforcerBoss extends SyndicateEnforcer implements HideoutBos
 		super.customServerAiStep();
 		if (level() instanceof ServerLevel server) {
 			link.tick(server);
+			phase.tick(server, busy());
+			if (phase.active() && tickCount % 100 == 0) {
+				// "Untouchable": the jacket is off, he shrugs hits off
+				addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 120, 0, false, false));
+			}
 		}
 	}
 
@@ -256,6 +269,71 @@ public class KingpinEnforcerBoss extends SyndicateEnforcer implements HideoutBos
 			if (moveTicks >= STOMP_WINDUP + 12) {
 				endMove(160 + random.nextInt(60), 2);
 			}
+		} else if (move == 3) {
+			tickRush(level, t);
+		}
+	}
+
+	// ---------------------------------------------------------------- v0.17.7 phase 2: "Untouchable" and the Bull Rush
+
+	static final int RUSH_WINDUP = 10;
+	static final int RUSH_DASH = 12;
+	static final float RUSH_DAMAGE = 10f;
+	private int rushCooldown = 60;
+	int rushesLeft;
+	private Vec3 rushDir = Vec3.ZERO;
+	private final java.util.Set<Integer> rushHit = new java.util.HashSet<>();
+
+	/** Test hook: charges left in the current Bull Rush. */
+	public int rushesLeftForTest() {
+		return rushesLeft;
+	}
+
+	/** Starts a three-charge Bull Rush now (test hook too). */
+	public void startRush() {
+		move = 3;
+		moveTicks = 0;
+		rushesLeft = 3;
+		getNavigation().stop();
+	}
+
+	private void tickRush(ServerLevel level, LivingEntity t) {
+		int cycle = (moveTicks - 1) % (RUSH_WINDUP + RUSH_DASH);
+		if (cycle == 0) {
+			Vec3 to = t != null ? t.position().subtract(position()) : getLookAngle();
+			to = new Vec3(to.x, 0, to.z);
+			rushDir = to.lengthSqr() < 1.0e-3 ? Vec3.directionFromRotation(0, getYRot()) : to.normalize();
+			rushHit.clear();
+			level.playSound(null, getX(), getY(), getZ(), SoundEvents.RAVAGER_ROAR, SoundSource.HOSTILE, 1.4f, 1.3f);
+		}
+		if (cycle < RUSH_WINDUP) {
+			setDeltaMovement(0, getDeltaMovement().y, 0);
+			setYRot((float) (Math.atan2(-rushDir.x, rushDir.z) * 180.0 / Math.PI));
+			setYBodyRot(getYRot());
+			level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, getX(), getY() + 0.1, getZ(), 2, 0.3, 0.0, 0.3, 0.01);
+			return;
+		}
+		setDeltaMovement(rushDir.x * 0.85, getDeltaMovement().y, rushDir.z * 0.85);
+		level.sendParticles(ParticleTypes.CLOUD, getX(), getY() + 0.2, getZ(), 2, 0.2, 0.1, 0.2, 0.01);
+		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, getBoundingBox().inflate(0.6), e -> victim(e, this))) {
+			if (rushHit.add(e.getId())) {
+				e.hurt(damageSources().mobAttack(this), RUSH_DAMAGE);
+				e.push(rushDir.x * 1.3, 0.45, rushDir.z * 1.3);
+				e.hurtMarked = true;
+				level.playSound(null, e.getX(), e.getY(), e.getZ(), SoundEvents.PLAYER_ATTACK_KNOCKBACK, SoundSource.HOSTILE, 1.4f, 0.6f);
+			}
+		}
+		boolean wall = horizontalCollision && cycle > RUSH_WINDUP + 1;
+		if (wall) {
+			level.playSound(null, getX(), getY(), getZ(), SoundEvents.ZOMBIE_ATTACK_IRON_DOOR, SoundSource.HOSTILE, 1.0f, 0.6f);
+		}
+		if (wall || cycle == RUSH_WINDUP + RUSH_DASH - 1) {
+			setDeltaMovement(0, getDeltaMovement().y, 0);
+			rushesLeft--;
+			moveTicks = rushesLeft * (RUSH_WINDUP + RUSH_DASH) > 0 ? (3 - rushesLeft) * (RUSH_WINDUP + RUSH_DASH) : moveTicks;
+			if (rushesLeft <= 0) {
+				endMove(200 + random.nextInt(60), 3);
+			}
 		}
 	}
 
@@ -265,6 +343,8 @@ public class KingpinEnforcerBoss extends SyndicateEnforcer implements HideoutBos
 	private void endMove(int cooldown, int which) {
 		if (which == 1) {
 			comboCooldown = cooldown;
+		} else if (which == 3) {
+			rushCooldown = cooldown;
 		} else {
 			stompCooldown = cooldown;
 		}
@@ -276,6 +356,7 @@ public class KingpinEnforcerBoss extends SyndicateEnforcer implements HideoutBos
 	public void addAdditionalSaveData(CompoundTag tag) {
 		super.addAdditionalSaveData(tag);
 		link.save(tag);
+		phase.save(tag);
 		tag.putBoolean("CalledBoys", calledBoys);
 	}
 
@@ -283,6 +364,7 @@ public class KingpinEnforcerBoss extends SyndicateEnforcer implements HideoutBos
 	public void readAdditionalSaveData(CompoundTag tag) {
 		super.readAdditionalSaveData(tag);
 		link.load(tag);
+		phase.load(tag);
 		calledBoys = tag.getBoolean("CalledBoys");
 	}
 
@@ -303,6 +385,9 @@ public class KingpinEnforcerBoss extends SyndicateEnforcer implements HideoutBos
 			if (mob.stompCooldown > 0) {
 				mob.stompCooldown--;
 			}
+			if (mob.rushCooldown > 0) {
+				mob.rushCooldown--;
+			}
 			if (mob.move != 0) {
 				return true;
 			}
@@ -313,6 +398,10 @@ public class KingpinEnforcerBoss extends SyndicateEnforcer implements HideoutBos
 			double d = mob.distanceTo(t);
 			if (mob.stompCooldown <= 0 && d < STOMP_RADIUS && t.onGround() && mob.random.nextInt(3) == 0) {
 				mob.startStomp();
+				return true;
+			}
+			if (mob.phase.active() && mob.rushCooldown <= 0 && d > 4 && d < 16) {
+				mob.startRush();
 				return true;
 			}
 			if (mob.comboCooldown <= 0 && d < 3.5) {

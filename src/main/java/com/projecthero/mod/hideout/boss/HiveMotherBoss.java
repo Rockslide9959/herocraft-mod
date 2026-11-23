@@ -62,6 +62,8 @@ public class HiveMotherBoss extends Monster implements HideoutBoss {
 	public static final byte ACTION_BROOD = 3;
 
 	private final HideoutBossLink link = new HideoutBossLink(this, HideoutFaction.SYMBIOTE, BossEvent.BossBarColor.WHITE, this::busy);
+	/** v0.17.7: the second phase (see HideoutPhase). */
+	final HideoutPhase phase = new HideoutPhase(this, HideoutFaction.SYMBIOTE, HideoutPhase.Kind.BIOMASS_ERUPTION, 0.5f, 150);
 	private int moveTicks;
 	private int lashCooldown = 60;
 	private int volleyCooldown = 100;
@@ -92,6 +94,11 @@ public class HiveMotherBoss extends Monster implements HideoutBoss {
 	@Override
 	public HideoutBossLink hideoutLink() {
 		return link;
+	}
+
+	/** v0.17.7: the second phase (test hook). */
+	public HideoutPhase phase() {
+		return phase;
 	}
 
 	@Override
@@ -155,6 +162,7 @@ public class HiveMotherBoss extends Monster implements HideoutBoss {
 		boolean hurt = super.hurt(source, amount);
 		if (hurt && !level().isClientSide()) {
 			link.onHurt(source, amount);
+			phase.hurtCheck((ServerLevel) level());
 		}
 		return hurt;
 	}
@@ -175,6 +183,7 @@ public class HiveMotherBoss extends Monster implements HideoutBoss {
 			return;
 		}
 		link.tick(server);
+		phase.tick(server, busy());
 		if (tickCount % 8 == 0) {
 			server.sendParticles(ParticleTypes.SQUID_INK, getX(), getY() + getBbHeight() * 0.6, getZ(), 2, 0.5, 0.8, 0.5, 0.005);
 		}
@@ -349,11 +358,13 @@ public class HiveMotherBoss extends Monster implements HideoutBoss {
 	public void addAdditionalSaveData(CompoundTag tag) {
 		super.addAdditionalSaveData(tag);
 		link.save(tag);
+		phase.save(tag);
 	}
 
 	@Override
 	public void readAdditionalSaveData(CompoundTag tag) {
 		super.readAdditionalSaveData(tag);
 		link.load(tag);
+		phase.load(tag);
 	}
 }

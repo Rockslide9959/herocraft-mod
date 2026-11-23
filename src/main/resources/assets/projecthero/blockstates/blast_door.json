@@ -1,0 +1,28 @@
+{
+  "variants": {
+    "locked=false,open=false,style=tech": {
+      "model": "projecthero:block/blast_door_tech"
+    },
+    "locked=false,open=true,style=tech": {
+      "model": "projecthero:block/blast_door_open"
+    },
+    "locked=true,open=false,style=tech": {
+      "model": "projecthero:block/blast_door_tech_locked"
+    },
+    "locked=true,open=true,style=tech": {
+      "model": "projecthero:block/blast_door_open"
+    },
+    "locked=false,open=false,style=ancient": {
+      "model": "projecthero:block/blast_door_ancient"
+    },
+    "locked=false,open=true,style=ancient": {
+      "model": "projecthero:block/blast_door_open"
+    },
+    "locked=true,open=false,style=ancient": {
+      "model": "projecthero:block/blast_door_ancient_locked"
+    },
+    "locked=true,open=true,style=ancient": {
+      "model": "projecthero:block/blast_door_open"
+    }
+  }
+}

@@ -5,6 +5,7 @@ import static com.projecthero.mod.hideout.HideoutGuards.Role.PARADEMON_BRUTE;
 import static com.projecthero.mod.hideout.HideoutGuards.Role.PARADEMON_ELITE;
 import static com.projecthero.mod.hideout.HideoutGuards.Role.PARADEMON_RANGED;
 
+import com.projecthero.mod.alarm.GuardRole;
 import com.projecthero.mod.hideout.HideoutEntityTypes;
 import com.projecthero.mod.hideout.block.HideoutVentBlock;
 
@@ -35,11 +36,84 @@ public final class ApokolipsOutpostBuilder extends HideoutBuilder {
 	static final int L1 = 3; // barracks floor
 	static final int L2 = 10; // war room floor
 	static final int ROOF = 18;
-	static final BlockPos CORE = new BlockPos(0, L2 + 2, 0);
-	static final BlockPos VAULT = new BlockPos(0, L2 + 1, 4);
+	// v0.17.7: the Fire Pits (crawl wing) below the tower; the stairwell opens in the ground floor at z 1
+	static final int AX = 0;
+	static final int AY = -18;
+	static final int AZ = 1 + (BASE - AY);
+	static final BlockPos CORE = CrawlWing.core(AX, AY, AZ);
+	static final BlockPos VAULT = CrawlWing.vault(AX, AY, AZ);
+	static final CrawlTheme THEME = theme();
+
+	private static CrawlTheme theme() {
+		CrawlTheme t = new CrawlTheme();
+		t.wall = Blocks.POLISHED_BLACKSTONE_BRICKS.defaultBlockState();
+		t.floor = Blocks.BLACKSTONE.defaultBlockState();
+		t.ceiling = t.wall;
+		t.trim = Blocks.GILDED_BLACKSTONE.defaultBlockState();
+		t.pillar = Blocks.BASALT.defaultBlockState();
+		t.light = Blocks.SHROOMLIGHT.defaultBlockState();
+		t.accent = Blocks.ORANGE_TERRACOTTA.defaultBlockState();
+		t.stairs = Blocks.POLISHED_BLACKSTONE_BRICK_STAIRS;
+		t.vent = HideoutVentBlock.Kind.FIRE;
+		t.grunt = PARADEMON;
+		t.elite = PARADEMON_ELITE;
+		t.ranged = PARADEMON_RANGED;
+		t.shield = PARADEMON_ELITE;
+		t.captain = PARADEMON_ELITE;
+		t.runner = PARADEMON;
+		t.sniper = PARADEMON_RANGED;
+		t.boss = HideoutEntityTypes.PARADEMON_COMMANDER;
+		t.decor = new CrawlTheme.Decor() {
+			@Override
+			public void checkpoint(HideoutCanvas c, int x0, int y, int z0, int x1, int z1) {
+				for (int[] p : new int[][] { { x0, z0 }, { x1, z1 } }) {
+					c.set(p[0], y + 1, p[1], Blocks.POLISHED_BLACKSTONE_BRICK_WALL);
+					c.set(p[0], y + 2, p[1], Blocks.NETHERRACK);
+					c.set(p[0], y + 3, p[1], Blocks.FIRE);
+				}
+			}
+
+			@Override
+			public void quarters(HideoutCanvas c, int x0, int y, int z0, int x1, int z1) {
+				// the war table (an orange-glass map on gilded legs) and a chained prisoner
+				int cx = x0 + 5;
+				int cz = (z0 + z1) / 2 + 1;
+				c.fill(cx - 1, y + 1, cz, cx + 1, y + 1, cz + 1, Blocks.GILDED_BLACKSTONE.defaultBlockState());
+				c.fill(cx - 1, y + 2, cz, cx + 1, y + 2, cz + 1, Blocks.ORANGE_STAINED_GLASS.defaultBlockState());
+				c.set(x0, y + 1, z0 + 4, Blocks.BONE_BLOCK);
+				c.fill(x0, y + 2, z0 + 4, x0, y + 4, z0 + 4, Blocks.CHAIN.defaultBlockState());
+				c.fill(x0, y + 1, z1 - 2, x0, y + 3, z1, Blocks.CRYING_OBSIDIAN.defaultBlockState());
+			}
+
+			@Override
+			public void arena(HideoutCanvas c, int x0, int y, int z0, int x1, int z1) {
+				// fire pits in the corners, a statue of Darkseid at the back
+				for (int[] p : new int[][] { { x0 + 2, z0 + 6 }, { x1 - 2, z0 + 6 }, { x0 + 2, z1 - 4 }, { x1 - 4, z1 - 4 } }) {
+					c.walls(p[0] - 1, y + 1, p[1] - 1, p[0] + 1, y + 1, p[1] + 1, Blocks.POLISHED_BLACKSTONE_BRICK_WALL.defaultBlockState());
+					c.set(p[0], y, p[1], Blocks.NETHERRACK);
+					c.set(p[0], y + 1, p[1], Blocks.FIRE);
+				}
+				int cx = (x0 + x1) / 2;
+				c.fill(cx - 1, y + 1, z1, cx + 1, y + 1, z1, Blocks.GILDED_BLACKSTONE.defaultBlockState());
+				c.fill(cx, y + 2, z1, cx, y + 6, z1, Blocks.BLACKSTONE.defaultBlockState());
+				c.fill(cx - 1, y + 5, z1, cx + 1, y + 5, z1, Blocks.BLACKSTONE.defaultBlockState());
+				c.set(cx, y + 7, z1, Blocks.POLISHED_BLACKSTONE);
+				c.set(cx, y + 6, z1 - 1, Blocks.REDSTONE_BLOCK);
+			}
+
+			@Override
+			public void vault(HideoutCanvas c, int x0, int y, int z0, int x1, int z1) {
+				for (int z = z0; z <= z1; z += 3) {
+					c.fill(x0, y + 1, z, x0, y + 3, z, Blocks.GILDED_BLACKSTONE.defaultBlockState());
+					c.fill(x1, y + 1, z, x1, y + 3, z, Blocks.GILDED_BLACKSTONE.defaultBlockState());
+				}
+			}
+		};
+		return t;
+	}
 
 	private ApokolipsOutpostBuilder() {
-		super(-22, -9, -22, 22, 28, 22);
+		super(-22, AY - 3, -22, 22, 28, AZ + CrawlWing.END_Z);
 	}
 
 	@Override
@@ -120,7 +194,7 @@ public final class ApokolipsOutpostBuilder extends HideoutBuilder {
 			c.set(d[0] - 1, f + 9, d[1] - 1, Blocks.POINTED_DRIPSTONE);
 			c.set(d[0] + 1, f + 9, d[1] + 1, Blocks.POINTED_DRIPSTONE);
 			c.set(d[0] + 1, f + 9, d[1] - 1, Blocks.CHAIN.defaultBlockState().setValue(ChainBlock.AXIS, Direction.Axis.Y));
-			c.guard(PARADEMON_RANGED, d[0], f + 9, d[1], Direction.NORTH, 3);
+			c.guard(PARADEMON_RANGED, d[0], f + 9, d[1], Direction.NORTH, 3, d[0] == 0 || d[0] == 11 ? GuardRole.SNIPER : null);
 		}
 
 		// ------------------------------------------------ the tower shell (x/z -5..5, chamfered)
@@ -188,7 +262,7 @@ public final class ApokolipsOutpostBuilder extends HideoutBuilder {
 		c.set(2, BASE + 2, -6, Blocks.MAGMA_BLOCK);
 		c.set(4, BASE + 1, -3, bricks);
 		c.tripwireX(-3, 3, BASE + 1, -3);
-		for (int[] v : new int[][] { { -2, -1 }, { 1, 0 }, { -1, 2 }, { 2, -2 }, { 0, 3 } }) {
+		for (int[] v : new int[][] { { -2, -1 }, { 2, -2 }, { -3, 1 }, { 3, -1 } }) {
 			c.vent(v[0], BASE, v[1], HideoutVentBlock.Kind.FIRE);
 		}
 		c.set(-4, BASE + 3, 0, Blocks.SHROOMLIGHT);
@@ -198,6 +272,18 @@ public final class ApokolipsOutpostBuilder extends HideoutBuilder {
 		c.guard(PARADEMON_BRUTE, 0, floorAt(0, -9) + 1, -9, Direction.NORTH, 6);
 		c.guard(PARADEMON, 6, floorAt(6, -9) + 1, -9, Direction.NORTH, 6);
 		c.guard(PARADEMON, -7, floorAt(-7, 6) + 1, 6, Direction.NORTH, 6);
+		// v0.17.7 outer defences: Alarm Panel #1 inside the gate, the runner out in the crater, a camera over the gate
+		c.alarmPanel(-4, BASE + 1, -1, Direction.EAST);
+		c.guard(PARADEMON, 6, floorAt(6, -13) + 1, -13, Direction.WEST, 4, GuardRole.RUNNER);
+		c.guard(PARADEMON_ELITE, -8, floorAt(-8, -6) + 1, -6, Direction.NORTH, 4, GuardRole.SHIELD);
+		c.guard(PARADEMON, 8, floorAt(8, 4) + 1, 4, Direction.WEST, 5, GuardRole.MEDIC);
+		c.camera(3, BASE + 4, -6, Direction.NORTH);
+		c.camera(-3, BASE + 4, 6, Direction.SOUTH);
+		c.alarmLamp(-3, L1, -2);
+		c.alarmLamp(2, L1, -3);
+		for (int[] s : new int[][] { { 7, 7 }, { -9, 2 }, { 4, -12 }, { -6, 11 } }) {
+			c.spawnPoint(s[0], floorAt(s[0], s[1]) + 1, s[1]);
+		}
 
 		// ------------------------------------------------ the barracks (floor L1)
 		c.set(3, L1, 3, Blocks.LADDER.defaultBlockState().setValue(LadderBlock.FACING, Direction.WEST));
@@ -215,10 +301,11 @@ public final class ApokolipsOutpostBuilder extends HideoutBuilder {
 
 		// ------------------------------------------------ the war room (floor L2)
 		c.set(3, L2, 3, Blocks.LADDER.defaultBlockState().setValue(LadderBlock.FACING, Direction.WEST));
+		// v0.17.7: the strategy room -- the core and vault moved down to the Fire Pits; a war table and a Tier 2 cache
 		c.fill(-1, L2 + 1, -1, 1, L2 + 1, 1, gilded);
-		c.set(0, L2 + 1, 0, Blocks.CHISELED_POLISHED_BLACKSTONE);
-		c.core(CORE.getX(), CORE.getY(), CORE.getZ());
-		c.sealedVault(VAULT.getX(), VAULT.getY(), VAULT.getZ(), Direction.NORTH);
+		c.fill(-1, L2 + 2, -1, 1, L2 + 2, 1, Blocks.ORANGE_STAINED_GLASS.defaultBlockState());
+		c.container(0, L2 + 1, 4, Blocks.BARREL.defaultBlockState(), HideoutCanvas.table("chests/vault_tier2"));
+		c.alarmLamp(-2, ROOF, 2);
 		c.set(-1, L2 + 1, 4, Blocks.MAGMA_BLOCK);
 		c.set(1, L2 + 1, 4, Blocks.MAGMA_BLOCK);
 		c.set(-3, L2 + 1, -3, Blocks.SOUL_LANTERN);
@@ -234,7 +321,11 @@ public final class ApokolipsOutpostBuilder extends HideoutBuilder {
 		c.set(3, L2 + 1, -7, Blocks.POLISHED_BLACKSTONE_BRICK_WALL.defaultBlockState());
 		c.set(-3, L2 + 2, -8, Blocks.SOUL_LANTERN);
 		c.set(3, L2 + 2, -8, Blocks.SOUL_LANTERN);
-		c.guard(PARADEMON_RANGED, 2, L2 + 1, -6, Direction.NORTH, 3);
-		c.boss(HideoutEntityTypes.PARADEMON_COMMANDER, 0, L2 + 1, -3, Direction.NORTH, c.corePos(CORE.getX(), CORE.getY(), CORE.getZ()));
+		c.guard(PARADEMON_RANGED, 2, L2 + 1, -6, Direction.NORTH, 3, GuardRole.SNIPER);
+		c.guard(PARADEMON_ELITE, -2, L2 + 1, -2, Direction.NORTH, 4);
+
+		// ------------------------------------------------ v0.17.7: the Fire Pits below and the stairwell down from the gate floor
+		CrawlWing.build(c, THEME, AX, AY, AZ);
+		CrawlWing.stairwell(c, THEME, AX, AY, AZ, BASE);
 	}
 }

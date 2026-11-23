@@ -115,6 +115,11 @@ public final class HeroVault {
 				.withLuck(player.getLuck())
 				.create(LootContextParamSets.CHEST);
 		List<ItemStack> loot = table.getRandomItems(params, level.getRandom().nextLong());
+		if (com.projecthero.mod.alarm.AlarmGhost.claim(level, pos, player)) {
+			// v0.17.7 Ghost bonus: the place's alarm never went off -- one extra roll
+			loot = new java.util.ArrayList<>(loot);
+			loot.addAll(table.getRandomItems(params, level.getRandom().nextLong()));
+		}
 		vault.markLooted(player.getUUID());
 		eject(level, pos, state.getValue(HeroVaultBlock.FACING), tier, loot);
 		player.displayClientMessage(Component.translatable("block.projecthero.hero_vault.opened", tierName(tier))

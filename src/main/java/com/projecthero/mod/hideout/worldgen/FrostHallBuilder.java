@@ -4,7 +4,10 @@ import static com.projecthero.mod.hideout.HideoutGuards.Role.HOUND;
 import static com.projecthero.mod.hideout.HideoutGuards.Role.RAIDER;
 import static com.projecthero.mod.hideout.HideoutGuards.Role.SHAMAN;
 
+import com.projecthero.mod.alarm.GuardRole;
+import com.projecthero.mod.alarm.block.AlarmStyle;
 import com.projecthero.mod.hideout.HideoutEntityTypes;
+import com.projecthero.mod.hideout.block.HideoutVentBlock;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -33,11 +36,92 @@ import net.minecraft.world.level.block.state.properties.SlabType;
 public final class FrostHallBuilder extends HideoutBuilder {
 	public static final FrostHallBuilder INSTANCE = new FrostHallBuilder();
 
-	static final BlockPos CORE = new BlockPos(0, 4, 14);
-	static final BlockPos VAULT = new BlockPos(5, 3, 19);
+	// v0.17.7: the Jarl's Barrow (crawl wing) under the hall; its stairwell opens in the dais beside the throne
+	static final int YTOP = 2;
+	static final int AX = -5;
+	static final int AY = -16;
+	static final int AZ = 14 + (YTOP - AY);
+	static final BlockPos CORE = CrawlWing.core(AX, AY, AZ);
+	static final BlockPos VAULT = CrawlWing.vault(AX, AY, AZ);
+	static final CrawlTheme THEME = theme();
+
+	private static CrawlTheme theme() {
+		CrawlTheme t = new CrawlTheme();
+		t.wall = Blocks.DEEPSLATE_BRICKS.defaultBlockState();
+		t.floor = Blocks.POLISHED_DEEPSLATE.defaultBlockState();
+		t.ceiling = Blocks.PACKED_ICE.defaultBlockState();
+		t.trim = Blocks.PACKED_ICE.defaultBlockState();
+		t.pillar = Blocks.STRIPPED_DARK_OAK_LOG.defaultBlockState();
+		t.light = Blocks.SEA_LANTERN.defaultBlockState();
+		t.accent = Blocks.BLUE_ICE.defaultBlockState();
+		t.stairs = Blocks.DEEPSLATE_BRICK_STAIRS;
+		t.vent = HideoutVentBlock.Kind.FROST;
+		t.tech = false;
+		t.style = AlarmStyle.ANCIENT;
+		t.grunt = RAIDER;
+		t.elite = RAIDER;
+		t.ranged = SHAMAN;
+		t.shield = RAIDER;
+		t.captain = RAIDER;
+		t.runner = HOUND;
+		t.sniper = SHAMAN;
+		t.boss = HideoutEntityTypes.FROST_GIANT_JARL;
+		t.decor = new CrawlTheme.Decor() {
+			@Override
+			public void checkpoint(HideoutCanvas c, int x0, int y, int z0, int x1, int z1) {
+				for (int[] p : new int[][] { { x0, z1 }, { x1, z0 + 2 } }) {
+					c.set(p[0], y + 1, p[1], Blocks.CHISELED_STONE_BRICKS);
+					c.set(p[0], y + 2, p[1], Blocks.SOUL_LANTERN);
+				}
+				c.fill(x0, y + 1, z0, x0, y + 2, z0 + 2, Blocks.SPRUCE_FENCE.defaultBlockState());
+			}
+
+			@Override
+			public void quarters(HideoutCanvas c, int x0, int y, int z0, int x1, int z1) {
+				// the huscarl's hall: a long table, shields on the walls, a fur bed
+				int cx = x0 + 5;
+				c.fill(cx - 2, y + 1, z0 + 5, cx + 2, y + 1, z0 + 5, Blocks.SPRUCE_PLANKS.defaultBlockState());
+				c.fill(cx - 2, y + 2, z0 + 5, cx + 2, y + 2, z0 + 5, Blocks.WHITE_CARPET.defaultBlockState());
+				for (int z = z0 + 1; z <= z1; z += 2) {
+					c.set(x0 - 1, y + 3, z, Blocks.SPRUCE_TRAPDOOR.defaultBlockState());
+				}
+				c.fill(x0, y + 1, z1 - 1, x0 + 1, y + 1, z1, Blocks.WHITE_WOOL.defaultBlockState());
+			}
+
+			@Override
+			public void arena(HideoutCanvas c, int x0, int y, int z0, int x1, int z1) {
+				// the barrow hall: ice spikes, the bones of old giants, a runestone ring
+				int cx = (x0 + x1) / 2;
+				int cz = (z0 + z1) / 2;
+				for (int i = 0; i < 8; i++) {
+					double a = i * Math.PI / 4;
+					int x = cx + (int) Math.round(Math.cos(a) * 7);
+					int z = cz + (int) Math.round(Math.sin(a) * 7);
+					if (Math.abs(x - cx) == 6 && Math.abs(z - cz) >= 4) {
+						continue;
+					}
+					c.fill(x, y + 1, z, x, y + 2, z, Blocks.CHISELED_STONE_BRICKS.defaultBlockState());
+				}
+				for (int[] p : new int[][] { { x0, z0 + 2 }, { x1, z0 + 4 }, { x0, z1 - 1 }, { x1, z1 - 6 } }) {
+					c.fill(p[0], y + 1, p[1], p[0], y + 3 + (int) (c.noise(p[0], p[1], 60) * 3), p[1], Blocks.PACKED_ICE.defaultBlockState());
+				}
+				c.fill(x0 + 1, y + 1, z1, x0 + 3, y + 1, z1, Blocks.BONE_BLOCK.defaultBlockState());
+				c.set(x0 + 2, y + 2, z1, Blocks.SKELETON_SKULL);
+			}
+
+			@Override
+			public void vault(HideoutCanvas c, int x0, int y, int z0, int x1, int z1) {
+				for (int z = z0; z <= z1; z += 2) {
+					c.set(x0, y + 1, z, Blocks.BLUE_ICE);
+					c.set(x1, y + 1, z, Blocks.BLUE_ICE);
+				}
+			}
+		};
+		return t;
+	}
 
 	private FrostHallBuilder() {
-		super(-12, -2, -23, 12, 17, 22);
+		super(AX - CrawlWing.HALF_WIDTH, AY - 3, -23, 12, 17, AZ + CrawlWing.END_Z);
 	}
 
 	@Override
@@ -204,7 +288,7 @@ public final class FrostHallBuilder extends HideoutBuilder {
 			c.set(x, 2, 13, stair(Blocks.STONE_BRICK_STAIRS, Direction.SOUTH, Half.BOTTOM));
 		}
 		c.set(0, 3, 14, blue);
-		c.core(CORE.getX(), CORE.getY(), CORE.getZ());
+		c.set(0, 4, 14, Blocks.SOUL_LANTERN);
 		// the ice throne
 		c.set(0, 3, 18, stair(Blocks.QUARTZ_STAIRS, Direction.NORTH, Half.BOTTOM));
 		c.fill(-1, 3, 19, 1, 6, 19, blue);
@@ -213,7 +297,7 @@ public final class FrostHallBuilder extends HideoutBuilder {
 		c.set(-1, 7, 19, Blocks.ICE);
 		c.set(1, 7, 19, Blocks.ICE);
 		// the sealed vault and a weapon rack beside the throne
-		c.sealedVault(VAULT.getX(), VAULT.getY(), VAULT.getZ(), Direction.NORTH);
+		c.container(5, 3, 19, Blocks.BARREL.defaultBlockState(), HideoutCanvas.table("chests/vault_tier2"));
 		c.fill(-5, 3, 19, -5, 4, 19, Blocks.SPRUCE_FENCE.defaultBlockState());
 		c.set(-6, 3, 19, Blocks.ANVIL);
 		for (int x : new int[] { -7, 7 }) {
@@ -222,11 +306,51 @@ public final class FrostHallBuilder extends HideoutBuilder {
 
 		// ------------------------------------------------ the household
 		c.guard(HOUND, -3, 1, -8, Direction.NORTH, 6);
-		c.guard(HOUND, 3, 1, -6, Direction.NORTH, 6);
+		c.guard(HOUND, 3, 1, -6, Direction.NORTH, 6, GuardRole.RUNNER);
 		c.guard(HOUND, -3, 1, -2, Direction.NORTH, 6);
-		c.guard(RAIDER, -7, 1, -3, Direction.EAST, 5);
+		c.guard(RAIDER, -7, 1, -3, Direction.EAST, 5, GuardRole.SHIELD);
 		c.guard(RAIDER, 7, 1, 3, Direction.WEST, 5);
-		c.guard(SHAMAN, -4, 3, 17, Direction.NORTH, 3);
-		c.boss(HideoutEntityTypes.FROST_GIANT_JARL, 0, 1, 9, Direction.NORTH, c.corePos(CORE.getX(), CORE.getY(), CORE.getZ()));
+		c.guard(SHAMAN, 4, 3, 17, Direction.NORTH, 3, GuardRole.SNIPER);
+		c.guard(SHAMAN, 5, 1, -14, Direction.NORTH, 4, GuardRole.MEDIC);
+		c.guard(RAIDER, 0, 1, 9, Direction.NORTH, 6);
+		// v0.17.7 outer defences: the ward stone (Alarm Panel #1) in the vestibule, braziers that light on Alert
+		CrawlWing.panel(c, THEME, -9, 1, -17, Direction.EAST);
+		for (int[] p : new int[][] { { -9, -10 }, { 9, -10 }, { -9, 5 }, { 9, 5 } }) {
+			CrawlWing.lampAt(c, THEME, p[0], 1, p[1]);
+		}
+		c.spawnPoint(-4, 1, -12);
+		c.spawnPoint(4, 1, -12);
+		c.spawnPoint(0, 1, 8);
+		watchtower(c, post, plank);
+
+		// ------------------------------------------------ v0.17.7: the Jarl's Barrow and its stairwell
+		CrawlWing.build(c, THEME, AX, AY, AZ);
+		CrawlWing.stairwell(c, THEME, AX, AY, AZ, YTOP);
+	}
+
+	/** v0.17.7: a log watchtower west of the hall (x -16..-13, z -19..-16) with a Shaman sniper on its platform. */
+	private void watchtower(HideoutCanvas c, BlockState post, BlockState plank) {
+		for (int x = -16; x <= -13; x++) {
+			for (int z = -19; z <= -16; z++) {
+				c.footing(x, -1, z, 10, Blocks.STONE_BRICKS.defaultBlockState());
+				c.set(x, 0, z, Blocks.SNOW_BLOCK);
+				c.air(x, 1, z, x, 14, z);
+			}
+		}
+		for (int[] l : new int[][] { { -16, -19 }, { -13, -19 }, { -16, -16 }, { -13, -16 } }) {
+			c.fill(l[0], 1, l[1], l[0], 10, l[1], post);
+		}
+		c.fill(-16, 8, -19, -13, 8, -16, plank);
+		for (int x = -16; x <= -13; x++) {
+			c.set(x, 9, -19, Blocks.SPRUCE_FENCE.defaultBlockState());
+			c.set(x, 9, -16, Blocks.SPRUCE_FENCE.defaultBlockState());
+		}
+		c.fill(-16, 11, -19, -13, 11, -16, Blocks.DARK_OAK_SLAB.defaultBlockState());
+		for (int y = 1; y <= 8; y++) {
+			c.set(-14, y, -15, Blocks.LADDER.defaultBlockState().setValue(net.minecraft.world.level.block.LadderBlock.FACING, Direction.SOUTH));
+		}
+		c.fill(-14, 1, -16, -14, 7, -16, plank);
+		CrawlWing.lampAt(c, THEME, -15, 9, -17);
+		c.guard(SHAMAN, -14, 9, -18, Direction.NORTH, 1, GuardRole.SNIPER);
 	}
 }

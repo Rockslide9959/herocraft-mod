@@ -320,6 +320,9 @@ public abstract class FrostGiantEntity extends Monster implements GeoEntity {
 		}
 		retargetTimer = 10;
 		Player fighter = FrostCombat.nearestPlayer(level, position(), 64);
+		if (com.projecthero.mod.alarm.AlarmGuards.unalerted(this)) {
+			fighter = null; // v0.17.7: an unalerted hideout guard only fights once it has seen you (the alarm zone decides)
+		}
 		LivingEntity pick = fighter;
 		if (huntsBraziers()) {
 			double ignore = brazierIgnoreRange();

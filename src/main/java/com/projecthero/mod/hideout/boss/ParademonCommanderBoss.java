@@ -52,6 +52,8 @@ public class ParademonCommanderBoss extends ParademonEntity implements HideoutBo
 	static final double DIVE_RADIUS = 4.5;
 
 	private final HideoutBossLink link = new HideoutBossLink(this, HideoutFaction.APOKOLIPS, BossEvent.BossBarColor.RED, this::busy);
+	/** v0.17.7: the second phase (see HideoutPhase). */
+	final HideoutPhase phase = new HideoutPhase(this, HideoutFaction.APOKOLIPS, HideoutPhase.Kind.FIREBOMB_RUN, 0.5f, 170);
 	private byte move = MOVE_NONE;
 	private int moveTicks;
 	private int fanCooldown = 50;
@@ -90,6 +92,11 @@ public class ParademonCommanderBoss extends ParademonEntity implements HideoutBo
 		return link;
 	}
 
+	/** v0.17.7: the second phase (test hook). */
+	public HideoutPhase phase() {
+		return phase;
+	}
+
 	boolean busy() {
 		return move != MOVE_NONE;
 	}
@@ -110,6 +117,7 @@ public class ParademonCommanderBoss extends ParademonEntity implements HideoutBo
 		boolean hurt = super.hurt(source, amount);
 		if (hurt && !level().isClientSide()) {
 			link.onHurt(source, amount);
+			phase.hurtCheck((ServerLevel) level());
 		}
 		return hurt;
 	}
@@ -121,6 +129,7 @@ public class ParademonCommanderBoss extends ParademonEntity implements HideoutBo
 			return;
 		}
 		link.tick(server);
+		phase.tick(server, busy());
 		if (fanCooldown > 0) {
 			fanCooldown--;
 		}
@@ -319,11 +328,13 @@ public class ParademonCommanderBoss extends ParademonEntity implements HideoutBo
 	public void addAdditionalSaveData(CompoundTag tag) {
 		super.addAdditionalSaveData(tag);
 		link.save(tag);
+		phase.save(tag);
 	}
 
 	@Override
 	public void readAdditionalSaveData(CompoundTag tag) {
 		super.readAdditionalSaveData(tag);
 		link.load(tag);
+		phase.load(tag);
 	}
 }

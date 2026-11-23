@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "lit=false,style=tech": {
+      "model": "projecthero:block/alarm_lamp_tech"
+    },
+    "lit=true,style=tech": {
+      "model": "projecthero:block/alarm_lamp_tech_lit"
+    },
+    "lit=false,style=ancient": {
+      "model": "projecthero:block/alarm_lamp_ancient"
+    },
+    "lit=true,style=ancient": {
+      "model": "projecthero:block/alarm_lamp_ancient_lit"
+    }
+  }
+}

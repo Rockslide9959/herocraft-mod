@@ -1,9 +1,42 @@
-# Villain Hideouts (v0.17.5, Tier 3) — reference
+# Villain Hideouts (v0.17.5, rebuilt v0.17.7, Tier 3) — reference
 
 Design: `docs/STRUCTURES_PROGRESSION_DESIGN.md` §2. Loot hooks: `docs/LOOT_PROGRESSION_REFERENCE.md`.
 Code: `com.projecthero.mod.hideout` (server/common), `com.projecthero.mod.client.hideout` (client).
 Tests: `VillainHideoutGameTests`. Assets: `node scratchpad/gen_hideouts_v0175.js`; lang: `node scratchpad/lang_hideouts_v0175.js`
 (adds keys one by one).
+
+## v0.17.7: the 10-15 minute crawl
+
+Every hideout keeps its v0.17.5 layout as the **outer level** and gains, below it, the shared **crawl wing**
+(`CrawlWing`, themed by a per-faction `CrawlTheme`: palette, guard kinds, vent kind, tech or not, alarm block style,
+decoration hooks). Structure ids, biomes, spacing, locator tags, artifacts, clearing and the raid calm are unchanged.
+Every hideout is an alarm zone (profile `hideout/<faction>`, tier 3, `HideoutAlarmProfiles`; see
+`docs/ALARM_REFERENCE.md`). `HideoutPiece.buildAll` registers the zone by hand (worldgen zones come from the start).
+
+- **Outer defences** (added to each old layout): Alarm Panel #1 with an Alarm Runner nearby, a Sniper perch, a Medic and a
+  Shield-bearer among the old guards, cameras (tech factions), Alarm Lamps, spawn points. Kingpin: a fenced back lot
+  (guard booth with the panel, a water-tower sniper, a truck, floodlights). Ultron: panel in the entrance hall, a roof
+  turret nest. Apokolips: panel inside the gate, two perch snipers, cameras on the tower. Symbiote: an overgrown console
+  in the great chamber, a sniper on a biomass column. Frost: a rune-stone ward (ancient panel) in the vestibule, brazier
+  lamps, a log watchtower west of the hall.
+- **Stairwell** from the old final room (Kingpin's counting room, Ultron's control room, Apokolips's gate floor,
+  Symbiote's den, the Frost dais beside the throne) down to the wing's anchor.
+- **Wing** (local to the anchor, toward +z): checkpoint (panel #2, camera, Shield-bearer) -> trap gauntlet (laser
+  tripwires knee / head high for tech factions, string tripwires on the faction alarm for Symbiote / Frost; vents; an
+  arrow crossfire; an end camera) -> Captain's quarters (Captain + keycard, Medic, Runner, Sniper on a mezzanine, a Tier 2
+  barrel) -> **keycard Blast Door** -> arena (floor 2 lower, 21 x 21, pillars, panel #3, four spawn points, two elites, the
+  mini-boss) -> vault room (sealed core + sealed vault, 4 apart).
+
+| Hideout | Wing | Anchor (ax, ay, az) | Stairwell from (floor y), z | New bounds x / y / z |
+|---|---|---|---|---|
+| Kingpin's Front | the fight club | (6, -20, 25) | counting room (-8), 13 | -12..17 / -23..13 / -16..92 |
+| Ultron Forge | the Deep Forge | (4, -16, 25) | control room (0), 9 | -15..15 / -19..14 / -28..92 |
+| Apokolips Outpost | the Fire Pits | (0, -18, 15) | tower gate floor (-4), 1 | -22..22 / -21..28 / -22..82 |
+| Symbiote Hive | the Brood Lab | (0, -37, 32) | the den (-29), 24 | -16..31 / -40..3 / -16..99 |
+| Frost Giant Hall | the Jarl's Barrow (ancient style) | (-5, -16, 32) | the dais (2), 14 | -16..12 / -19..17 / -23..99 |
+
+Core = `CrawlWing.core(ax, ay, az)` = (ax, ay - 1, az + 62); vault = (ax, ay - 1, az + 66); boss at (ax, ay - 1, az + 49).
+Gametests build hideouts 60 blocks above the test (the Symbiote wing reaches 40 down).
 
 ## The five hideouts
 
@@ -68,6 +101,20 @@ core position (saved as `HideoutCore`), a boss bar shown to players within 40 bl
 | Parademon Commander | `ParademonEntity` (Elite), x1.5, `parademon_commander.png` (crimson recolour of the Elite) | 380 / 12 | claws + flight (inherited), Bolt Fan (5 bolts x 6), Dive Strike (climb, 0.6 s flame-ring mark, plunge: 12 + fire + throw in 4.5), Boom Tube Reinforcements (2, max 3 near) |
 | Hive Mother | `Monster`, x1.8, Carnage's player model, `hideout/hive_mother.png` (black recolour of `carnage`) | 400 / 8 | claws (+Wither), Tendril Lash (up to 3 in sight within 12: 7 + drag), Spike Volley (6 black spikes x 5), Brood (2 infested spiders, max 4); fire x1.5 |
 | Frost Giant Jarl | `FrostGiantWarlordEntity`, 1.6 x 6.5 box (model fitted by `FrostModelFit`) | 650 / 12 | Cleave, Sword Plant, Rally, kneel at 30% (all inherited); ignores braziers; the Warlord's own threat table is shared with the link |
+
+**v0.17.7 second phase** (`HideoutPhase`, saved as `Phase2`): once below half health (the Enforcer 45%) -- an announcement,
+the boss bar turns red ("(enraged)"), +20% speed, and a telegraphed attack (particle rings mark each spot first). The
+shared threat table is untouched.
+
+| Boss | Phase | New attack | Cooldown |
+|---|---|---|---|
+| Kingpin's Enforcer | Untouchable (Resistance I) | **Bull Rush**: three charges, 0.5 s wind-up each, 10 + throw per hit, stops on walls | 10-13 s |
+| Forge Overseer | Overclock | **Plasma Mines**: 5 round the target, 1.5 s, radius 2.2, 9 + Slowness II | 8 s |
+| Parademon Commander | Air Raid | **Firebomb Run**: 6 marks in a line through the target ignite one by one, 9 + 4 s fire | 8.5 s |
+| Hive Mother | Frenzy (+2 infested spiders) | **Biomass Eruption**: under each player within 16 (max 4), 1.25 s, 10 + launch + Wither | 7.5 s |
+| Frost Giant Jarl | Winter's Wrath | **Ice Spike line** marching to the target (10 spots), 10 + freeze + Slowness II; blizzard aura (Slowness I + frost within 12 every 2 s) | 7 s |
+
+Test hooks: `phase().enter(level)`, `phase().startAttack(level)`, `KingpinEnforcerBoss.startRush()`.
 
 Drops (`loot_table/entities/<id>.json`): 3-5 Vibranium Shards, 4-8 XP bottles, a 25% tier 4 Locator (epic), plus faction
 valuables. Test hooks: `startStomp/startCombo`, `startBeam/startDeploy`, `startFan/startDive/startTube`, `start(action)`.

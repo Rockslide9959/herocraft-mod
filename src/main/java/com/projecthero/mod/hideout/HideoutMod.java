@@ -22,5 +22,6 @@ public final class HideoutMod {
 		HideoutEntityTypes.initialize();
 		HideoutWorldgen.initialize();
 		NearHideoutCondition.initialize();
+		HideoutAlarmProfiles.register(); // v0.17.7: each hideout is an alarm zone
 	}
 }

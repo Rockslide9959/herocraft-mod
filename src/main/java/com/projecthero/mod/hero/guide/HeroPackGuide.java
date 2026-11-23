@@ -927,6 +927,7 @@ public final class HeroPackGuide {
 
 		out.add(chapter("projecthero.guide.structures", lines -> {
 			para(lines, "projecthero.guide.structures.body");
+			para(lines, "projecthero.guide.structures.alarms"); // v0.17.7: guarded places run the alarm system (Loot & Progression)
 			blank(lines);
 			for (String s : new String[]{"research_facility", "meteor_impact", "power_station",
 					"geological_site", "government_site", "hydrostatic_facility", "gamma_lab", "temple_of_khonshu"}) {
@@ -2322,6 +2323,30 @@ public final class HeroPackGuide {
 			blank(lines);
 			head(lines, "projecthero.guide.loot.vaults");
 			para(lines, "projecthero.guide.loot.vaults.body");
+			// v0.17.7: the alarm & stealth system every guarded place runs (com.projecthero.mod.alarm)
+			blank(lines);
+			head(lines, "projecthero.guide.loot.alarms");
+			para(lines, "projecthero.guide.loot.alarms.body");
+			for (com.projecthero.mod.alarm.AlarmState st : com.projecthero.mod.alarm.AlarmState.values()) {
+				lines.add(Component.literal(" • ").withStyle(ChatFormatting.RED)
+						.append(Component.translatable("projecthero.guide.loot.alarm_state." + st.name().toLowerCase(java.util.Locale.ROOT)).withStyle(ChatFormatting.GRAY)));
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.loot.alarm_blocks");
+			for (String b : new String[] { "alarm_panel", "alarm_lamp", "blast_door", "security_camera", "laser_tripwire", "keycard" }) {
+				lines.add(Component.literal(" • ").withStyle(ChatFormatting.RED)
+						.append(Component.translatable("projecthero.guide.loot.alarm_block." + b).withStyle(ChatFormatting.GRAY)));
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.loot.roles");
+			para(lines, "projecthero.guide.loot.roles.body");
+			for (com.projecthero.mod.alarm.GuardRole r : com.projecthero.mod.alarm.GuardRole.values()) {
+				lines.add(Component.literal(" • ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.guide.loot.role." + r.name().toLowerCase(java.util.Locale.ROOT)).withStyle(ChatFormatting.GRAY)));
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.loot.ghost");
+			para(lines, "projecthero.guide.loot.ghost.body");
 			blank(lines);
 			head(lines, "projecthero.guide.loot.materials");
 			para(lines, "projecthero.guide.loot.materials.body");
@@ -2355,6 +2380,10 @@ public final class HeroPackGuide {
 						.withStyle(s -> s.withColor(f.colour()).withBold(true)));
 				para(lines, "projecthero.guide.hideouts.h." + f.getSerializedName() + ".body");
 			}
+			// v0.17.7: the 10-15 minute crawl every hideout became
+			blank(lines);
+			head(lines, "projecthero.guide.hideouts.crawl");
+			para(lines, "projecthero.guide.hideouts.crawl.body");
 			blank(lines);
 			head(lines, "projecthero.guide.hideouts.clearing");
 			para(lines, "projecthero.guide.hideouts.clearing.body");

@@ -111,7 +111,13 @@ public final class HideoutCanvas {
 	// ---------------------------------------------------------------- blocks
 
 	public BlockState get(int x, int y, int z) {
-		return level.getBlockState(at(x, y, z));
+		BlockPos p = at(x, y, z);
+		if (clip != null && !clip.isInside(p)) {
+			// v0.17.7: never read outside the chunk being generated (a WorldGenRegion throws for far chunks); a write
+			// there would be clipped anyway, so "air" is the safe answer
+			return Blocks.AIR.defaultBlockState();
+		}
+		return level.getBlockState(p);
 	}
 
 	/** Sets a block (local state, rotated into the world) if it falls in this chunk. */
@@ -279,6 +285,52 @@ public final class HideoutCanvas {
 			d.setItem(0, new ItemStack(Items.ARROW, 32));
 			d.setItem(4, new ItemStack(Items.ARROW, 32));
 		}
+	}
+
+	// ---------------------------------------------------------------- v0.17.7 alarm blocks
+
+	/** An Alarm Panel whose screen faces local {@code facing}. */
+	public void alarmPanel(int x, int y, int z, Direction facing) {
+		set(x, y, z, com.projecthero.mod.alarm.block.AlarmBlocks.PANEL.defaultBlockState()
+				.setValue(com.projecthero.mod.alarm.block.AlarmPanelBlock.FACING, facing));
+	}
+
+	/** An Alarm Lamp (dark until the zone goes Alert). */
+	public void alarmLamp(int x, int y, int z) {
+		set(x, y, z, com.projecthero.mod.alarm.block.AlarmBlocks.LAMP.defaultBlockState());
+	}
+
+	/** Fills the local box with Blast Door panels; {@code locked} = needs the keycard. */
+	public void blastDoor(int x0, int y0, int z0, int x1, int y1, int z1, boolean locked) {
+		fill(x0, y0, z0, x1, y1, z1, com.projecthero.mod.alarm.block.AlarmBlocks.BLAST_DOOR.defaultBlockState()
+				.setValue(com.projecthero.mod.alarm.block.BlastDoorBlock.LOCKED, locked)
+				.setValue(com.projecthero.mod.alarm.block.BlastDoorBlock.OPEN, !locked));
+	}
+
+	/** A Security Camera on a wall, looking out along local {@code facing}. */
+	public void camera(int x, int y, int z, Direction facing) {
+		set(x, y, z, com.projecthero.mod.alarm.block.AlarmBlocks.CAMERA.defaultBlockState()
+				.setValue(com.projecthero.mod.alarm.block.SecurityCameraBlock.FACING, facing));
+	}
+
+	/** A Laser Tripwire emitter whose beam runs along local {@code facing}. */
+	public void laser(int x, int y, int z, Direction facing) {
+		set(x, y, z, com.projecthero.mod.alarm.block.AlarmBlocks.LASER.defaultBlockState()
+				.setValue(com.projecthero.mod.alarm.block.LaserTripwireBlock.FACING, facing));
+	}
+
+	/** An invisible reinforcement spawn point (feet position). */
+	public void spawnPoint(int x, int y, int z) {
+		set(x, y, z, com.projecthero.mod.alarm.block.AlarmBlocks.SPAWN_POINT);
+	}
+
+	/** A guard with an alarm {@code role} (Captain, Runner, Medic, Shield-bearer, Sniper). */
+	public Mob guard(HideoutGuards.Role kind, int x, int y, int z, Direction facing, int leash, com.projecthero.mod.alarm.GuardRole role) {
+		BlockPos p = at(x, y, z);
+		if (!clip.isInside(p)) {
+			return null;
+		}
+		return HideoutGuards.spawn(level, kind, p, yaw(facing), leash, role);
 	}
 
 	// ---------------------------------------------------------------- mobs

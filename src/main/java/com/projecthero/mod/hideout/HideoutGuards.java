@@ -90,6 +90,14 @@ public final class HideoutGuards {
 	 * {@code leash} blocks of its post. Returns the mob (already added to the level), or null.
 	 */
 	public static Mob spawn(ServerLevelAccessor level, Role role, BlockPos pos, float yaw, int leash) {
+		return spawn(level, role, pos, yaw, leash, null);
+	}
+
+	/**
+	 * As {@link #spawn(ServerLevelAccessor, Role, BlockPos, float, int)} with a v0.17.7 alarm role, applied before the mob
+	 * joins the level (worldgen saves an added mob straight into the chunk, so later changes would be lost).
+	 */
+	public static Mob spawn(ServerLevelAccessor level, Role role, BlockPos pos, float yaw, int leash, com.projecthero.mod.alarm.GuardRole alarmRole) {
 		Mob mob = typeOf(role).create(level.getLevel());
 		if (mob == null) {
 			return null;
@@ -114,6 +122,9 @@ public final class HideoutGuards {
 		mob.addTag(TAG);
 		if (leash > 0) {
 			mob.restrictTo(pos, leash);
+		}
+		if (alarmRole != null) {
+			com.projecthero.mod.alarm.AlarmGuards.setRole(mob, alarmRole);
 		}
 		level.addFreshEntityWithPassengers(mob);
 		return mob;

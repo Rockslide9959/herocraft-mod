@@ -47,7 +47,13 @@ public class HideoutAlarmBlock extends Block {
 		super.neighborChanged(state, level, pos, neighbor, fromPos, moving);
 		if (level instanceof ServerLevel server && !state.getValue(SPENT) && level.hasNeighborSignal(pos)) {
 			level.setBlock(pos, state.setValue(SPENT, true), 3);
-			HideoutAlarms.trigger(server, pos, state.getValue(FACTION));
+			// v0.17.7: inside an alarm zone the tripwire is a sensor -- it raises the zone (waves replace the old squad)
+			net.minecraft.world.entity.player.Player culprit = server.getNearestPlayer(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 12, false);
+			if (com.projecthero.mod.alarm.AlarmZones.find(server, pos) == null) {
+				HideoutAlarms.trigger(server, pos, state.getValue(FACTION));
+			} else {
+				com.projecthero.mod.alarm.AlarmDirector.raise(server, pos, com.projecthero.mod.alarm.AlarmDirector.Cause.SENSOR, culprit);
+			}
 		}
 	}
 
