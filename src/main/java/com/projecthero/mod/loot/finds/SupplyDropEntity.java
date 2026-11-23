@@ -184,7 +184,9 @@ public class SupplyDropEntity extends Entity implements com.projecthero.mod.enti
 
 	private void decoAt(ServerLevel level, BlockPos p, BlockState state) {
 		BlockState there = level.getBlockState(p);
-		if (!there.isAir() || !level.getBlockState(p.below()).isFaceSturdy(level, p.below(), Direction.UP)) {
+		// air or a plant (grass, flowers) is fine; never a block, never water
+		if (!(there.isAir() || there.canBeReplaced() && level.getFluidState(p).isEmpty() && !there.hasBlockEntity())
+				|| !level.getBlockState(p.below()).isFaceSturdy(level, p.below(), Direction.UP)) {
 			return;
 		}
 		level.setBlock(p, state, 3);

@@ -168,7 +168,10 @@ public class RuinedHeroBasePiece extends FindPiece {
 		if (layout == 2) {
 			clear(level, box, 1, 0, g + 1, g + 2);
 		} else {
-			clear(level, box, 3, -2, g + 1, g + 2);
+			// a clear way from the room to the vault (rubble from the roof never blocks it)
+			for (int dz = -2; dz <= 0; dz++) {
+				clear(level, box, 3, dz, g + 1, g + 2);
+			}
 		}
 		lootContainer(level, box, layout == 2 ? -2 : 4, g + 1, layout == 2 ? 2 : 0,
 				facing(layout == 2 ? Blocks.CHEST : Blocks.BARREL, layout == 2 ? Direction.EAST : Direction.WEST), LOCKER);
@@ -280,13 +283,46 @@ public class RuinedHeroBasePiece extends FindPiece {
 		put(level, box, -3, top + 1, -2, Blocks.DAYLIGHT_DETECTOR.defaultBlockState());
 		put(level, box, -3, top + 1, -1, Blocks.LIGHTNING_ROD.defaultBlockState());
 		interior(level, box, rx, rz);
+		// the facade: pilasters standing proud of the walls, a cornice of stairs, scorch marks and a blast hole
+		for (int px : new int[] { -rx, -2, 2, rx }) {
+			for (int y = 1; y <= 4; y++) {
+				put(level, box, px, g + y, rz + 1, y == 4 ? Blocks.POLISHED_ANDESITE.defaultBlockState() : Blocks.ANDESITE_WALL.defaultBlockState());
+			}
+			put(level, box, px, g + 5, rz + 1, stair(Blocks.ANDESITE_STAIRS, Direction.NORTH, true));
+		}
+		for (int dx = -rx + 1; dx <= rx - 1; dx++) {
+			if (Math.abs(dx) != 2) {
+				put(level, box, dx, g + 5, rz + 1, stair(Blocks.STONE_BRICK_STAIRS, Direction.NORTH, true));
+			}
+		}
+		for (int dz = -rz + 1; dz <= rz - 1; dz += 2) {
+			put(level, box, -rx - 1, g + 5, dz, stair(Blocks.STONE_BRICK_STAIRS, Direction.EAST, true));
+		}
+		put(level, box, -1, g + 3, rz, Blocks.BLACK_CONCRETE.defaultBlockState());
+		put(level, box, -2, g + 2, rz, Blocks.GRAY_CONCRETE.defaultBlockState());
+		put(level, box, rx, g + 2, 1, Blocks.AIR.defaultBlockState());
+		put(level, box, rx, g + 3, 1, Blocks.AIR.defaultBlockState());
+		put(level, box, rx, g + 2, 0, Blocks.BLACK_CONCRETE.defaultBlockState());
+		putSoft(level, box, rx + 1, g + 1, 1, Blocks.COBBLESTONE_SLAB.defaultBlockState());
+		putSoft(level, box, rx + 2, g + 1, 2, Blocks.LIGHT_GRAY_CONCRETE.defaultBlockState());
+		putSoft(level, box, rx + 1, g + 1, -1, Blocks.GRAVEL.defaultBlockState());
+		// a chain-link fence (iron bars) round a yard on the west, a crate stack, an old rain barrel
+		for (int dz = -2; dz <= 3; dz++) {
+			if (lnoise(-7, dz, 69) < 0.75) {
+				putSoft(level, box, -7, g + 1, dz, Blocks.IRON_BARS.defaultBlockState().setValue(IronBarsBlock.NORTH, true).setValue(IronBarsBlock.SOUTH, true));
+			}
+		}
+		putSoft(level, box, -6, g + 1, 2, Blocks.BARREL.defaultBlockState());
+		putSoft(level, box, -6, g + 1, 3, Blocks.SPRUCE_PLANKS.defaultBlockState());
+		putSoft(level, box, -6, g + 2, 3, Blocks.SPRUCE_TRAPDOOR.defaultBlockState());
+		putSoft(level, box, -6, g + 1, -2, Blocks.CAULDRON.defaultBlockState());
 		// outside: a cracked path to the door, a dead lamppost
 		for (int dz = rz + 1; dz <= HALF - 1; dz++) {
 			put(level, box, 0, g, dz, lnoise(0, dz, 68) < 0.35 ? Blocks.CRACKED_STONE_BRICKS.defaultBlockState() : Blocks.SMOOTH_STONE.defaultBlockState());
 		}
-		put(level, box, 2, g + 1, rz + 2, Blocks.ANDESITE_WALL.defaultBlockState());
-		put(level, box, 2, g + 2, rz + 2, Blocks.IRON_BARS.defaultBlockState());
-		put(level, box, 2, g + 3, rz + 2, Blocks.REDSTONE_LAMP.defaultBlockState());
+		put(level, box, 4, g + 1, rz + 2, Blocks.ANDESITE_WALL.defaultBlockState());
+		put(level, box, 4, g + 2, rz + 2, Blocks.IRON_BARS.defaultBlockState());
+		put(level, box, 4, g + 3, rz + 2, Blocks.REDSTONE_LAMP.defaultBlockState());
 	}
 
 	// ---------------------------------------------------------------- layout 1: brick warehouse lair

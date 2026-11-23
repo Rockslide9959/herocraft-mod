@@ -167,6 +167,9 @@ Code: `com.projecthero.mod.loot.finds` (`FindsMod` registers its own structure t
 game rules and the command; hooked from `LootMod.initialize`), client `client.loot.finds` (from `LootClient`).
 Tests: `TierOneFindsGameTests`. Lang: `scratchpad/lang_finds_v0175.js`.
 
+v0.17.7: each find has 2-3 **layouts** now (plus a decoration pass, and the Supply Drop is dressed on landing), and five
+more small places use the same machinery (plus the Rooftop Stash in Cities): see `docs/WORLD_PLACES_REFERENCE.md`.
+
 | Id | Look | Biomes (tag) | Placement |
 |---|---|---|---|
 | `crashed_drone` | scorched crater (r ~5, 2 deep) + wrecked copper/iron quad-rotor; vault in the open cargo bay; campfire "engine" smokes; variants: both rotors / right or left rotor thrown onto the rim | `finds_land_biomes` | spacing 12, separation 4, not within 2 chunks of a village |

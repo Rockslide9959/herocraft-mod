@@ -86,8 +86,8 @@ public class FindStructure extends Structure {
 
 	/**
 	 * v0.17.7 Smugglers' Den: only at the foot of a cliff. The four directions are tried in a seed order; one is taken when
-	 * the ground rises at least 4 blocks within 5 blocks that way and stays at least 5 up over the whole room behind it,
-	 * while the ground in front is flat and dry. Local north of the piece then points into the cliff.
+	 * the ground rises at least 3 blocks within 5 blocks that way and stays 4-5 up over the room behind it (3 at its
+	 * sides), while the ground in front is within 3 of the entrance and dry. Local north of the piece then points into the cliff.
 	 */
 	private Optional<GenerationStub> denPoint(GenerationContext context, int x, int surface, int z) {
 		if (surface != height(context, x, z, Heightmap.Types.OCEAN_FLOOR_WG) || surface <= context.chunkGenerator().getSeaLevel() - 2) {
@@ -102,8 +102,8 @@ public class FindStructure extends Structure {
 			java.util.function.BiFunction<Integer, Integer, Integer> hAt = (lx, lz) -> height(context, x + (-uz) * lx + ux * -lz,
 					z + ux * lx + uz * -lz, Heightmap.Types.OCEAN_FLOOR_WG);
 			int front = hAt.apply(0, 3);
-			if (Math.abs(front - surface) > 2 || hAt.apply(0, -5) < surface + 4 || hAt.apply(0, -8) < surface + 5 || hAt.apply(0, -11) < surface + 5
-					|| hAt.apply(-4, -8) < surface + 4 || hAt.apply(4, -8) < surface + 4) {
+			if (Math.abs(front - surface) > 3 || hAt.apply(0, -5) < surface + 3 || hAt.apply(0, -8) < surface + 5 || hAt.apply(0, -11) < surface + 4
+					|| hAt.apply(-4, -8) < surface + 3 || hAt.apply(4, -8) < surface + 3) {
 				continue;
 			}
 			int fx = x + (-uz) * 0 + ux * -3, fz = z + ux * 0 + uz * -3;

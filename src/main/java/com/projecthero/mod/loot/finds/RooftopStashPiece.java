@@ -32,9 +32,11 @@ import net.minecraft.world.level.storage.loot.LootTable;
 /**
  * v0.17.7 Rooftop Vigilante Stash: a street-level hero's hidey-hole on a City roof. Only ever generated as part of a City
  * ({@link #addTo}, called by {@code CityStructure} after the jigsaw has laid the town out): one or two flat-roofed
- * buildings get one. The piece sits on the roof it finds when it builds (it scans down its own columns from the top of
- * the building's box), and only ever writes into air above that roof, so the City's repair blueprint never sees it.
- * The whole footprint is kept inside one chunk, so the building under it is always placed first.
+ * buildings get one. The piece covers one chunk of the building ({@link #forBuilding}), so the building under it is
+ * always placed first; when it builds it searches that chunk for a flat patch of roof (at least {@link #MIN_FLAT} of the
+ * 49 columns of a 7 x 7 patch at the same top height, well above the building's foot, the highest such patch) and puts the stash
+ * there -- a building box also holds yards and gardens, which must never get it. It only ever writes into air above
+ * the roof, so the City's repair blueprint never sees it. No flat patch: no stash.
  *
  * <p>Layouts: 0 a tarp lean-to with a bedroll, 1 a radio post (dish, antenna, a desk with a laptop), 2 a little plank
  * shack with a door. Each holds a Tier 1 Hero Vault and the vigilante's barrel ({@code chests/finds/rooftop_stash}).
@@ -42,33 +44,64 @@ import net.minecraft.world.level.storage.loot.LootTable;
  */
 public class RooftopStashPiece extends FindPiece {
 	static final int HALF = 3;
+	/** The piece box: one chunk (centred on the chunk middle, +-7). */
+	static final int BOX_HALF = 7;
+	/** How many of the 49 footprint columns must share the roof height. */
+	public static final int MIN_FLAT = 30;
 	public static final ResourceKey<LootTable> STASH = ResourceKey.create(Registries.LOOT_TABLE, ProjectHeroMod.id("chests/finds/rooftop_stash"));
 	/** Building templates with flat, walkable roofs (substrings of the City template ids). */
-	public static final String[] ROOFS = { "building/apartment_tower", "building/brownstone_walkup", "building/maintenance_depot",
-			"building/warehouse_docks", "building/fire_station", "building/police_precinct", "building/hospital", "building/daily_bulletin",
-			"building/townhouse_row" };
+	public static final String[] ROOFS = { "building/apartment_tower", "building/brownstone_walkup", "building/fire_station",
+			"building/police_precinct", "building/hospital", "building/daily_bulletin" };
 
-	/** The roof's top block, found on the first build (the box top is the building's). -1 = not yet. */
+	/** The roof's top block, found on the first build. -1 = not searched yet, -2 = no flat roof here. */
 	private int roofY = -1;
+	/** The footprint centre's offset from the piece centre, chosen by the roof search. */
+	private int ox, oz;
+	/** The building's area (world x0, z0, x1, z1) the search stays inside. */
+	private final int[] area;
 
+	/** A stash piece over the chunk of {@code area} whose middle is (centerX, centerZ); topY / minY: the building's box. */
+	public RooftopStashPiece(int centerX, int topY, int centerZ, int minY, int[] area) {
+		super(FindsMod.ROOFTOP_STASH_PIECE, centerX, topY, centerZ, BOX_HALF, topY - minY, 6, 3, 3);
+		this.area = area.clone();
+	}
+
+	/** Tests: a piece whose search area is its whole box. */
 	public RooftopStashPiece(int centerX, int topY, int centerZ, int minY) {
-		super(FindsMod.ROOFTOP_STASH_PIECE, centerX, topY, centerZ, HALF, topY - minY, 6, 3, 3);
+		this(centerX, topY, centerZ, minY, new int[] { centerX - BOX_HALF, centerZ - BOX_HALF, centerX + BOX_HALF, centerZ + BOX_HALF });
 	}
 
 	public RooftopStashPiece(StructurePieceSerializationContext context, CompoundTag tag) {
 		super(FindsMod.ROOFTOP_STASH_PIECE, tag);
 		this.roofY = tag.contains("RoofY") ? tag.getInt("RoofY") : -1;
+		this.ox = tag.getInt("OffX");
+		this.oz = tag.getInt("OffZ");
+		int[] a = tag.getIntArray("Area");
+		this.area = a.length == 4 ? a : new int[] { cx - BOX_HALF, cz - BOX_HALF, cx + BOX_HALF, cz + BOX_HALF };
 	}
 
 	@Override
 	protected void addAdditionalSaveData(StructurePieceSerializationContext context, CompoundTag tag) {
 		super.addAdditionalSaveData(context, tag);
 		tag.putInt("RoofY", roofY);
+		tag.putInt("OffX", ox);
+		tag.putInt("OffZ", oz);
+		tag.putIntArray("Area", area);
+	}
+
+	@Override
+	protected int wx(int dx, int dz) {
+		return super.wx(dx, dz) + ox;
+	}
+
+	@Override
+	protected int wz(int dx, int dz) {
+		return super.wz(dx, dz) + oz;
 	}
 
 	/**
 	 * Adds stashes to a freshly assembled City: up to two of its flat-roofed buildings (chosen by the start's seed) get
-	 * one, kept 3 blocks in from the building's edges and wholly inside one chunk. Returns how many were added.
+	 * one. Returns how many were added.
 	 */
 	public static int addTo(StructurePiecesBuilder builder, long seed) {
 		List<BoundingBox> roofs = new ArrayList<>();
@@ -87,42 +120,41 @@ public class RooftopStashPiece extends FindPiece {
 		long h = seed;
 		for (int tries = 0; tries < 6 && added < 2 && !roofs.isEmpty(); tries++) {
 			h = h * 6364136223846793005L + 1442695040888963407L;
-			BoundingBox b = roofs.remove((int) Math.floorMod(h >>> 33, (long) roofs.size()));
-			int[] spot = spot(b);
-			if (spot == null) {
-				continue;
+			RooftopStashPiece piece = forBuilding(roofs.remove((int) Math.floorMod(h >>> 33, (long) roofs.size())));
+			if (piece != null) {
+				builder.addPiece(piece);
+				added++;
 			}
-			builder.addPiece(new RooftopStashPiece(spot[0], b.maxY(), spot[1], b.minY()));
-			added++;
 		}
 		return added;
 	}
 
-	/** A centre inside {@code b} (3 in from its edges) whose 7 x 7 footprint fits in one chunk, or null. */
-	static int[] spot(BoundingBox b) {
-		int x0 = b.minX() + 3 + HALF, x1 = b.maxX() - 3 - HALF, z0 = b.minZ() + 3 + HALF, z1 = b.maxZ() - 3 - HALF;
-		if (x0 > x1 || z0 > z1) {
-			return null;
-		}
-		int x = fit((x0 + x1) / 2, x0, x1);
-		int z = fit((z0 + z1) / 2, z0, z1);
-		return x == Integer.MIN_VALUE || z == Integer.MIN_VALUE ? null : new int[] { x, z };
-	}
-
-	/** The nearest value to {@code want} in [lo, hi] whose +-HALF stays in one chunk (chunk-local 3..12). */
-	private static int fit(int want, int lo, int hi) {
-		for (int d = 0; d <= 16; d++) {
-			for (int s : new int[] { want - d, want + d }) {
-				int local = Math.floorMod(s, 16);
-				if (s >= lo && s <= hi && local >= HALF && local <= 15 - HALF) {
-					return s;
+	/**
+	 * A stash piece over the chunk holding the most of building box {@code b} (2 in from its edges), or null if no chunk
+	 * holds a 7 x 7 patch of it.
+	 */
+	public static RooftopStashPiece forBuilding(BoundingBox b) {
+		int x0 = b.minX() + 2, z0 = b.minZ() + 2, x1 = b.maxX() - 2, z1 = b.maxZ() - 2;
+		int best = 0, bx = 0, bz = 0;
+		for (int chx = x0 >> 4; chx <= x1 >> 4; chx++) {
+			for (int chz = z0 >> 4; chz <= z1 >> 4; chz++) {
+				int ix0 = Math.max(x0, (chx << 4) + 1), ix1 = Math.min(x1, (chx << 4) + 15);
+				int iz0 = Math.max(z0, (chz << 4) + 1), iz1 = Math.min(z1, (chz << 4) + 15);
+				int w = ix1 - ix0 + 1, d = iz1 - iz0 + 1;
+				if (w >= 7 && d >= 7 && w * d > best) {
+					best = w * d;
+					bx = chx;
+					bz = chz;
 				}
 			}
 		}
-		return Integer.MIN_VALUE;
+		if (best == 0) {
+			return null;
+		}
+		return new RooftopStashPiece((bx << 4) + 8, b.maxY(), (bz << 4) + 8, b.minY(), new int[] { x0, z0, x1, z1 });
 	}
 
-	/** The roof level once built (or measured). */
+	/** The roof level once built (-1 not yet, -2 none found). */
 	public int roofY() {
 		return roofY;
 	}
@@ -168,25 +200,73 @@ public class RooftopStashPiece extends FindPiece {
 		}).defaultBlockState();
 	}
 
-	@Override
-	public void build(WorldGenLevel level, BoundingBox box) {
-		if (roofY < 0) {
-			// the most common top height over the footprint (a vent or a water tank under the centre must not lift us)
-			java.util.Map<Integer, Integer> counts = new java.util.HashMap<>();
-			int min = getBoundingBox().minY();
-			for (int dx = -HALF; dx <= HALF; dx++) {
-				for (int dz = -HALF; dz <= HALF; dz++) {
-					int top = topSolid(level, dx, dz, getBoundingBox().maxY() - 6, min);
-					if (top >= min) {
-						counts.merge(top, 1, Integer::sum);
+	/** The top solid block of a world column, scanning down from the building's top. */
+	private int columnTop(WorldGenLevel level, int x, int z) {
+		BoundingBox bb = getBoundingBox();
+		BlockPos.MutableBlockPos c = new BlockPos.MutableBlockPos(x, bb.maxY() - 6, z);
+		for (int y = bb.maxY() - 6; y >= bb.minY(); y--) {
+			c.setY(y);
+			BlockState s = level.getBlockState(c);
+			if (!s.isAir() && !s.canBeReplaced()) {
+				return y;
+			}
+		}
+		return bb.minY() - 1;
+	}
+
+	/** Finds the highest flat roof patch in the piece's chunk and the building's area; false if there is none. */
+	private boolean searchRoof(WorldGenLevel level) {
+		BoundingBox bb = getBoundingBox();
+		int x0 = Math.max(bb.minX(), area[0]), z0 = Math.max(bb.minZ(), area[1]);
+		int x1 = Math.min(bb.maxX(), area[2]), z1 = Math.min(bb.maxZ(), area[3]);
+		if (x1 - x0 < 6 || z1 - z0 < 6) {
+			return false;
+		}
+		int w = x1 - x0 + 1, d = z1 - z0 + 1;
+		int[][] tops = new int[w][d];
+		for (int i = 0; i < w; i++) {
+			for (int j = 0; j < d; j++) {
+				tops[i][j] = columnTop(level, x0 + i, z0 + j);
+			}
+		}
+		int floor = bb.minY() + 5;
+		int bestY = Integer.MIN_VALUE, bestN = 0, bestI = 0, bestJ = 0;
+		for (int i = HALF; i < w - HALF; i++) {
+			for (int j = HALF; j < d - HALF; j++) {
+				java.util.Map<Integer, Integer> counts = new java.util.HashMap<>();
+				for (int a = -HALF; a <= HALF; a++) {
+					for (int b = -HALF; b <= HALF; b++) {
+						counts.merge(tops[i + a][j + b], 1, Integer::sum);
+					}
+				}
+				for (var e : counts.entrySet()) {
+					int y = e.getKey(), n = e.getValue();
+					if (n >= MIN_FLAT && y >= floor && (y > bestY || y == bestY && n > bestN)) {
+						bestY = y;
+						bestN = n;
+						bestI = i;
+						bestJ = j;
 					}
 				}
 			}
-			if (counts.isEmpty()) {
-				return; // nothing under us (a broken template?): leave the roof alone
-			}
-			roofY = counts.entrySet().stream().max(java.util.Map.Entry.<Integer, Integer>comparingByValue()
-					.thenComparing(java.util.Map.Entry.comparingByKey())).get().getKey();
+		}
+		if (bestN == 0) {
+			return false;
+		}
+		roofY = bestY;
+		ox = x0 + bestI - cx;
+		oz = z0 + bestJ - cz;
+		return true;
+	}
+
+	@Override
+	public void build(WorldGenLevel level, BoundingBox box) {
+		if (roofY == -2) {
+			return;
+		}
+		if (roofY < 0 && !searchRoof(level)) {
+			roofY = -2; // no flat roof in this chunk of the building: no stash
+			return;
 		}
 		int r = roofY;
 		// only on columns that are flat with the centre, and only into air
@@ -230,6 +310,17 @@ public class RooftopStashPiece extends FindPiece {
 		roofPut(level, box, 2, r + 1, 1, Blocks.CHAIN.defaultBlockState().setValue(net.minecraft.world.level.block.ChainBlock.AXIS, Direction.Axis.X));
 		roofPut(level, box, 0, r + 1, 2, carpet());
 		roofPut(level, box, -1, r + 1, 2, carpet());
+		// the tarp's hanging sides, a crate stack with a spyglass-and-map table, a grapple line coiled by the edge
+		roofPut(level, box, -3, r + 2, -1, wool());
+		roofPut(level, box, -3, r + 1, -1, wool());
+		roofPut(level, box, 3, r + 2, -1, wool());
+		roofPut(level, box, 2, r + 1, -3, Blocks.BARREL.defaultBlockState());
+		roofPut(level, box, 3, r + 1, -3, Blocks.SPRUCE_PLANKS.defaultBlockState());
+		roofPut(level, box, 3, r + 2, -3, Blocks.BARREL.defaultBlockState());
+		roofPut(level, box, 2, r + 2, -3, Blocks.CANDLE.defaultBlockState());
+		roofPut(level, box, -2, r + 1, 2, Blocks.CARTOGRAPHY_TABLE.defaultBlockState());
+		roofPut(level, box, -3, r + 1, 3, Blocks.IRON_BARS.defaultBlockState());
+		roofPut(level, box, -3, r + 2, 3, Blocks.TRIPWIRE_HOOK.defaultBlockState());
 		stashAndVault(level, box, r);
 	}
 

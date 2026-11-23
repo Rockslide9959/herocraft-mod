@@ -19,7 +19,7 @@ const places = [
   { id: 'abandoned_workshop', biomes: 'abandoned_workshop_biomes', salt: 1777103, spacing: 22, separation: 7, village: 2,
     tag: ['#minecraft:is_forest', '#minecraft:is_taiga', 'minecraft:plains', 'minecraft:sunflower_plains', 'minecraft:meadow',
       'minecraft:cherry_grove', 'minecraft:savanna', 'minecraft:swamp', 'minecraft:snowy_plains'] },
-  { id: 'smugglers_den', biomes: 'smugglers_den_biomes', salt: 1777104, spacing: 12, separation: 4, village: 2,
+  { id: 'smugglers_den', biomes: 'smugglers_den_biomes', salt: 1777104, spacing: 10, separation: 3, village: 2,
     tag: ['#minecraft:is_hill', '#minecraft:is_taiga', '#minecraft:is_badlands', '#minecraft:is_jungle', '#minecraft:is_forest',
       '#minecraft:is_savanna', 'minecraft:stony_shore', 'minecraft:meadow', 'minecraft:grove', 'minecraft:cherry_grove',
       'minecraft:snowy_slopes', 'minecraft:plains'] },
