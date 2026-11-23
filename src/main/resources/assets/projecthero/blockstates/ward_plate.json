@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "powered=false": {
+      "model": "projecthero:block/temple/ward_plate"
+    },
+    "powered=true": {
+      "model": "projecthero:block/temple/ward_plate_down"
+    }
+  }
+}

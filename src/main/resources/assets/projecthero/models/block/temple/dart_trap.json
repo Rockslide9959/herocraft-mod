@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "projecthero:block/temple/dart_trap_front",
+    "side": "minecraft:block/cut_sandstone",
+    "top": "minecraft:block/sandstone_top"
+  }
+}

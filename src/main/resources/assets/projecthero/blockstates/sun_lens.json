@@ -1,0 +1,20 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "projecthero:block/temple/sun_lens",
+      "y": 0
+    },
+    "facing=east": {
+      "model": "projecthero:block/temple/sun_lens",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "projecthero:block/temple/sun_lens",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "projecthero:block/temple/sun_lens",
+      "y": 270
+    }
+  }
+}

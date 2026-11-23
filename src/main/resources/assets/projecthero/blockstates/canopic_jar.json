@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "head=0": {
+      "model": "projecthero:block/temple/canopic_jar_0"
+    },
+    "head=1": {
+      "model": "projecthero:block/temple/canopic_jar_1"
+    },
+    "head=2": {
+      "model": "projecthero:block/temple/canopic_jar_2"
+    },
+    "head=3": {
+      "model": "projecthero:block/temple/canopic_jar_3"
+    }
+  }
+}

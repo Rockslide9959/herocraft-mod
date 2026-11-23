@@ -1,0 +1,129 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "projecthero:block/temple/canopic_jar",
+    "jar": "projecthero:block/temple/canopic_jar",
+    "lid": "projecthero:block/temple/canopic_lid_0"
+  },
+  "elements": [
+    {
+      "from": [
+        5,
+        0,
+        5
+      ],
+      "to": [
+        11,
+        1,
+        11
+      ],
+      "faces": {
+        "up": {
+          "texture": "#jar"
+        },
+        "down": {
+          "texture": "#jar"
+        },
+        "north": {
+          "texture": "#jar"
+        },
+        "south": {
+          "texture": "#jar"
+        },
+        "east": {
+          "texture": "#jar"
+        },
+        "west": {
+          "texture": "#jar"
+        }
+      }
+    },
+    {
+      "from": [
+        4.5,
+        1,
+        4.5
+      ],
+      "to": [
+        11.5,
+        9,
+        11.5
+      ],
+      "faces": {
+        "down": {
+          "texture": "#jar"
+        },
+        "north": {
+          "texture": "#jar"
+        },
+        "south": {
+          "texture": "#jar"
+        },
+        "east": {
+          "texture": "#jar"
+        },
+        "west": {
+          "texture": "#jar"
+        }
+      }
+    },
+    {
+      "from": [
+        5.5,
+        9,
+        5.5
+      ],
+      "to": [
+        10.5,
+        13,
+        10.5
+      ],
+      "faces": {
+        "up": {
+          "texture": "#lid"
+        },
+        "north": {
+          "texture": "#lid"
+        },
+        "south": {
+          "texture": "#lid"
+        },
+        "east": {
+          "texture": "#lid"
+        },
+        "west": {
+          "texture": "#lid"
+        }
+      }
+    },
+    {
+      "from": [
+        7,
+        11,
+        4.5
+      ],
+      "to": [
+        9,
+        12.5,
+        5.5
+      ],
+      "faces": {
+        "up": {
+          "texture": "#lid"
+        },
+        "north": {
+          "texture": "#lid"
+        },
+        "east": {
+          "texture": "#lid"
+        },
+        "west": {
+          "texture": "#lid"
+        },
+        "down": {
+          "texture": "#lid"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "structures": [
+    {
+      "structure": "projecthero:ancient_temple",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 1705301,
+    "spacing": 240,
+    "separation": 90,
+    "exclusion_zone": {
+      "other_set": "minecraft:villages",
+      "chunk_count": 4
+    }
+  }
+}

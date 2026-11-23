@@ -1,0 +1,13 @@
+{
+  "variants": {
+    "stage=0": {
+      "model": "projecthero:block/temple/crumbling_floor"
+    },
+    "stage=1": {
+      "model": "projecthero:block/temple/crumbling_floor_shaking"
+    },
+    "stage=2": {
+      "model": "projecthero:block/temple/crumbling_floor"
+    }
+  }
+}

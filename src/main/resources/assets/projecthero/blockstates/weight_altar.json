@@ -1,0 +1,22 @@
+{
+  "variants": {
+    "load=0,solved=false": {
+      "model": "projecthero:block/temple/weight_altar_0"
+    },
+    "load=0,solved=true": {
+      "model": "projecthero:block/temple/weight_altar_0_solved"
+    },
+    "load=1,solved=false": {
+      "model": "projecthero:block/temple/weight_altar_1"
+    },
+    "load=1,solved=true": {
+      "model": "projecthero:block/temple/weight_altar_1_solved"
+    },
+    "load=2,solved=false": {
+      "model": "projecthero:block/temple/weight_altar_2"
+    },
+    "load=2,solved=true": {
+      "model": "projecthero:block/temple/weight_altar_2_solved"
+    }
+  }
+}

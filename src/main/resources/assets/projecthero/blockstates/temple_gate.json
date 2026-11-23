@@ -1,0 +1,13 @@
+{
+  "variants": {
+    "gate=trials": {
+      "model": "projecthero:block/temple/temple_gate"
+    },
+    "gate=crypt": {
+      "model": "projecthero:block/temple/temple_gate"
+    },
+    "gate=vault": {
+      "model": "projecthero:block/temple/temple_gate"
+    }
+  }
+}
