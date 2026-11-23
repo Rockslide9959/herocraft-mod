@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "powered=false": {
+      "model": "projecthero:block/site_ward"
+    },
+    "powered=true": {
+      "model": "projecthero:block/site_ward"
+    }
+  }
+}

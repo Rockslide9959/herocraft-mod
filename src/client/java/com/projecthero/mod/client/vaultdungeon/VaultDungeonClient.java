@@ -18,5 +18,9 @@ public final class VaultDungeonClient {
 		EntityRendererRegistry.register(VaultEntityTypes.RIOT_WARDEN, SyndicateRenderer::new);
 		EntityRendererRegistry.register(VaultEntityTypes.RIOT_GUNNER, SyndicateRenderer::new);
 		EntityRendererRegistry.register(VaultEntityTypes.WARDEN_KROSS, WardenKrossRenderer::new);
+		// v0.17.7: the Riot Captain (player model, his own skin) and the see-through security fields
+		EntityRendererRegistry.register(VaultEntityTypes.RIOT_CAPTAIN, SyndicateRenderer::new);
+		net.fabricmc.fabric.api.blockrenderlayer.v1.BlockRenderLayerMap.INSTANCE.putBlock(com.projecthero.mod.vaultdungeon.block.VaultBlocks.BARRIER,
+				net.minecraft.client.renderer.RenderType.translucent());
 	}
 }

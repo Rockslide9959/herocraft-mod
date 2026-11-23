@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "particle": "projecthero:block/site_ward_side",
+    "north": "projecthero:block/site_ward_front",
+    "south": "projecthero:block/site_ward_front",
+    "east": "projecthero:block/site_ward_front",
+    "west": "projecthero:block/site_ward_front",
+    "up": "projecthero:block/site_ward_side",
+    "down": "projecthero:block/site_ward_side"
+  }
+}

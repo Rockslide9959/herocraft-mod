@@ -24,5 +24,6 @@ public final class VaultDungeonMod {
 		VaultWorldgen.initialize();
 		NearVaultCondition.initialize();
 		VaultItems.registerEvents();
+		VaultSecurity.registerAlarm(); // v0.17.7: The Vault is an alarm zone
 	}
 }

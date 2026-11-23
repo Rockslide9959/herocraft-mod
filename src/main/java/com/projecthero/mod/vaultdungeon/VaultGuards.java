@@ -47,6 +47,22 @@ public final class VaultGuards {
 
 	/** A guard of {@code role} at {@code pos} (feet), facing {@code yaw}, kept within {@code leash} of its post. */
 	public static Mob spawn(ServerLevelAccessor level, Role role, BlockPos pos, float yaw, int leash) {
+		return spawn(level, role, pos, yaw, leash, false, null);
+	}
+
+	/**
+	 * v0.17.7: as {@link #spawn(ServerLevelAccessor, Role, BlockPos, float, int)}, but optionally an alarm-zone guard
+	 * ({@code alarmGuard}: it only fights once it has spotted you) with an alarm {@code alarmRole} -- both applied before
+	 * the mob joins the level (worldgen saves an added mob straight into the chunk).
+	 */
+	public static Mob spawn(ServerLevelAccessor level, Role role, BlockPos pos, float yaw, int leash, boolean alarmGuard,
+			com.projecthero.mod.alarm.GuardRole alarmRole) {
+		return spawn(level, role, pos, yaw, leash, alarmGuard, alarmRole, null);
+	}
+
+	/** As above with one more entity tag set before it joins (the Maximum Security pod inmates). */
+	public static Mob spawn(ServerLevelAccessor level, Role role, BlockPos pos, float yaw, int leash, boolean alarmGuard,
+			com.projecthero.mod.alarm.GuardRole alarmRole, String extraTag) {
 		Mob mob = typeOf(role).create(level.getLevel());
 		if (mob == null) {
 			return null;
@@ -59,6 +75,15 @@ public final class VaultGuards {
 		mob.addTag(TAG);
 		if (leash > 0) {
 			mob.restrictTo(pos, leash);
+		}
+		if (alarmGuard) {
+			com.projecthero.mod.alarm.AlarmGuards.makeGuard(mob);
+		}
+		if (alarmRole != null) {
+			com.projecthero.mod.alarm.AlarmGuards.setRole(mob, alarmRole);
+		}
+		if (extraTag != null) {
+			mob.addTag(extraTag);
 		}
 		level.addFreshEntityWithPassengers(mob);
 		return mob;

@@ -53,6 +53,10 @@ public class SiteAnnexPiece extends StructurePiece {
 	static final int HX = 6;
 	static final int HZ = 5;
 	static final int PORCH = 8;
+	/** v0.17.7: how far the back wing reaches (local z -13). */
+	static final int BACK = 13;
+	/** v0.17.7: the layout every new annex gets; annexes saved before the "Layout" tag load as 1 (the v0.17.5 plan). */
+	public static final int LAYOUT = 2;
 
 	private final SiteTheme theme;
 	private final int cx;
@@ -60,15 +64,17 @@ public class SiteAnnexPiece extends StructurePiece {
 	private final int floorY;
 	private final int rotation;
 	private final long seed;
+	private final int layout;
 
 	public SiteAnnexPiece(SiteTheme theme, int centerX, int floorY, int centerZ, int rotation, long seed) {
-		super(SiteUpgrade.ANNEX_PIECE, 0, box(centerX, floorY, centerZ, rotation));
+		super(SiteUpgrade.ANNEX_PIECE, 0, box(centerX, floorY, centerZ, rotation, LAYOUT));
 		this.theme = theme;
 		this.cx = centerX;
 		this.cz = centerZ;
 		this.floorY = floorY;
 		this.rotation = Math.floorMod(rotation, 4);
 		this.seed = seed;
+		this.layout = LAYOUT;
 	}
 
 	public SiteAnnexPiece(StructurePieceSerializationContext context, CompoundTag tag) {
@@ -85,6 +91,7 @@ public class SiteAnnexPiece extends StructurePiece {
 		this.floorY = tag.getInt("Floor");
 		this.rotation = tag.getInt("Rot");
 		this.seed = tag.getLong("Seed");
+		this.layout = tag.contains("Layout") ? tag.getInt("Layout") : 1;
 	}
 
 	@Override
@@ -95,11 +102,17 @@ public class SiteAnnexPiece extends StructurePiece {
 		tag.putInt("Floor", floorY);
 		tag.putInt("Rot", rotation);
 		tag.putLong("Seed", seed);
+		tag.putInt("Layout", layout);
 	}
 
-	private static BoundingBox box(int cx, int floorY, int cz, int rotation) {
+	public int layout() {
+		return layout;
+	}
+
+	private static BoundingBox box(int cx, int floorY, int cz, int rotation, int layout) {
 		int x0 = Integer.MAX_VALUE, x1 = Integer.MIN_VALUE, z0 = Integer.MAX_VALUE, z1 = Integer.MIN_VALUE;
-		for (int[] c : new int[][] { { -HX, -HZ }, { HX, -HZ }, { -HX, PORCH }, { HX, PORCH } }) {
+		int back = layout >= 2 ? BACK : HZ;
+		for (int[] c : new int[][] { { -HX, -back }, { HX, -back }, { -HX, PORCH }, { HX, PORCH } }) {
 			int x = cx + rx(rotation, c[0], c[1]);
 			int z = cz + rz(rotation, c[0], c[1]);
 			x0 = Math.min(x0, x);
@@ -128,7 +141,34 @@ public class SiteAnnexPiece extends StructurePiece {
 
 	/** Where the Tier 2 vault is (world coordinates). */
 	public BlockPos vaultPos() {
+		if (layout >= 2) {
+			return at(VAULT_X, floorY, VAULT_Z);
+		}
 		return theme.entry == Entry.HATCH ? at(2, floorY - 4, -4) : at(4, floorY, -4);
+	}
+
+	// ---------------------------------------------------------------- v0.17.7 (layout 2) positions
+	static final int VAULT_X = 3;
+	static final int VAULT_Z = -11;
+
+	/** v0.17.7: one panel of the locked Blast Door into the vault room (world). */
+	public BlockPos blastDoorPos() {
+		return at(2, floorY, -HZ);
+	}
+
+	/** v0.17.7: the Alarm Panel in the hall (world). */
+	public BlockPos panelPos() {
+		return at(5, floorY, -2);
+	}
+
+	/** v0.17.7: the Captain's post at his desk (world). */
+	public BlockPos captainPost() {
+		return at(3, floorY, -2);
+	}
+
+	/** v0.17.7: guards in the whole annex -- the squad, the Captain and the back-room guard. */
+	public int totalGuards() {
+		return layout >= 2 ? guardCount() + 2 : guardCount();
 	}
 
 	/** The guards' posts (world feet positions), in spawn order; the first {@link #guardCount()} are used. */
@@ -177,6 +217,10 @@ public class SiteAnnexPiece extends StructurePiece {
 
 	/** Builds the part of the annex inside {@code box} (all of it with {@link #getBoundingBox()}). */
 	public void build(WorldGenLevel level, BoundingBox box) {
+		if (layout >= 2) {
+			buildV2(level, box);
+			return;
+		}
 		Palette p = Palette.of(theme.style);
 		int f = floorY;
 		BlockState window = theme.window != null ? theme.window.defaultBlockState() : p.window;
@@ -246,6 +290,278 @@ public class SiteAnnexPiece extends StructurePiece {
 			}
 			float yaw = yawOf(dir(POSTS[i][1] > HZ ? Direction.SOUTH : Direction.NORTH));
 			SiteGuards.spawn(level, theme.roster.get(i), new BlockPos(x, f, z), yaw, 14);
+		}
+	}
+
+	// ---------------------------------------------------------------- v0.17.7: layout 2
+
+	/**
+	 * v0.17.7 layout: the same hall (furniture by {@link Style}) with a back wing behind it -- a themed back room
+	 * (west) and the vault room (east) behind a <b>locked Blast Door</b> -- an <b>Alarm Panel</b> in the hall, the
+	 * <b>Captain</b> at his desk (the keycard), an <b>Alarm Runner</b> on the porch, cameras (or a ward-stone tripwire in
+	 * the old-world styles), lamps and reinforcement points. Local x -6..6, z -13..5, porch to z 8.
+	 */
+	private void buildV2(WorldGenLevel level, BoundingBox box) {
+		Palette p = Palette.of(theme.style);
+		int f = floorY;
+		BlockState window = theme.window != null ? theme.window.defaultBlockState() : p.window;
+		com.projecthero.mod.alarm.block.AlarmStyle style = theme.oldWorld() ? com.projecthero.mod.alarm.block.AlarmStyle.ANCIENT
+				: com.projecthero.mod.alarm.block.AlarmStyle.TECH;
+
+		// 1. ground: foundation under the building and porch, the floor, headroom cleared
+		for (int x = -HX; x <= HX; x++) {
+			for (int z = -BACK; z <= PORCH; z++) {
+				boolean porch = z > HZ;
+				if (porch && Math.abs(x) > 3) {
+					continue;
+				}
+				footing(level, box, x, z, f - 2, p.foundation, porch ? 6 : 14);
+				put(level, box, x, f - 1, z, porch ? p.porch : p.floor);
+				for (int y = f; y <= f + (porch ? 3 : 8); y++) {
+					put(level, box, x, y, z, AIR);
+				}
+			}
+		}
+
+		// 2. walls: the outer shell, the cross wall between hall and wing, the wing's divider; corner pillars; the roof
+		for (int x = -HX; x <= HX; x++) {
+			for (int z = -BACK; z <= HZ; z++) {
+				boolean edgeX = Math.abs(x) == HX, edgeZ = z == HZ || z == -BACK;
+				boolean inner = z == -HZ || (x == 0 && z < -HZ);
+				boolean vaultSide = x >= 0 && z <= -HZ;
+				if (edgeX || edgeZ || inner) {
+					boolean corner = edgeX && (edgeZ || z == -HZ);
+					for (int y = f; y <= f + 3; y++) {
+						put(level, box, x, y, z, corner ? p.pillar : vaultSide ? p.secure : wallBlock(p, x, y, z));
+					}
+				}
+				put(level, box, x, f + 4, z, p.roof);
+				if ((edgeX || edgeZ) && p.parapet != null && ((x + z) & 1) == 0) {
+					put(level, box, x, f + 5, z, p.parapet);
+				}
+				if (vaultSide && !edgeX && !edgeZ && x > 0 && z < -HZ) {
+					put(level, box, x, f - 1, z, p.secure); // the vault room's reinforced floor
+				}
+			}
+		}
+		if (window != null) {
+			for (int y = f + 1; y <= f + 2; y++) {
+				put(level, box, -HX, y, -2, window);
+				put(level, box, -HX, y, 2, window);
+				put(level, box, HX, y, 3, window);
+				put(level, box, -3, y, HZ, window);
+				put(level, box, 3, y, HZ, window);
+				put(level, box, -HX, y, -9, window);
+			}
+		}
+		// the front doorway, the back room's doorway
+		put(level, box, 0, f, HZ, AIR);
+		put(level, box, 0, f + 1, HZ, AIR);
+		put(level, box, 0, f + 2, HZ, p.lintel);
+		put(level, box, -3, f, -HZ, AIR);
+		put(level, box, -3, f + 1, -HZ, AIR);
+		put(level, box, -3, f + 2, -HZ, p.lintel);
+
+		// 3. the vault room behind its locked Blast Door (keycard from the Captain, or a cleared alarm wave)
+		BlockState door = com.projecthero.mod.alarm.block.AlarmBlocks.BLAST_DOOR.defaultBlockState()
+				.setValue(com.projecthero.mod.alarm.block.BlastDoorBlock.LOCKED, true).setValue(com.projecthero.mod.alarm.block.BlastDoorBlock.OPEN, false)
+				.setValue(com.projecthero.mod.alarm.block.BlastDoorBlock.STYLE, style);
+		for (int x = 2; x <= 3; x++) {
+			for (int y = f; y <= f + 2; y++) {
+				put(level, box, x, y, -HZ, door);
+			}
+		}
+		put(level, box, 1, f + 3, -HZ, p.lintel);
+		put(level, box, 4, f + 3, -HZ, p.lintel);
+		put(level, box, VAULT_X, f - 1, VAULT_Z, Blocks.GOLD_BLOCK.defaultBlockState());
+		vault(level, box, VAULT_X, f, VAULT_Z, Direction.SOUTH);
+		put(level, box, 5, f, -12, Blocks.LANTERN.defaultBlockState());
+		put(level, box, 1, f, -12, Blocks.BARREL.defaultBlockState().setValue(BlockStateProperties.FACING, Direction.UP));
+		put(level, box, 5, f, -7, Blocks.BARREL.defaultBlockState().setValue(BlockStateProperties.FACING, Direction.UP));
+		put(level, box, 1, f, -7, Blocks.CHAIN.defaultBlockState());
+
+		// 4. the hall's furniture (as layout 1) and the Captain's desk; the back room in the site's theme
+		decorate(level, box, p, f);
+		table(level, box, 4, f, -4, theme.oldWorld() ? Blocks.SPRUCE_TRAPDOOR : Blocks.IRON_TRAPDOOR);
+		put(level, box, 4, f + 1, -4, theme.oldWorld() ? Blocks.CANDLE.defaultBlockState().setValue(CandleBlock.LIT, true)
+				: Blocks.DAYLIGHT_DETECTOR.defaultBlockState());
+		themeRoom(level, box, p, f);
+
+		// 5. the alarm: panel, lamps, cameras or a ward-stone tripwire, reinforcement points
+		put(level, box, 5, f, -2, com.projecthero.mod.alarm.block.AlarmBlocks.PANEL.defaultBlockState()
+				.setValue(com.projecthero.mod.alarm.block.AlarmPanelBlock.FACING, Direction.WEST)
+				.setValue(com.projecthero.mod.alarm.block.AlarmPanelBlock.STYLE, style));
+		BlockState lamp = com.projecthero.mod.alarm.block.AlarmBlocks.LAMP.defaultBlockState()
+				.setValue(com.projecthero.mod.alarm.block.AlarmLampBlock.STYLE, style);
+		put(level, box, 0, f + 4, -2, lamp);
+		put(level, box, 3, f + 4, -9, lamp);
+		put(level, box, -3, f + 4, -9, lamp);
+		if (theme.oldWorld()) {
+			// a string across the back room's doorway, its hook hung on a ward stone in the wall
+			put(level, box, -5, f, -HZ, SiteUpgrade.WARD.defaultBlockState());
+			BlockState hook = Blocks.TRIPWIRE_HOOK.defaultBlockState().setValue(net.minecraft.world.level.block.TripWireHookBlock.ATTACHED, true);
+			put(level, box, -4, f, -HZ, hook.setValue(net.minecraft.world.level.block.TripWireHookBlock.FACING, Direction.EAST));
+			put(level, box, -2, f, -HZ, hook.setValue(net.minecraft.world.level.block.TripWireHookBlock.FACING, Direction.WEST));
+			put(level, box, -3, f, -HZ, Blocks.TRIPWIRE.defaultBlockState().setValue(net.minecraft.world.level.block.TripWireBlock.ATTACHED, true)
+					.setValue(net.minecraft.world.level.block.TripWireBlock.EAST, true).setValue(net.minecraft.world.level.block.TripWireBlock.WEST, true));
+		} else {
+			BlockState cam = com.projecthero.mod.alarm.block.AlarmBlocks.CAMERA.defaultBlockState();
+			put(level, box, -4, f + 3, HZ + 1, cam.setValue(com.projecthero.mod.alarm.block.SecurityCameraBlock.FACING, Direction.SOUTH));
+			put(level, box, -5, f + 3, HZ - 1, cam.setValue(com.projecthero.mod.alarm.block.SecurityCameraBlock.FACING, Direction.NORTH));
+		}
+		BlockState spawn = com.projecthero.mod.alarm.block.AlarmBlocks.SPAWN_POINT.defaultBlockState();
+		put(level, box, -2, f, PORCH, spawn);
+		put(level, box, 2, f, PORCH, spawn);
+		put(level, box, -3, f, -10, spawn);
+
+		// 6. the guards: the squad (the first, on the porch, is the Alarm Runner), the Captain, the back-room guard
+		int n = guardCount();
+		for (int i = 0; i < n && i < POSTS.length; i++) {
+			guardAt(level, box, theme.roster.get(i), POSTS[i][0], POSTS[i][1], i == 0 ? com.projecthero.mod.alarm.GuardRole.RUNNER : null);
+		}
+		guardAt(level, box, theme.captainKind(), 3, -2, com.projecthero.mod.alarm.GuardRole.CAPTAIN);
+		guardAt(level, box, theme.backRoomKind(), -3, -8, null);
+	}
+
+	private void guardAt(WorldGenLevel level, BoundingBox box, SiteGuards.Kind kind, int lx, int lz, com.projecthero.mod.alarm.GuardRole role) {
+		int x = wx(lx, lz), z = wz(lx, lz);
+		if (!inBox(box, x, z)) {
+			return;
+		}
+		float yaw = yawOf(dir(lz > HZ ? Direction.SOUTH : Direction.NORTH));
+		SiteGuards.spawn(level, kind, new BlockPos(x, floorY, z), yaw, role == com.projecthero.mod.alarm.GuardRole.CAPTAIN ? 6 : 14, true, role);
+	}
+
+	/** v0.17.7: the back room (local x -5..-1, z -12..-6), dressed for the site's {@link Style}, with a Tier 1 barrel. */
+	private void themeRoom(WorldGenLevel level, BoundingBox box, Palette p, int f) {
+		BlockState up = Blocks.BARREL.defaultBlockState().setValue(BlockStateProperties.FACING, Direction.UP);
+		switch (theme.style) {
+			case LAB -> { // specimen room: two glass tanks, a bench of brewing stands, a cauldron
+				for (int z : new int[] { -11, -8 }) {
+					for (int y = f; y <= f + 2; y++) {
+						put(level, box, -5, y, z, Blocks.LIGHT_BLUE_STAINED_GLASS.defaultBlockState());
+					}
+					put(level, box, -5, f + 3, z, Blocks.SEA_LANTERN.defaultBlockState());
+				}
+				table(level, box, -3, f, -12, Blocks.IRON_TRAPDOOR);
+				table(level, box, -2, f, -12, Blocks.IRON_TRAPDOOR);
+				put(level, box, -3, f + 1, -12, Blocks.BREWING_STAND.defaultBlockState());
+				put(level, box, -2, f + 1, -12, Blocks.BREWING_STAND.defaultBlockState());
+				put(level, box, -1, f, -9, Blocks.CAULDRON.defaultBlockState());
+				put(level, box, -5, f, -6, Blocks.WHITE_SHULKER_BOX.defaultBlockState());
+			}
+			case MILITARY -> { // armoury: smithing, anvil, crates, a target, a rack of bars
+				put(level, box, -5, f, -12, Blocks.SMITHING_TABLE.defaultBlockState());
+				put(level, box, -4, f, -12, up);
+				put(level, box, -4, f + 1, -12, up);
+				put(level, box, -3, f, -12, Blocks.ANVIL.defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.EAST));
+				put(level, box, -5, f, -8, Blocks.TARGET.defaultBlockState());
+				for (int z = -11; z <= -9; z++) {
+					put(level, box, -5, f + 1, z, Blocks.IRON_BARS.defaultBlockState());
+				}
+				put(level, box, -1, f, -7, Blocks.GRINDSTONE.defaultBlockState().setValue(BlockStateProperties.ATTACH_FACE, AttachFace.FLOOR));
+			}
+			case BUNKER -> { // generator room: an iron generator block with copper lights, rods, chains
+				for (int x = -4; x <= -2; x++) {
+					for (int z = -11; z <= -10; z++) {
+						put(level, box, x, f, z, Blocks.IRON_BLOCK.defaultBlockState());
+						put(level, box, x, f + 1, z, (x + z) % 2 == 0 ? Blocks.COPPER_BULB.defaultBlockState().setValue(BlockStateProperties.LIT, true)
+								: Blocks.WAXED_OXIDIZED_COPPER_GRATE.defaultBlockState());
+					}
+				}
+				put(level, box, -4, f + 2, -11, Blocks.LIGHTNING_ROD.defaultBlockState());
+				put(level, box, -2, f + 2, -10, Blocks.LIGHTNING_ROD.defaultBlockState());
+				put(level, box, -5, f + 3, -7, Blocks.CHAIN.defaultBlockState());
+				put(level, box, -5, f, -7, Blocks.BLAST_FURNACE.defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.EAST));
+			}
+			case CAMP -> { // stash room: hay, crates, a bedroll, scaffolding shelves
+				put(level, box, -5, f, -12, Blocks.HAY_BLOCK.defaultBlockState());
+				put(level, box, -4, f, -12, Blocks.HAY_BLOCK.defaultBlockState());
+				put(level, box, -5, f + 1, -12, Blocks.HAY_BLOCK.defaultBlockState());
+				put(level, box, -3, f, -12, up);
+				put(level, box, -3, f + 1, -12, up);
+				put(level, box, -5, f, -9, Blocks.SCAFFOLDING.defaultBlockState());
+				put(level, box, -5, f + 1, -9, Blocks.SCAFFOLDING.defaultBlockState());
+				put(level, box, -2, f, -8, Blocks.WHITE_CARPET.defaultBlockState());
+				put(level, box, -2, f, -7, Blocks.WHITE_CARPET.defaultBlockState());
+				put(level, box, -5, f, -6, Blocks.LANTERN.defaultBlockState());
+			}
+			case STATION -> { // instrument room: sample cases, a tinted cabinet, observers
+				table(level, box, -5, f, -12, Blocks.IRON_TRAPDOOR);
+				table(level, box, -4, f, -12, Blocks.IRON_TRAPDOOR);
+				put(level, box, -5, f + 1, -12, Blocks.AMETHYST_CLUSTER.defaultBlockState());
+				put(level, box, -4, f + 1, -12, Blocks.TINTED_GLASS.defaultBlockState());
+				put(level, box, -5, f, -9, Blocks.OBSERVER.defaultBlockState().setValue(BlockStateProperties.FACING, Direction.EAST));
+				put(level, box, -5, f + 1, -9, Blocks.OBSERVER.defaultBlockState().setValue(BlockStateProperties.FACING, Direction.EAST));
+				put(level, box, -2, f, -12, Blocks.CARTOGRAPHY_TABLE.defaultBlockState());
+				put(level, box, -1, f, -7, up);
+			}
+			case CRYPT -> { // ossuary: bone walls, skulls, a sarcophagus, candles, webs
+				for (int z = -12; z <= -9; z++) {
+					put(level, box, -5, f + 1, z, Blocks.BONE_BLOCK.defaultBlockState());
+					put(level, box, -5, f + 2, z, Blocks.BONE_BLOCK.defaultBlockState());
+				}
+				put(level, box, -5, f + 1, -10, Blocks.SKELETON_SKULL.defaultBlockState());
+				for (int z = -11; z <= -10; z++) {
+					put(level, box, -3, f, z, Blocks.STONE_BRICK_SLAB.defaultBlockState());
+				}
+				candles(level, box, -2, f, -12, 3);
+				candles(level, box, -1, f, -9, 2);
+				put(level, box, -4, f + 3, -7, Blocks.COBWEB.defaultBlockState());
+				put(level, box, -1, f + 3, -12, Blocks.COBWEB.defaultBlockState());
+			}
+			case TEMPLE -> { // inner shrine: two pillars, an altar with candles, pots
+				for (int y = f; y <= f + 3; y++) {
+					put(level, box, -4, y, -10, Blocks.CHISELED_SANDSTONE.defaultBlockState());
+					put(level, box, -2, y, -10, Blocks.CHISELED_SANDSTONE.defaultBlockState());
+				}
+				put(level, box, -3, f, -12, Blocks.CHISELED_SANDSTONE.defaultBlockState());
+				candles(level, box, -3, f + 1, -12, 4);
+				put(level, box, -5, f, -12, Blocks.DECORATED_POT.defaultBlockState());
+				put(level, box, -1, f, -12, Blocks.DECORATED_POT.defaultBlockState());
+				put(level, box, -3, f - 1, -8, Blocks.BLUE_TERRACOTTA.defaultBlockState());
+			}
+			case INFESTED -> { // the breach: a cracked cell, black biomass, webs, sculk
+				for (int z = -12; z <= -10; z++) {
+					put(level, box, -3, f, z, Blocks.IRON_BARS.defaultBlockState());
+					put(level, box, -3, f + 1, z, z == -11 ? AIR : Blocks.GLASS_PANE.defaultBlockState());
+				}
+				for (int x = -5; x <= -1; x++) {
+					for (int z = -12; z <= -6; z++) {
+						if (noise(x, z, 131) < 0.35) {
+							put(level, box, x, f - 1, z, Blocks.BLACK_CONCRETE.defaultBlockState());
+						}
+					}
+				}
+				put(level, box, -5, f + 3, -11, Blocks.COBWEB.defaultBlockState());
+				put(level, box, -1, f + 3, -7, Blocks.COBWEB.defaultBlockState());
+				put(level, box, -5, f, -7, Blocks.SCULK.defaultBlockState());
+			}
+			case ICE -> { // cold store: blue ice pillars, racks, a powder-snow cauldron
+				for (int y = f; y <= f + 3; y++) {
+					put(level, box, -5, y, -12, Blocks.BLUE_ICE.defaultBlockState());
+					put(level, box, -5, y, -7, Blocks.BLUE_ICE.defaultBlockState());
+				}
+				put(level, box, -3, f, -12, Blocks.SPRUCE_LOG.defaultBlockState());
+				put(level, box, -2, f, -12, Blocks.SPRUCE_LOG.defaultBlockState());
+				put(level, box, -3, f + 1, -12, Blocks.SKELETON_SKULL.defaultBlockState());
+				put(level, box, -1, f, -8, Blocks.POWDER_SNOW_CAULDRON.defaultBlockState());
+			}
+		}
+		// the stash: a Tier 1 barrel in the corner
+		BlockPos stash = at(-1, f, -12);
+		if (inBox(box, stash.getX(), stash.getZ())) {
+			level.setBlock(stash, up, 2);
+			if (level.getBlockEntity(stash) instanceof net.minecraft.world.level.block.entity.RandomizableContainerBlockEntity c) {
+				c.setLootTable(com.projecthero.mod.hideout.worldgen.HideoutCanvas.table("chests/vault_tier1"), seed ^ stash.asLong());
+			}
+		}
+		if (p.hangingLight) {
+			put(level, box, -3, f + 3, -11, p.light.setValue(LanternBlock.HANGING, true));
+			put(level, box, 3, f + 3, -7, p.light.setValue(LanternBlock.HANGING, true));
+		} else {
+			put(level, box, -3, f + 4, -11, p.light);
+			put(level, box, 3, f + 4, -7, p.light);
 		}
 	}
 

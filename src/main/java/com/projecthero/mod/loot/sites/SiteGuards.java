@@ -86,6 +86,16 @@ public final class SiteGuards {
 	 * post. Returns the mob (already added to the level), or null.
 	 */
 	public static Mob spawn(ServerLevelAccessor level, Kind kind, BlockPos pos, float yaw, int leash) {
+		return spawn(level, kind, pos, yaw, leash, false, null);
+	}
+
+	/**
+	 * v0.17.7: as above, optionally as an alarm-zone guard ({@code alarmGuard}: it only fights once it has spotted you)
+	 * with an alarm {@code role} -- applied before the mob joins the level (worldgen saves an added mob straight into the
+	 * chunk). The role's name tag ("Captain", "Alarm Runner") replaces the kind's.
+	 */
+	public static Mob spawn(ServerLevelAccessor level, Kind kind, BlockPos pos, float yaw, int leash, boolean alarmGuard,
+			com.projecthero.mod.alarm.GuardRole role) {
 		EntityType<? extends Mob> type = typeOf(kind);
 		if (type == null) {
 			return null;
@@ -120,6 +130,12 @@ public final class SiteGuards {
 		mob.addTag(TAG);
 		if (leash > 0) {
 			mob.restrictTo(pos, leash);
+		}
+		if (alarmGuard) {
+			com.projecthero.mod.alarm.AlarmGuards.makeGuard(mob);
+		}
+		if (role != null) {
+			com.projecthero.mod.alarm.AlarmGuards.setRole(mob, role);
 		}
 		level.addFreshEntityWithPassengers(mob);
 		return mob;

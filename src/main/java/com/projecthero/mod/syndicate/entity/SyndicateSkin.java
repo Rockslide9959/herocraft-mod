@@ -44,7 +44,9 @@ public enum SyndicateSkin {
 	/** v0.17.5 The Vault: a riot gunner -- the warden kit with a grey ballistic vest. */
 	VAULT_RIOT_GUNNER("vault/riot_gunner", false),
 	/** v0.17.5 The Vault: Warden Kross -- charcoal greatcoat, red trim, peaked officer cap, scarred face (over {@code thug_a}). */
-	VAULT_WARDEN_KROSS("vault/warden_kross", false);
+	VAULT_WARDEN_KROSS("vault/warden_kross", false),
+	/** v0.17.7 The Vault: the Riot Captain -- the riot kit in white and gold, captain chevrons, a striped helmet (over {@code thug_c}). */
+	VAULT_RIOT_CAPTAIN("vault/riot_captain", false);
 
 	private final ResourceLocation texture;
 	private final boolean slim;

@@ -50,6 +50,9 @@ public final class VaultItems {
 		output.accept(VaultBlocks.ALARM_ITEM);
 		output.accept(VaultBlocks.CONSOLE_ITEM);
 		output.accept(VaultBlocks.TRACK_ITEM);
+		output.accept(VaultBlocks.BARRIER_ITEM); // v0.17.7
+		output.accept(VaultBlocks.BREAKER_ITEM);
+		output.accept(com.projecthero.mod.loot.sites.SiteUpgrade.WARD_ITEM);
 	}
 
 	private static Item item(String path, Item item) {

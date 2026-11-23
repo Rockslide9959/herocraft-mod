@@ -156,7 +156,10 @@ public final class ProjectHeroJeiPlugin implements IModPlugin {
 		}
 		for (net.minecraft.world.item.Item i : new net.minecraft.world.item.Item[] { com.projecthero.mod.vaultdungeon.block.VaultBlocks.TURRET_ITEM,
 				com.projecthero.mod.vaultdungeon.block.VaultBlocks.ALARM_ITEM, com.projecthero.mod.vaultdungeon.block.VaultBlocks.CONSOLE_ITEM,
-				com.projecthero.mod.vaultdungeon.block.VaultBlocks.TRACK_ITEM }) {
+				com.projecthero.mod.vaultdungeon.block.VaultBlocks.TRACK_ITEM,
+				// v0.17.7: the security field, the cell-block breaker, the Tier 2 sites' ward stone
+				com.projecthero.mod.vaultdungeon.block.VaultBlocks.BARRIER_ITEM, com.projecthero.mod.vaultdungeon.block.VaultBlocks.BREAKER_ITEM,
+				com.projecthero.mod.loot.sites.SiteUpgrade.WARD_ITEM }) {
 			registration.addItemStackInfo(new ItemStack(i), net.minecraft.network.chat.Component.translatable(i.getDescriptionId() + ".hint"));
 		}
 		// v0.17.5: Sentry -- the serum (only from The Vault's O.X.E. vat) and the vat itself

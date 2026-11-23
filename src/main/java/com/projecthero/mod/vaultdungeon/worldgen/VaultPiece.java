@@ -25,12 +25,18 @@ public class VaultPiece extends StructurePiece {
 	private final BlockPos origin;
 	private final Rotation rotation;
 	private final long seed;
+	/**
+	 * v0.17.7: which plan this piece draws -- 1 (v0.17.5, three floors) for pieces saved before the "Layout" tag existed,
+	 * so a half-generated old Vault finishes the way it started; {@link VaultBuilder#LAYOUT} for new ones.
+	 */
+	private final int layout;
 
 	public VaultPiece(BlockPos origin, Rotation rotation) {
 		super(VaultWorldgen.PIECE, 0, box(origin, rotation));
 		this.origin = origin.immutable();
 		this.rotation = rotation;
 		this.seed = ((long) origin.getX() * 341873128712L) ^ ((long) origin.getZ() * 132897987541L) ^ 0x5A17L;
+		this.layout = VaultBuilder.LAYOUT;
 	}
 
 	public VaultPiece(StructurePieceSerializationContext context, CompoundTag tag) {
@@ -38,6 +44,7 @@ public class VaultPiece extends StructurePiece {
 		this.origin = BlockPos.of(tag.getLong("Origin"));
 		this.rotation = Rotation.values()[Math.floorMod(tag.getInt("Rot"), 4)];
 		this.seed = tag.getLong("Seed");
+		this.layout = tag.contains("Layout") ? tag.getInt("Layout") : 1;
 	}
 
 	@Override
@@ -45,6 +52,11 @@ public class VaultPiece extends StructurePiece {
 		tag.putLong("Origin", origin.asLong());
 		tag.putInt("Rot", rotation.ordinal());
 		tag.putLong("Seed", seed);
+		tag.putInt("Layout", layout);
+	}
+
+	public int layout() {
+		return layout;
 	}
 
 	/** The world box the builder's local extents cover at this origin / rotation (+1 margin). */
@@ -71,12 +83,18 @@ public class VaultPiece extends StructurePiece {
 	@Override
 	public void postProcess(WorldGenLevel level, StructureManager structureManager, ChunkGenerator generator,
 			RandomSource random, BoundingBox chunkBox, ChunkPos chunkPos, BlockPos pos) {
-		VaultBuilder.INSTANCE.build(canvas(level, chunkBox));
+		VaultBuilder.INSTANCE.build(canvas(level, chunkBox), layout);
 	}
 
-	/** Builds the whole dungeon in one go on a live level (gametests, the harness). */
+	/**
+	 * Builds the whole dungeon in one go on a live level (gametests, the harness), and -- with no structure start on a
+	 * live build -- registers its alarm zone by hand (a rebuild starts a fresh zone).
+	 */
 	public void buildAll(ServerLevel level) {
-		VaultBuilder.INSTANCE.build(canvas(level, getBoundingBox()));
+		VaultBuilder.INSTANCE.build(canvas(level, getBoundingBox()), layout);
+		com.projecthero.mod.alarm.AlarmZones zones = com.projecthero.mod.alarm.AlarmZones.get(level);
+		zones.removeWithin(getBoundingBox());
+		zones.register(getBoundingBox(), com.projecthero.mod.vaultdungeon.VaultSecurity.PROFILE);
 	}
 
 	/** World position of local {@code l}. */

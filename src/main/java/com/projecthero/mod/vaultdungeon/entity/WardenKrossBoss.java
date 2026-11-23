@@ -76,7 +76,9 @@ import net.minecraft.world.phys.Vec3;
  * 45 s.</li>
  * </ul>
  * <b>Phase change</b> at half health: he roars, turns faster, his cooldowns shorten by a third and the first Lockdown
- * starts at once. Shared {@link BossThreat} threat table (switches to whoever hurts him most), boss bar within
+ * starts at once. v0.17.7 <b>phase 2</b> adds the <b>Riot Gas Volley</b> (three canisters, choking clouds that hurt,
+ * blind and slow) and the <b>Breach Slam</b> (a leap onto your spot and a shockwave on landing).
+ * Shared {@link BossThreat} threat table (switches to whoever hurts him most), boss bar within
  * {@link #BAR_RANGE}, leashed to his arena ({@link #home}). Dying clears the dungeon ({@link VaultClearing}).
  */
 public class WardenKrossBoss extends SyndicateEnforcer {
@@ -95,6 +97,18 @@ public class WardenKrossBoss extends SyndicateEnforcer {
 	public static final byte MOVE_SHOCK = 2;
 	public static final byte MOVE_TASER = 3;
 	public static final byte MOVE_LOCKDOWN = 4;
+	/** v0.17.7 phase 2: Riot Gas Volley. */
+	public static final byte MOVE_GAS = 5;
+	/** v0.17.7 phase 2: Breach Slam. */
+	public static final byte MOVE_SLAM = 6;
+
+	static final int GAS_WINDUP = 14;
+	static final int GAS_FLIGHT = 14;
+	public static final int GAS_TICKS = 160;
+	public static final double GAS_RADIUS = 2.8;
+	static final int SLAM_CROUCH = 14;
+	static final int SLAM_AIR_MAX = 34;
+	public static final double SLAM_RADIUS = 6.0;
 
 	static final int CHARGE_BRACE = 16;
 	static final int CHARGE_RUN = 20;
@@ -104,6 +118,7 @@ public class WardenKrossBoss extends SyndicateEnforcer {
 
 	private static final EntityDataAccessor<Integer> DATA_TASER = SynchedEntityData.defineId(WardenKrossBoss.class, EntityDataSerializers.INT);
 	private static final DustParticleOptions RED = new DustParticleOptions(new Vector3f(1f, 0.1f, 0.08f), 1.6f);
+	private static final DustParticleOptions GAS = new DustParticleOptions(new Vector3f(0.62f, 0.78f, 0.32f), 1.8f);
 
 	private final BossThreat threat = new BossThreat(this).range(48).holdWhile(() -> this.move != MOVE_NONE);
 	private final ServerBossEvent bar = new ServerBossEvent(Component.translatable("entity.projecthero.warden_kross").withStyle(ChatFormatting.RED),
@@ -126,6 +141,15 @@ public class WardenKrossBoss extends SyndicateEnforcer {
 	private final Set<LivingEntity> struck = new HashSet<>();
 	private LivingEntity taserVictim;
 	private int movesUsed;
+	// v0.17.7 phase 2
+	int gasCd = 30;
+	int slamCd = 70;
+	private final java.util.List<Vec3> gasTargets = new java.util.ArrayList<>();
+	/** Live gas clouds: {x, y, z, ticksLeft} (transient, owned by this boss). */
+	private final java.util.List<double[]> gasClouds = new java.util.ArrayList<>();
+	private Vec3 slamTarget;
+	private boolean slamAirborne;
+	private int slamAir;
 
 	public WardenKrossBoss(EntityType<? extends WardenKrossBoss> type, Level level) {
 		super(type, level);
@@ -285,6 +309,54 @@ public class WardenKrossBoss extends SyndicateEnforcer {
 		}
 		lockdownCd = 0;
 		chargeCd = Math.min(chargeCd, 40);
+		// v0.17.7: phase 2 -- the gas volley and the breach slam join his kit
+		gasCd = 60;
+		slamCd = 120;
+		for (ServerPlayer p : VaultClearing.playersNear(level, blockPosition(), 48)) {
+			p.displayClientMessage(Component.translatable("projecthero.vault.kross.phase2").withStyle(ChatFormatting.GOLD), true);
+		}
+	}
+
+	/** Phase 2 test / harness seam: the live gas clouds. */
+	public int gasClouds() {
+		return gasClouds.size();
+	}
+
+	/** Phase 2: a gas cloud now at {@code at} (test seam; the volley lands three). */
+	public void addGasCloud(Vec3 at) {
+		gasClouds.add(new double[] { at.x, at.y, at.z, GAS_TICKS });
+	}
+
+	/** Ticks the gas clouds: every 10 ticks, 2 damage + Blindness + Slowness to everyone inside but his own men. */
+	private void tickGas(ServerLevel level) {
+		if (gasClouds.isEmpty()) {
+			return;
+		}
+		java.util.Iterator<double[]> it = gasClouds.iterator();
+		while (it.hasNext()) {
+			double[] c = it.next();
+			c[3]--;
+			if (tickCount % 3 == 0) {
+				level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, c[0], c[1] + 0.4, c[2], 3, GAS_RADIUS * 0.45, 0.35, GAS_RADIUS * 0.45, 0.004);
+				level.sendParticles(GAS, c[0], c[1] + 0.6, c[2], 6, GAS_RADIUS * 0.5, 0.5, GAS_RADIUS * 0.5, 0.0);
+			}
+			if (((int) c[3]) % 10 == 0) {
+				AABB box = new AABB(c[0] - GAS_RADIUS, c[1] - 0.5, c[2] - GAS_RADIUS, c[0] + GAS_RADIUS, c[1] + 2.5, c[2] + GAS_RADIUS);
+				for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, box, e -> victim(e, this))) {
+					double dx = e.getX() - c[0];
+					double dz = e.getZ() - c[2];
+					if (dx * dx + dz * dz > GAS_RADIUS * GAS_RADIUS) {
+						continue;
+					}
+					e.hurt(damageSources().indirectMagic(this, this), 2f);
+					e.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 30, 0), this);
+					e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 30, 0), this);
+				}
+			}
+			if (c[3] <= 0) {
+				it.remove();
+			}
+		}
 	}
 
 	private int cd(int base, int spread) {
@@ -316,6 +388,13 @@ public class WardenKrossBoss extends SyndicateEnforcer {
 		if (gap > 0) {
 			gap--;
 		}
+		if (gasCd > 0) {
+			gasCd--;
+		}
+		if (slamCd > 0) {
+			slamCd--;
+		}
+		tickGas(server);
 		if (krossDazed > 0) {
 			getNavigation().stop();
 			setDeltaMovement(0, getDeltaMovement().y, 0);
@@ -450,6 +529,31 @@ public class WardenKrossBoss extends SyndicateEnforcer {
 		begin(MOVE_LOCKDOWN);
 	}
 
+	/** Phase 2: starts the Riot Gas Volley now -- three canisters at the target and either side of it. */
+	public void startGas() {
+		begin(MOVE_GAS);
+		gasTargets.clear();
+		LivingEntity t = getTarget();
+		Vec3 c = t != null ? t.position() : position().add(getViewVector(1f).multiply(6, 0, 6));
+		Vec3 to = c.subtract(position());
+		Vec3 side = new Vec3(-to.z, 0, to.x);
+		side = side.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : side.normalize();
+		gasTargets.add(c);
+		gasTargets.add(c.add(side.scale(3.5)));
+		gasTargets.add(c.subtract(side.scale(3.5)));
+		setAction(ACTION_WINDUP);
+	}
+
+	/** Phase 2: starts the Breach Slam now -- a crouch, a leap onto the target's spot, a crater-wide shockwave. */
+	public void startSlam() {
+		begin(MOVE_SLAM);
+		LivingEntity t = getTarget();
+		slamTarget = t != null ? t.position() : position().add(getViewVector(1f).multiply(5, 0, 5));
+		slamAirborne = false;
+		slamAir = 0;
+		setAction(ACTION_WINDUP);
+	}
+
 	public double shockRadius() {
 		return enraged ? 8.5 : 7.0;
 	}
@@ -466,6 +570,8 @@ public class WardenKrossBoss extends SyndicateEnforcer {
 			case MOVE_CHARGE -> chargeCd = cd(120, 40);
 			case MOVE_SHOCK -> shockCd = cd(150, 60);
 			case MOVE_TASER -> taserCd = cd(130, 40);
+			case MOVE_GAS -> gasCd = cd(240, 60);
+			case MOVE_SLAM -> slamCd = cd(220, 60);
 			case MOVE_LOCKDOWN -> {
 			}
 			default -> {
@@ -489,8 +595,131 @@ public class WardenKrossBoss extends SyndicateEnforcer {
 			case MOVE_SHOCK -> tickShock(level, t);
 			case MOVE_TASER -> tickTaser(level);
 			case MOVE_LOCKDOWN -> tickLockdown(level);
+			case MOVE_GAS -> tickGasVolley(level);
+			case MOVE_SLAM -> tickSlam(level);
 			default -> endMove();
 		}
+	}
+
+	private void tickGasVolley(ServerLevel level) {
+		getNavigation().stop();
+		if (!gasTargets.isEmpty()) {
+			getLookControl().setLookAt(gasTargets.get(0).x, gasTargets.get(0).y + 1, gasTargets.get(0).z);
+		}
+		Vec3 hand = position().add(0, 2.4, 0);
+		if (moveTicks < GAS_WINDUP) {
+			if (moveTicks % 4 == 0) {
+				level.playSound(null, getX(), getY(), getZ(), SoundEvents.FLINTANDSTEEL_USE, SoundSource.HOSTILE, 1.0f, 0.6f);
+				level.sendParticles(GAS, hand.x, hand.y, hand.z, 4, 0.2, 0.2, 0.2, 0.0);
+			}
+			return;
+		}
+		if (moveTicks == GAS_WINDUP) {
+			setAction(ACTION_SLAM);
+			level.playSound(null, getX(), getY(), getZ(), SoundEvents.WITCH_THROW, SoundSource.HOSTILE, 1.6f, 0.5f);
+		}
+		int k = moveTicks - GAS_WINDUP;
+		if (k < GAS_FLIGHT) {
+			double f = k / (double) GAS_FLIGHT;
+			for (Vec3 t : gasTargets) {
+				Vec3 p = hand.lerp(t.add(0, 0.3, 0), f).add(0, Math.sin(f * Math.PI) * 3.0, 0);
+				level.sendParticles(ParticleTypes.SMOKE, p.x, p.y, p.z, 2, 0.03, 0.03, 0.03, 0.0);
+				level.sendParticles(GAS, p.x, p.y, p.z, 1, 0, 0, 0, 0.0);
+			}
+			return;
+		}
+		for (Vec3 t : gasTargets) {
+			addGasCloud(t);
+			level.playSound(null, t.x, t.y, t.z, SoundEvents.SPLASH_POTION_BREAK, SoundSource.HOSTILE, 1.4f, 0.6f);
+			level.playSound(null, t.x, t.y, t.z, SoundEvents.FIRE_EXTINGUISH, SoundSource.HOSTILE, 1.0f, 0.5f);
+			level.sendParticles(ParticleTypes.CLOUD, t.x, t.y + 0.5, t.z, 30, 1.2, 0.4, 1.2, 0.05);
+		}
+		gasTargets.clear();
+		endMove();
+	}
+
+	private void tickSlam(ServerLevel level) {
+		if (moveTicks <= SLAM_CROUCH) {
+			getNavigation().stop();
+			LivingEntity t = getTarget();
+			if (t != null) {
+				getLookControl().setLookAt(t, 40f, 40f);
+				slamTarget = t.position();
+			}
+			if (moveTicks % 3 == 0) {
+				level.sendParticles(RED, getX(), getY() + 0.2, getZ(), 8, 0.8, 0.1, 0.8, 0.0);
+			}
+			if (moveTicks == SLAM_CROUCH) {
+				// the leap: a ballistic arc landing on the target's spot (~18 ticks in the air)
+				Vec3 to = slamTarget.subtract(position());
+				double flight = 18.0;
+				double g = 0.08;
+				double vx = to.x / flight;
+				double vz = to.z / flight;
+				double vy = (to.y + 0.5 * g * flight * flight) / flight;
+				double h = Math.sqrt(vx * vx + vz * vz);
+				if (h > 1.2) { // never more than ~20 blocks
+					vx *= 1.2 / h;
+					vz *= 1.2 / h;
+				}
+				setDeltaMovement(vx, Math.min(1.6, vy), vz);
+				hasImpulse = true;
+				hurtMarked = true;
+				setAction(ACTION_CHARGE);
+				level.playSound(null, getX(), getY(), getZ(), SoundEvents.RAVAGER_ROAR, SoundSource.HOSTILE, 2.0f, 0.8f);
+				level.sendParticles(ParticleTypes.EXPLOSION, getX(), getY() + 0.3, getZ(), 2, 0.4, 0.1, 0.4, 0.0);
+			}
+			return;
+		}
+		slamAir++;
+		if (!onGround()) {
+			slamAirborne = true;
+			if (slamAir % 2 == 0) {
+				level.sendParticles(RED, getX(), getY() + 1.0, getZ(), 4, 0.5, 0.6, 0.5, 0.0);
+			}
+		}
+		boolean landed = slamAirborne && onGround() && slamAir > 3;
+		if (landed || slamAir >= SLAM_AIR_MAX) {
+			slamImpact(level);
+			setDeltaMovement(0, getDeltaMovement().y, 0);
+			endMove();
+		}
+	}
+
+	/** The Breach Slam lands: a shockwave of {@link #SLAM_RADIUS}. Returns how many it hit. */
+	public int slamImpact(ServerLevel level) {
+		level.playSound(null, getX(), getY(), getZ(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.HOSTILE, 1.6f, 0.7f);
+		level.playSound(null, getX(), getY(), getZ(), SoundEvents.ANVIL_LAND, SoundSource.HOSTILE, 1.4f, 0.5f);
+		level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, getX(), getY() + 0.2, getZ(), 1, 0, 0, 0, 0);
+		var floor = level.getBlockState(blockPosition().below());
+		for (int ring = 1; ring <= (int) SLAM_RADIUS; ring++) {
+			int n = 7 * ring;
+			for (int i = 0; i < n; i++) {
+				double a = i * Math.PI * 2 / n;
+				level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, floor.isAir() ? net.minecraft.world.level.block.Blocks.STONE.defaultBlockState() : floor),
+						getX() + Math.cos(a) * ring, getY() + 0.15, getZ() + Math.sin(a) * ring, 3, 0.1, 0.15, 0.1, 0.15);
+			}
+			for (int i = 0; i < n / 2; i++) {
+				double a = i * Math.PI * 4 / n;
+				level.sendParticles(RED, getX() + Math.cos(a) * ring, getY() + 0.3, getZ() + Math.sin(a) * ring, 1, 0, 0.05, 0, 0.0);
+			}
+		}
+		int hit = 0;
+		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, getBoundingBox().inflate(SLAM_RADIUS, 2.0, SLAM_RADIUS), e -> victim(e, this))) {
+			double d = Math.sqrt(e.distanceToSqr(this));
+			if (d > SLAM_RADIUS) {
+				continue;
+			}
+			float dmg = (float) Math.max(6.0, 16.0 * (1.0 - d / (SLAM_RADIUS + 1.0)));
+			e.hurt(damageSources().mobAttack(this), dmg);
+			Vec3 out = e.position().subtract(position());
+			Vec3 h = new Vec3(out.x, 0, out.z).lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : new Vec3(out.x, 0, out.z).normalize();
+			e.push(h.x * 0.9, 0.75, h.z * 0.9);
+			e.hurtMarked = true;
+			e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 30, 1), this);
+			hit++;
+		}
+		return hit;
 	}
 
 	private void tickCharge(ServerLevel level, LivingEntity t) {
@@ -741,6 +970,15 @@ public class WardenKrossBoss extends SyndicateEnforcer {
 			boolean sees = mob.getSensing().hasLineOfSight(t);
 			if (mob.enraged && mob.lockdownTicks == 0 && mob.lockdownCd <= 0) {
 				mob.startLockdown();
+				return true;
+			}
+			// v0.17.7 phase 2: the slam for anyone keeping their distance, the gas for a target in the open
+			if (mob.enraged && mob.slamCd <= 0 && d >= 6 && d <= 18 && sees && mob.random.nextInt(2) == 0) {
+				mob.startSlam();
+				return true;
+			}
+			if (mob.enraged && mob.gasCd <= 0 && d >= 4 && d <= 16 && sees) {
+				mob.startGas();
 				return true;
 			}
 			if (mob.shockCd <= 0 && d < mob.shockRadius() - 0.8 && t.onGround() && (mob.crowd() >= 2 || mob.random.nextInt(2) == 0)) {

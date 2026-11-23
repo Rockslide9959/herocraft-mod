@@ -62,6 +62,8 @@ Assets: `node scratchpad/v0177/gen_alarm_v0177.js`; lang: `scratchpad/v0177/alar
    | `SNIPER` | +24 follow range | While it can see its player target within 40: red laser line (client), a 3.2 b/t arrow (~9) every 2.5 s, laser brighter in the last second. |
 8. **Vault hook (Ghost)** — nothing to do: `HeroVault.open` calls `AlarmGhost.claim(level, pos, player)`. A Hero Vault
    inside a zone that was **never** Alert gives one extra roll (once per player per zone) and `projecthero:ghost`.
+   v0.17.7: only a zone with at least one Alarm Panel counts (old places generated before they had alarm blocks are
+   registered structures too, and must not hand out free Ghost bonuses).
    If your place's vault is not a `HeroVault`, call `AlarmGhost.claim` yourself and roll again when it returns true.
 9. **Keycards** — `AlarmKeycards.create(zone)` makes one (custom data `ZoneId`, `Place`, `X`, `Z`). Using it on a
    Blast Door of that zone unlocks and opens the whole connected door (`useOnDoor`), even during an Alert. A card

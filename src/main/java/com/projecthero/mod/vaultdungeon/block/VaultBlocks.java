@@ -27,6 +27,12 @@ public final class VaultBlocks {
 	public static VaultTurretBlock TURRET;
 	public static VaultConsoleBlock CONSOLE;
 	public static Block TRACK;
+	/** v0.17.7: the blue (cell-block power) / red (Riot Captain) security fields. */
+	public static VaultBarrierBlock BARRIER;
+	/** v0.17.7: the cell-block breaker in the Warden's Control Room. */
+	public static VaultBreakerBlock BREAKER;
+	public static BlockItem BARRIER_ITEM;
+	public static BlockItem BREAKER_ITEM;
 
 	public static BlockEntityType<VaultTurretBlockEntity> TURRET_BE;
 
@@ -68,6 +74,16 @@ public final class VaultBlocks {
 		TURRET_ITEM = item("vault_turret", TURRET);
 		CONSOLE_ITEM = item("vault_console", CONSOLE);
 		TRACK_ITEM = item("lockdown_track", TRACK);
+
+		BARRIER = block("vault_barrier", new VaultBarrierBlock(BlockBehaviour.Properties.of()
+				.mapColor(MapColor.COLOR_LIGHT_BLUE).strength(-1.0f, 3600000.0f).sound(SoundType.GLASS).lightLevel(s -> 7)
+				.noOcclusion().isValidSpawn((s, l, p, e) -> false).isRedstoneConductor((s, l, p) -> false)
+				.isSuffocating((s, l, p) -> false).isViewBlocking((s, l, p) -> false).pushReaction(PushReaction.BLOCK).noLootTable()));
+		BREAKER = block("vault_breaker", new VaultBreakerBlock(BlockBehaviour.Properties.of()
+				.mapColor(MapColor.COLOR_YELLOW).strength(-1.0f, 3600000.0f).sound(SoundType.METAL)
+				.lightLevel(s -> s.getValue(VaultBreakerBlock.POWERED) ? 9 : 2).pushReaction(PushReaction.BLOCK).noLootTable()));
+		BARRIER_ITEM = item("vault_barrier", BARRIER);
+		BREAKER_ITEM = item("vault_breaker", BREAKER);
 	}
 
 	private static <B extends Block> B block(String path, B block) {

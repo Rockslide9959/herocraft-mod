@@ -1,4 +1,71 @@
-# The Vault (v0.17.5, Tier 4 dungeon) — reference
+# The Vault (v0.17.5, two new floors + alarm v0.17.7, Tier 4 dungeon) — reference
+
+## v0.17.7: Maximum Security, the Warden's Control Room, the alarm, Kross phase 2
+
+Design: `docs/STRUCTURES_V0177_DESIGN.md` §2. Tests: `VaultSitesGameTests` (+ `VaultDungeonGameTests` updated for layout 2).
+Assets: `node scratchpad/v0177/gen_vault_sites_v0177.js`; lang: `scratchpad/v0177/vault_sites_lang.json` via `lang_add.js`.
+Harness: `scratchpad/VaultSitesHarness.v0177.java.txt` + `scratchpad/v0177/vault_sites_films_v0177.js` -> `docs/screenshots/v0177/vault_sites/`.
+
+**Layouts.** `VaultPiece` saves `Layout` (2 = v0.17.7). A piece saved before the tag existed loads as layout 1 and keeps
+drawing the v0.17.5 plan (a half-generated old Vault finishes the way it started); its saved box is kept too. New pieces:
+layout 2, box min z -66 (was -21). Structure id, placement, biomes and the tier-4 Locator tag are unchanged.
+`VaultBuilder.build(canvas, layout)` makes a fresh builder object per call (worldgen draws chunks on several threads, so
+the "layout 2" flag is a final field, never shared state).
+
+**The route (layout 2).** Surface -> Cell Block -> Security Floor (console opens the gate) -> gate landing -> **keycard
+Blast Door** (the guard Captain in the security office carries the card; a cleared alarm wave also unlocks it) ->
+Maximum Security (corridor, laser grid, the hall with the Riot Captain) -> **red field** (drops when the Riot Captain dies)
+-> Warden's Control Room -> **blue field** (drops when the cell-block breaker is thrown) -> passage west, 16-step stair
+south, a tunnel on the Warden's Level into the processing room's north wall -> Kross's arena -> the vault room. The v0.17.5
+flights from the gate landing to the processing room are not drawn in layout 2.
+
+| Part (local, y) | What |
+|---|---|
+| Laser corridor x -3..2, z -24..-12, y F2 | 5 framework laser tripwires set in the walls (knee/head, both sides), hazard stripes, cameras at both ends, Alarm Panel #4 |
+| Laser grid x -7..6, z -34..-24, y F2 | 3 rows of floor lasers pointing up (rows z -27/-30/-32, one gap each at x 4/-5/0, marked with a lime floor block), 2 cameras, a shield-bearer |
+| Hall x -12..11, z -52..-34, y F2 (8 high) | 8 pods (x -11..-8 and 7..10, z centres -49/-45/-41/-37) fronted by blue fields, an inmate each (tag `projecthero.vault_pod`); iron catwalks on the pod roofs (ladder at the south-west), snipers on them; the Riot Captain at (0, F2+1, -44) with a shield-bearer, a medic, a runner; Alarm Panel #5; 3 cameras; 4 spawn points; red field on the far door (x -1..0, z -52) |
+| Control Room x -9..8, z -64..-52, y F2 | monitor wall, desks, the **cell-block breaker** `vault_breaker` at (0, F2+1, -62), Alarm Panel #6 (spared by the power cut), a Tier 3 chest, a shield-bearer + gunner; blue field on the west exit (x -9, z -58..-57) |
+| Descent | passage x -25..-9 z -59..-56 (F2), stair x -25..-21 z -56..-41 (F2 -> F3), tunnel x -25..-21 z -41..-12 (F3) with a camera, a gunner, a spawn point |
+
+Public positions: `VaultBuilder.LAYOUT`, `MAXSEC_DOOR`, `RIOT_CAPTAIN`, `CAPTAIN_FIELD`, `BREAKER`, `POWER_FIELD`, `PODS`.
+
+**Alarm.** The Vault is an alarm zone (`VaultSecurity.PROFILE` = `the_vault`, tier 4, colour 0xC0392B, siren bell pitch 0.5;
+waves are riot wardens / gunners via `VaultGuards.spawn`). `VaultPiece.buildAll` registers the zone by hand. Layout 2 has an
+Alarm Panel on every floor (7: post, guard tower foot, turret hall, corridor, hall, Control Room, processing room), 16
+cameras, 40 laser tripwires (the Security Floor's two `vault_laser_alarm`s became framework lasers in the west wall), 23
+lamps and 22 spawn points. Every non-inmate guard spawned by a layout-2 build is an alarm guard (`VaultGuards.spawn(...,
+alarmGuard, role)`), roles: Captain (security office, keycard), runners (post, cell block, turret hall, hall), medics,
+shield-bearers, snipers (cell-block gallery, turret hall, hall catwalk). Inmates are never guards. Ghost bonus: automatic
+on the Tier 4 Hero Vaults (`HeroVault.open` -> `AlarmGhost.claim`). Kross's Lockdown does not raise the zone alarm (it
+would cost every Ghost run); it keeps its own squad.
+
+**Blocks.**
+
+| Block | Notes |
+|---|---|
+| `vault_barrier` (`kind` = power / captain) | Security Field. Unbreakable, see-through (translucent render layer), light 7, full collision. Right-click explains it. `VaultSecurity.dropFields(level, centre, r, dy, kind)` |
+| `vault_breaker` (`facing`, `powered`) | Cell-block breaker. Right-click while powered -> `VaultSecurity.shutDown`: off for good; blue fields within 34 (dy 8) drop; panels on its floor (dy <= 3) within 50 except within 10 of it are sabotaged (the Maximum Security wing's sensors go dark); pod inmates get a 24 leash and target the nearest player; chat line. |
+
+**The Riot Captain** (`riot_captain`, `RiotCaptainBoss` extends `SyndicateEnforcer`, x1.25, 380 HP, armour 12 / 4,
+player model, skin `SyndicateSkin.VAULT_RIOT_CAPTAIN` painted by the generator over `thug_c`). Shared `BossThreat`
+(hurt-by removed), yellow boss bar within 40 (red after the Rally), leash 14 / tether 32 from his post. Shield: frontal hits
+-40% (`RiotWarden.fromFront`), dazed = +50%. Moves: Shield Rush (4-12, sight; 10-tick brace, 14 ticks at 0.75 b/t, 9 dmg,
+shove, Slowness II 1 s; wall = dazed 30), Flashbang (5-16, sight; 8-tick wind, 16-tick arc, pop: Blindness 3 s + Slowness
+2 s + 3 dmg to everyone within 6 with a clear line), Rally (once at half health: 2 shield-bearer wardens, Strength 10 s to
+guards within 12, Resistance 5 s to him, cooldowns x0.75). Death -> `VaultSecurity.captainDown` (red fields within 30).
+Drops (`entities/riot_captain`): 2-4 Hero Alloy Ingots, 1-2 Vibranium Shards, 3-6 XP bottles, 50% Energy Cell, 35% golden
+apple. Test hooks: `startRush`, `startFlash`, `pop(level, at)`, `rally(level)`, `rallied()`, `threat()`.
+
+**Warden Kross, phase 2** (from half health, on top of the v0.17.5 enrage + Lockdown): chat "phase 2".
+- Riot Gas Volley (`MOVE_GAS`, 4-16 sight): 14-tick windup, three canisters (target + 3.5 either side) on 14-tick arcs;
+  each leaves a cloud for 160 ticks, r 2.8: every 10 ticks 2 (indirect magic) + Blindness 1.5 s + Slowness 1.5 s to
+  everyone but Syndicate mobs. Cooldown 240-300 (x0.65 enraged). Clouds are transient fields on the boss.
+- Breach Slam (`MOVE_SLAM`, 6-18 sight, 50%): 14-tick crouch, a ballistic leap onto the target's spot (~18 ticks,
+  horizontal speed capped), landing (or 34 ticks) = shockwave r 6: max(6, 16 x (1 - d/7)) + throw + Slowness II 1.5 s.
+  Cooldown 220-280 (x0.65).
+Test hooks: `startGas`, `startSlam`, `addGasCloud`, `gasClouds()`, `slamImpact(level)`.
+
+No new static state (nothing for `ServerStateReset`).
 
 Design: `docs/STRUCTURES_PROGRESSION_DESIGN.md` §2 ("Tier 4 Dungeons"). Loot hooks: `docs/LOOT_PROGRESSION_REFERENCE.md`.
 Patterns copied from `docs/VILLAIN_HIDEOUTS_REFERENCE.md` (canvas, guards, sealed vault, threat table, SavedData, loot gate).

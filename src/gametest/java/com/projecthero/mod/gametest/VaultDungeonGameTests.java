@@ -75,6 +75,8 @@ public class VaultDungeonGameTests implements FabricGameTest {
 	}
 
 	private static void clear(ServerLevel level, VaultPiece piece) {
+		// v0.17.7: buildAll registers the alarm zone; never leave it behind over other tests' ground
+		com.projecthero.mod.alarm.AlarmZones.get(level).removeWithin(piece.getBoundingBox());
 		AABB box = area(piece).inflate(2);
 		for (Entity e : level.getEntitiesOfClass(Entity.class, box.inflate(8), e -> !(e instanceof Player))) {
 			e.discard();
@@ -125,7 +127,10 @@ public class VaultDungeonGameTests implements FabricGameTest {
 			helper.assertTrue(anchor.equals(kross.home()), "Kross is bound to his arena (" + kross.home() + " vs " + anchor + ")");
 			helper.assertTrue(kross.isPersistenceRequired(), "Kross never despawns");
 			helper.assertTrue(count(level, box, s -> s.is(VaultBlocks.TURRET)) == 4, "four turrets");
-			helper.assertTrue(count(level, box, s -> s.is(VaultBlocks.ALARM)) == 2, "two laser alarms");
+			// v0.17.7 layout 2: the old laser alarms are the framework's laser tripwires now (2 + 5 in the corridor + 33 in the grid)
+			helper.assertTrue(count(level, box, s -> s.is(VaultBlocks.ALARM)) == 0, "no old laser alarms in a layout-2 Vault");
+			int lasers = count(level, box, s -> s.is(com.projecthero.mod.alarm.block.AlarmBlocks.LASER));
+			helper.assertTrue(lasers == 40, "40 laser tripwires (got " + lasers + ")");
 			helper.assertTrue(count(level, box, s -> s.is(VaultBlocks.TRACK)) >= 6, "lockdown tracks at the arena doorways");
 			BlockPos console = piece.world(VaultBuilder.CONSOLE);
 			helper.assertTrue(level.getBlockState(console).is(VaultBlocks.CONSOLE), "the security console at " + console);

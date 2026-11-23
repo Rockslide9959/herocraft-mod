@@ -313,6 +313,9 @@ public class AlarmGameTests implements FabricGameTest {
 		BlockPos v2 = helper.absolutePos(new BlockPos(44, 2, 4));
 		HeroVault.place(level, v1, 2, Direction.NORTH);
 		HeroVault.place(level, v2, 2, Direction.NORTH);
+		// v0.17.7: only a guarded zone (it has an Alarm Panel) gives the bonus
+		BlockPos panel = helper.absolutePos(new BlockPos(6, 2, 6));
+		level.setBlockAndUpdate(panel, AlarmBlocks.PANEL.defaultBlockState());
 		ServerPlayer p = mock(helper, new BlockPos(4, 2, 2));
 		try {
 			helper.assertTrue(HeroVault.open(level, v1, p).result() == HeroVault.OpenResult.OPENED, "the quiet vault opens");
@@ -322,6 +325,7 @@ public class AlarmGameTests implements FabricGameTest {
 		} finally {
 			level.removeBlock(v1, false);
 			level.removeBlock(v2, false);
+			level.removeBlock(panel, false);
 			leave(helper, p);
 			drop(helper, quiet);
 			drop(helper, loud);

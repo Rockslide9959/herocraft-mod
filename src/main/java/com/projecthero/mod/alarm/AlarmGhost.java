@@ -24,7 +24,12 @@ public final class AlarmGhost {
 	/** True (and remembered) when {@code player} earns the Ghost bonus for the vault at {@code pos}. */
 	public static boolean claim(ServerLevel level, BlockPos pos, ServerPlayer player) {
 		AlarmZone z = AlarmZones.find(level, pos);
-		if (z == null || z.everAlert || z.state == AlarmState.ALERT || !z.ghosts.add(player.getUUID())) {
+		if (z == null || z.everAlert || z.state == AlarmState.ALERT) {
+			return false;
+		}
+		// v0.17.7: an unguarded zone (a place generated before it had an alarm: no panels at all) gives no Ghost bonus
+		AlarmZones.scan(level, z);
+		if (z.panels.isEmpty() || !z.ghosts.add(player.getUUID())) {
 			return false;
 		}
 		AlarmZones.get(level).changed();

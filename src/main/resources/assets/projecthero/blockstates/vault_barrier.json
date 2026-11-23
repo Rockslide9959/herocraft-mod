@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "kind=power": {
+      "model": "projecthero:block/vault_barrier_power"
+    },
+    "kind=captain": {
+      "model": "projecthero:block/vault_barrier_captain"
+    }
+  }
+}

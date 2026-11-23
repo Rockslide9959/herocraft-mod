@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "projecthero:block/vault_breaker_front_off",
+    "side": "projecthero:block/vault_breaker_side",
+    "top": "projecthero:block/vault_breaker_top"
+  }
+}

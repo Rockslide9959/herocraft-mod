@@ -1,0 +1,34 @@
+{
+  "variants": {
+    "facing=north,powered=true": {
+      "model": "projecthero:block/vault_breaker"
+    },
+    "facing=east,powered=true": {
+      "model": "projecthero:block/vault_breaker",
+      "y": 90
+    },
+    "facing=south,powered=true": {
+      "model": "projecthero:block/vault_breaker",
+      "y": 180
+    },
+    "facing=west,powered=true": {
+      "model": "projecthero:block/vault_breaker",
+      "y": 270
+    },
+    "facing=north,powered=false": {
+      "model": "projecthero:block/vault_breaker_off"
+    },
+    "facing=east,powered=false": {
+      "model": "projecthero:block/vault_breaker_off",
+      "y": 90
+    },
+    "facing=south,powered=false": {
+      "model": "projecthero:block/vault_breaker_off",
+      "y": 180
+    },
+    "facing=west,powered=false": {
+      "model": "projecthero:block/vault_breaker_off",
+      "y": 270
+    }
+  }
+}

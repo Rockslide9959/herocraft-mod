@@ -243,3 +243,31 @@ vindicators, Zombie Raid zombies + sword skeletons, Tomb Guardians, Jotun Raider
 
 Loot: `chests/vault_tier2` unchanged (Hideout Locator 45%, gear sub-table from the gear branch, artifacts empty).
 No static state. Old worlds: already generated sites have no annex (the extra piece is only planned for new starts).
+
+### v0.17.7: the annexes become 5-8 minute raids (layout 2)
+
+Tests: `VaultSitesGameTests` (every site: zone, panel, Captain + keycard opening the locked door, runner, sensors, Ghost;
+the ward stone; old pieces keep layout 1) + `SiteUpgradeGameTests` (updated). Harness: `scratchpad/VaultSitesHarness.v0177.java.txt`.
+
+- **Layouts.** `SiteAnnexPiece` saves `Layout` (2). An annex saved before the tag loads as layout 1 and draws the v0.17.5
+  plan (iron door / hatch). The planner samples the back corners at local z -13 now (the box reaches z -13..8).
+  `SiteTheme` has 19 entries (the design and brief said 20; the City has no annex).
+- **Building (local, door at +z):** the same hall + furniture; a **back wing** z -13..-5 split by a wall at x 0: the
+  **back room** (x -5..-1, doorway at (-3, -5)) dressed by style -- specimen room (lab), armoury (military), generator room
+  (bunker), stash room (camp), instrument room (station), ossuary (crypt), inner shrine (temple), breached cell (infested),
+  cold store (ice) -- with a Tier 1 barrel; and the **vault room** (x 1..5, reinforced walls/floor) with the Site Vault at
+  (3, f, -11) on a gold block, behind a **locked 2x3 Blast Door** at x 2..3, z -5 (`blastDoorPos()`).
+- **Alarm.** Every site structure is a zone (`SiteUpgrade.profileId(theme)` = `site/<id>`, tier 2, `SiteTheme.colour()`;
+  waves draw from the site's own roster; siren: bit for tech, bell for the old-world styles). `SiteUpgrade.buildAll`
+  registers the zone by hand. One Alarm Panel in the hall at (5, f, -2) (`panelPos()`), 3 lamps in the roof, spawn points
+  on the porch (2) and in the back room. Tech styles: 2 cameras (front wall outside over the porch, inside the front wall
+  looking at the vault door). Old-world styles (crypt / temple / ice, `SiteTheme.oldWorld()`, `ancient` alarm style): a
+  **ward stone** (`site_ward`, `SiteWardBlock`) in the back-room doorway's wall with a tripwire across the doorway -- a
+  sensor (`AlarmDirector.raise(..., SENSOR, ...)` on its rising signal; dead while its wired panel is sabotaged).
+- **Guards** (all alarm guards, `SiteGuards.spawn(..., alarmGuard, role)`): the theme squad (`guardCount()`) at the old
+  posts, the first (porch left) the **Alarm Runner**; the **Captain** (`SiteTheme.captainKind()`: shotgunner, agent,
+  sword soldier, Parademon, Sentinel, infested vindicator, armoured zombie, Tomb Guardian, cultist or Jotun Raider) at his
+  desk (3, f, -2), carrying the keycard; a back-room guard (`backRoomKind()` = the roster's last). `totalGuards()` =
+  squad + 2 (5-8).
+- **Ghost bonus:** automatic on the Site Vault. `AlarmGhost.claim` now also needs the zone to have at least one Alarm Panel
+  (after a scan), so an old, unguarded site (a registered structure with no alarm blocks) gives no Ghost bonus.

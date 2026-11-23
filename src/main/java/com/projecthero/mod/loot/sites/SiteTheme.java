@@ -99,6 +99,47 @@ public enum SiteTheme {
 		this.roster = List.of(roster);
 	}
 
+	/** v0.17.7: the guard kind of this site's Captain (carries the keycard to the vault room). */
+	public Kind captainKind() {
+		return switch (this) {
+			case DIG_SITE, GEOLOGICAL_SITE, HYDROSTATIC_FACILITY, VIGILANTE_SAFEHOUSE -> Kind.SHOTGUN;
+			case GOVERNMENT_SITE, KRYPTONITE_CRATER -> Kind.AGENT_SHOTGUN;
+			case GAMMA_LAB -> Kind.SOLDIER_MELEE;
+			case FALLEN_LANTERN_SITE, METEOR_IMPACT -> Kind.PARADEMON;
+			case NOVA_POD_SITE, POWER_STATION, RESEARCH_FACILITY, STEEL_CRASH_SITE -> Kind.SENTINEL;
+			case SYMBIOTE_LAB, SYMBIOTE_METEOR -> Kind.HOST_VINDICATOR;
+			case GRAVEYARD -> Kind.ARMOURED_ZOMBIE;
+			case TEMPLE_OF_KHONSHU -> Kind.TOMB_GUARDIAN;
+			case TOMB_OF_NABU -> Kind.CULTIST;
+			case MJOLNIR_CRATER -> Kind.FROST_RAIDER;
+		};
+	}
+
+	/** v0.17.7: the guard in the new back room (the roster's last kind). */
+	public Kind backRoomKind() {
+		return roster.get(roster.size() - 1);
+	}
+
+	/** v0.17.7: true for the old-world styles (crypt, shrine, ice hut): ward stones instead of cameras, carved alarm blocks. */
+	public boolean oldWorld() {
+		return style == Style.CRYPT || style == Style.TEMPLE || style == Style.ICE;
+	}
+
+	/** v0.17.7: the site's accent colour (keycard tooltip, alarm messages). */
+	public int colour() {
+		return switch (style) {
+			case LAB -> 0xE8F4F8;
+			case MILITARY -> 0x7C9A5A;
+			case BUNKER -> 0xE0C04A;
+			case CAMP -> 0xB08850;
+			case STATION -> 0x8FB8D0;
+			case CRYPT -> 0x9AA0A6;
+			case TEMPLE -> 0xE0C080;
+			case INFESTED -> 0x6A4A8A;
+			case ICE -> 0x9FD8F0;
+		};
+	}
+
 	/** The theme of a site by its structure id path ({@code "gamma_lab"}), or null. */
 	public static SiteTheme byId(String id) {
 		for (SiteTheme t : values()) {

@@ -2420,7 +2420,8 @@ public final class HeroPackGuide {
 			blank(lines);
 			lines.add(Component.translatable("projecthero.guide.hideouts.vault").withStyle(s -> s.withColor(0x5FE8E8).withBold(true)));
 			para(lines, "projecthero.guide.hideouts.vault.body");
-			for (String part : new String[] { "floors", "kross", "lockdown", "clearing" }) {
+			// v0.17.7: two new floors (Maximum Security + the Riot Captain, the Warden's Control Room), Kross's phase 2, the alarm
+			for (String part : new String[] { "floors", "maxsec", "control", "kross", "lockdown", "phase2", "alarm", "clearing" }) {
 				blank(lines);
 				head(lines, "projecthero.guide.hideouts.vault." + part);
 				para(lines, "projecthero.guide.hideouts.vault." + part + ".body");

@@ -34,8 +34,40 @@ public final class SiteUpgrade {
 	private SiteUpgrade() {
 	}
 
-	/** Loads the class (registers the piece type). Called from {@code LootMod.initialize}. */
+	/** v0.17.7: the ward stone (the old-world sites' tripwire sensor). */
+	public static SiteWardBlock WARD;
+	public static net.minecraft.world.item.BlockItem WARD_ITEM;
+
+	/**
+	 * Loads the class (registers the piece type); v0.17.7: the ward stone, and every site as an alarm zone (profile
+	 * {@code site/<id>}, tier 2; waves are the site's own guard kinds). Called from {@code LootMod.initialize}.
+	 */
 	public static void initialize() {
+		WARD = Registry.register(BuiltInRegistries.BLOCK, ResourceKey.create(Registries.BLOCK, ProjectHeroMod.id("site_ward")),
+				new SiteWardBlock(net.minecraft.world.level.block.state.BlockBehaviour.Properties.of()
+						.mapColor(net.minecraft.world.level.material.MapColor.STONE).strength(-1.0f, 3600000.0f)
+						.sound(net.minecraft.world.level.block.SoundType.DEEPSLATE_BRICKS).lightLevel(s -> 4).noLootTable()));
+		WARD_ITEM = Registry.register(BuiltInRegistries.ITEM, ResourceKey.create(Registries.ITEM, ProjectHeroMod.id("site_ward")),
+				new net.minecraft.world.item.BlockItem(WARD, new net.minecraft.world.item.Item.Properties()));
+		for (SiteTheme theme : SiteTheme.values()) {
+			boolean old = theme.style == SiteTheme.Style.CRYPT || theme.style == SiteTheme.Style.TEMPLE || theme.style == SiteTheme.Style.ICE;
+			com.projecthero.mod.alarm.AlarmProfiles.register(new com.projecthero.mod.alarm.AlarmProfile(profileId(theme), 2, theme.colour(),
+					net.minecraft.network.chat.Component.translatable("structure.projecthero." + theme.id),
+					(level, spot, random) -> {
+						SiteGuards.Kind kind = theme.roster.get(random.nextInt(theme.roster.size()));
+						net.minecraft.world.entity.Mob m = SiteGuards.spawn(level, kind, spot, random.nextFloat() * 360f, 12);
+						if (m != null) {
+							level.sendParticles(net.minecraft.core.particles.ParticleTypes.POOF, m.getX(), m.getY() + 0.8, m.getZ(), 8, 0.3, 0.4, 0.3, 0.02);
+						}
+						return m;
+					}, old ? net.minecraft.sounds.SoundEvents.BELL_BLOCK : net.minecraft.sounds.SoundEvents.NOTE_BLOCK_BIT.value(), old ? 0.5f : 0.7f));
+			com.projecthero.mod.alarm.AlarmProfiles.registerStructure(ProjectHeroMod.id(theme.id), profileId(theme));
+		}
+	}
+
+	/** The alarm profile id of a site: {@code site/<id>}. */
+	public static String profileId(SiteTheme theme) {
+		return "site/" + theme.id;
 	}
 
 	/** Adds the site's annex (vault room + guards) beside {@code site}. */
@@ -86,7 +118,8 @@ public final class SiteUpgrade {
 			}
 			int[] samples = new int[5];
 			int water = 0;
-			int[][] pts = { { 0, 0 }, { -SiteAnnexPiece.HX, -SiteAnnexPiece.HZ }, { SiteAnnexPiece.HX, -SiteAnnexPiece.HZ },
+			// v0.17.7: the back corners sit behind the new back wing
+			int[][] pts = { { 0, 0 }, { -SiteAnnexPiece.HX, -SiteAnnexPiece.BACK }, { SiteAnnexPiece.HX, -SiteAnnexPiece.BACK },
 					{ -SiteAnnexPiece.HX, SiteAnnexPiece.HZ }, { SiteAnnexPiece.HX, SiteAnnexPiece.HZ } };
 			for (int i = 0; i < pts.length; i++) {
 				int x = ax + rotX(rot, pts[i][0], pts[i][1]);
@@ -115,9 +148,15 @@ public final class SiteUpgrade {
 		return new SiteAnnexPiece(theme, bestX, bestFloor, bestZ, bestRot, seed);
 	}
 
-	/** Builds a whole annex at once (tests, harness). */
+	/**
+	 * Builds a whole annex at once (tests, harness). v0.17.7: with no structure start on a live build, the annex's box is
+	 * registered as the site's alarm zone by hand (a rebuild starts a fresh zone).
+	 */
 	public static void buildAll(ServerLevel level, SiteAnnexPiece piece) {
 		piece.build(level, piece.getBoundingBox());
+		com.projecthero.mod.alarm.AlarmZones zones = com.projecthero.mod.alarm.AlarmZones.get(level);
+		zones.removeWithin(piece.getBoundingBox());
+		zones.register(piece.getBoundingBox(), profileId(piece.theme()));
 	}
 
 	private static int rotX(int rotation, int dx, int dz) {

@@ -39,10 +39,16 @@ public final class VaultEntityTypes {
 			EntityType.Builder.<WardenKrossBoss>of(WardenKrossBoss::new, MobCategory.MONSTER)
 					.sized(0.6f, 1.8f).eyeHeight(1.62f).clientTrackingRange(10).build("warden_kross"));
 
+	/** v0.17.7: the Riot Captain, the Maximum Security mid-boss -- player-sized, scaled x1.25. */
+	public static final EntityType<com.projecthero.mod.vaultdungeon.entity.RiotCaptainBoss> RIOT_CAPTAIN = register("riot_captain",
+			EntityType.Builder.<com.projecthero.mod.vaultdungeon.entity.RiotCaptainBoss>of(com.projecthero.mod.vaultdungeon.entity.RiotCaptainBoss::new,
+					MobCategory.MONSTER).sized(0.6f, 1.8f).eyeHeight(1.62f).clientTrackingRange(10).build("riot_captain"));
+
 	private VaultEntityTypes() {
 	}
 
 	public static void initialize() {
+		FabricDefaultAttributeRegistry.register(RIOT_CAPTAIN, com.projecthero.mod.vaultdungeon.entity.RiotCaptainBoss.createAttributes());
 		FabricDefaultAttributeRegistry.register(INMATE, VaultInmate.createAttributes());
 		FabricDefaultAttributeRegistry.register(RIOT_WARDEN, RiotWarden.createAttributes());
 		FabricDefaultAttributeRegistry.register(RIOT_GUNNER, RiotGunner.createAttributes());

@@ -36,7 +36,8 @@ public class SiteUpgradeGameTests implements FabricGameTest {
 	private static SiteAnnexPiece buildOnPlinth(GameTestHelper helper, SiteTheme theme, int rotation) {
 		ServerLevel level = helper.getLevel();
 		BlockPos at = helper.absolutePos(new BlockPos(3, 1, 3)).offset(0, LIFT, 0);
-		for (BlockPos q : BlockPos.betweenClosed(at.offset(-10, -10, -10), at.offset(10, 10, 10))) {
+		// v0.17.7: the back wing reaches 13 blocks behind the centre
+		for (BlockPos q : BlockPos.betweenClosed(at.offset(-16, -10, -16), at.offset(16, 10, 16))) {
 			level.setBlock(q, (q.getY() > at.getY() ? Blocks.AIR : q.getY() == at.getY() ? Blocks.GRASS_BLOCK : Blocks.STONE).defaultBlockState(), 2);
 		}
 		SiteAnnexPiece piece = new SiteAnnexPiece(theme, at.getX(), at.getY() + 1, at.getZ() - 1, rotation, 0x5175L * (theme.ordinal() + 3));
@@ -47,12 +48,17 @@ public class SiteUpgradeGameTests implements FabricGameTest {
 	private static void wipe(GameTestHelper helper) {
 		ServerLevel level = helper.getLevel();
 		BlockPos at = helper.absolutePos(new BlockPos(3, 1, 3)).offset(0, LIFT, 0);
-		for (Mob m : level.getEntitiesOfClass(Mob.class, new AABB(at).inflate(14))) {
+		for (Mob m : level.getEntitiesOfClass(Mob.class, new AABB(at).inflate(20))) {
 			m.discard();
 		}
-		for (BlockPos q : BlockPos.betweenClosed(at.offset(-10, -10, -10), at.offset(10, 10, 10))) {
+		for (net.minecraft.world.entity.item.ItemEntity e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new AABB(at).inflate(20))) {
+			e.discard();
+		}
+		for (BlockPos q : BlockPos.betweenClosed(at.offset(-16, -10, -16), at.offset(16, 10, 16))) {
 			level.setBlock(q, Blocks.AIR.defaultBlockState(), 2);
 		}
+		com.projecthero.mod.alarm.AlarmZones.get(level).removeWithin(new BoundingBox(at.getX() - 16, at.getY() - 10, at.getZ() - 16,
+				at.getX() + 16, at.getY() + 10, at.getZ() + 16));
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
@@ -73,7 +79,7 @@ public class SiteUpgradeGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	@GameTest(template = EMPTY_STRUCTURE, batch = "site_annex_build", timeoutTicks = 200)
 	public void everyAnnexHoldsATierTwoVaultAndItsGuards(GameTestHelper helper) {
 		ServerLevel level = helper.getLevel();
 		for (SiteTheme theme : SiteTheme.values()) {
@@ -81,20 +87,14 @@ public class SiteUpgradeGameTests implements FabricGameTest {
 			BlockPos v = piece.vaultPos();
 			helper.assertTrue(level.getBlockState(v).is(LootItems.HERO_VAULT), theme + ": a hero_vault at " + v + " (found " + level.getBlockState(v) + ")");
 			helper.assertTrue(HeroVault.tierAt(level, v) == 2, theme + ": the vault is tier 2");
-			if (theme.entry == SiteTheme.Entry.IRON_DOOR) {
-				long doors = BlockPos.betweenClosedStream(v.offset(-4, 0, -4), v.offset(4, 1, 4)).filter(q -> level.getBlockState(q).is(Blocks.IRON_DOOR)).count();
-				long buttons = BlockPos.betweenClosedStream(v.offset(-6, 0, -6), v.offset(6, 2, 6)).filter(q -> level.getBlockState(q).is(Blocks.STONE_BUTTON)).count();
-				helper.assertTrue(doors == 2, theme + ": an iron door (2 halves, got " + doors + ")");
-				helper.assertTrue(buttons == 2, theme + ": a button either side (got " + buttons + ")");
-			} else {
-				long ladders = BlockPos.betweenClosedStream(v.offset(-4, 0, -4), v.offset(4, 3, 4)).filter(q -> level.getBlockState(q).is(Blocks.LADDER)).count();
-				helper.assertTrue(ladders == 3, theme + ": a 3-rung ladder down to the basement (got " + ladders + ")");
-				int down = piece.floorY() - v.getY();
-				helper.assertTrue(down == 4, theme + ": the basement vault is 4 below the floor (got " + down + ")");
-			}
+			// v0.17.7 layout 2: the vault room is behind a locked Blast Door (the iron door / hatch is layout 1, see VaultSitesGameTests)
+			helper.assertTrue(piece.layout() == SiteAnnexPiece.LAYOUT, theme + ": a new annex is layout " + SiteAnnexPiece.LAYOUT);
+			var door = level.getBlockState(piece.blastDoorPos());
+			helper.assertTrue(door.is(com.projecthero.mod.alarm.block.AlarmBlocks.BLAST_DOOR) && door.getValue(com.projecthero.mod.alarm.block.BlastDoorBlock.LOCKED),
+					theme + ": a locked Blast Door into the vault room (found " + door + ")");
 			List<Mob> guards = level.getEntitiesOfClass(Mob.class, AABB.of(piece.getBoundingBox()).inflate(2), SiteGuards::isGuard);
-			helper.assertTrue(guards.size() == piece.guardCount(), theme + ": " + piece.guardCount() + " guards (got " + guards.size() + ")");
-			helper.assertTrue(guards.size() >= 3 && guards.size() <= 6, theme + ": a squad of 3-6");
+			helper.assertTrue(guards.size() == piece.totalGuards(), theme + ": " + piece.totalGuards() + " guards (got " + guards.size() + ")");
+			helper.assertTrue(guards.size() >= 5 && guards.size() <= 8, theme + ": a squad of 3-6 plus the Captain and the back-room guard");
 			helper.assertTrue(guards.stream().allMatch(Mob::isPersistenceRequired), theme + ": the guards don't despawn");
 			helper.assertTrue(guards.stream().noneMatch(m -> m.getType() == EntityType.ZOMBIE || m.getType() == EntityType.SKELETON
 					|| m.getType() == EntityType.STRAY || m.getType() == EntityType.DROWNED), theme + ": no daylight-burning vanilla undead");
