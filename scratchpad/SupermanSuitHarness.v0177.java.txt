@@ -1,0 +1,352 @@
+// TEMP-HARNESS copy (v0.17.7 Superman Suit two-piece). To use: put SupermanSuitHarness.java back in src/client/java/com/projecthero/mod/client/,
+// add "com.projecthero.mod.client.SupermanSuitHarness" to the client entrypoints in src/main/resources/fabric.mod.json, put the camera mixin below in
+// src/client/java/com/projecthero/mod/client/mixin/SupermanSuitHarnessCameraMixin.java and list it in projecthero.client.mixins.json, write
+// run/supersuit.flag = "<out dir>", run node scratchpad/low_graphics_options.js run/options.txt, ./gradlew runClient. Shots land in <out dir>/screenshots.
+// Remove all of it again afterwards.
+
+// ===== SupermanSuitHarness.java =====
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+import org.lwjgl.glfw.GLFW;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.7 Superman Suit two-piece): stills of the chestplate + leggings (boots drawn by the leggings)
+ * front / side / back / feet close-up / walking, slim, and the creative search for "superman" (no boots) with the leggings tooltip.
+ * Enabled by run/supersuit.flag = "<out dir>"; fixed camera via SupermanSuitHarnessCameraMixin.
+ */
+public final class SupermanSuitHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static BlockPos base;
+	private static File out;
+	private static final java.util.Map<Integer, List<Runnable>> AT = new java.util.HashMap<>();
+	private static float camAngle, camDist, camH, camLookH = 1.1f;
+	private static boolean camOn, walk;
+	public static volatile double[] camPose;
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("supersuit.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			out = new File(Files.readString(flag).trim());
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(SupermanSuitHarness::tick);
+		ClientTickEvents.START_CLIENT_TICK.register(SupermanSuitHarness::placeCam);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(420_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "supersuit-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.computeIfAbsent(t, k -> new ArrayList<>()).add(r);
+	}
+
+	private static void cam3(float angle, float dist, float h, float lookH) {
+		camAngle = angle;
+		camDist = dist;
+		camH = h;
+		camLookH = lookH;
+		camOn = true;
+		Minecraft mc = Minecraft.getInstance();
+		mc.options.hideGui = true;
+		placeCam(mc);
+	}
+
+	private static void placeCam(Minecraft mc) {
+		if (!camOn || mc.player == null || mc.level == null || base == null) {
+			camPose = null;
+			return;
+		}
+		Vec3 c = new Vec3(base.getX() + 0.5, base.getY(), base.getZ() + 0.5);
+		double r = Math.toRadians(camAngle);
+		Vec3 eye = c.add(Math.sin(r) * camDist, camH, Math.cos(r) * camDist);
+		Vec3 look = c.add(0, camLookH, 0);
+		Vec3 d = look.subtract(eye);
+		float yaw = (float) (Math.toDegrees(Math.atan2(-d.x, d.z)));
+		float pitch = (float) (-Math.toDegrees(Math.atan2(d.y, d.horizontalDistance())));
+		camPose = new double[] { eye.x, eye.y, eye.z, yaw, pitch };
+		mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+	}
+
+	private static void face(Minecraft mc) {
+		var p = mc.player;
+		p.setYRot(0f);
+		p.yRotO = 0f;
+		p.setXRot(5f);
+		p.xRotO = 5f;
+		p.yBodyRot = 0f;
+		p.yBodyRotO = 0f;
+		p.yHeadRot = 0f;
+		p.yHeadRotO = 0f;
+		if (walk) {
+			// a mid-stride pose: the walk animation's legs apart
+			p.walkAnimation.setSpeed(1.0f);
+			p.walkAnimation.update(0.6f, 1.0f);
+		}
+	}
+
+	private static void slim(Minecraft mc, boolean slim) {
+		try {
+			var info = mc.getConnection().getPlayerInfo(mc.player.getUUID());
+			var f = net.minecraft.client.multiplayer.PlayerInfo.class.getDeclaredField("skinLookup");
+			f.setAccessible(true);
+			net.minecraft.client.resources.PlayerSkin skin = slim
+					? new net.minecraft.client.resources.PlayerSkin(ResourceLocation.withDefaultNamespace("textures/entity/player/slim/alex.png"), null, null, null,
+							net.minecraft.client.resources.PlayerSkin.Model.SLIM, true)
+					: new net.minecraft.client.resources.PlayerSkin(ResourceLocation.withDefaultNamespace("textures/entity/player/wide/steve.png"), null, null, null,
+							net.minecraft.client.resources.PlayerSkin.Model.WIDE, true);
+			java.util.function.Supplier<net.minecraft.client.resources.PlayerSkin> sup = () -> skin;
+			f.set(info, sup);
+		} catch (Exception e) {
+			System.out.println("[HARNESS] slim failed " + e);
+		}
+	}
+
+	private static void stage(ServerPlayer p) {
+		ServerLevel level = p.serverLevel();
+		level.setDayTime(6000L);
+		level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+		level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+		level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+		p.setGameMode(GameType.SURVIVAL);
+		base = p.blockPosition();
+		for (int x = -8; x <= 8; x++) {
+			for (int z = -8; z <= 8; z++) {
+				level.setBlock(base.offset(x, -1, z), (x + z) % 2 == 0 ? Blocks.SMOOTH_STONE.defaultBlockState() : Blocks.POLISHED_ANDESITE.defaultBlockState(), 3);
+			}
+		}
+		p.getInventory().clearContent();
+		com.projecthero.mod.kryptonian.Kryptonian.grant(p);
+		p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(com.projecthero.mod.kryptonian.SupermanSuit.CHESTPLATE));
+		p.setItemSlot(EquipmentSlot.LEGS, new ItemStack(com.projecthero.mod.kryptonian.SupermanSuit.LEGGINGS));
+		p.connection.teleport(base.getX() + 0.5, base.getY(), base.getZ() + 0.5, 0f, 5f);
+		System.out.println("[HARNESS] armour " + p.getAttributeValue(Attributes.ARMOR) + " pieces "
+				+ com.projecthero.mod.kryptonian.SupermanSuit.piecesWorn(p) + " full " + com.projecthero.mod.kryptonian.SupermanSuit.fullSuitWorn(p));
+	}
+
+	private static void plan() {
+		Minecraft mc = Minecraft.getInstance();
+		int t = 0;
+		at(t, () -> cam3(0f, 2.6f, 1.2f, 1.0f));
+		at(t + 10, () -> shot(mc, "suit_front"));
+		at(t + 11, () -> cam3(90f, 2.6f, 1.2f, 1.0f));
+		at(t + 18, () -> shot(mc, "suit_side"));
+		at(t + 19, () -> cam3(180f, 2.6f, 1.2f, 1.0f));
+		at(t + 26, () -> shot(mc, "suit_back"));
+		at(t + 27, () -> cam3(30f, 1.3f, 0.55f, 0.25f));
+		at(t + 34, () -> shot(mc, "feet_close_front"));
+		at(t + 35, () -> cam3(100f, 1.2f, 0.45f, 0.25f));
+		at(t + 42, () -> shot(mc, "feet_close_side"));
+		at(t + 43, () -> {
+			walk = true;
+			cam3(70f, 2.6f, 1.1f, 0.9f);
+		});
+		at(t + 50, () -> shot(mc, "suit_walking_side"));
+		at(t + 51, () -> {
+			walk = false;
+			slim(mc, true);
+			cam3(-30f, 2.6f, 1.2f, 1.0f);
+		});
+		at(t + 58, () -> shot(mc, "suit_front_slim"));
+		at(t + 59, () -> slim(mc, false));
+		t += 62;
+		// the creative search: "superman" lists the chestplate and the leggings, no boots
+		at(t, () -> {
+			camOn = false;
+			camPose = null;
+			mc.options.hideGui = false;
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, p -> p.setGameMode(GameType.CREATIVE));
+		});
+		at(t + 6, () -> mc.setScreen(new CreativeModeInventoryScreen(mc.player, mc.player.connection.enabledFeatures(), false)));
+		at(t + 10, () -> {
+			var s = mc.screen;
+			int key = mc.options.keyChat.getDefaultKey().getValue();
+			s.keyPressed(key, GLFW.glfwGetKeyScancode(key), 0);
+			s.keyReleased(key, GLFW.glfwGetKeyScancode(key), 0); // clears ignoreTextInput
+		});
+		at(t + 12, () -> {
+			for (char c : "superman".toCharArray()) {
+				mc.screen.charTyped(c, 0);
+			}
+		});
+		at(t + 20, () -> shot(mc, "creative_search_superman"));
+		at(t + 21, () -> {
+			// hover the third result (the leggings; the first is the Doomsday skull) for its tooltip
+			try {
+				var w = mc.getWindow();
+				double gs = w.getGuiScale();
+				int left = (w.getGuiScaledWidth() - 195) / 2, top = (w.getGuiScaledHeight() - 136) / 2;
+				double x = (left + 9 + 36 + 8) * gs, y = (top + 18 + 8) * gs;
+				GLFW.glfwSetCursorPos(w.getWindow(), x, y);
+				var m = net.minecraft.client.MouseHandler.class.getDeclaredMethod("onMove", long.class, double.class, double.class);
+				m.setAccessible(true);
+				m.invoke(mc.mouseHandler, w.getWindow(), x, y);
+			} catch (Throwable e) {
+				System.out.println("[HARNESS] cursor " + e);
+			}
+		});
+		at(t + 28, () -> shot(mc, "creative_leggings_tooltip"));
+		t += 30;
+		at(t, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(SupermanSuitHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 20) {
+			GLFW.glfwSetWindowSize(mc.getWindow().getWindow(), 854, 480);
+		}
+		if (t == 40) {
+			mc.options.fov().set(70);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			mc.getToasts().clear();
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, SupermanSuitHarness::stage);
+		}
+		if (t < 140 || base == null) {
+			return;
+		}
+		if (mc.screen == null) {
+			face(mc);
+		}
+		int s = t - 140;
+		if (s == 0) {
+			plan();
+		}
+		if (s % 10 == 0) {
+			mc.gui.getChat().clearMessages(false);
+		}
+		List<Runnable> todo = AT.remove(s);
+		if (todo != null) {
+			todo.forEach(Runnable::run);
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		rules.getRule(GameRules.RULE_DOMOBSPAWNING).set(false, null);
+		LevelSettings settings = new LevelSettings("SUPERSUIT_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false, Difficulty.PEACEFUL, true,
+				rules, WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}
+
+
+// ===== mixin/SupermanSuitHarnessCameraMixin.java =====
+package com.projecthero.mod.client.mixin;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import net.minecraft.client.Camera;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.BlockGetter;
+
+/** TEMP-HARNESS (not shipped): the SupermanSuitHarness's fixed camera. */
+@Mixin(Camera.class)
+public abstract class SupermanSuitHarnessCameraMixin {
+	@Shadow
+	private boolean detached;
+
+	@Shadow
+	protected abstract void setRotation(float yaw, float pitch);
+
+	@Shadow
+	protected abstract void setPosition(double x, double y, double z);
+
+	@Inject(method = "setup", at = @At("TAIL"))
+	private void projecthero$supermanSuitHarnessCam(BlockGetter level, Entity entity, boolean detached, boolean mirrored, float partial, CallbackInfo ci) {
+		double[] c = com.projecthero.mod.client.SupermanSuitHarness.camPose;
+		if (c != null) {
+			this.detached = true;
+			setPosition(c[0], c[1], c[2]);
+			setRotation((float) c[3], (float) c[4]);
+		}
+	}
+}

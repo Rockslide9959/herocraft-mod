@@ -48,6 +48,9 @@ public class SupermanSuitItem extends SuperheroArmorItem {
 		tooltip.add(Component.translatable("item.projecthero.superman_suit.tooltip").withStyle(ChatFormatting.GOLD));
 		if (getType() == Type.CHESTPLATE) {
 			tooltip.add(Component.translatable("item.projecthero.superman_suit_chestplate.tooltip").withStyle(ChatFormatting.GRAY));
+		} else if (getType() == Type.LEGGINGS) {
+			// v0.17.7: the boots are part of the leggings now
+			tooltip.add(Component.translatable("item.projecthero.superman_suit_leggings.tooltip").withStyle(ChatFormatting.GRAY));
 		}
 	}
 }

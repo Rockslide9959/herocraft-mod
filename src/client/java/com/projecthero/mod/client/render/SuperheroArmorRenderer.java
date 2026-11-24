@@ -549,6 +549,12 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 			case LEGS -> {
 				setBoneVisible(this.rightLeg, true);
 				setBoneVisible(this.leftLeg, true);
+				// v0.17.7 (user): the Superman Suit has no boots item any more -- its leggings draw the boots too (like the
+				// Sentry Suit's trousers), so the red boots come with the legs
+				if (getAnimatable() instanceof com.projecthero.mod.kryptonian.item.SupermanSuitItem) {
+					setBoneVisible(this.rightBoot, true);
+					setBoneVisible(this.leftBoot, true);
+				}
 			}
 			case FEET -> {
 				setBoneVisible(this.rightBoot, true);

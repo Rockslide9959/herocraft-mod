@@ -142,7 +142,7 @@ public final class Kryptonian {
 
 	/**
 	 * v0.14.17: Solar Energy the sun gives him a second where he stands (before any running drain). v0.15.18: each worn
-	 * Superman Suit piece soaks up {@link SupermanSuit#SOLAR_BONUS_PER_PIECE} more (the full three-piece suit: +50%).
+	 * Superman Suit piece soaks up {@link SupermanSuit#SOLAR_BONUS_PER_PIECE} more (the full suit: +50%; v0.17.7: two pieces, chestplate + leggings).
 	 */
 	public static float solarGainPerSecond(ServerPlayer player) {
 		Float pinned = GAIN_FOR_TESTS.get(player.getUUID());

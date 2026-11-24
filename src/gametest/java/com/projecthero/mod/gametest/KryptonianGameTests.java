@@ -357,7 +357,9 @@ public class KryptonianGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void supermanSuitRecipesExistWithoutKryptonite(GameTestHelper helper) {
-		for (String piece : new String[] { "chestplate", "leggings", "boots" }) {
+		helper.assertFalse(helper.getLevel().getRecipeManager().byKey(com.projecthero.mod.ProjectHeroMod.id("superman_suit_boots")).isPresent(),
+				"v0.17.7: no boots recipe any more");
+		for (String piece : new String[] { "chestplate", "leggings" }) {
 			var holder = helper.getLevel().getRecipeManager().byKey(com.projecthero.mod.ProjectHeroMod.id("superman_suit_" + piece));
 			helper.assertTrue(holder.isPresent(), "a recipe for the " + piece);
 			var recipe = holder.get().value();
@@ -382,7 +384,7 @@ public class KryptonianGameTests implements FabricGameTest {
 		ItemStack chest = new ItemStack(SupermanSuit.CHESTPLATE);
 		// InventoryMenu armour slots: 5 head, 6 chest, 7 legs, 8 feet
 		helper.assertFalse(p.inventoryMenu.getSlot(6).mayPlace(chest), "a non-Kryptonian's chest slot refuses it");
-		helper.assertFalse(p.inventoryMenu.getSlot(8).mayPlace(new ItemStack(SupermanSuit.BOOTS)), "and the boots slot");
+		helper.assertFalse(p.inventoryMenu.getSlot(7).mayPlace(new ItemStack(SupermanSuit.LEGGINGS)), "and the legs slot");
 		p.setItemInHand(InteractionHand.MAIN_HAND, chest);
 		helper.assertFalse(chest.getItem().use(helper.getLevel(), p, InteractionHand.MAIN_HAND).getResult().consumesAction(),
 				"right-click does not put it on");
@@ -397,20 +399,77 @@ public class KryptonianGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	/** v0.15.18: each Superman Suit piece worn soaks up more sunlight -- the full three-piece suit, +50%. */
+	/**
+	 * v0.15.18: each Superman Suit piece worn soaks up more sunlight -- the full suit, +50%. v0.17.7: the full suit is two pieces
+	 * (chestplate + leggings, the boots are part of the leggings), +25% each.
+	 */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void supermanSuitSoaksUpSunlightFaster(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);
 		Kryptonian.setSolarGainForTests(p, 6f);
 		helper.assertTrue(Math.abs(Kryptonian.solarGainPerSecond(p) - 6f) < 1e-4f, "no suit: the plain sun rate");
 		p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(SupermanSuit.CHESTPLATE));
-		helper.assertTrue(Math.abs(Kryptonian.solarGainPerSecond(p) - 7f) < 1e-4f, "one piece: +1/6");
+		helper.assertTrue(Math.abs(Kryptonian.solarGainPerSecond(p) - 7.5f) < 1e-4f, "one piece: +1/4");
+		helper.assertFalse(SupermanSuit.fullSuitWorn(p), "the chestplate alone is not the full suit");
 		p.setItemSlot(EquipmentSlot.LEGS, new ItemStack(SupermanSuit.LEGGINGS));
-		p.setItemSlot(EquipmentSlot.FEET, new ItemStack(SupermanSuit.BOOTS));
+		helper.assertTrue(SupermanSuit.fullSuitWorn(p) && SupermanSuit.piecesWorn(p) == 2, "chestplate + leggings: the full suit");
 		helper.assertTrue(Math.abs(Kryptonian.solarGainPerSecond(p) - 9f) < 1e-4f, "the full suit: +50%");
+		p.setItemSlot(EquipmentSlot.FEET, new ItemStack(SupermanSuit.LEGGINGS));
+		helper.assertTrue(SupermanSuit.piecesWorn(p) == 2 && Math.abs(Kryptonian.solarGainPerSecond(p) - 9f) < 1e-4f,
+				"leggings stuck in the feet slot never count as a third piece");
+		p.setItemSlot(EquipmentSlot.FEET, ItemStack.EMPTY);
 		p.setItemSlot(EquipmentSlot.LEGS, new ItemStack(net.minecraft.world.item.Items.DIAMOND_LEGGINGS));
-		helper.assertTrue(Math.abs(Kryptonian.solarGainPerSecond(p) - 8f) < 1e-4f, "other armour adds nothing");
+		helper.assertTrue(Math.abs(Kryptonian.solarGainPerSecond(p) - 7.5f) < 1e-4f, "other armour adds nothing");
 		Kryptonian.setSolarGainForTests(p, null);
+		helper.succeed();
+	}
+
+	/** v0.17.7: the boots were folded into the leggings -- the full two-piece suit is still a full iron set's 15 armour. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void twoPieceSupermanSuitKeepsIronArmour(GameTestHelper helper) {
+		// (a mock player's equipment attributes only update when it ticks, so read the pieces' own numbers)
+		helper.assertTrue(SupermanSuit.CHESTPLATE.getDefense() == 7 && SupermanSuit.LEGGINGS.getDefense() == 8,
+				"chest 7 + leggings 8, got " + SupermanSuit.CHESTPLATE.getDefense() + " / " + SupermanSuit.LEGGINGS.getDefense());
+		helper.assertTrue(SupermanSuit.CHESTPLATE.getDefense() + SupermanSuit.LEGGINGS.getDefense() == 15, "= a full iron set's 15");
+		helper.assertTrue(SupermanSuit.CHESTPLATE.getToughness() == 0f && SupermanSuit.LEGGINGS.getToughness() == 0f, "no toughness");
+		helper.succeed();
+	}
+
+	/**
+	 * v0.17.7: the Superman boots item is gone. Its id is no longer an item of its own: a saved stack of it (the legacy-id
+	 * redirect) loads as the leggings, and the creative tab has no boots.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void supermanBootsAreGoneAndOldOnesLoadAsLeggings(GameTestHelper helper) {
+		net.minecraft.resources.ResourceLocation boots = com.projecthero.mod.ProjectHeroMod.id("superman_suit_boots");
+		for (net.minecraft.world.item.Item item : net.minecraft.core.registries.BuiltInRegistries.ITEM) {
+			helper.assertFalse(item instanceof SupermanSuitItem piece && piece.getType() == net.minecraft.world.item.ArmorItem.Type.BOOTS,
+					"no Superman boots item is registered");
+			helper.assertFalse(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item).equals(boots), "nothing under the old id");
+		}
+		helper.assertTrue(net.minecraft.core.registries.BuiltInRegistries.ITEM.get(boots) == SupermanSuit.LEGGINGS,
+				"the old id resolves to the leggings");
+		// an item saved before the change
+		net.minecraft.nbt.CompoundTag saved = new net.minecraft.nbt.CompoundTag();
+		saved.putString("id", boots.toString());
+		saved.putInt("count", 1);
+		ItemStack loaded = ItemStack.parseOptional(helper.getLevel().registryAccess(), saved);
+		helper.assertTrue(loaded.is(SupermanSuit.LEGGINGS), "a saved pair of boots loads as the leggings, got " + loaded);
+		helper.succeed();
+	}
+
+	/** v0.17.7: an old pair of boots still worn in the feet slot (now the leggings) moves to the legs slot, or the inventory. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void oldSupermanBootsInTheFeetSlotMoveToTheLegs(GameTestHelper helper) {
+		ServerPlayer p = hero(helper);
+		p.setItemSlot(EquipmentSlot.FEET, new ItemStack(SupermanSuit.LEGGINGS));
+		Kryptonian.tick(p);
+		helper.assertTrue(p.getItemBySlot(EquipmentSlot.FEET).isEmpty() && p.getItemBySlot(EquipmentSlot.LEGS).is(SupermanSuit.LEGGINGS),
+				"free legs slot: they move there");
+		p.setItemSlot(EquipmentSlot.FEET, new ItemStack(SupermanSuit.LEGGINGS));
+		Kryptonian.tick(p);
+		helper.assertTrue(p.getItemBySlot(EquipmentSlot.FEET).isEmpty() && p.getItemBySlot(EquipmentSlot.LEGS).is(SupermanSuit.LEGGINGS)
+				&& p.getInventory().contains(new ItemStack(SupermanSuit.LEGGINGS)), "legs slot taken: into the inventory");
 		helper.succeed();
 	}
 
@@ -424,9 +483,9 @@ public class KryptonianGameTests implements FabricGameTest {
 		helper.assertFalse(SupermanSuit.wearsCape(p), "no suit: no cape");
 		p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(net.minecraft.world.item.Items.DIAMOND_CHESTPLATE));
 		helper.assertFalse(SupermanSuit.wearsCape(p), "another chestplate: no cape");
-		p.setItemSlot(EquipmentSlot.FEET, new ItemStack(SupermanSuit.BOOTS));
+		p.setItemSlot(EquipmentSlot.LEGS, new ItemStack(SupermanSuit.LEGGINGS));
 		p.setItemSlot(EquipmentSlot.CHEST, ItemStack.EMPTY);
-		helper.assertFalse(SupermanSuit.wearsCape(p), "the boots alone: no cape");
+		helper.assertFalse(SupermanSuit.wearsCape(p), "the leggings alone: no cape");
 		p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(SupermanSuit.CHESTPLATE));
 		helper.assertTrue(SupermanSuit.wearsCape(p), "the Superman chestplate: the cape");
 
@@ -446,16 +505,16 @@ public class KryptonianGameTests implements FabricGameTest {
 	public void losingThePowerPopsTheSupermanSuitOff(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);
 		p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(SupermanSuit.CHESTPLATE));
-		p.setItemSlot(EquipmentSlot.FEET, new ItemStack(SupermanSuit.BOOTS));
+		p.setItemSlot(EquipmentSlot.LEGS, new ItemStack(SupermanSuit.LEGGINGS));
 		Kryptonian.tick(p);
 		helper.assertTrue(p.getItemBySlot(EquipmentSlot.CHEST).is(SupermanSuit.CHESTPLATE), "a Kryptonian keeps it on");
 
 		Kryptonian.revoke(p);
 		Kryptonian.tick(p);
-		helper.assertTrue(p.getItemBySlot(EquipmentSlot.CHEST).isEmpty() && p.getItemBySlot(EquipmentSlot.FEET).isEmpty(),
+		helper.assertTrue(p.getItemBySlot(EquipmentSlot.CHEST).isEmpty() && p.getItemBySlot(EquipmentSlot.LEGS).isEmpty(),
 				"it pops off when the power goes");
 		helper.assertTrue(p.getInventory().contains(new ItemStack(SupermanSuit.CHESTPLATE))
-				&& p.getInventory().contains(new ItemStack(SupermanSuit.BOOTS)), "into his inventory");
+				&& p.getInventory().contains(new ItemStack(SupermanSuit.LEGGINGS)), "into his inventory");
 
 		// a full inventory: it drops at his feet instead
 		p.getInventory().clearContent();

@@ -97,6 +97,15 @@ meteor in flight at shutdown never lands.
 A craftable four-piece armour set from the user's `superman.bbmodel` (`3d minecraft models/kryptonian/`) that **only a
 Kryptonian can wear**. No powers of its own.
 
+**v0.17.7 (user: "Make the superman boots apart of the leggings, similar to how you made the sentry suit, and then remove the
+superman boots item"):** two pieces now, chestplate + leggings (the helmet went in v0.14.10). The leggings draw the boot bones too
+(`SuperheroArmorRenderer.applyBoneVisibilityBySlot`, LEGS pass, `SupermanSuitItem` only). Armour chest 7 + leggings 8 = 15 (the
+boots' 3 moved into the leggings), no toughness; solar bonus +25% per piece (`SOLAR_BONUS_PER_PIECE = 0.5 / PIECES`), full suit
+still +50%. The `superman_suit_boots` item, recipe, model, icon and lang key are gone. Old saves: `item/LegacyItemIds` (run by
+`LegacyItemIdMixin` / `LegacyItemIdDefaultedMixin`, the v0.15.6 Iron Man rename redirect) loads `superman_suit_boots` as
+`superman_suit_leggings`; if that pair is still worn in the feet slot, `SupermanSuit.fixMisplacedPieces` (from `tick`) moves it to the
+legs slot if free, else into the inventory / drops it. `piecesWorn` only counts a piece in its own slot. The notes below predate this.
+
 | What | Where |
 |---|---|
 | Material, items, the wear rule, the pop-off tick, the dispenser behaviour | `SupermanSuit` (items registered from `KryptonianItems.initialize`, creative tab after the meteor blocks) |
