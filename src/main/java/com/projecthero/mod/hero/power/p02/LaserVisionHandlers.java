@@ -66,6 +66,8 @@ public final class LaserVisionHandlers {
 	public static final double THERMAL_RANGE = 50.0;
 
 	public static final float HEAT_BEAM_PER_TICK = 1.0f / 20.0f;
+	/** Held Heat Vision hits a creature the first tick it touches it, then every this many ticks (v0.17.7, EyeBeamHits). */
+	public static final int BEAM_HIT_INTERVAL = 10;
 	public static final float HEAT_PIERCING_BLAST = 10.0f;
 	public static final float HEAT_SWEEPING_ARC = 10.0f;
 	public static final float HEAT_RECOIL_BLAST = 5.0f;
@@ -407,10 +409,16 @@ public final class LaserVisionHandlers {
 		ensureLoop(p, ANIM_BEAM);
 		com.projecthero.mod.beamclash.BeamClash.report(p, p.getEyePosition(), p.getLookAngle(), 100.0, 1f, 0xFF3A20); // v0.17.3
 		beamToFarViewers(p, ctx.level(), LaserBeamPayload.KIND_BEAM);
-		if (p.tickCount % 10 == 0) {
+		// v0.17.7 (user: "it should do damage instantly"): the beam used to hit on the player's own 10-tick clock, so it could sit on a
+		// creature for half a second first. Now each creature has its own clock (EyeBeamHits): hit the first tick the beam touches it,
+		// then every 10 ticks while it stays on it.
+		LivingEntity onTarget = AbilityHelpers.raycastEntity(p, RANGE);
+		if (onTarget != null && com.projecthero.mod.hero.power.EyeBeamHits.due(p, "laser_vision_beam", onTarget, BEAM_HIT_INTERVAL)) {
 			float ramp = 1.0f + Math.min(1.5f, held / 40.0f);
 			Vec3 end = beamDamage(ctx, 4.8f * ramp, 0.0);
 			impact(ctx.level(), end, 3);
+		} else if (onTarget == null && p.tickCount % BEAM_HIT_INTERVAL == 0) {
+			impact(ctx.level(), AbilityHelpers.aimPoint(p, RANGE), 3);
 		}
 		if (!p.onGround() && p.getXRot() > 40.0f) {
 			slowFall(p);

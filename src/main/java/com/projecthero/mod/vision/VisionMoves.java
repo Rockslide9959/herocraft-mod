@@ -226,16 +226,18 @@ public final class VisionMoves {
 		Vec3 from = Vision.stonePos(p);
 		Vec3 look = p.getLookAngle();
 		BeamClash.report(p, from, look, VisionConfig.BEAM_RANGE, 1.1f, Vision.GOLD);
+		// v0.17.7: the ray every tick, each target on its own clock -- hit the first tick the beam touches it (EyeBeamHits)
+		Vec3 end = beamEnd(p, from, look, VisionConfig.BEAM_RANGE);
+		LivingEntity target = beamTarget(p, from, end, 1.0);
+		if (target != null && !BeamClash.inClash(p)
+				&& com.projecthero.mod.hero.power.EyeBeamHits.due(p, "mind_stone_beam", target, VisionConfig.BEAM_HIT_INTERVAL)) {
+			beamHit(p, target);
+		}
 		if ((now - r.beamStart) % VisionConfig.BEAM_HIT_INTERVAL != 0) {
 			return;
 		}
-		Vec3 end = beamEnd(p, from, look, VisionConfig.BEAM_RANGE);
-		LivingEntity target = beamTarget(p, from, end, 1.0);
 		ServerLevel level = (ServerLevel) p.level();
 		Vec3 at = target != null ? target.position().add(0, target.getBbHeight() * 0.6, 0) : end;
-		if (target != null && !BeamClash.inClash(p)) {
-			beamHit(p, target);
-		}
 		level.sendParticles(Vision.dust(Vision.GOLD, 1.3f), at.x, at.y, at.z, 6, 0.15, 0.15, 0.15, 0.0);
 		level.sendParticles(ParticleTypes.END_ROD, at.x, at.y, at.z, 1, 0.1, 0.1, 0.1, 0.01);
 		if ((now - r.beamStart) % 10 == 0) {
@@ -527,8 +529,8 @@ public final class VisionMoves {
 		}
 		ServerLevel level = (ServerLevel) p.level();
 		Vec3 end = beamEnd(p, from, look, VisionConfig.UNLEASH_RANGE);
-		if (age % VisionConfig.UNLEASH_HIT_INTERVAL == 0 && !BeamClash.inClash(p)) {
-			unleashHit(p, from, end);
+		if (!BeamClash.inClash(p)) {
+			unleashTick(p, from, end); // v0.17.7: each creature on its own clock (EyeBeamHits)
 		}
 		if (age % 2 == 0) {
 			level.sendParticles(Vision.dust(Vision.GOLD, 2.2f), end.x, end.y, end.z, 8, 0.5, 0.5, 0.5, 0.0);
@@ -540,6 +542,18 @@ public final class VisionMoves {
 	}
 
 	/** One sweep of the wide beam: 7 to everything within 1.6 blocks of its line. Public for the tests. Returns how many it hit. */
+	/** v0.17.7: a creature the Unleashed beam touches is hit at once, then every UNLEASH_HIT_INTERVAL ticks while it stays in it. */
+	static int unleashTick(ServerPlayer p, Vec3 from, Vec3 end) {
+		int n = 0;
+		for (LivingEntity e : along(p, from, end, VisionConfig.UNLEASH_RADIUS)) {
+			if (com.projecthero.mod.hero.power.EyeBeamHits.due(p, "mind_stone_unleashed", e, VisionConfig.UNLEASH_HIT_INTERVAL)
+					&& Vision.hit(p, e, VisionConfig.UNLEASH_DAMAGE)) {
+				n++;
+			}
+		}
+		return n;
+	}
+
 	public static int unleashHit(ServerPlayer p, Vec3 from, Vec3 end) {
 		int n = 0;
 		for (LivingEntity e : along(p, from, end, VisionConfig.UNLEASH_RADIUS)) {

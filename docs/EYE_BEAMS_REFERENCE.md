@@ -49,3 +49,18 @@ Darkseid's homing Omega Beams.
 
 Shots: `docs/screenshots/v0175/eye_beams/` (`before/`, `after/`, `compare/`, MP4s + frame sheets; `solar_gaze_ray/` = the Solar Gaze aimed at, beside and over a husk, before and after the feet-snapping fix). Harness kept in
 `scratchpad/EyeBeamHarness.v0175.java.txt`, films by `scratchpad/eye_beams_film_v0175.js`.
+
+## v0.17.7 fixes
+
+- **First person no longer wobbles** (user: "in first person when player is using laser vision the laser vision wobbles
+  around, please fix that for all the laser visions"). The first-person start points used to be placed in the world 0.12
+  blocks ahead of the camera, so view bobbing (a translation in the projection), the hurt tilt and FOV changes (sprinting,
+  Speed, slowness, flying) dragged them across the screen. `Frame.onScreen` now unprojects a fixed screen position
+  (`FP_EYE_SIDE` / `FP_EYE_DOWN`, `FP_BROW_UP`) through this frame's projection x `positionMatrix`, so the beams stay put. The
+  width flicker is off in first person (at ~24 Hz right in front of the eyes it read as shaking). Entity hits move with the
+  target's drawn (interpolated) body. Before / after: `docs/screenshots/v0177/eye_beams_fp/`.
+- **Damage is instant** (user: "you need to hold the laser vision on the enemy for like a second for it to deal damage ...
+  it should do damage instantly"). Held eye beams hit on per-target clocks (`hero/power/EyeBeamHits`): the first tick a beam
+  touches a creature it is hit, then every interval while it stays on it (same damage per second). Applies to Laser Vision's
+  held beam (was the player's own `tickCount % 10`), Kryptonian Heat Vision, Sentry Solar Gaze, Starfire Eye Beams, Vision's
+  Mind Stone Beam and Unleashed. Maximum Output and Sweeping Arc already hit every tick. Tests: `EyeBeamInstantV0177GameTests`.

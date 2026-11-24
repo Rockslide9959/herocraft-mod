@@ -83,7 +83,7 @@ import software.bernie.geckolib.util.GeckoLibUtil;
  * air</b> -- circling the deck {@link #ORBIT_RADIUS} out and {@link #ORBIT_HEIGHT} up, facing her target. Missiles are
  * nine, strafing runs come faster, and the Jet Dash becomes an <b>Afterburner Dive</b>: a ring marks the target's spot
  * for a second, she plunges onto it (14 in 3.5 + thrown) and stays down {@link #GROUNDED_TICKS} ticks catching her
- * breath -- taking 30% more damage -- before she climbs again.
+ * breath (v0.17.7: 10 s while her overheated wing pack vents) -- taking 30% more damage -- before she climbs again.
  *
  * <p>Shared {@link BossThreat} threat table (switches to whoever hurts her most), boss bar within {@link #BAR_RANGE},
  * bound to the flight deck ({@link #home}); she never takes fall damage and is put back on the deck if knocked off.
@@ -99,7 +99,8 @@ public class AdmiralKestrelBoss extends Monster implements GeoEntity {
 	public static final double STRAFE_SPEED = 1.5;
 	public static final double DIVE_SPEED = 1.6;
 	public static final double STRAFE_HALF = 18.0;
-	public static final int GROUNDED_TICKS = 50;
+	/** v0.17.7 (user): grounded 10 s after each Afterburner Dive -- her wing pack overheats and has to vent before she can climb. */
+	public static final int GROUNDED_TICKS = 200;
 	public static final String DRONE_TAG = "projecthero.kestrel_drone";
 
 	public static final byte MOVE_NONE = 0;
@@ -592,12 +593,25 @@ public class AdmiralKestrelBoss extends Monster implements GeoEntity {
 			}
 			case MOVE_DIVE -> tickDive(level);
 			case MOVE_GROUNDED -> {
+				// v0.17.7 (user): 10 s on the deck -- the wing pack vents steam from its nozzles, hissing, then spools back up
 				setDeltaMovement(0, getDeltaMovement().y, 0);
-				if (moveTicks % 6 == 0) {
-					level.sendParticles(ParticleTypes.SMOKE, getX(), getY() + 1.6, getZ(), 3, 0.3, 0.2, 0.3, 0.02);
+				Vec3 back = Vec3.directionFromRotation(0f, yBodyRot).scale(-0.45);
+				if (moveTicks % 4 == 0) {
+					level.sendParticles(ParticleTypes.CLOUD, getX() + back.x, getY() + 1.5, getZ() + back.z, 2, 0.15, 0.25, 0.15, 0.03);
+					level.sendParticles(ParticleTypes.SMOKE, getX() + back.x, getY() + 1.7, getZ() + back.z, 2, 0.2, 0.2, 0.2, 0.02);
+				}
+				if (moveTicks % 30 == 1 && moveTicks < GROUNDED_TICKS - 30) {
+					level.playSound(null, getX(), getY(), getZ(), SoundEvents.FIRE_EXTINGUISH, SoundSource.HOSTILE, 0.9f, 0.7f);
+				}
+				if (moveTicks == GROUNDED_TICKS - 30) {
+					level.playSound(null, getX(), getY(), getZ(), SoundEvents.BEACON_POWER_SELECT, SoundSource.HOSTILE, 1.2f, 1.4f);
+				}
+				if (moveTicks > GROUNDED_TICKS - 30 && moveTicks % 3 == 0) {
+					level.sendParticles(ParticleTypes.FLAME, getX() + back.x, getY() + 1.3, getZ() + back.z, 2, 0.1, 0.1, 0.1, 0.01);
 				}
 				if (moveTicks >= GROUNDED_TICKS) {
 					setFlying(true);
+					diveCd = 120 + random.nextInt(40); // the next dive counts from the climb, not the landing
 					endMove();
 				}
 			}
@@ -725,6 +739,11 @@ public class AdmiralKestrelBoss extends Monster implements GeoEntity {
 		}
 		diveCd = 120 + random.nextInt(40);
 		begin(MOVE_GROUNDED);
+		// v0.17.7: say why she's down (players fighting her)
+		for (net.minecraft.server.level.ServerPlayer sp : level.getEntitiesOfClass(net.minecraft.server.level.ServerPlayer.class, getBoundingBox().inflate(BAR_RANGE))) {
+			sp.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.projecthero.kestrel.wing_pack_venting")
+					.withStyle(net.minecraft.ChatFormatting.GOLD), true);
+		}
 	}
 
 	private void ring(ServerLevel level, Vec3 at, double r, DustParticleOptions dust, int n) {

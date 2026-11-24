@@ -10,6 +10,7 @@ import java.util.Set;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
+import org.joml.Vector4f;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -253,7 +254,11 @@ public final class EyeBeamFx {
 					e -> e != shooter && e.isPickable() && e instanceof LivingEntity && !(e instanceof ArmorStand) && !e.isSpectator(),
 					from.distanceToSqr(end));
 			if (ehr != null) {
-				return new Hit(ehr.getLocation(), null, true);
+				// v0.17.7: the hit-box is where the creature is this tick, but it is drawn between ticks -- move the end with the
+				// drawn body so the beam doesn't jitter on a moving target
+				Entity e = ehr.getEntity();
+				float pt = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+				return new Hit(ehr.getLocation().add(e.getPosition(pt).subtract(e.position())), null, true);
 			}
 		}
 		return new Hit(end, block ? bhr.getDirection() : null, false);
@@ -310,6 +315,8 @@ public final class EyeBeamFx {
 		ADD_Q.clear();
 		OVER_Q.clear();
 		Frame f = new Frame(mc, level, camera, cam, partial, now);
+		// the view rotation lives in positionMatrix (the pose stack here is only the identity the quads are drawn with)
+		f.screen(context.projectionMatrix(), new Matrix4f(context.positionMatrix()).mul(poseStack.last().pose()));
 
 		for (Req r : REQS) {
 			if (r.mode() == RAW) {
@@ -401,6 +408,9 @@ public final class EyeBeamFx {
 		final float now;
 		final Vec3 camLeft;
 		final Vec3 camUp;
+		final Vec3 camLook;
+		/** v0.17.7: screen (clip space) -> camera-relative world, this frame's projection x view, view bobbing and hurt tilt included. */
+		Matrix4f unproject;
 
 		Frame(Minecraft mc, ClientLevel level, Camera camera, Vec3 cam, float partial, float now) {
 			this.mc = mc;
@@ -412,6 +422,39 @@ public final class EyeBeamFx {
 			Vector3f u = camera.getUpVector();
 			this.camLeft = new Vec3(l.x(), l.y(), l.z());
 			this.camUp = new Vec3(u.x(), u.y(), u.z());
+			Vector3f k = camera.getLookVector();
+			this.camLook = new Vec3(k.x(), k.y(), k.z());
+		}
+
+		void screen(Matrix4f projection, Matrix4f view) {
+			Matrix4f m = new Matrix4f(projection).mul(view);
+			unproject = Math.abs(m.determinant()) > 1.0e-12f ? m.invert() : null;
+		}
+
+		/**
+		 * v0.17.7 (user: "in first person when player is using laser vision the laser vision wobbles around"): the world point that
+		 * draws at screen position ({@code ndcX}, {@code ndcY}) (-1..1, up positive), {@code fwd} blocks in front of the camera. Built
+		 * from this frame's own projection, so view bobbing, the hurt tilt and the FOV changing (sprinting, slowness, flying) leave it
+		 * fixed on screen. The old point, placed in the world 0.12 blocks ahead, was swung across the screen by all three.
+		 */
+		Vec3 onScreen(double ndcX, double ndcY, double fwd) {
+			if (unproject == null) {
+				return null;
+			}
+			Vector4f a = unproject.transform(new Vector4f((float) ndcX, (float) ndcY, -1f, 1f));
+			Vector4f b = unproject.transform(new Vector4f((float) ndcX, (float) ndcY, 0.5f, 1f));
+			if (Math.abs(a.w) < 1.0e-9f || Math.abs(b.w) < 1.0e-9f) {
+				return null;
+			}
+			Vec3 na = new Vec3(a.x / a.w, a.y / a.w, a.z / a.w);
+			Vec3 nb = new Vec3(b.x / b.w, b.y / b.w, b.z / b.w);
+			Vec3 d = nb.subtract(na);
+			double along = d.dot(camLook);
+			if (Math.abs(along) < 1.0e-9) {
+				return null;
+			}
+			double t = (fwd - na.dot(camLook)) / along;
+			return cam.add(na.add(d.scale(t)));
 		}
 
 		/**
@@ -469,7 +512,7 @@ public final class EyeBeamFx {
 			if (r.halo() && eyes.length == 2) {
 				Vec3 mid = eyes[0].add(eyes[1]).scale(0.5);
 				Vec3 tip = grow >= 1f ? end : mid.add(end.subtract(mid).scale(grow));
-				float fl = flicker(seed + 9f);
+				float fl = fp ? 1f : flicker(seed + 9f);
 				soft(GLOW_Q, mid, tip, s.glowW() * w * 2.4f * fl, s.glowW() * w * 3.2f * fl, s.haze(), (fp ? 0.12f : 0.2f) * a, (fp ? 0.14f : 0.22f) * a);
 				soft(ADD_Q, mid, tip, s.coreW() * w * 1.4f, s.coreW() * w * 1.6f, s.hot(), (fp ? 0.5f : 0.9f) * a, (fp ? 0.6f : 0.9f) * a);
 			}
@@ -496,7 +539,7 @@ public final class EyeBeamFx {
 				return;
 			}
 			Vec3 dir = d.scale(1.0 / len);
-			float fl = flicker(seed);
+			float fl = fp ? 1f : flicker(seed); // v0.17.7: steady in first person (a flicker that close to your eyes reads as shaking)
 			float haze = s.glowW() * w * 2.1f * fl;
 			float glow = s.glowW() * w * fl;
 			float core = s.coreW() * w * 1.5f * (0.94f + 0.06f * fl);
@@ -693,6 +736,19 @@ public final class EyeBeamFx {
 		 * dead centre a touch above eye level.
 		 */
 		Vec3[] fpOrigins(Player p, boolean brow) {
+			// v0.17.7: pinned to the screen through this frame's projection (no wobble from bobbing, hurt tilt or FOV changes)
+			if (brow) {
+				Vec3 c = onScreen(0.0, FP_BROW_UP, FP_EYE_FORWARD);
+				if (c != null) {
+					return new Vec3[] { c };
+				}
+			} else {
+				Vec3 r = onScreen(FP_EYE_SIDE, -FP_EYE_DOWN, FP_EYE_FORWARD);
+				Vec3 l = onScreen(-FP_EYE_SIDE, -FP_EYE_DOWN, FP_EYE_FORWARD);
+				if (r != null && l != null) {
+					return new Vec3[] { r, l };
+				}
+			}
 			Vec3 eye = p.getEyePosition(partial);
 			Vec3 look = p.getViewVector(partial);
 			Vec3 right = rightOf(look);

@@ -65,7 +65,9 @@ public final class KryptonianFlight {
 		BOOMED.remove(player.getUUID());
 		grantAbilities(player);
 		player.resetFallDistance();
-		player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ELYTRA_FLYING, SoundSource.PLAYERS, 0.3f, 1.6f);
+		// v0.17.7: a short take-off gust; the flight wind itself is a client loop that stops on landing (it used to be a long elytra
+		// one-shot here that kept playing after the flight ended)
+		player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.WIND_CHARGE_BURST.value(), SoundSource.PLAYERS, 0.5f, 1.4f);
 		ServerLevel level = (ServerLevel) player.level();
 		level.sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY(), player.getZ(), 10, 0.4, 0.1, 0.4, 0.05);
 	}
@@ -175,7 +177,7 @@ public final class KryptonianFlight {
 		Kryptonian.save(player, n);
 		BOOMED.remove(player.getUUID());
 		player.level().playSound(null, player.getX(), player.getY(), player.getZ(), n.flightBoost ? SoundEvents.FIRECHARGE_USE
-				: SoundEvents.ELYTRA_FLYING, SoundSource.PLAYERS, 0.6f, n.flightBoost ? 1.4f : 1.9f);
+				: SoundEvents.WIND_CHARGE_BURST.value(), SoundSource.PLAYERS, 0.6f, n.flightBoost ? 1.4f : 1.9f); // v0.17.7: short, no linger
 		player.displayClientMessage(net.minecraft.network.chat.Component.translatable(n.flightBoost
 				? "message.projecthero.kryptonian.boost_on" : "message.projecthero.kryptonian.boost_off")
 				.withStyle(net.minecraft.ChatFormatting.GOLD), true);

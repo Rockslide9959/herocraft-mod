@@ -17,14 +17,21 @@ import net.minecraft.sounds.SoundSource;
  */
 public class ThorFlightSoundInstance extends AbstractTickableSoundInstance {
 	private final LocalPlayer player;
+	private final java.util.function.Predicate<LocalPlayer> flying;
 
 	public ThorFlightSoundInstance(LocalPlayer player) {
+		this(player, ThorPowers::isFlying, 0.6f, 1.0f);
+	}
+
+	/** v0.17.7: the same loop for another power's flight (Kryptonian): it stops the tick {@code flying} turns false. */
+	public ThorFlightSoundInstance(LocalPlayer player, java.util.function.Predicate<LocalPlayer> flying, float volume, float pitch) {
 		super(SoundEvents.ELYTRA_FLYING, SoundSource.PLAYERS, SoundInstance.createUnseededRandom());
 		this.player = player;
+		this.flying = flying;
 		this.looping = true;
 		this.delay = 0;
-		this.volume = 0.6f;
-		this.pitch = 1.0f;
+		this.volume = volume;
+		this.pitch = pitch;
 		this.x = player.getX();
 		this.y = player.getY();
 		this.z = player.getZ();
@@ -32,7 +39,7 @@ public class ThorFlightSoundInstance extends AbstractTickableSoundInstance {
 
 	@Override
 	public void tick() {
-		if (player.isRemoved() || !ThorPowers.isFlying(player)) {
+		if (player.isRemoved() || !flying.test(player)) {
 			this.stop();
 			return;
 		}

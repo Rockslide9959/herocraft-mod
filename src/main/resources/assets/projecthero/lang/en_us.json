@@ -14550,7 +14550,7 @@
   "projecthero.guide.hideouts.sky.officer": "The Deck Officer",
   "projecthero.guide.hideouts.sky.officer.body": "The mid-boss on the Command Bridge: sidearm volleys, a flashbang (step out of the white ring), a sabre lunge, and twice he radios for crew and buffs his guards. He switches to whoever hurts him most.",
   "projecthero.guide.hideouts.sky.kestrel": "Admiral Kestrel",
-  "projecthero.guide.hideouts.sky.kestrel.body": "The boss on the flight deck, in a heavy flight suit. She jet-dashes along an orange line, fires homing missile barrages (lock-on rings mark the targets) and calls fighter drones. Her strafing run paints a red lane down the deck: get out of it. At half health she takes to the air and circles the deck. Her dive marks a ring first, and after a dive she stays down for a moment, taking extra damage.",
+  "projecthero.guide.hideouts.sky.kestrel.body": "The boss on the flight deck, in a heavy flight suit. She jet-dashes along an orange line, fires homing missile barrages (lock-on rings mark the targets) and calls fighter drones. Her strafing run paints a red lane down the deck: get out of it. At half health she takes to the air and circles the deck. Her dive marks a ring first, and after a dive her wing pack overheats: she is stuck on the deck for 10 seconds while it vents steam, taking extra damage. That is your window.",
   "projecthero.guide.hideouts.sky.hazards": "The long drop",
   "projecthero.guide.hideouts.sky.hazards.body": "The flight deck has open edges, and wind vents blast gusts toward them (sneak to halve the push). Falling off without flight is a very long drop. Grab a Parachute from the crates by the hangar mouth: it opens by itself in a long fall.",
   "projecthero.guide.hideouts.sky.clearing": "The vault",
@@ -14700,5 +14700,6 @@
   "projecthero.guide.loot.temple": "Ancient Temple",
   "projecthero.guide.loot.temple.body": "The second Tier 4 dungeon: a buried temple in jungles and deserts with three trials, traps, Temple Wards and Ankhatep, the Bound King. Its treasury holds three Dungeon Vaults and, sometimes, the Bound King's Ankh. See Villain Hideouts for the full guide.",
   "projecthero.guide.structures.temple": "Ancient Temple: a ziggurat over a deep descent in jungles and deserts, the second Tier 4 dungeon. See Villain Hideouts.",
-  "projecthero.jei.temple": "From the Ancient Temple (Tier 4 dungeon, jungles and deserts)."
+  "projecthero.jei.temple": "From the Ancient Temple (Tier 4 dungeon, jungles and deserts).",
+  "message.projecthero.kestrel.wing_pack_venting": "Kestrel's wing pack is overheating! She's grounded for 10 seconds while it vents."
 }

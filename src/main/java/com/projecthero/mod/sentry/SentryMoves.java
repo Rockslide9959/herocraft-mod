@@ -479,7 +479,9 @@ public final class SentryMoves {
 		if (eh != null) {
 			end = eh.getLocation();
 		}
-		if (age % SentryConfig.GAZE_DAMAGE_INTERVAL == 0 && eh != null && eh.getEntity() instanceof LivingEntity le) {
+		// v0.17.7: each target on its own clock -- hit the first tick the gaze touches it (EyeBeamHits)
+		if (eh != null && eh.getEntity() instanceof LivingEntity le
+				&& com.projecthero.mod.hero.power.EyeBeamHits.due(p, "solar_gaze", le, SentryConfig.GAZE_DAMAGE_INTERVAL)) {
 			Sentry.hit(p, le, SentryConfig.GAZE_DAMAGE, false);
 			le.igniteForSeconds(SentryConfig.GAZE_FIRE_SECONDS);
 		}

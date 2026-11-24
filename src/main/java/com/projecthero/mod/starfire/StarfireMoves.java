@@ -475,16 +475,18 @@ public final class StarfireMoves {
 		Vec3 eye = p.getEyePosition();
 		Vec3 look = p.getLookAngle();
 		BeamClash.report(p, eye, look, StarfireConfig.BEAM_RANGE, 1.2f, Starfire.GREEN);
+		// v0.17.7: the ray every tick, each target on its own clock -- hit the first tick the beams touch it (EyeBeamHits)
+		Vec3 end = beamEnd(p, eye, look);
+		LivingEntity target = beamTarget(p, eye, end);
+		if (target != null && !BeamClash.inClash(p)
+				&& com.projecthero.mod.hero.power.EyeBeamHits.due(p, "starfire_eye_beams", target, StarfireConfig.BEAM_HIT_INTERVAL)) {
+			beamHit(p, target);
+		}
 		if ((now - r.beamStart) % StarfireConfig.BEAM_HIT_INTERVAL != 0) {
 			return;
 		}
-		Vec3 end = beamEnd(p, eye, look);
-		LivingEntity target = beamTarget(p, eye, end);
 		ServerLevel level = (ServerLevel) p.level();
 		Vec3 at = target != null ? target.position().add(0, target.getBbHeight() * 0.6, 0) : end;
-		if (target != null && !BeamClash.inClash(p)) {
-			beamHit(p, target);
-		}
 		level.sendParticles(Starfire.dust(Starfire.GREEN, 1.4f), at.x, at.y, at.z, 6, 0.15, 0.15, 0.15, 0.0);
 		level.sendParticles(ParticleTypes.SMALL_FLAME, at.x, at.y, at.z, 2, 0.1, 0.1, 0.1, 0.01);
 		if ((now - r.beamStart) % 10 == 0) {

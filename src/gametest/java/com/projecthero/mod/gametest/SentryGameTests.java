@@ -374,6 +374,7 @@ public class SentryGameTests implements FabricGameTest {
 		edit(p, s -> s.beamStart = t0 - 1200);
 		z.setHealth(500f);
 		z.invulnerableTime = 0;
+		com.projecthero.mod.hero.power.EyeBeamHits.clear(); // v0.17.7: same game tick as the first burn -- reset the per-target clock
 		SentryMoves.tick(p);
 		helper.assertTrue(Sentry.state(p).beamStart != 0L, "still on after 60 s held");
 		helper.assertTrue(z.getHealth() < 500f, "still burning after 60 s");

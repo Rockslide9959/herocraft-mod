@@ -28,6 +28,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 	private static final boolean[] slotWasDown = new boolean[6];
 
 	private static boolean wasFlying = false;
+	private static boolean wasKryptonianFlying = false; // v0.17.7 the Kryptonian flight wind loop
 	private static boolean jumpWasDown = false;
 	private static int ticksSinceJumpPress = Integer.MAX_VALUE;
 	private static boolean powerSelectWasDown = false;
@@ -585,6 +586,13 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			client.getSoundManager().play(new ThorFlightSoundInstance(client.player));
 		}
 		wasFlying = flyingNow;
+		// v0.17.7 (user: Kryptonian flight sounds "linger for a bit even after the flight ends"): the wind is a loop that follows you
+		// and stops the moment the flight does, instead of a long one-shot elytra sample that played on after landing
+		boolean kryptonianFlyingNow = com.projecthero.mod.kryptonian.Kryptonian.isFlying(client.player);
+		if (kryptonianFlyingNow && !wasKryptonianFlying) {
+			client.getSoundManager().play(new ThorFlightSoundInstance(client.player, com.projecthero.mod.kryptonian.Kryptonian::isFlying, 0.3f, 1.6f));
+		}
+		wasKryptonianFlying = kryptonianFlyingNow;
 
 		if (client.screen != null) {
 			// A menu opened while a slot key was held -- release any that are "down" so a channelled

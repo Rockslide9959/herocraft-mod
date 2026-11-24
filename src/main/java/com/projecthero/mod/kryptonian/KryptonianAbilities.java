@@ -406,14 +406,15 @@ public final class KryptonianAbilities {
 		// follows each viewer's render distance): everyone else near the beam -- the target too -- gets it explicitly
 		com.projecthero.mod.hero.power.p02.LaserBeams.send(level, p, eye, end,
 				com.projecthero.mod.network.LaserBeamPayload.KIND_HEAT_VISION, com.projecthero.mod.network.LaserBeamPayload.REFRESH_TICKS);
+		// v0.17.7: each target on its own clock -- hit the first tick the beam touches it (EyeBeamHits)
+		if (target != null && com.projecthero.mod.hero.power.EyeBeamHits.due(p, HEAT_VISION, target, KryptonianConfig.HEAT_HIT_INTERVAL)) {
+			// v0.15.11: a laser -- an animal it kills drops cooked food
+			final LivingEntity burnt = target;
+			com.projecthero.mod.hero.power.p02.LaserCooking.run(() -> KryptonianCombat.strike(p, burnt, eye,
+					KryptonianConfig.HEAT_DAMAGE, 0.0, 0.0, true, AbilityHelpers.fire(p)));
+			target.igniteForSeconds(KryptonianConfig.HEAT_FIRE_SECONDS);
+		}
 		if (age % KryptonianConfig.HEAT_HIT_INTERVAL == 0) {
-			if (target != null) {
-				// v0.15.11: a laser -- an animal it kills drops cooked food
-				final LivingEntity burnt = target;
-				com.projecthero.mod.hero.power.p02.LaserCooking.run(() -> KryptonianCombat.strike(p, burnt, eye,
-						KryptonianConfig.HEAT_DAMAGE, 0.0, 0.0, true, AbilityHelpers.fire(p)));
-				target.igniteForSeconds(KryptonianConfig.HEAT_FIRE_SECONDS);
-			}
 			level.sendParticles(ParticleTypes.FLAME, end.x, end.y, end.z, 4, 0.15, 0.15, 0.15, 0.02);
 			level.sendParticles(ParticleTypes.SMOKE, end.x, end.y, end.z, 2, 0.1, 0.1, 0.1, 0.01);
 		}
@@ -591,7 +592,7 @@ public final class KryptonianAbilities {
 		Vec3 f = p.getLookAngle();
 		AbilityHelpers.launchSelf(p, new Vec3(f.x * 0.4, -KryptonianConfig.SLAM_DIVE_SPEED, f.z * 0.4));
 		SLAM.put(p.getUUID(), p.level().getGameTime());
-		level(p).playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.ELYTRA_FLYING, SoundSource.PLAYERS, 0.6f, 1.8f);
+		level(p).playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.PHANTOM_SWOOP, SoundSource.PLAYERS, 0.8f, 1.4f); // v0.17.7: a short dive whoosh (the elytra sample lingered after landing)
 	}
 
 	private static void tickSlam(ServerPlayer p, long start, long now) {
@@ -925,7 +926,7 @@ public final class KryptonianAbilities {
 		Kryptonian.setAnim(p, KryptonianState.ANIM_METEOR);
 		ServerLevel level = level(p);
 		level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.FIRECHARGE_USE, SoundSource.PLAYERS, 1.4f, 0.6f);
-		level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.ELYTRA_FLYING, SoundSource.PLAYERS, 0.7f, 1.6f);
+		level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.PHANTOM_SWOOP, SoundSource.PLAYERS, 0.9f, 1.2f); // v0.17.7: a short dive whoosh (no linger)
 	}
 
 	/** Where the dive lands: the block he looks at, or -- looking at the sky -- the ground 16 blocks ahead. */

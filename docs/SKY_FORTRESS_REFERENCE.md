@@ -114,7 +114,7 @@ centre): put back on the deck if she ends up more than 44 away or 10 below it. N
 | Fighter Drones | both | 20-tick radio, 2 drones (+1 per extra player), at most 3 (+1 per extra player, max 5) near; existing `ultron_drone` mobs renamed "Fighter Drone", tagged `projecthero.kestrel_drone` (killed when she dies) |
 | Transformation | at 50% | 40 ticks, untouchable, rises, wings unfold |
 | Air phase | 2 | circles the deck 11 out and ~7 up, facing her target |
-| Afterburner Dive | 2 | 20-tick ring (r 3.5) at the target's spot, plunge at 1.6 b/t, 14 + throw within 3.5, then **grounded** 50 ticks (+30% damage taken) |
+| Afterburner Dive | 2 | 20-tick ring (r 3.5) at the target's spot, plunge at 1.6 b/t, 14 + throw within 3.5, then **grounded** 200 ticks / 10 s (v0.17.7, user: the overheated wing pack vents steam, hisses, then spools up with flames for the last 1.5 s; action-bar line to nearby players; +30% damage taken; the next dive's cooldown counts from the climb) |
 
 Animations: idle / walk / hover (each also `_open`: wings spread), dash, missiles, strafe, radio, dive, recover, transform,
 death. One GeckoLib controller picks the clip from the synced move / phase / flying flags.
