@@ -259,8 +259,8 @@ one **Kryptonian Crystal** it holds, then hold it up to the **daytime sun**. The
   -- carry anything for as long as you like, set it down gently or throw it.
 - **Kryptonite:** ore, blocks and shards (mine the ore with an iron pickaxe) within a few blocks strip every power, drop
   you out of the sky and hurt you. Your enemies can carry it too.
-- **The Superman Suit:** a craftable four-piece set (blue and red wool, gold and diamonds) that **only a Kryptonian can
-  wear** -- netherite-strong, fireproof, mends itself in direct sunlight, with a real red cloth **cape** (gold shield on the back) that sways as you
+- **The Superman Suit:** a craftable two-piece set (chestplate, and leggings with the boots built in; blue and red wool, gold and diamonds) that **only a Kryptonian can
+  wear** -- iron-strong, fireproof, mends itself in direct sunlight, with a real red cloth **cape** (gold shield on the back) that sways as you
   walk and streams out flat behind you at super-speed.
 
 ### 🔥 Ghost Rider

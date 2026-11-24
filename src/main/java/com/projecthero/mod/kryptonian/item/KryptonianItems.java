@@ -91,7 +91,6 @@ public final class KryptonianItems {
 		KryptoniteTools.addToCreativeTab(output);
 		output.accept(METEOR_CORE_ITEM);
 		output.accept(com.projecthero.mod.kryptonian.SupermanSuit.CHESTPLATE);
-		output.accept(com.projecthero.mod.kryptonian.SupermanSuit.LEGGINGS);
-		output.accept(com.projecthero.mod.kryptonian.SupermanSuit.BOOTS);
+		output.accept(com.projecthero.mod.kryptonian.SupermanSuit.LEGGINGS); // v0.17.7: draws the boots too (no boots item)
 	}
 }

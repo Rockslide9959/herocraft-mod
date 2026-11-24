@@ -37,7 +37,10 @@ import net.minecraft.world.phys.AABB;
 /**
  * v0.14.9: the Superman Suit -- a craftable armour set (the user's {@code superman.bbmodel}) that only a
  * Kryptonian can wear. v0.14.10: no helmet any more -- chestplate, leggings and boots only, so the wearer's own face and hat layer
- * always show. Iron-strength (v0.17.1: 7/5/3 = a full iron set's 15, no toughness), fire-resistant like
+ * always show. v0.17.7 (user: "Make the superman boots apart of the leggings, similar to how you made the sentry suit"): two
+ * pieces now -- the leggings draw the red boots too ({@code SuperheroArmorRenderer.applyBoneVisibilityBySlot}) and the boots item
+ * is gone; an old {@code superman_suit_boots} stack loads as the leggings ({@link #LEGACY_BOOTS_ID}, {@code LegacyItemIds}).
+ * Iron-strength (v0.17.7: chest 7 + leggings 8 = a full iron set's 15, no toughness), fire-resistant like
  * netherite; the chestplate brings the red cloth cape ({@code SupermanCapeLayer}, client). No powers of its own.
  *
  * <h2>Only Kryptonians</h2>
@@ -57,8 +60,13 @@ public final class SupermanSuit {
 
 	public static Holder<ArmorMaterial> MATERIAL;
 	public static SupermanSuitItem CHESTPLATE;
+	/** v0.17.7: the leggings, which also draw the boots (there is no boots item any more). */
 	public static SupermanSuitItem LEGGINGS;
-	public static SupermanSuitItem BOOTS;
+
+	/** v0.17.7: the removed boots item's id -- {@code LegacyItemIds} loads any saved stack of it as {@link #LEGGINGS}. */
+	public static final String LEGACY_BOOTS_ID = "superman_suit_boots";
+	/** The pieces of the suit: the chestplate and the leggings. */
+	public static final int PIECES = 2;
 
 	private static final EquipmentSlot[] ARMOR = { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET };
 
@@ -70,8 +78,9 @@ public final class SupermanSuit {
 		MATERIAL = Registry.registerForHolder(BuiltInRegistries.ARMOR_MATERIAL,
 				ResourceKey.create(Registries.ARMOR_MATERIAL, ProjectHeroMod.id("superman")),
 				new ArmorMaterial(
-						// v0.17.1 (user): iron level -- 3 / 5 / 7 = a full iron set's 15, no toughness or knockback resistance
-						Map.of(ArmorItem.Type.BOOTS, 3, ArmorItem.Type.LEGGINGS, 5, ArmorItem.Type.CHESTPLATE, 7,
+						// v0.17.1 (user): iron level -- a full iron set's 15, no toughness or knockback resistance. v0.17.7: the
+						// boots' 3 moved into the leggings (which draw the boots now): chest 7 + leggings 8 = 15
+						Map.of(ArmorItem.Type.BOOTS, 3, ArmorItem.Type.LEGGINGS, 8, ArmorItem.Type.CHESTPLATE, 7,
 								ArmorItem.Type.HELMET, 3, ArmorItem.Type.BODY, 11),
 						15,
 						SoundEvents.ARMOR_EQUIP_LEATHER,
@@ -82,7 +91,6 @@ public final class SupermanSuit {
 						0.0f));
 		CHESTPLATE = piece("superman_suit_chestplate", ArmorItem.Type.CHESTPLATE);
 		LEGGINGS = piece("superman_suit_leggings", ArmorItem.Type.LEGGINGS);
-		BOOTS = piece("superman_suit_boots", ArmorItem.Type.BOOTS);
 		SuperheroArmorVisuals.register(SET_ID, new ArmorVisualDefinition(
 				ProjectHeroMod.id("geo/superman.geo.json"),
 				ProjectHeroMod.id("textures/armor/superman.png"),
@@ -127,18 +135,34 @@ public final class SupermanSuit {
 				.withStyle(ChatFormatting.RED), true);
 	}
 
-	/** v0.15.18: each worn piece makes a Kryptonian soak up this much more sunlight (the full three-piece suit: +50%). */
-	public static final float SOLAR_BONUS_PER_PIECE = 0.5f / 3.0f;
+	/**
+	 * v0.15.18: each worn piece makes a Kryptonian soak up this much more sunlight (the full suit: +50%). v0.17.7: the suit is
+	 * two pieces now, so +25% each.
+	 */
+	public static final float SOLAR_BONUS_PER_PIECE = 0.5f / PIECES;
 
-	/** How many Superman Suit pieces the player has on. */
+	/** Whether {@code stack} is a Superman Suit piece sitting in its own slot (a chestplate in CHEST, the leggings in LEGS). */
+	private static boolean wornProperly(ItemStack stack, EquipmentSlot slot) {
+		return stack.getItem() instanceof SupermanSuitItem piece && piece.getEquipmentSlot() == slot;
+	}
+
+	/**
+	 * How many Superman Suit pieces the player has on (0..{@link #PIECES}). v0.17.7: only a piece in its own slot counts, so
+	 * leggings left in the feet slot (an old pair of boots loaded as leggings) never add a third piece.
+	 */
 	public static int piecesWorn(Player player) {
 		int n = 0;
 		for (EquipmentSlot slot : ARMOR) {
-			if (isSuit(player.getItemBySlot(slot))) {
+			if (wornProperly(player.getItemBySlot(slot), slot)) {
 				n++;
 			}
 		}
 		return n;
+	}
+
+	/** v0.17.7: the whole suit (chestplate + leggings) is on. */
+	public static boolean fullSuitWorn(Player player) {
+		return piecesWorn(player) == PIECES;
 	}
 
 	/** v0.14.14: in direct sunlight the worn suit mends this much per piece, every {@link #SUN_REPAIR_EVERY} ticks. */
@@ -155,6 +179,7 @@ public final class SupermanSuit {
 			return;
 		}
 		if (mayWear(player)) {
+			fixMisplacedPieces(player);
 			if (player.tickCount % SUN_REPAIR_EVERY == 0 && Kryptonian.sun(player) == Kryptonian.Sun.DIRECT) {
 				sunRepair(player);
 			}
@@ -176,6 +201,30 @@ public final class SupermanSuit {
 			player.displayClientMessage(Component.translatable("message.projecthero.superman_suit.popped")
 					.withStyle(ChatFormatting.RED), true);
 		}
+	}
+
+	/**
+	 * v0.17.7: a suit piece in the wrong armour slot -- in practice an old pair of Superman boots, still in the feet slot, that
+	 * loaded as the leggings -- moves to its own slot if that is free, otherwise into the inventory (dropped at his feet if it is
+	 * full). Returns whether anything moved.
+	 */
+	public static boolean fixMisplacedPieces(ServerPlayer player) {
+		boolean moved = false;
+		for (EquipmentSlot slot : ARMOR) {
+			ItemStack worn = player.getItemBySlot(slot);
+			if (!(worn.getItem() instanceof SupermanSuitItem piece) || piece.getEquipmentSlot() == slot) {
+				continue;
+			}
+			player.setItemSlot(slot, ItemStack.EMPTY);
+			EquipmentSlot own = piece.getEquipmentSlot();
+			if (player.getItemBySlot(own).isEmpty()) {
+				player.setItemSlot(own, worn);
+			} else if (!player.getInventory().add(worn)) {
+				player.drop(worn, false);
+			}
+			moved = true;
+		}
+		return moved;
 	}
 
 	/** One step of sunlight mending on every damaged Superman Suit piece worn. */

@@ -4,7 +4,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
-import com.projecthero.mod.ironman.item.IronManItems;
+import com.projecthero.mod.item.LegacyItemIds;
 
 import net.minecraft.core.DefaultedMappedRegistry;
 import net.minecraft.resources.ResourceLocation;
@@ -17,6 +17,6 @@ import net.minecraft.resources.ResourceLocation;
 public abstract class LegacyItemIdDefaultedMixin {
 	@ModifyVariable(method = "get(Lnet/minecraft/resources/ResourceLocation;)Ljava/lang/Object;", at = @At("HEAD"), argsOnly = true)
 	private ResourceLocation projecthero$legacyGetId(ResourceLocation id) {
-		return IronManItems.legacyId(id);
+		return LegacyItemIds.redirect(id);
 	}
 }
