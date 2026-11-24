@@ -64,6 +64,9 @@ public class SoldierShieldEntity extends Entity {
 			EntityDataSerializers.INT);
 	private static final EntityDataAccessor<Boolean> OFF_HAND = SynchedEntityData.defineId(SoldierShieldEntity.class,
 			EntityDataSerializers.BOOLEAN);
+	/** v0.17.7: thrown by the Shield Storm ultimate (synced: the bright red / white / blue trail). */
+	private static final EntityDataAccessor<Boolean> STORM = SynchedEntityData.defineId(SoldierShieldEntity.class,
+			EntityDataSerializers.BOOLEAN);
 
 	// server-only
 	private UUID ownerId;
@@ -72,6 +75,9 @@ public class SoldierShieldEntity extends Entity {
 	private int hitsLeft = SuperSoldierConfig.SHIELD_MAX_HITS;
 	private float damage = SuperSoldierConfig.SHIELD_DAMAGE;
 	private double range = SuperSoldierConfig.SHIELD_RANGE;
+	/** v0.17.7: how far it looks for the next ricochet, and how fast it flies (the Shield Storm raises both). */
+	private double ricochetRange = SuperSoldierConfig.SHIELD_RICOCHET_RANGE;
+	private double speed = SuperSoldierConfig.SHIELD_SPEED;
 	private InteractionHand hand = InteractionHand.MAIN_HAND;
 	/** v0.17.5: thrown from the Battle Suit's shield slot -- it goes back into the slot (the hand only if the slot is gone). */
 	private boolean toSlot;
@@ -121,6 +127,37 @@ public class SoldierShieldEntity extends Entity {
 		return toSlot;
 	}
 
+	/**
+	 * v0.17.7: the Shield Storm ultimate -- its own damage, bounces, ricochet reach and speed, the storm trail, and the catch
+	 * hands over to {@link SuperSoldierAbilities#stormCaught} (the dive and the slam).
+	 */
+	public void storm(float damage, int hits, double ricochet, double speed) {
+		this.damage = damage;
+		this.hitsLeft = hits;
+		this.range = Math.max(this.range, ricochet);
+		this.ricochetRange = ricochet;
+		this.speed = speed;
+		this.entityData.set(STORM, true);
+		setDeltaMovement(getDeltaMovement().normalize().scale(speed));
+	}
+
+	/** v0.17.7: thrown by the Shield Storm (either side). */
+	public boolean isStorm() {
+		return entityData.get(STORM);
+	}
+
+	/** v0.17.7: hand it straight back to the thrower now (server; a Storm that ran too long). */
+	public void recall() {
+		if (!level().isClientSide && !isRemoved()) {
+			ServerPlayer owner = owner();
+			if (owner != null && owner.isAlive()) {
+				deliver(owner);
+			} else {
+				dropHere();
+			}
+		}
+	}
+
 	/** v0.16.1: a stronger shield (the Vibranium Shield): its own damage, bounces and range. */
 	public void upgrade(float damage, int hits, double range) {
 		this.damage = damage;
@@ -134,6 +171,7 @@ public class SoldierShieldEntity extends Entity {
 		builder.define(ITEM, ItemStack.EMPTY);
 		builder.define(OWNER_ID, -1);
 		builder.define(OFF_HAND, false);
+		builder.define(STORM, false);
 	}
 
 	public boolean isReturning() {
@@ -180,7 +218,21 @@ public class SoldierShieldEntity extends Entity {
 			Vec3 v = getDeltaMovement();
 			setPos(getX() + v.x, getY() + v.y, getZ() + v.z);
 			// v0.17.5: a thin streak in the shield's own colours (the renderer adds the see-through after-images)
-			if (tickCount % 2 == 0) {
+			if (isStorm()) {
+				// v0.17.7: the Shield Storm -- a bright, thick red / white / blue ribbon along the whole tick's travel, and sparkle
+				for (int i = 0; i < 3; i++) {
+					double k = i / 3.0;
+					Vector3f col = switch ((tickCount + i) % 3) {
+					case 0 -> new Vector3f(1.0f, 0.15f, 0.15f);
+					case 1 -> new Vector3f(1.0f, 1.0f, 1.0f);
+					default -> new Vector3f(0.2f, 0.4f, 1.0f);
+					};
+					level().addParticle(new DustParticleOptions(col, 1.4f), getX() - v.x * k, getY() - v.y * k, getZ() - v.z * k, 0, 0, 0);
+				}
+				if (tickCount % 2 == 0) {
+					level().addParticle(ParticleTypes.END_ROD, getX(), getY(), getZ(), -v.x * 0.05, -v.y * 0.05, -v.z * 0.05);
+				}
+			} else if (tickCount % 2 == 0) {
 				level().addParticle(new DustParticleOptions(trailColour(tickCount / 2), 0.6f), getX() - v.x * 0.5, getY() - v.y * 0.5,
 						getZ() - v.z * 0.5, 0, 0, 0);
 			}
@@ -212,7 +264,7 @@ public class SoldierShieldEntity extends Entity {
 		if (targetId >= 0) {
 			Entity t = level().getEntity(targetId);
 			if (t instanceof LivingEntity living && living.isAlive() && !hit.contains(t.getId())) {
-				vel = living.getBoundingBox().getCenter().subtract(pos).normalize().scale(SuperSoldierConfig.SHIELD_SPEED);
+				vel = living.getBoundingBox().getCenter().subtract(pos).normalize().scale(speed);
 				homing = true;
 			} else {
 				targetId = -1;
@@ -309,7 +361,7 @@ public class SoldierShieldEntity extends Entity {
 			return false;
 		}
 		Vec3 pos = position();
-		double r = SuperSoldierConfig.SHIELD_RICOCHET_RANGE;
+		double r = ricochetRange;
 		double blind = SuperSoldierConfig.SHIELD_RICOCHET_BLIND_RANGE;
 		LivingEntity seen = null;
 		double seenD = Double.MAX_VALUE;
@@ -335,7 +387,7 @@ public class SoldierShieldEntity extends Entity {
 			return false;
 		}
 		targetId = best.getId();
-		setDeltaMovement(best.getBoundingBox().getCenter().subtract(pos).normalize().scale(SuperSoldierConfig.SHIELD_SPEED));
+		setDeltaMovement(best.getBoundingBox().getCenter().subtract(pos).normalize().scale(speed));
 		return true;
 	}
 
@@ -386,7 +438,7 @@ public class SoldierShieldEntity extends Entity {
 			deliver(owner);
 			return;
 		}
-		double speed = Math.max(SuperSoldierConfig.SHIELD_SPEED, Math.min(3.0, dist * 0.25));
+		double speed = Math.max(this.speed, Math.min(3.0, dist * 0.25));
 		Vec3 vel = to.normalize().scale(Math.min(speed, dist));
 		setDeltaMovement(vel);
 		setPos(getX() + vel.x, getY() + vel.y, getZ() + vel.z);
@@ -405,6 +457,9 @@ public class SoldierShieldEntity extends Entity {
 			}
 		}
 		discard();
+		if (isStorm()) {
+			SuperSoldierAbilities.stormCaught(owner); // v0.17.7: the Shield Storm's catch -> the dive and the slam
+		}
 	}
 
 	/** Drops the shield as an item where it is, then the entity goes. */

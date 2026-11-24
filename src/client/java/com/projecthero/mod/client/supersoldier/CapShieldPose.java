@@ -210,6 +210,9 @@ public final class CapShieldPose {
 		if (!(e instanceof Player p)) {
 			return;
 		}
+		if (SuperSoldierPose.active(p)) {
+			return; // v0.17.7: a Super Soldier move clip owns the arms (the Storm's own throw and catch included)
+		}
 		float pt = partial();
 		// throw / reach / catch first: they own the throwing arm while they run
 		long[] th = THROWN.get(p.getId());
@@ -549,6 +552,9 @@ public final class CapShieldPose {
 	 * it): extra transforms on top of vanilla's arm. Returns false when nothing applies.
 	 */
 	public static boolean firstPersonEmptyArm(AbstractClientPlayer p, float partial, PoseStack pose) {
+		if (SuperSoldierPose.firstPersonWeight(p, partial) > 0.001f) {
+			return false; // v0.17.7: a Super Soldier move owns the hand (ItemInHandRendererSuperSoldierMixin draws it)
+		}
 		int main = p.getMainArm() == HumanoidArm.RIGHT ? 1 : -1;
 		long[] th = THROWN.get(p.getId());
 		float tt = since(th, partial);

@@ -46,6 +46,7 @@ public final class SuperSoldier {
 	static final ResourceLocation SPEED_ID = PowerToggles.id("super_soldier_speed");
 	static final ResourceLocation HEALTH_ID = PowerToggles.id("super_soldier_health");
 	static final ResourceLocation UNARMED_ID = PowerToggles.id("super_soldier_unarmed");
+	/** v0.17.7: the old Onslaught melee bonus -- no longer given, still stripped so a save from before the rework carries nothing. */
 	static final ResourceLocation ONSLAUGHT_ID = PowerToggles.id("super_soldier_onslaught");
 	static final ResourceLocation JUMP_ID = PowerToggles.id("super_soldier_jump");
 	static final ResourceLocation SAFE_FALL_ID = PowerToggles.id("super_soldier_safe_fall");
@@ -78,14 +79,25 @@ public final class SuperSoldier {
 		return s != null && s.hasPower;
 	}
 
-	public static boolean onslaughtActive(Player player) {
+	/** v0.17.7: Assemble (Shift+V) is running -- the team buffs, the marks, his x1.25 on the marked and the punch shock. */
+	public static boolean assembleActive(Player player) {
 		SuperSoldierState s = player.getAttachedOrElse(ModAttachments.SUPER_SOLDIER_STATE, null);
-		return s != null && s.hasPower && s.onslaughtUntil > player.level().getGameTime();
+		return s != null && s.hasPower && s.assembleUntil > player.level().getGameTime();
 	}
 
-	public static boolean focusActive(Player player) {
+	/** v0.17.7: Counter Stance (V) is braced. */
+	public static boolean counterActive(Player player) {
 		SuperSoldierState s = player.getAttachedOrElse(ModAttachments.SUPER_SOLDIER_STATE, null);
-		return s != null && s.hasPower && s.focusUntil > player.level().getGameTime();
+		return s != null && s.hasPower && s.counterUntil > player.level().getGameTime();
+	}
+
+	/** v0.17.7: starts a move animation (synced to every viewer). {@code offArm}: the off hand's arm leads (the shield arm). */
+	static void anim(ServerPlayer player, int animId, boolean offArm) {
+		SuperSoldierState n = state(player).copy();
+		n.animId = animId;
+		n.animStart = player.level().getGameTime();
+		n.animOff = offArm;
+		save(player, n);
 	}
 
 	public static int cooldownRemaining(Player player, String abilityId) {
@@ -93,7 +105,7 @@ public final class SuperSoldier {
 		if (s == null) {
 			return 0;
 		}
-		Long ready = s.abilityReadyAt.get(abilityId);
+		Long ready = s.abilityReadyAt.get(SuperSoldierAbilities.cooldownKey(abilityId)); // v0.17.7: both ultimates share one
 		return ready == null ? 0 : (int) Math.max(0L, ready - player.level().getGameTime());
 	}
 
@@ -213,12 +225,7 @@ public final class SuperSoldier {
 		PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, UNARMED_ID,
 				player.getMainHandItem().isEmpty() ? SuperSoldierConfig.UNARMED_BONUS : SuperSoldierConfig.ARMED_BONUS,
 				AttributeModifier.Operation.ADD_VALUE);
-		if (s.onslaughtUntil > player.level().getGameTime()) {
-			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, ONSLAUGHT_ID, SuperSoldierConfig.ONSLAUGHT_ATTACK_BONUS,
-					AttributeModifier.Operation.ADD_VALUE);
-		} else {
-			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, ONSLAUGHT_ID);
-		}
+		PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, ONSLAUGHT_ID); // v0.17.7: Assemble gives Strength I instead
 		PowerToggles.modifier(player, Attributes.JUMP_STRENGTH, JUMP_ID, jumpModifier(SuperSoldierConfig.JUMP_BLOCKS),
 				AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 		PowerToggles.modifier(player, Attributes.SAFE_FALL_DISTANCE, SAFE_FALL_ID, SuperSoldierConfig.SAFE_FALL_BONUS,
@@ -241,21 +248,22 @@ public final class SuperSoldier {
 		reconcile(player);
 		SuperSoldierState s = state(player);
 		long now = player.level().getGameTime();
-		if (s.onslaughtUntil != 0L && now >= s.onslaughtUntil) {
+		if (s.assembleUntil != 0L && now >= s.assembleUntil) {
 			SuperSoldierState n = s.copy();
-			n.onslaughtUntil = 0L;
-			save(player, n);
-			reconcile(player);
-			say(player, "message.projecthero.super_soldier.onslaught_end", ChatFormatting.GRAY);
-		} else if (s.onslaughtUntil > now && now % 4L == 0L) {
-			((ServerLevel) player.level()).sendParticles(new DustParticleOptions(new Vector3f(0.3f, 0.5f, 1.0f), 1.0f),
-					player.getX(), player.getY() + 1.0, player.getZ(), 3, 0.35, 0.6, 0.35, 0.0);
-		}
-		if (s.focusUntil != 0L && now >= s.focusUntil) {
-			SuperSoldierState n = state(player).copy();
-			n.focusUntil = 0L;
+			n.assembleUntil = 0L;
 			save(player, n);
 			SuperSoldierAbilities.clearMarks(player.getUUID());
+			say(player, "message.projecthero.super_soldier.assemble_end", ChatFormatting.GRAY);
+		} else if (s.assembleUntil > now && now % 4L == 0L) {
+			// v0.17.7: a gold / blue rally glow while Assemble runs
+			((ServerLevel) player.level()).sendParticles(new DustParticleOptions(now % 8L == 0L ? new Vector3f(1.0f, 0.78f, 0.2f)
+					: new Vector3f(0.3f, 0.5f, 1.0f), 1.0f), player.getX(), player.getY() + 1.0, player.getZ(), 3, 0.35, 0.6, 0.35, 0.0);
+		}
+		SuperSoldierState c = state(player);
+		if (c.counterUntil != 0L && now >= c.counterUntil) {
+			SuperSoldierState n = c.copy();
+			n.counterUntil = 0L;
+			save(player, n);
 		}
 		// out-of-combat healing: 1 HP every 2 s after 5 s without a fight (not while starving)
 		if (now % SuperSoldierConfig.REGEN_INTERVAL == 0L && now - s.lastCombatTick >= SuperSoldierConfig.REGEN_DELAY
@@ -293,8 +301,9 @@ public final class SuperSoldier {
 		n.busyUntil = 0L;
 		n.iframeUntil = 0L;
 		n.noFallUntil = 0L;
-		n.onslaughtUntil = 0L;
-		n.focusUntil = 0L;
+		n.assembleUntil = 0L;
+		n.animId = SuperSoldierState.ANIM_NONE;
+		n.counterUntil = 0L;
 		n.lastCombatTick = 0L;
 		n.abilityReadyAt.entrySet().removeIf(e -> e.getValue() > now + 20L * 150L);
 		save(player, n);
@@ -310,8 +319,9 @@ public final class SuperSoldier {
 		n.busyUntil = 0L;
 		n.iframeUntil = 0L;
 		n.noFallUntil = 0L;
-		n.onslaughtUntil = 0L;
-		n.focusUntil = 0L;
+		n.assembleUntil = 0L;
+		n.animId = SuperSoldierState.ANIM_NONE;
+		n.counterUntil = 0L;
 		n.lastCombatTick = 0L;
 		save(player, n);
 		reconcile(player);
@@ -327,7 +337,8 @@ public final class SuperSoldier {
 			SuperSoldierState n = s.copy();
 			n.busyUntil = 0L;
 			n.iframeUntil = 0L;
-			n.focusUntil = 0L;
+			n.counterUntil = 0L;
+			n.animId = SuperSoldierState.ANIM_NONE;
 			save(player, n);
 		}
 	}

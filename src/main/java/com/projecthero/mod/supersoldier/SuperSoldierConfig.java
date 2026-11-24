@@ -17,7 +17,7 @@ public final class SuperSoldierConfig {
 	public static final double UNARMED_BONUS = 7.0;
 	/** v0.17.7 (Street tier): extra melee damage while holding something -- a netherite sword hits for 10, not 15. */
 	public static final double ARMED_BONUS = 2.0;
-	/** v0.17.7 (Street tier): no single move hit goes over this, whatever buffs stack (Onslaught, Tactical Focus). */
+	/** v0.17.7 (Street tier): no single move hit goes over this, whatever buffs stack (Assemble x1.25 on a marked enemy, Strength). */
 	public static final float MAX_HIT = com.projecthero.mod.hero.PowerRank.STREET.ultimateMax;
 	/** Damage taken is multiplied by this (30% less). */
 	public static final float DAMAGE_TAKEN_FACTOR = 0.7f;
@@ -112,17 +112,51 @@ public final class SuperSoldierConfig {
 	/** The slam lands on its own after this long even if he never touches the ground (a cliff edge, water). */
 	public static final int SLAM_MAX_AIR_TICKS = 60;
 
-	// ---------------------------------------------------------------- Shift+Z: ULTIMATE Super Soldier Onslaught
-	public static final int ONSLAUGHT_COOLDOWN = 2000;
-	public static final int ONSLAUGHT_DURATION = 200;
-	/** The opening shockwave. */
-	public static final float ONSLAUGHT_BURST_DAMAGE = 16.0f; // v0.17.7 Street: was 8; x1.25 Onslaught = 20 at the centre
-	public static final double ONSLAUGHT_BURST_RADIUS = 6.0;
-	/** Extra melee damage while it runs (attribute, on top of the unarmed bonus). */
-	public static final double ONSLAUGHT_ATTACK_BONUS = 2.0; // v0.17.7 Street: was 5 (fist 10 while it runs)
-	/** Every melee hit during it shocks enemies this close to the target for this much. */
-	public static final float ONSLAUGHT_SHOCK_DAMAGE = 6.0f; // v0.17.7 Street: was 4
-	public static final double ONSLAUGHT_SHOCK_RADIUS = 3.0;
+	// ---------------------------------------------------------------- Shift+Z: the ULTIMATE (v0.17.7 rework, two versions)
+	/** Both versions share one cooldown (95 s): 5 s faster than the old Onslaught, which did far less. */
+	public static final int ULTIMATE_COOLDOWN = 1900;
+
+	// ---- unarmed: Peak Human Barrage
+	/** He dashes onto the enemy in front within this many blocks... */
+	public static final double BARRAGE_RANGE = 6.0;
+	/** ...at this speed (blocks / tick) for at most this many ticks, and starts swinging once this close (feet to its box). */
+	public static final double BARRAGE_DASH_SPEED = 1.5;
+	public static final int BARRAGE_DASH_TICKS = 8;
+	public static final double BARRAGE_REACH = 1.9;
+	/** The flurry: this many hits, this many ticks apart (the first one tick after he arrives), this much each. */
+	public static final int BARRAGE_HITS = 6;
+	public static final int BARRAGE_HIT_INTERVAL = 3;
+	public static final float BARRAGE_HIT_DAMAGE = 7.5f;
+	/** The haymaker lands this many ticks after he arrives (a 7-tick wind-up after the last flurry hit). */
+	public static final int BARRAGE_HAYMAKER_TICK = 24;
+	public static final float BARRAGE_HAYMAKER_DAMAGE = 20.0f;
+	public static final double BARRAGE_HAYMAKER_KNOCKBACK = 2.4;
+	public static final double BARRAGE_HAYMAKER_LIFT = 0.9;
+	/** The haymaker's burst: everyone else this close to the target takes this much. */
+	public static final double BARRAGE_BURST_RADIUS = 4.0;
+	public static final float BARRAGE_BURST_DAMAGE = 10.0f;
+
+	// ---- with a shield: Shield Storm
+	/** Enemies must be this close for the throw to start (and ricochets look this far for the next one). */
+	public static final double STORM_RANGE = 16.0;
+	/** The leap before the throw (blocks up), and the throw this many ticks after take-off. */
+	public static final double STORM_LEAP_HEIGHT = 4.5;
+	public static final int STORM_THROW_DELAY = 7;
+	public static final float STORM_HIT_DAMAGE = 15.0f;
+	public static final int STORM_MAX_HITS = 8;
+	public static final double STORM_SHIELD_SPEED = 2.1;
+	/** He hangs in the air until the shield is back -- at most this long, then it is delivered and he drops anyway. */
+	public static final int STORM_MAX_HOVER_TICKS = 100;
+	/** His vertical speed while he hangs there (blocks / tick): a slow sink, never "floating" to the anti-fly check. */
+	public static final double STORM_HOVER_SINK = -0.05;
+	/** The dive after the catch: downward speed, and the slam goes off on landing or after this long. */
+	public static final double STORM_DIVE_SPEED = 2.2;
+	public static final int STORM_DIVE_MAX_TICKS = 30;
+	/** The star shockwave: 20 at the centre, 60% at the edge, knocked up. */
+	public static final float STORM_SLAM_DAMAGE = 20.0f;
+	public static final double STORM_SLAM_RADIUS = 6.0;
+	public static final double STORM_SLAM_KNOCKBACK = 0.8;
+	public static final double STORM_SLAM_LIFT = 0.85;
 
 	// ---------------------------------------------------------------- X: Tactical Roll
 	public static final int ROLL_COOLDOWN = 80;
@@ -134,18 +168,41 @@ public final class SuperSoldierConfig {
 	public static final double HIGH_LEAP_HEIGHT = 5.0;
 	public static final double HIGH_LEAP_FORWARD = 1.25;
 
-	// ---------------------------------------------------------------- V: Battle Cry
-	public static final int BATTLE_CRY_COOLDOWN = 600;
-	public static final double BATTLE_CRY_ALLY_RADIUS = 16.0;
-	public static final double BATTLE_CRY_ENEMY_RADIUS = 12.0;
-	public static final int BATTLE_CRY_BUFF_TICKS = 200;
-	public static final int BATTLE_CRY_DEBUFF_TICKS = 160;
+	// ---------------------------------------------------------------- V: Counter Stance (v0.17.7)
+	public static final int COUNTER_COOLDOWN = 120;
+	/** He braces for this long; the first melee hit in the window is negated and answered. */
+	public static final int COUNTER_WINDOW = 20;
+	public static final float COUNTER_DAMAGE = 10.0f;
+	public static final double COUNTER_KNOCKBACK = 1.3;
+	public static final double COUNTER_LIFT = 0.25;
+	/** The stagger on whoever he countered: Slowness III + Weakness I for this long. */
+	public static final int COUNTER_STAGGER_TICKS = 30;
+	/** A melee attacker further than this (blocks, his feet to its box) is not "in reach" to counter. */
+	public static final double COUNTER_REACH = 5.0;
+	/** After a counter he is untouchable this long, so a second swing in the same instant does not land. */
+	public static final int COUNTER_AFTER_IFRAMES = 6;
+	/** Holding a shield, projectiles this close (plus their speed) and coming at him are sent back at the shooter. */
+	public static final double COUNTER_REFLECT_REACH = 1.6;
 
-	// ---------------------------------------------------------------- Shift+V: Tactical Focus
-	public static final int FOCUS_COOLDOWN = 500;
-	public static final int FOCUS_DURATION = 160;
-	public static final double FOCUS_RADIUS = 30.0;
-	public static final int FOCUS_GLOW_TICKS = 200;
-	/** His melee hits on a marked (glowing) enemy while Focus runs are critical: x1.5. */
-	public static final float FOCUS_CRIT_MULTIPLIER = 1.5f;
+	// ---------------------------------------------------------------- Shift+V: Assemble (v0.17.7: Battle Cry + Tactical Focus + the
+	// old Onslaught buff in one)
+	/** 60 s: ten seconds of team buffs, debuffs and marks -- one sixth uptime, the old Battle Cry (30 s) and Focus (25 s) together. */
+	public static final int ASSEMBLE_COOLDOWN = 1200;
+	public static final int ASSEMBLE_DURATION = 200;
+	/** The rally ring: knocks enemies this close back (no damage). */
+	public static final double ASSEMBLE_RING_RADIUS = 6.0;
+	public static final double ASSEMBLE_RING_KNOCKBACK = 1.2;
+	public static final double ASSEMBLE_RING_LIFT = 0.3;
+	/** He and squadmates this close: Strength I, Speed I, Resistance I for the duration. */
+	public static final double ASSEMBLE_ALLY_RADIUS = 16.0;
+	/** Hostiles this close: Weakness I (the duration) and Slowness I (this long). */
+	public static final double ASSEMBLE_DEBUFF_RADIUS = 16.0;
+	public static final int ASSEMBLE_SLOW_TICKS = 120;
+	/** Every enemy this close glows (marked) for the duration. */
+	public static final double ASSEMBLE_MARK_RADIUS = 30.0;
+	/** His hits on a marked enemy while it runs (punches and moves; capped at MAX_HIT). */
+	public static final float ASSEMBLE_MARK_MULTIPLIER = 1.25f;
+	/** Every punch while it runs shocks enemies this close to the target for this much. */
+	public static final float ASSEMBLE_SHOCK_DAMAGE = 6.0f;
+	public static final double ASSEMBLE_SHOCK_RADIUS = 3.0;
 }

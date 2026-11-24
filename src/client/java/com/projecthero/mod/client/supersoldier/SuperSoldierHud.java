@@ -26,7 +26,7 @@ import net.minecraft.network.chat.Component;
  * <pre>
  *   SUPER SOLDIER
  *   +----+----+----+----+----+----+    R G Z X C V: shown move's cooldown (sweep + seconds), the Shift move's as the durability
- *   | R  | G  | Z  | X  | C  | V  |    bar; Z lit while Onslaught runs, V while Tactical Focus runs; yellow while Shift shows the
+ *   | R  | G  | Z  | X  | C  | V  |    bar; Z lit while an ultimate plays, V while Assemble / the Counter Stance runs; yellow while Shift shows the
  *   +----+----+----+----+----+----+    Shift moves
  * </pre>
  * C (the shield throw) used to be a box stacked on V only while he held a shield or a throw was cooling down; it now sits in its
@@ -64,7 +64,7 @@ public final class SuperSoldierHud {
 		VanillaHud.Stack st = VanillaHud.Stack.bottomRight(g, VanillaHud.ORDER.length).keys(VanillaHud.ORDER.length);
 		for (int i = 0; i < VanillaHud.ORDER.length; i++) {
 			AbilitySlot slot = VanillaHud.ORDER[i];
-			String[] ids = SuperSoldierAbilityManager.idsOf(slot);
+			String[] ids = SuperSoldierAbilityManager.idsOf(slot, shield); // v0.17.7: Shift+Z names the ultimate the shield picks
 			if (ids.length == 0) {
 				continue;
 			}
@@ -74,7 +74,9 @@ public final class SuperSoldierHud {
 			float frac = cd / (float) Math.max(1, SuperSoldierAbilityManager.maxCooldown(shown));
 			float otherFrac = other == null ? 0f
 					: SuperSoldier.cooldownRemaining(p, other) / (float) Math.max(1, SuperSoldierAbilityManager.maxCooldown(other));
-			boolean active = (slot == AbilitySlot.SLOT_4 && s.onslaughtUntil > now) || (slot == AbilitySlot.SLOT_5 && s.focusUntil > now);
+			// v0.17.7: Z lit while an ultimate plays out, V while Assemble runs or the Counter Stance is braced
+			boolean ult = s.animId >= SuperSoldierState.ANIM_BARRAGE_DASH && s.animId <= SuperSoldierState.ANIM_STORM_SLAM && now - s.animStart < 40;
+			boolean active = (slot == AbilitySlot.SLOT_4 && ult) || (slot == AbilitySlot.SLOT_5 && (s.assembleUntil > now || s.counterUntil > now));
 			boolean usable = slot != AbilitySlot.SLOT_6 || shield;
 			st.slot(i, VanillaHud.keyLabel(slot), usable, shift, Math.min(1f, frac), VanillaHud.seconds(cd), Math.min(1f, otherFrac), active);
 		}
@@ -91,7 +93,7 @@ public final class SuperSoldierHud {
 		if (MoveListOverlay.held()) {
 			List<MoveListOverlay.Row> rows = new ArrayList<>();
 			for (AbilitySlot slotKey : VanillaHud.ORDER) {
-				String[] ids = SuperSoldierAbilityManager.idsOf(slotKey);
+				String[] ids = SuperSoldierAbilityManager.idsOf(slotKey, shield);
 				if (ids.length > 0) {
 					rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slotKey), Component.translatable("projecthero.super_soldier.ability." + ids[0]),
 							ids.length > 1 ? Component.translatable("projecthero.super_soldier.ability." + ids[1]) : null));

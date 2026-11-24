@@ -15,9 +15,9 @@ import net.minecraft.server.level.ServerPlayer;
  * <pre>
  *   R  Combo Strike      / Shift+R  Uppercut Launcher
  *   G  Flying Kick       / Shift+G  Judo Takedown            (v0.14.9; were the shield moves)
- *   Z  Leaping Slam      / Shift+Z  Super Soldier Onslaught (ultimate)
+ *   Z  Leaping Slam      / Shift+Z  ULTIMATE: Peak Human Barrage, or Shield Storm with a shield (v0.17.7)
  *   X  Tactical Roll     / Shift+X  High Leap
- *   V  Battle Cry        / Shift+V  Tactical Focus
+ *   V  Counter Stance    / Shift+V  Assemble                  (v0.17.7; were Battle Cry / Tactical Focus)
  *   C  Shield Throw (v0.14.9: the shield in his hand -- Shift does nothing different)
  * </pre>
  */
@@ -81,16 +81,16 @@ public final class SuperSoldierAbilityManager {
 			}
 			case SLOT_4 -> {
 				if (shift) {
-					SuperSoldierAbilities.onslaught(player);
+					SuperSoldierAbilities.ultimate(player); // v0.17.7: Barrage bare-handed, Shield Storm with a shield
 				} else {
 					SuperSoldierAbilities.leapingSlam(player);
 				}
 			}
 			case SLOT_5 -> {
 				if (shift) {
-					SuperSoldierAbilities.tacticalFocus(player);
+					SuperSoldierAbilities.assemble(player);
 				} else {
-					SuperSoldierAbilities.battleCry(player);
+					SuperSoldierAbilities.counterStance(player);
 				}
 			}
 			case SLOT_6 -> SuperSoldierAbilities.shieldThrow(player);
@@ -113,12 +113,17 @@ public final class SuperSoldierAbilityManager {
 
 	/** The ability ids that share a key (plain, Shift), for the HUD's combined cooldown. */
 	public static String[] idsOf(AbilitySlot slot) {
+		return idsOf(slot, false);
+	}
+
+	/** v0.17.7: as {@link #idsOf(AbilitySlot)}, with Shift+Z naming the ultimate a shield ({@code shield}) would fire. */
+	public static String[] idsOf(AbilitySlot slot, boolean shield) {
 		return switch (slot) {
 			case SLOT_1 -> new String[] { SuperSoldierAbilities.COMBO, SuperSoldierAbilities.UPPERCUT };
 			case SLOT_2 -> new String[] { SuperSoldierAbilities.FLYING_KICK, SuperSoldierAbilities.TAKEDOWN };
 			case SLOT_3 -> new String[] { SuperSoldierAbilities.ROLL, SuperSoldierAbilities.HIGH_LEAP };
-			case SLOT_4 -> new String[] { SuperSoldierAbilities.SLAM, SuperSoldierAbilities.ONSLAUGHT };
-			case SLOT_5 -> new String[] { SuperSoldierAbilities.BATTLE_CRY, SuperSoldierAbilities.FOCUS };
+			case SLOT_4 -> new String[] { SuperSoldierAbilities.SLAM, shield ? SuperSoldierAbilities.SHIELD_STORM : SuperSoldierAbilities.BARRAGE };
+			case SLOT_5 -> new String[] { SuperSoldierAbilities.COUNTER, SuperSoldierAbilities.ASSEMBLE };
 			case SLOT_6 -> new String[] { SuperSoldierAbilities.SHIELD_THROW };
 			default -> new String[0];
 		};
@@ -134,11 +139,12 @@ public final class SuperSoldierAbilityManager {
 			case SuperSoldierAbilities.SHIELD_THROW -> Math.max(SuperSoldierConfig.SHIELD_THROW_COOLDOWN,
 					SuperSoldierConfig.NORMAL_SHIELD_THROW_COOLDOWN);
 			case SuperSoldierAbilities.SLAM -> SuperSoldierConfig.SLAM_COOLDOWN;
-			case SuperSoldierAbilities.ONSLAUGHT -> SuperSoldierConfig.ONSLAUGHT_COOLDOWN;
+			case SuperSoldierAbilities.BARRAGE, SuperSoldierAbilities.SHIELD_STORM, SuperSoldierAbilities.ULTIMATE ->
+					SuperSoldierConfig.ULTIMATE_COOLDOWN;
 			case SuperSoldierAbilities.ROLL -> SuperSoldierConfig.ROLL_COOLDOWN;
 			case SuperSoldierAbilities.HIGH_LEAP -> SuperSoldierConfig.HIGH_LEAP_COOLDOWN;
-			case SuperSoldierAbilities.BATTLE_CRY -> SuperSoldierConfig.BATTLE_CRY_COOLDOWN;
-			case SuperSoldierAbilities.FOCUS -> SuperSoldierConfig.FOCUS_COOLDOWN;
+			case SuperSoldierAbilities.COUNTER -> SuperSoldierConfig.COUNTER_COOLDOWN;
+			case SuperSoldierAbilities.ASSEMBLE -> SuperSoldierConfig.ASSEMBLE_COOLDOWN;
 			default -> 0;
 		};
 	}

@@ -24,8 +24,10 @@ import net.minecraft.world.entity.LivingEntity;
  * <ul>
  *   <li><b>Taken:</b> 30% less from everything but the void, /kill and other invulnerability-bypassing sources. The
  *       Tactical Roll's frames make him untouchable; his own leaps never cause fall damage.</li>
- *   <li><b>Dealt, Tactical Focus:</b> his punches on a marked enemy are critical (x1.5).</li>
- *   <li><b>Dealt, Onslaught:</b> every punch shocks the enemies around the target.</li>
+ *   <li><b>Taken, Counter Stance (v0.17.7):</b> the first melee hit in the window is negated and answered; with a shield,
+ *       projectiles are sent back.</li>
+ *   <li><b>Dealt, Assemble (v0.17.7):</b> his punches on a marked enemy deal x1.25 (never past 20), and every punch shocks the
+ *       enemies around the target.</li>
  * </ul>
  * Fabric's {@code ALLOW_DAMAGE} is a boolean veto, so a changed amount cancels the hit and re-applies the new one behind a
  * re-entrancy guard (the same pattern as every other power's damage rules). The rejection death of the unrefined serum
@@ -48,8 +50,8 @@ public final class SuperSoldierDamage {
 			}
 			if (source.getEntity() instanceof ServerPlayer attacker && attacker != entity && SuperSoldier.hasPower(attacker)) {
 				SuperSoldier.markCombat(attacker);
-				if (dealtAmount > 0f && isPunch(attacker, source) && SuperSoldier.onslaughtActive(attacker)) {
-					SuperSoldierAbilities.onslaughtShock(attacker, entity);
+				if (dealtAmount > 0f && isPunch(attacker, source) && SuperSoldier.assembleActive(attacker)) {
+					SuperSoldierAbilities.assembleShock(attacker, entity); // v0.17.7: Assemble's punch shock (was Onslaught's)
 				}
 			}
 		});
@@ -69,10 +71,12 @@ public final class SuperSoldierDamage {
 			return true;
 		}
 		float factor = 1.0f;
-		// outgoing: Tactical Focus crits on a marked enemy
+		boolean capPunch = false;
+		// outgoing: v0.17.7 Assemble -- his punches on a marked enemy deal x1.25 (the hit stays at or under MAX_HIT)
 		if (source.getEntity() instanceof ServerPlayer attacker && attacker != entity && SuperSoldier.hasPower(attacker)
 				&& isPunch(attacker, source) && SuperSoldierAbilities.isMarked(attacker, entity)) {
-			factor *= SuperSoldierConfig.FOCUS_CRIT_MULTIPLIER;
+			factor *= SuperSoldierConfig.ASSEMBLE_MARK_MULTIPLIER;
+			capPunch = true;
 			ServerLevel level = (ServerLevel) attacker.level();
 			level.sendParticles(ParticleTypes.ENCHANTED_HIT, entity.getX(), entity.getY() + entity.getBbHeight() * 0.6, entity.getZ(),
 					10, 0.3, 0.3, 0.3, 0.2);
@@ -86,6 +90,9 @@ public final class SuperSoldierDamage {
 			long now = player.level().getGameTime();
 			if (s.iframeUntil > now) {
 				return false; // the roll's frames
+			}
+			if (SuperSoldierAbilities.tryCounter(player, source)) {
+				return false; // v0.17.7: Counter Stance -- a melee hit answered, or (with a shield) a projectile sent back
 			}
 			if (CapShieldSlot.blocks(player, source)) {
 				CapShieldSlot.onBlocked(player, source); // v0.17.5: the slotted shield raised (right-click, empty hand) -- a full block
@@ -102,6 +109,9 @@ public final class SuperSoldierDamage {
 			return true;
 		}
 		float changed = amount * factor;
+		if (capPunch) {
+			changed = Math.min(changed, Math.max(amount, SuperSoldierConfig.MAX_HIT)); // the buff never lifts a punch past 20
+		}
 		if (changed < 0.05f) {
 			return false;
 		}

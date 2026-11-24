@@ -276,8 +276,8 @@ public class SuperSoldierGameTests implements FabricGameTest {
 		p.setItemInHand(net.minecraft.world.InteractionHand.OFF_HAND, new ItemStack(SuperSoldierItems.ADAMANTIUM_SHIELD));
 		Object[][] moves = {
 				{ 1, false, SuperSoldierAbilities.COMBO }, { 1, true, SuperSoldierAbilities.UPPERCUT },
-				{ 2, false, SuperSoldierAbilities.FLYING_KICK }, { 5, false, SuperSoldierAbilities.BATTLE_CRY },
-				{ 5, true, SuperSoldierAbilities.FOCUS }, { 4, true, SuperSoldierAbilities.ONSLAUGHT },
+				{ 2, false, SuperSoldierAbilities.FLYING_KICK }, { 5, false, SuperSoldierAbilities.COUNTER },
+				{ 5, true, SuperSoldierAbilities.ASSEMBLE }, { 4, true, SuperSoldierAbilities.SHIELD_STORM },
 				{ 2, true, SuperSoldierAbilities.TAKEDOWN }, { 6, false, SuperSoldierAbilities.SHIELD_THROW },
 				{ 3, false, SuperSoldierAbilities.ROLL }, { 3, true, SuperSoldierAbilities.HIGH_LEAP },
 				{ 4, false, SuperSoldierAbilities.SLAM } };
@@ -299,17 +299,18 @@ public class SuperSoldierGameTests implements FabricGameTest {
 		}
 		p.setShiftKeyDown(false);
 		helper.assertTrue(z.getHealth() < 200.0f, "the attacks hurt the zombie");
-		helper.assertTrue(SuperSoldier.onslaughtActive(p), "Onslaught is running");
-		helper.assertTrue(hasModifier(p, Attributes.ATTACK_DAMAGE, "super_soldier_onslaught"), "with its melee bonus");
-		helper.assertTrue(SuperSoldier.focusActive(p) && SuperSoldierAbilities.markCount(p) >= 1, "Focus marked the zombie");
+		helper.assertTrue(SuperSoldier.assembleActive(p) && SuperSoldierAbilities.markCount(p) >= 1, "Assemble is running and marked the zombie");
+		helper.assertFalse(hasModifier(p, Attributes.ATTACK_DAMAGE, "super_soldier_onslaught"), "the old Onslaught bonus is never given");
 		helper.assertTrue(z.hasEffect(net.minecraft.world.effect.MobEffects.GLOWING), "the marked zombie glows");
-		helper.assertTrue(z.hasEffect(net.minecraft.world.effect.MobEffects.WEAKNESS), "Battle Cry weakened it");
+		helper.assertTrue(z.hasEffect(net.minecraft.world.effect.MobEffects.WEAKNESS), "Assemble weakened it");
 		helper.assertTrue(p.hasEffect(net.minecraft.world.effect.MobEffects.DAMAGE_BOOST), "and gave him Strength");
 		// a cooling-down move does nothing
 		unlock(p);
-		long ready = SuperSoldier.state(p).abilityReadyAt.get(SuperSoldierAbilities.BATTLE_CRY);
+		p.setShiftKeyDown(true);
+		long ready = SuperSoldier.state(p).abilityReadyAt.get(SuperSoldierAbilities.ASSEMBLE);
 		AbilityRouter.handleInput(p, 5, true);
-		helper.assertTrue(SuperSoldier.state(p).abilityReadyAt.get(SuperSoldierAbilities.BATTLE_CRY) == ready, "no restart while cooling down");
+		p.setShiftKeyDown(false);
+		helper.assertTrue(SuperSoldier.state(p).abilityReadyAt.get(SuperSoldierAbilities.ASSEMBLE) == ready, "no restart while cooling down");
 		// the multi-tick moves (combo punches, kick, takedown, slam landing) run their course without errors
 		helper.runAfterDelay(80, () -> {
 			helper.assertFalse(SuperSoldierAbilities.slamming(p), "the slam has landed");
@@ -602,14 +603,173 @@ public class SuperSoldierGameTests implements FabricGameTest {
 		});
 	}
 
+	// ---------------------------------------------------------------- v0.17.7 rework: Assemble, the two ultimates, Counter Stance
+
+	private static boolean has(net.minecraft.world.entity.LivingEntity e, Holder<net.minecraft.world.effect.MobEffect> effect) {
+		return e.hasEffect(effect);
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void focusMakesPunchesOnMarkedEnemiesCritical(GameTestHelper helper) {
+	public void assembleBuffsDebuffsMarksAndBoostsHitsOnTheMarked(GameTestHelper helper) {
 		ServerPlayer p = soldier(helper);
-		Zombie z = zombieAt(helper, p, 2.0, 0.0);
-		helper.assertTrue(SuperSoldierAbilities.tacticalFocus(p), "focus");
-		helper.assertTrue(SuperSoldierAbilities.isMarked(p, z), "the zombie is marked");
-		z.hurt(p.damageSources().playerAttack(p), 10.0f);
-		helper.assertTrue(Math.abs((200.0f - z.getHealth()) - 15.0f) < 0.6f, "10 -> 15 on a marked enemy, took " + (200.0f - z.getHealth()));
+		Zombie near = zombieAt(helper, p, 2.0, 0.0);
+		Zombie side = zombieAt(helper, p, 2.0, 1.5); // within 3 of "near": the punch shock
+		Zombie capped = zombieAt(helper, p, -4.0, 0.0); // well away from "near" (no shock) and from each other
+		Zombie moved = zombieAt(helper, p, 0.0, -4.0);
+		helper.assertTrue(SuperSoldierAbilities.assemble(p), "Assemble");
+		helper.assertTrue(SuperSoldier.assembleActive(p), "running");
+		// him: Strength I, Speed I, Resistance I for 10 s
+		for (Holder<net.minecraft.world.effect.MobEffect> e : List.of(net.minecraft.world.effect.MobEffects.DAMAGE_BOOST,
+				net.minecraft.world.effect.MobEffects.MOVEMENT_SPEED, net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE)) {
+			helper.assertTrue(has(p, e) && p.getEffect(e).getAmplifier() == 0 && p.getEffect(e).getDuration() >= 190,
+					"he has " + e.getRegisteredName() + " I for 10 s");
+		}
+		// them: marked (glowing), Weakness, Slowness, knocked back by the ring -- and no damage from it
+		// (>= : neighbouring tests' zombies within 30 blocks get marked too)
+		helper.assertTrue(SuperSoldierAbilities.markCount(p) >= 4, "all four marked, got " + SuperSoldierAbilities.markCount(p));
+		for (Zombie z : List.of(near, side, capped, moved)) {
+			helper.assertTrue(SuperSoldierAbilities.isMarked(p, z), "marked");
+			helper.assertTrue(has(z, net.minecraft.world.effect.MobEffects.GLOWING), "glowing");
+			helper.assertTrue(has(z, net.minecraft.world.effect.MobEffects.WEAKNESS), "weakened");
+			helper.assertTrue(has(z, net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN), "slowed");
+			helper.assertTrue(z.getHealth() == 200.0f, "the rally ring does no damage, health " + z.getHealth());
+		}
+		helper.assertTrue(near.getDeltaMovement().horizontalDistanceSqr() > 1.0e-3, "the ring knocked the near one back");
+		// a punch on a marked enemy: x1.25, and it shocks the one beside it for 6 (x1.25 = 7.5: it is marked too)
+		near.hurt(p.damageSources().playerAttack(p), 8.0f);
+		helper.assertTrue(Math.abs((200.0f - near.getHealth()) - 10.0f) < 0.05f, "8 -> 10 on the marked, took " + (200.0f - near.getHealth()));
+		helper.assertTrue(Math.abs((200.0f - side.getHealth()) - 7.5f) < 0.05f, "the punch shock, took " + (200.0f - side.getHealth()));
+		// never past 20: a 19 punch and an 18 move both stop at 20
+		capped.hurt(p.damageSources().playerAttack(p), 19.0f);
+		helper.assertTrue(Math.abs((200.0f - capped.getHealth()) - 20.0f) < 0.05f, "19 x1.25 capped at 20, took " + (200.0f - capped.getHealth()));
+		SuperSoldierAbilities.strike(p, moved, 18.0f, p.position(), 0.0, 0.0);
+		helper.assertTrue(Math.abs((200.0f - moved.getHealth()) - 20.0f) < 0.05f, "an 18 move x1.25 capped at 20, took " + (200.0f - moved.getHealth()));
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void barragePicksWithoutAShieldAndHitsForSixFlurryPlusTheHaymaker(GameTestHelper helper) {
+		ServerPlayer p = soldier(helper);
+		Zombie z = zombieAt(helper, p, 1.5, 0.0);
+		Zombie by = zombieAt(helper, p, 1.5, 2.0); // within 4 of the target: the haymaker's burst
+		pump(helper, p);
+		p.setShiftKeyDown(true);
+		AbilityRouter.handleInput(p, 4, true);
+		p.setShiftKeyDown(false);
+		helper.assertTrue(SuperSoldierAbilities.barrageRunning(p), "bare-handed Shift+Z is the Barrage");
+		helper.assertTrue(SuperSoldierAbilities.stormPhase(p) == -1, "not the Storm");
+		int cd = SuperSoldier.cooldownRemaining(p, SuperSoldierAbilities.BARRAGE);
+		helper.assertTrue(cd > 0 && cd == SuperSoldier.cooldownRemaining(p, SuperSoldierAbilities.SHIELD_STORM), "one shared cooldown");
+		helper.assertTrue(SuperSoldier.state(p).animId == SuperSoldierState.ANIM_BARRAGE, "already arrived: the flurry clip plays");
+		float expected = SuperSoldierConfig.BARRAGE_HITS * SuperSoldierConfig.BARRAGE_HIT_DAMAGE + SuperSoldierConfig.BARRAGE_HAYMAKER_DAMAGE;
+		helper.startSequence()
+				.thenWaitUntil(() -> helper.assertFalse(SuperSoldierAbilities.barrageRunning(p), "the Barrage is over"))
+				.thenExecute(() -> {
+					helper.assertTrue(Math.abs((200.0f - z.getHealth()) - expected) < 0.1f,
+							"6 x 7.5 + 20 = " + expected + ", took " + (200.0f - z.getHealth()));
+					helper.assertTrue(Math.abs((200.0f - by.getHealth()) - SuperSoldierConfig.BARRAGE_BURST_DAMAGE) < 0.1f,
+							"the burst hit the one beside it for 10, took " + (200.0f - by.getHealth()));
+					// with a shield now, Shift+Z is the Storm -- but the shared cooldown holds it
+					unlock(p);
+					p.setItemInHand(net.minecraft.world.InteractionHand.OFF_HAND, new ItemStack(SuperSoldierItems.ADAMANTIUM_SHIELD));
+					p.setShiftKeyDown(true);
+					AbilityRouter.handleInput(p, 4, true);
+					p.setShiftKeyDown(false);
+					helper.assertTrue(SuperSoldierAbilities.stormPhase(p) == -1, "the Storm waits on the shared cooldown");
+				})
+				.thenSucceed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 400)
+	public void shieldStormPicksWithAShieldRicochetsThenStarSlams(GameTestHelper helper) {
+		ServerPlayer p = soldier(helper);
+		Zombie[] zs = { zombieAt(helper, p, 3.0, 0.0), zombieAt(helper, p, 3.5, 2.0), zombieAt(helper, p, 2.5, -2.0) };
+		ItemStack shield = new ItemStack(SuperSoldierItems.ADAMANTIUM_SHIELD);
+		p.setItemInHand(net.minecraft.world.InteractionHand.OFF_HAND, shield);
+		pump(helper, p);
+		p.setShiftKeyDown(true);
+		AbilityRouter.handleInput(p, 4, true);
+		p.setShiftKeyDown(false);
+		helper.assertTrue(SuperSoldierAbilities.stormPhase(p) == 0, "a shield in hand: Shift+Z is the Shield Storm (rising)");
+		helper.assertFalse(SuperSoldierAbilities.barrageRunning(p), "not the Barrage");
+		helper.assertTrue(SuperSoldier.cooldownRemaining(p, SuperSoldierAbilities.SHIELD_STORM) > 0, "cooldown started");
+		helper.assertTrue(SuperSoldier.state(p).animOff, "the off-hand shield arm leads the clip");
+		helper.startSequence()
+				.thenWaitUntil(() -> helper.assertTrue(SuperSoldierAbilities.stormPhase(p) >= 1, "thrown"))
+				.thenExecute(() -> helper.assertTrue(p.getOffhandItem().isEmpty(), "the shield left his hand"))
+				.thenWaitUntil(() -> helper.assertTrue(SuperSoldierAbilities.stormPhase(p) == -1, "caught, dived and slammed"))
+				.thenExecute(() -> {
+					helper.assertTrue(p.getOffhandItem() == shield, "the same shield is back in his off hand");
+					helper.assertTrue(SuperSoldier.state(p).animId == SuperSoldierState.ANIM_STORM_SLAM, "the slam clip");
+					for (Zombie z : zs) {
+						float took = 200.0f - z.getHealth();
+						// one ricochet hit (15) and the slam (20 at the centre, 12 at the 6-block edge); nothing per hit over 20
+						helper.assertTrue(took >= SuperSoldierConfig.STORM_HIT_DAMAGE + 12.0f - 0.1f
+								&& took <= SuperSoldierConfig.STORM_HIT_DAMAGE + SuperSoldierConfig.STORM_SLAM_DAMAGE + 0.1f,
+								"15 + 12..20, took " + took);
+					}
+				})
+				.thenSucceed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void bossCapHoldsForTheUltimatesAndBossesAreNeverLaunched(GameTestHelper helper) {
+		ServerPlayer p = soldier(helper);
+		Zombie boss = zombieAt(helper, p, 1.5, 0.0);
+		boss.getAttribute(Attributes.MAX_HEALTH).setBaseValue(300.0); // a "boss": 6% cap = 18 per hit
+		boss.setHealth(300.0f);
+		helper.assertTrue(SuperSoldierAbilities.isBoss(boss), "counts as a boss");
+		pump(helper, p);
+		helper.assertTrue(SuperSoldierAbilities.barrage(p), "Barrage on the boss");
+		float expected = SuperSoldierConfig.BARRAGE_HITS * SuperSoldierConfig.BARRAGE_HIT_DAMAGE + 300.0f * SuperSoldierConfig.BOSS_MAX_FRACTION_PER_HIT;
+		helper.startSequence()
+				.thenWaitUntil(() -> helper.assertFalse(SuperSoldierAbilities.barrageRunning(p), "over"))
+				.thenExecute(() -> {
+					helper.assertTrue(Math.abs((300.0f - boss.getHealth()) - expected) < 0.1f,
+							"the haymaker capped at 18: expected " + expected + ", took " + (300.0f - boss.getHealth()));
+					helper.assertTrue(boss.getDeltaMovement().y < 0.3, "never launched, vy " + boss.getDeltaMovement().y);
+					// the star slam on a boss: capped too
+					float before = boss.getHealth();
+					SuperSoldierAbilities.stormSlam(p);
+					helper.assertTrue(before - boss.getHealth() <= 18.05f, "slam capped at 18, took " + (before - boss.getHealth()));
+					helper.assertTrue(boss.getDeltaMovement().y < 0.3, "and not knocked up");
+				})
+				.thenSucceed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void counterStanceNegatesAMeleeHitAndCounters(GameTestHelper helper) {
+		ServerPlayer p = soldier(helper);
+		Zombie z = zombieAt(helper, p, 1.5, 0.0);
+		helper.runAfterDelay(70, () -> { // past the spawn invulnerability
+			p.setHealth(p.getMaxHealth());
+			helper.assertTrue(SuperSoldierAbilities.counterStance(p), "braced");
+			helper.assertTrue(SuperSoldier.counterActive(p), "in the window");
+			helper.assertTrue(SuperSoldier.cooldownRemaining(p, SuperSoldierAbilities.COUNTER) == SuperSoldierConfig.COUNTER_COOLDOWN, "6 s cooldown");
+			p.hurt(p.damageSources().mobAttack(z), 8.0f);
+			helper.assertTrue(p.getHealth() == p.getMaxHealth(), "the hit is negated, health " + p.getHealth());
+			helper.assertTrue(Math.abs((200.0f - z.getHealth()) - SuperSoldierConfig.COUNTER_DAMAGE) < 0.05f,
+					"countered for 10, took " + (200.0f - z.getHealth()));
+			helper.assertTrue(has(z, net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN) && has(z, net.minecraft.world.effect.MobEffects.WEAKNESS),
+					"staggered");
+			helper.assertFalse(SuperSoldier.counterActive(p), "one counter per stance");
+			helper.assertTrue(SuperSoldier.state(p).animId == SuperSoldierState.ANIM_COUNTER_HIT, "the counter clip");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void counterStanceWithAShieldSendsAnArrowBack(GameTestHelper helper) {
+		ServerPlayer p = soldier(helper);
+		p.setItemInHand(net.minecraft.world.InteractionHand.OFF_HAND, new ItemStack(SuperSoldierItems.ADAMANTIUM_SHIELD));
+		helper.assertTrue(SuperSoldierAbilities.counterStance(p), "braced");
+		net.minecraft.world.entity.projectile.Arrow arrow = new net.minecraft.world.entity.projectile.Arrow(helper.getLevel(), p.getX(),
+				p.getY() + 1.2, p.getZ() + 2.0, new ItemStack(Items.ARROW), null);
+		arrow.setDeltaMovement(0.0, 0.0, -1.5);
+		helper.getLevel().addFreshEntity(arrow);
+		SuperSoldierAbilityManager.serverTick(p);
+		helper.assertTrue(arrow.getDeltaMovement().z > 0.0, "sent back the way it came, vz " + arrow.getDeltaMovement().z);
+		helper.assertTrue(arrow.getOwner() == p, "now his");
 		helper.succeed();
 	}
 

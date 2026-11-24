@@ -1,0 +1,515 @@
+// TEMP-HARNESS copy (v0.17.7 Super Soldier rework: Assemble, Counter Stance, Peak Human Barrage, Shield Storm). To use:
+//   node scratchpad/v0177/super_soldier_rework_harness.js install
+//   write run/ssrework.flag = "ssrework_out/after|after"
+//   node scratchpad/low_graphics_options.js run/options.txt ; ./gradlew runClient
+//   node scratchpad/v0177/super_soldier_rework_film.js
+//   node scratchpad/v0177/super_soldier_rework_harness.js remove
+// The moves are fired through AbilityRouter.handleInput (the real key path, Shift set server-side), in a real client.
+
+// ===== SuperSoldierReworkHarness.java =====
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.monster.Husk;
+import net.minecraft.world.entity.monster.Skeleton;
+import net.minecraft.world.entity.projectile.Arrow;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+
+import org.lwjgl.glfw.GLFW;
+
+/** TEMP-HARNESS (not shipped): films of the v0.17.7 Super Soldier moves. Enabled by run/ssrework.flag = "<out dir>|<mode>". */
+public final class SuperSoldierReworkHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static BlockPos base;
+	private static File out;
+	private static String mode = "after";
+	private static final java.util.Map<Integer, List<Runnable>> AT = new java.util.HashMap<>();
+	private static int film0 = -1, filmEnd = -1;
+	private static String filmDir = "film";
+	private static float camAngle, camDist, camH, camLookAhead, camLookH = 1.1f;
+	private static boolean camOn;
+	private static boolean faceLock = true;
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("ssrework.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			String[] parts = Files.readString(flag).trim().split("\\|");
+			out = new File(parts[0]);
+			if (parts.length > 1) {
+				mode = parts[1];
+			}
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(SuperSoldierReworkHarness::tick);
+		ClientTickEvents.START_CLIENT_TICK.register(mc -> placeCam(mc));
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "ssrework-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		new File(out, "screenshots/" + name + ".png").getParentFile().mkdirs();
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.computeIfAbsent(t, k -> new ArrayList<>()).add(r);
+	}
+
+	private static Item item(String id) {
+		return BuiltInRegistries.ITEM.get(ResourceLocation.parse(id));
+	}
+
+	private static void cam3(float angle, float dist, float h, float lookAhead, float lookH) {
+		camAngle = angle;
+		camDist = dist;
+		camH = h;
+		camLookAhead = lookAhead;
+		camLookH = lookH;
+		camOn = true;
+		Minecraft mc = Minecraft.getInstance();
+		mc.options.hideGui = true;
+		placeCam(mc);
+	}
+
+	private static void fp() {
+		camOn = false;
+		camPose = null;
+		Minecraft mc = Minecraft.getInstance();
+		mc.options.hideGui = false;
+		mc.options.setCameraType(CameraType.FIRST_PERSON);
+		if (mc.player != null) {
+			mc.setCameraEntity(mc.player);
+		}
+	}
+
+	public static volatile double[] camPose;
+
+	private static void placeCam(Minecraft mc) {
+		if (!camOn || mc.player == null || mc.level == null || base == null) {
+			camPose = null;
+			return;
+		}
+		Vec3 c = new Vec3(base.getX() + 0.5, base.getY(), base.getZ() + 0.5);
+		double r = Math.toRadians(camAngle);
+		Vec3 eye = c.add(Math.sin(r) * camDist, camH, Math.cos(r) * camDist);
+		Vec3 look = c.add(0, camLookH, camLookAhead);
+		Vec3 d = look.subtract(eye);
+		float yaw = (float) (Math.toDegrees(Math.atan2(-d.x, d.z)));
+		float pitch = (float) (-Math.toDegrees(Math.atan2(d.y, d.horizontalDistance())));
+		camPose = new double[] { eye.x, eye.y, eye.z, yaw, pitch };
+		mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+	}
+
+	private static void face(Minecraft mc) {
+		var p = mc.player;
+		p.setYRot(0f);
+		p.yRotO = 0f;
+		p.setXRot(8f);
+		p.xRotO = 8f;
+		p.yHeadRot = 0f;
+		p.yHeadRotO = 0f;
+	}
+
+	private static void stage(ServerPlayer p) {
+		ServerLevel level = p.serverLevel();
+		level.setDayTime(6000L);
+		level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+		level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+		level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+		p.server.setDifficulty(Difficulty.EASY, true);
+		p.setGameMode(GameType.SURVIVAL);
+		base = p.blockPosition();
+		for (int x = -16; x <= 16; x++) {
+			for (int z = -10; z <= 22; z++) {
+				level.setBlock(base.offset(x, -1, z), (x + z) % 2 == 0 ? Blocks.SMOOTH_STONE.defaultBlockState() : Blocks.POLISHED_ANDESITE.defaultBlockState(), 3);
+			}
+		}
+		p.getInventory().clearContent();
+		System.out.println("[HARNESS] grant: " + com.projecthero.mod.hero.PowerGrants.grantHero(p, "super_soldier").message().getString());
+		p.connection.teleport(base.getX() + 0.5, base.getY(), base.getZ() + 0.5, 0f, 8f);
+	}
+
+	/** Back to the start: position, health, no effects, no cooldowns, hands as given, every old mob gone. */
+	private static void reset(ServerPlayer p, Item main, Item off) {
+		ServerLevel level = p.serverLevel();
+		for (Mob m : level.getEntitiesOfClass(Mob.class, new AABB(base).inflate(48))) {
+			m.discard();
+		}
+		for (var a : level.getEntitiesOfClass(Arrow.class, new AABB(base).inflate(48))) {
+			a.discard();
+		}
+		p.removeAllEffects();
+		p.setHealth(p.getMaxHealth());
+		var s = com.projecthero.mod.supersoldier.SuperSoldier.state(p).copy();
+		s.abilityReadyAt.clear();
+		s.busyUntil = 0L;
+		s.assembleUntil = 0L;
+		s.counterUntil = 0L;
+		p.setAttached(com.projecthero.mod.attachment.ModAttachments.SUPER_SOLDIER_STATE, s);
+		p.getInventory().clearContent();
+		p.getInventory().selected = 0;
+		p.getInventory().setItem(0, main == null ? ItemStack.EMPTY : new ItemStack(main));
+		p.setItemInHand(InteractionHand.OFF_HAND, off == null ? ItemStack.EMPTY : new ItemStack(off));
+		p.connection.teleport(base.getX() + 0.5, base.getY(), base.getZ() + 0.5, 0f, 8f);
+	}
+
+	private static Husk husk(ServerPlayer p, double x, double z, boolean ai, int slow) {
+		ServerLevel level = p.serverLevel();
+		Husk h = new Husk(EntityType.HUSK, level);
+		h.setNoAi(!ai);
+		h.getAttribute(Attributes.MAX_HEALTH).setBaseValue(250);
+		h.setHealth(250);
+		h.setPersistenceRequired();
+		h.moveTo(base.getX() + 0.5 + x, base.getY(), base.getZ() + 0.5 + z, 180f, 0f);
+		h.setYHeadRot(180f);
+		if (slow >= 0) {
+			h.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 2000, slow, false, false));
+		}
+		level.addFreshEntity(h);
+		return h;
+	}
+
+	private static void key(ServerPlayer p, int slot, boolean shift) {
+		p.setShiftKeyDown(shift);
+		com.projecthero.mod.hero.AbilityRouter.handleInput(p, slot, true);
+		p.setShiftKeyDown(false);
+	}
+
+	private static void film(int from, int to, String dir) {
+		at(from, () -> {
+			film0 = from;
+			filmEnd = to;
+			filmDir = dir;
+		});
+	}
+
+	private static void healAll(Minecraft mc) {
+		server(mc, p -> p.setHealth(p.getMaxHealth()));
+	}
+
+	private static void plan() {
+		Minecraft mc = Minecraft.getInstance();
+		final Item shield = item("projecthero:adamantium_shield");
+		int t = 0;
+
+		// ---- Assemble, bare-handed: five husks walking in, the rally ring throws the near ones back
+		at(t, () -> server(mc, p -> {
+			reset(p, null, null);
+			husk(p, -2.5, 4.5, true, 1);
+			husk(p, 2.5, 5.0, true, 1);
+			husk(p, 0.0, 7.0, true, 1);
+			husk(p, -5.0, 11.0, true, 1);
+			husk(p, 5.0, 13.0, true, 1);
+		}));
+		at(t + 2, () -> cam3(115f, 6.0f, 2.4f, 3.0f, 1.3f));
+		film(t + 6, t + 70, "film_assemble_tp");
+		at(t + 12, () -> server(mc, p -> key(p, 5, true)));
+		at(t + 20, () -> shot(mc, "assemble_tp_still"));
+		t += 76;
+		// ---- Assemble with the shield in the off hand (the shield arm raised) -- stills front and side
+		at(t, () -> server(mc, p -> {
+			reset(p, null, shield);
+			husk(p, 0.0, 8.0, false, -1);
+		}));
+		at(t + 2, () -> cam3(-30f, 3.6f, 1.8f, 0f, 1.4f));
+		at(t + 6, () -> server(mc, p -> key(p, 5, true)));
+		at(t + 14, () -> shot(mc, "assemble_shield_tp_front"));
+		at(t + 16, () -> cam3(-95f, 3.6f, 1.7f, 0f, 1.4f));
+		at(t + 20, () -> shot(mc, "assemble_shield_tp_side"));
+		t += 30;
+		// ---- the bare-handed Assemble pose up close
+		at(t, () -> server(mc, p -> reset(p, null, null)));
+		at(t + 2, () -> cam3(30f, 3.6f, 1.8f, 0f, 1.4f));
+		at(t + 6, () -> server(mc, p -> key(p, 5, true)));
+		at(t + 14, () -> shot(mc, "assemble_fist_tp_front"));
+		t += 24;
+		// ---- HUD while Assemble runs (first person, the V box lit, the glowing husk)
+		at(t, () -> fp());
+		at(t + 6, () -> shot(mc, "assemble_fp_hud"));
+		t += 10;
+
+		// ---- Counter Stance: a husk swings, the hit is answered
+		at(t, () -> server(mc, p -> {
+			reset(p, null, null);
+			husk(p, 0.0, 1.7, false, -1);
+		}));
+		at(t + 2, () -> cam3(75f, 3.6f, 1.7f, 0.9f, 1.1f));
+		film(t + 6, t + 50, "film_counter_tp");
+		at(t + 10, () -> server(mc, p -> key(p, 5, false)));
+		at(t + 15, () -> shot(mc, "counter_brace_tp_still"));
+		at(t + 18, () -> server(mc, p -> {
+			for (Husk h : p.serverLevel().getEntitiesOfClass(Husk.class, new AABB(base).inflate(8))) {
+				h.swing(InteractionHand.MAIN_HAND);
+				p.hurt(p.damageSources().mobAttack(h), 5.0f);
+				System.out.println("[HARNESS] counter: player " + p.getHealth() + "/" + p.getMaxHealth() + " husk " + h.getHealth());
+			}
+		}));
+		at(t + 20, () -> shot(mc, "counter_hit_tp_still"));
+		t += 56;
+		// ---- Counter Stance with a shield: a skeleton's arrow sent straight back at it
+		at(t, () -> server(mc, p -> {
+			reset(p, null, shield);
+			Skeleton s = new Skeleton(EntityType.SKELETON, p.serverLevel());
+			s.setNoAi(true);
+			s.setPersistenceRequired();
+			s.moveTo(base.getX() + 0.5, base.getY(), base.getZ() + 0.5 + 11.0, 180f, 0f);
+			s.setYHeadRot(180f);
+			s.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BOW));
+			p.serverLevel().addFreshEntity(s);
+		}));
+		at(t + 2, () -> cam3(90f, 7.5f, 2.2f, 5.5f, 1.2f));
+		film(t + 6, t + 50, "film_counter_reflect_tp");
+		at(t + 10, () -> server(mc, p -> key(p, 5, false)));
+		at(t + 12, () -> server(mc, p -> {
+			for (Skeleton s : p.serverLevel().getEntitiesOfClass(Skeleton.class, new AABB(base).inflate(16))) {
+				Arrow a = new Arrow(p.serverLevel(), s, new ItemStack(Items.ARROW), new ItemStack(Items.BOW));
+				a.setPos(s.getX(), s.getEyeY() - 0.1, s.getZ() - 0.6);
+				Vec3 to = p.position().add(0, 1.1, 0).subtract(a.position()).normalize().scale(1.6);
+				a.setDeltaMovement(to);
+				p.serverLevel().addFreshEntity(a);
+			}
+		}));
+		t += 56;
+
+		// ---- Peak Human Barrage: the dash, the flurry, the haymaker launching the husk (and the burst on its neighbour)
+		at(t, () -> server(mc, p -> {
+			reset(p, null, null);
+			husk(p, 0.0, 5.0, true, 6);
+			husk(p, 1.9, 6.2, true, 6);
+		}));
+		at(t + 2, () -> cam3(70f, 6.5f, 2.0f, 3.5f, 1.1f));
+		film(t + 6, t + 70, "film_barrage_tp");
+		at(t + 10, () -> server(mc, p -> key(p, 4, true)));
+		at(t + 25, () -> shot(mc, "barrage_flurry_tp_still"));
+		at(t + 36, () -> shot(mc, "barrage_windup_tp_still"));
+		t += 76;
+		// ---- the same from the other side, closer
+		at(t, () -> server(mc, p -> {
+			reset(p, null, null);
+			husk(p, 0.0, 4.0, true, 6);
+		}));
+		at(t + 2, () -> cam3(-55f, 4.5f, 1.7f, 2.5f, 1.2f));
+		film(t + 6, t + 60, "film_barrage_tp_close");
+		at(t + 10, () -> server(mc, p -> key(p, 4, true)));
+		t += 66;
+		// ---- Barrage in first person
+		at(t, () -> server(mc, p -> {
+			reset(p, null, null);
+			husk(p, 0.0, 3.5, true, 6);
+		}));
+		at(t + 2, () -> fp());
+		film(t + 6, t + 56, "film_barrage_fp");
+		at(t + 10, () -> server(mc, p -> key(p, 4, true)));
+		t += 62;
+
+		// ---- Shield Storm: leap, throw, ricochets, catch, flip, dive, star slam
+		at(t, () -> server(mc, p -> {
+			reset(p, null, shield);
+			husk(p, -4.0, 6.0, true, 3);
+			husk(p, 4.0, 7.0, true, 3);
+			husk(p, -6.5, 11.0, true, 3);
+			husk(p, 6.5, 12.0, true, 3);
+			husk(p, 0.0, 14.0, true, 3);
+			husk(p, -2.0, 9.5, true, 3);
+		}));
+		at(t + 2, () -> {
+			mc.options.fov().set(60);
+			cam3(125f, 9f, 4.5f, 5f, 1.8f);
+		});
+		at(t + 40, () -> shot(mc, "storm_hover_tp_still"));
+		film(t + 6, t + 136, "film_storm_tp");
+		at(t + 10, () -> server(mc, p -> key(p, 4, true)));
+		t += 142;
+		// ---- Shield Storm closer, from the front (the throw, the catch and the slam pose)
+		at(t, () -> server(mc, p -> {
+			reset(p, null, shield);
+			husk(p, -3.0, 5.0, true, 3);
+			husk(p, 3.0, 6.0, true, 3);
+			husk(p, 0.0, 9.0, true, 3);
+		}));
+		at(t + 2, () -> {
+			mc.options.fov().set(70);
+			cam3(-25f, 7.0f, 3.0f, 0f, 2.6f);
+		});
+		film(t + 6, t + 120, "film_storm_tp_front");
+		at(t + 10, () -> server(mc, p -> key(p, 4, true)));
+		t += 126;
+		// ---- Shield Storm in first person
+		at(t, () -> server(mc, p -> {
+			reset(p, null, shield);
+			husk(p, -3.0, 5.0, true, 3);
+			husk(p, 3.0, 6.0, true, 3);
+		}));
+		at(t + 2, () -> fp());
+		film(t + 6, t + 110, "film_storm_fp");
+		at(t + 10, () -> server(mc, p -> key(p, 4, true)));
+		t += 116;
+		final int end = t;
+		at(end, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(SuperSoldierReworkHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 20) {
+			GLFW.glfwSetWindowSize(mc.getWindow().getWindow(), 854, 480);
+		}
+		if (t == 40) {
+			mc.options.fov().set(70);
+			mc.options.fovEffectScale().set(0.0); // his +50% speed (and Assemble's Speed I) would widen the fixed cameras
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			mc.getToasts().clear();
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, SuperSoldierReworkHarness::stage);
+		}
+		if (t < 140 || base == null) {
+			return;
+		}
+		if (faceLock) {
+			face(mc);
+		}
+		int s = t - 140;
+		if (s == 0) {
+			plan();
+		}
+		if (s % 10 == 0) {
+			mc.gui.getChat().clearMessages(false);
+			healAll(mc);
+		}
+		List<Runnable> todo = AT.remove(s);
+		if (todo != null) {
+			todo.forEach(Runnable::run);
+		}
+		if (s >= film0 && s < filmEnd) {
+			shot(mc, String.format(filmDir + "/f%03d", s - film0));
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		rules.getRule(GameRules.RULE_DOMOBSPAWNING).set(false, null);
+		LevelSettings settings = new LevelSettings("SSREWORK_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false, Difficulty.EASY, true,
+				rules, WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}
+
+// ===== mixin/SuperSoldierReworkHarnessCameraMixin.java =====
+package com.projecthero.mod.client.mixin;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import net.minecraft.client.Camera;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.BlockGetter;
+
+/** TEMP-HARNESS (not shipped): the SuperSoldierReworkHarness's fixed camera. */
+@Mixin(Camera.class)
+public abstract class SuperSoldierReworkHarnessCameraMixin {
+	@Shadow
+	private boolean detached;
+
+	@Shadow
+	protected abstract void setRotation(float yaw, float pitch);
+
+	@Shadow
+	protected abstract void setPosition(double x, double y, double z);
+
+	@Inject(method = "setup", at = @At("TAIL"))
+	private void projecthero$harnessCam(BlockGetter level, Entity entity, boolean detached, boolean mirrored, float partial, CallbackInfo ci) {
+		double[] c = com.projecthero.mod.client.SuperSoldierReworkHarness.camPose;
+		if (c != null) {
+			this.detached = true;
+			setPosition(c[0], c[1], c[2]);
+			setRotation((float) c[3], (float) c[4]);
+		}
+	}
+}

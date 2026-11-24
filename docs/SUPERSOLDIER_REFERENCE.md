@@ -12,10 +12,10 @@ selector), strong but deliberately below the Hulk / Thor / All Might.
 | File | What |
 |---|---|
 | `SuperSoldier` | The API: state access, grant / revoke, `reconcile` (every attribute modifier), the passive tick, lifecycle hooks |
-| `SuperSoldierAbilities` | The eleven moves, targeting (`canTarget`: no self / squadmates / own pets / creative players; players only with PvP), `strike` (Onslaught x1.25, Focus crit x1.5, boss cap), the per-player move tables |
+| `SuperSoldierAbilities` | The moves, targeting (`canTarget`: no self / squadmates / own pets / creative players; players only with PvP), `strike` (v0.17.7: Assemble x1.25 on the marked, `MAX_HIT` 20, boss cap), the per-player move tables (incl. the Barrage and Storm state machines), `cooldownKey` (both ultimates share `ultimate`) |
 | `SuperSoldierAbilityManager` | Slot dispatch (Shift read server-side), per-tick upkeep (incl. the suit gate, for every player), cooldown lookups for the HUD |
 | `SuperSoldierArmorGate` | v0.14.9: only a Super Soldier may wear the suit -- ejects it from anyone else every tick |
-| `SuperSoldierDamage` | ALLOW_DAMAGE: 30% reduction, roll i-frames, no fall damage from his leaps, Focus crits on punches; AFTER_DAMAGE: Onslaught punch shock; the `projecthero:serum_rejection` damage type key |
+| `SuperSoldierDamage` | ALLOW_DAMAGE: 30% reduction, roll i-frames, the Counter Stance (`tryCounter`), no fall damage from his leaps, Assemble x1.25 on punches at the marked (capped 20); AFTER_DAMAGE: Assemble's punch shock; the `projecthero:serum_rejection` damage type key |
 | `SuperSoldierSerum` | Drink outcome with an injected roll (`drink(player, refined, roll)`) |
 | `SuperSoldierConfig` | Every number |
 | `SuperSoldierSetup` | One init call: items, recipe serializer, entity type, damage rules |
@@ -25,6 +25,7 @@ selector), strong but deliberately below the Hulk / Thor / All Might.
 | `item/AdamantiumShieldItem` | v0.14.9: `adamantium_shield`, extends vanilla `ShieldItem`, no durability (unbreakable), fire resistant |
 | `item/SuperSoldierArmorItem` | v0.14.9: the four `captain_america_*` pieces (`SuperheroArmorItem`, set id `captain_america`); `use()` refuses a non-Super-Soldier |
 | `recipe/SuperSoldierSerumRecipe` | `CustomRecipe` + `SimpleCraftingRecipeSerializer`, type `projecthero:super_soldier_serum` |
+| client `SuperSoldierPose`; mixins `ItemInHandRendererSuperSoldierMixin`, `SuperSoldierBodyMixin`, a `HumanoidModelMixin` hook | v0.17.7: the move animations (key-framed clips on the synced anim id, third person, the Storm's whole-body spin / flip, first-person hands); see **v0.17.7 rework** |
 | client `SuperSoldierHud`, `SoldierShieldRenderer`, `AdamantiumShieldRenderer`, `SuperSoldierClient` | Mono HUD (R G Z X V + C, no bars), the spinning thrown shield (the real stack: the stepped dish with after-images / vanilla shield with its banner), the shield item renderer (`BuiltinItemRendererRegistry`: GUI, ground, frame), registration |
 | `CapShieldStow` (common) | v0.17.5: which Captain America shield is slung on a player's back (first one in the hotbar while neither hand holds one); synced attachment `projecthero:cap_shield_stowed` (all trackers, not saved), re-checked every 5 ticks |
 | `item/CapBattleSuitItem`, `CapShieldSlot` (common); client `CapSuitClient` | v0.17.5: the Captain America Battle Suit (anyone can wear it) and the top's shield slot -- N, the throw from / back into the slot, the right-click guard, upkeep; see **Captain America Battle Suit and the shield slot** |
@@ -69,12 +70,13 @@ selector), strong but deliberately below the Hulk / Thor / All Might.
 | G | Flying Kick | lunges at the enemy in front within 8 blocks (1.15 b/t, up to 10 ticks), lands within 2.4 blocks (at once if already that close): 12 damage, knockback 1.5, lift 0.3, then a small hop back; no fall damage for 2 s. No target = no cooldown | 8 s |
 | Shift+G | Judo Takedown | grabs the enemy in front within 3.5 blocks, hoists it over his shoulder, 5 ticks later slams it to the ground behind him (in front if a wall is behind): 14 damage, Slowness IV + Weakness I 1.5 s. Bosses are not moved, just hit. No target = no cooldown | 10 s |
 | Z | Leaping Slam | leap 4 blocks up / 0.8 forward, lands (or after 3 s) for 12 damage in 5 blocks (60% at the edge), knockback 1.2, lift 0.4 | 12 s |
-| Shift+Z | **Super Soldier Onslaught** (ultimate) | 8-damage shockwave in 6 blocks, then 10 s: +5 melee, Resistance I, Speed I, moves x1.25, each punch shocks enemies within 3 blocks of the target for 4 | 100 s |
+| Shift+Z | **Peak Human Barrage** (ultimate, no shield) | v0.17.7: dash onto the enemy in front within 6 blocks (1.5 b/t, up to 8 ticks), both rooted; six blows 3 ticks apart for 7.5 each (right straight, left hook, right body, knee, left elbow, right uppercut), a 7-tick wind-up, then the haymaker for 20 (knockback 2.4, lift 0.9) with a 4-block burst for 10 on everyone else. No target = no cooldown | 95 s, shared |
+| Shift+Z + shield | **Shield Storm** (ultimate, a shield in either hand or slotted) | v0.17.7: leap 4.5 up; at tick 7 the shield is hurled (speed 2.1): up to 8 ricochets within 16 blocks for 15 each, a bright red / white / blue trail; he hangs in the air until it is back (max 5 s), catches it, front-flips and dives (2.2 b/t): a five-point star shockwave, 20 at the centre to 12 at 6 blocks, knockback 0.8, lift 0.85. No fall damage. No hostile within 16 = no cooldown | 95 s, shared |
 | X | Tactical Roll | 1.35 b/t dash in the movement (or look) direction, 10 ticks of invulnerability | 4 s |
 | Shift+X | High Leap | 5 blocks up, 1.25 forward, no fall damage for 5 s | 8 s |
-| V | Battle Cry | self + squadmates in 16: Strength I + Speed I 10 s; hostiles (and enemy players) in 12: Weakness 8 s + Slowness I 4 s | 30 s |
+| V | **Counter Stance** | v0.17.7: braced for 1 s. The first melee hit (mob / player attack, attacker within 5 blocks) is negated and answered: 10 damage, knockback 1.3, lift 0.25, Slowness III + Weakness I 1.5 s, then 6 ticks of safety. With a shield (hand or slot) every projectile reaching him in the window is reflected at its shooter (and made his) | 6 s |
 | C | Shield Throw | needs a shield in either hand (main first). **Adamantium Shield**: 9 per hit, up to 4 enemies, range 24, 5 s. **Any other shield** (`ShieldItem`): 6 per hit, up to 3 enemies, range 16, 6 s. Homes on the enemy in the crosshair / cone first; ricochets to the nearest unhit hostile within 12 blocks (line of sight from its centre or 0.5 above to the target's centre or eyes; else the nearest within 6 blocks blind), homing through blocks once chosen; glances off walls only while flying free; returns through blocks. No shield = an action-bar hint, no cooldown | 5 s / 6 s |
-| Shift+V | Tactical Focus | every hostile / enemy player in 30 blocks glows 10 s; 8 s of x1.5 crits (punches and moves) on the marked | 25 s |
+| Shift+V | **Assemble** | v0.17.7 (Battle Cry + Tactical Focus + the Onslaught buff): "Assemble!" on the action bar; a rally ring knocks hostiles within 6 back (1.2, lift 0.3; no damage; never a boss); 10 s: self + squadmates in 16 Strength I, Speed I, Resistance I; hostiles in 16 Weakness I 10 s + Slowness I 6 s; every hostile in 30 glows (marked) 10 s; his hits on the marked x1.25 (punches and moves, never past 20); every punch shocks enemies within 3 of the target for 6 | 60 s |
 
 Bosses (max health >= 300, or `TitanCombat.isBoss`) take at most 6% of their max health per hit and are never knocked
 back or launched. A 4-tick global lock stops moves stacking; the combo locks for 12 ticks, the kick for 12, the takedown for 9.
@@ -82,8 +84,8 @@ back or launched. A 4-tick global lock stops moves stacking; the combo locks for
 ## HUD
 
 `SuperSoldierHud`: bottom right, mono (black / gray) boxes in the order R G Z X V; each box shows the longer of its two
-moves' cooldowns. v0.14.9: **no bars** (the ultimate and Tactical Focus hairlines were removed; Z's box is outlined white
-while Onslaught runs, V's while Focus runs). A sixth box, **C**, appears stacked on top of V only while he holds a
+moves' cooldowns. v0.14.9: **no bars** (the ultimate and Tactical Focus hairlines were removed). v0.17.7: Z's box is lit while
+an ultimate plays out, V's while Assemble runs or the Counter Stance is braced; Shift+Z's name follows the shield (Barrage / Shield Storm). A sixth box, **C**, appears stacked on top of V only while he holds a
 shield (or while a throw is cooling down, so the timer does not vanish while the shield is in the air); the five fixed
 boxes never move (a C box left of R ran under the hotbar on small screens). Left-Alt shows short move names.
 
@@ -234,20 +236,78 @@ happens". N is user-assigned here (the H / N rule otherwise stands: no N HUD box
 
 ## State / lifecycle
 
-`SuperSoldierState`: `hasPower`, `busyUntil`, `iframeUntil`, `noFallUntil`, `onslaughtUntil`, `focusUntil`,
-`lastCombatTick`, `abilityReadyAt`. Join / respawn clear the timers (game time is per-world) and re-reconcile; death,
-logout and dimension change call `clearTransient`. Static maps (move tasks, kicks, slam, Focus marks, message throttle)
-are cleared by `ServerStateReset` via `SuperSoldierAbilityManager.clearSessionState`.
+`SuperSoldierState`: `hasPower`, `busyUntil`, `iframeUntil`, `noFallUntil`, `assembleUntil`, `counterUntil` (v0.17.7; were
+`onslaughtUntil` / `focusUntil`), `lastCombatTick`, `animId` / `animStart` / `animOff` (v0.17.7), `abilityReadyAt`. Join / respawn clear
+the timers and the animation (game time is per-world) and re-reconcile; death, logout and dimension change call `clearTransient`. Static
+maps (move tasks, kicks, slam, Assemble marks, the Barrage and Storm in progress -- entity ids only, message throttle) are cleared by
+`ServerStateReset` via `SuperSoldierAbilityManager.clearSessionState`.
+
+## v0.17.7 rework: Assemble, Counter Stance, two ultimates
+
+User: "I want the Onslaught ability, battle cry and tactical focus power to be merged into one power, make it the shift+V power and name
+it assemble, give the other keys new attacking powers please, make the ultimate better, make an unarmed ultimate and a shield ultimate,
+cool animations and stuff make it good please". R, G, X, C, N and their Shift moves are unchanged. Numbers: the moves table above and
+`SuperSoldierConfig` (every hit still goes through `strike`: Assemble x1.25 on the marked, then `MAX_HIT` 20, then the boss cap).
+
+- **Shift+V Assemble** (`assemble`): replaces Battle Cry (V), Tactical Focus (Shift+V) and the Onslaught buff. The shock moved from
+  Onslaught to Assemble's punches (`assembleShock`); the opening damage burst moved to the ultimates (the ring does none). The old
+  Onslaught attack-damage modifier id is still stripped by `reconcile` so an old save carries nothing. 60 s: ten seconds of team
+  buffs, debuffs and marks (one sixth uptime), about the old Battle Cry (30 s) and Focus (25 s) together.
+- **V Counter Stance** (`counterStance`, `tryCounter` from ALLOW_DAMAGE, `counterReflectTick` every tick with a shield): V is an attack
+  with a defensive side. Melee = `mob_attack`, `mob_attack_no_aggro` or `player_attack` whose direct source is the attacker. The stance ends
+  before the counter lands, so two braced Super Soldiers cannot ping-pong. Projectiles are reflected the Carapace way (`deflect(REVERSE)`,
+  re-aimed at the shooter, owner = him, arrows not pick-up-able), proactively within 1.6 blocks + their speed, and as a fallback when one
+  still hits him in the window.
+- **Shift+Z** (`ultimate`): `hasShield` (either hand or a throwable slotted shield -- like C) picks **Shield Storm**, else **Peak Human
+  Barrage**. Both write the `ultimate` cooldown key (`cooldownKey`), so the HUD, the cooldown message and `maxCooldown` read the one timer.
+  - Barrage (`Barrage` table): dash -> arrived (rooted: halted every tick -- a -100% speed modifier was tried and zoomed his camera right in -- the target
+    held in place and Slowness VI unless it is a boss) -> six blows -> wind-up sound at tick 19 -> haymaker at 24. A target that dies mid-
+    flurry hands the rest to the next enemy in front; none -> the haymaker still goes off where it would have landed. The attacker's own
+    camera shakes a little on each blow (`QuirkCamera.shake`, 0.11-0.16) and harder on the haymaker (0.4) with a small FOV punch.
+  - Storm (`Storm` table): RISE (the leap) -> HOVER (the shield out; a slow 0.05 b/t sink so a dedicated server's anti-fly check never sees
+    him "floating"; the shield's `deliver` calls `stormCaught`; after 5 s it is recalled) -> DIVE (a hop for the flip, then 2.2 b/t down)
+    -> `stormSlam` on landing or after 30 ticks. The thrown shield is the ordinary `SoldierShieldEntity` with `storm(...)`: its own damage,
+    hits, ricochet reach (16) and speed, and a synced `STORM` flag the client draws as a thick red / white / blue dust ribbon + END_ROD
+    sparkle and five brighter, full-bright after-images. The shield goes home to the hand (or slot) it left, as with C.
+- **Animations** (`SuperSoldierPose`, the Black Panther clip system: keys with snap / smooth easing, faded over vanilla's pose; anim id,
+  start and lead arm synced in the state; `animOff` mirrors a clip so the off-hand shield arm leads):
+  - Assemble: fist gathered to the chest in a crouch, then punched straight up, feet planted wide, chest out, head back (the shield arm
+    when the shield is in the off hand), held 2/3 s, eased down. Rings of gold / blue dust roll out over three ticks, END_ROD column, flash.
+  - Counter Stance: forearms crossed in front of the face, low, weight back (held for the window); the counter is a palm strike / shield
+    bash straight out with the hips through it. Sparks, crits, a sweep at the contact point.
+  - Barrage: the dash (right hand cocked, leaning in, sprinting stride); right straight, left hook (flat across), right body shot
+    (dipping), the clinch and knee, the left elbow, the right uppercut, each snapped in on its hit tick with a guard between; the right hand
+    drawn right back with the chest turned away for the wind-up; the haymaker lunge. Hit sparks (crit + electric) at each blow's height,
+    a sonic-boom ring, explosion puffs and two dust rings on the haymaker.
+  - Shield Storm: the spring, arms up as he rises, the shield arm wound across the chest and flung out while the whole body spins a full
+    turn (`SuperSoldierBodyMixin`), the hover with arms spread and head down watching; the catch overhead, a tucked front flip about the
+    hips, the dive with the shield held overhead; the slam -- both arms driving down, one knee to the ground. The star grows out in three
+    waves (white, red, blue) with flash, explosion puffs, block dust and an END_ROD burst.
+  - First person (`ItemInHandRendererSuperSoldierMixin`, empty main hand only): every clip has hand keys -- the blows, the wind-up and
+    haymaker, the fist rising into view, the crossed guard and the strike, the throw sweep, the catch, the hands driving down. While a clip
+    plays `CapShieldPose` stands aside (third-person arm poses and the first-person empty-hand throw), so the two never fight.
+- No new static collection holds worlds or entities (the two new tables keep entity ids and are cleared by `clearSessionState`).
 
 ## Tests
 
 `SuperSoldierGameTests` (listed in `src/gametest/resources/fabric.mod.json`). v0.17.5 adds the back-sling rules
 (`carriedShieldIsSlungOnTheBackOnlyWhileNeitherHandHoldsOne`) and the synced thrower / hand
-(`thrownShieldCarriesItsThrowerAndHandForTheClient`).
+(`thrownShieldCarriesItsThrowerAndHandForTheClient`). v0.17.7 rework: `assembleBuffsDebuffsMarksAndBoostsHitsOnTheMarked`,
+`barragePicksWithoutAShieldAndHitsForSixFlurryPlusTheHaymaker` (incl. the shared cooldown holding the Storm),
+`shieldStormPicksWithAShieldRicochetsThenStarSlams`, `bossCapHoldsForTheUltimatesAndBossesAreNeverLaunched`,
+`counterStanceNegatesAMeleeHitAndCounters`, `counterStanceWithAShieldSendsAnArrowBack`; `everyMoveActivatesAndStartsItsCooldown` covers
+Counter / Assemble / Shield Storm. Seen in a real client (`scratchpad/SuperSoldierReworkHarness.v0177.java.txt`, installed by
+`scratchpad/v0177/super_soldier_rework_harness.js`, films by `super_soldier_rework_film.js`; output in
+`docs/screenshots/v0177/super_soldier_rework`): Assemble (bare-handed film, shield stills, HUD), the Counter Stance answering a husk, the
+arrow reflect (hard to read at that distance), the Barrage (two third-person angles + first person), the Shield Storm (wide, front,
+first person). Harness cameras run with FOV effects off (his +50% speed widens a fixed camera).
 
 ## Not done / untested in a real client
 
-- No custom player poses for the moves (they use arm swings, particles and sounds only); v0.17.5 gave the shield its own
+- v0.17.7: the new moves have their own poses (`SuperSoldierPose`); R, G, Z and X still use arm swings, particles and sounds only.
+  Not seen for the rework: multiplayer (another viewer's copy of the clips, a squadmate getting Assemble's buffs), a left-handed player,
+  the Storm thrown from the Battle Suit slot, a Storm whose shield is lost mid-flight, the dedicated-server anti-fly check during a long
+  hover. v0.17.5 gave the shield its own
   (block, bash, throw, reach, catch). Seen in a v0.17.5 client harness (`scratchpad/ShieldHarness.v0175.java.txt`, stills
   and films in `docs/screenshots/v0175/cap_shields`); not seen: multiplayer (another player's throw / catch / back sling),
   a mob holding one, an item frame, the Captain America suit with the shield on its back. The Soldier's Shield is

@@ -54,7 +54,9 @@ public class SoldierShieldRenderer extends EntityRenderer<SoldierShieldEntity> {
 	/** The after-images: how far back along the last tick's travel, how see-through, how far behind in the spin. */
 	private static final float[] TRAIL_BACK = { 0.22f, 0.44f, 0.66f };
 	private static final float[] TRAIL_ALPHA = { 0.34f, 0.20f, 0.09f };
-	private static final float[] TRAIL_LAG = { 14f, 28f, 42f };
+	/** v0.17.7: the Shield Storm's longer, brighter ghost trail. */
+	private static final float[] STORM_BACK = { 0.18f, 0.36f, 0.54f, 0.72f, 0.9f };
+	private static final float[] STORM_ALPHA = { 0.5f, 0.38f, 0.27f, 0.17f, 0.08f };
 
 	@Override
 	public void render(SoldierShieldEntity e, float entityYaw, float partialTick, PoseStack pose, MultiBufferSource buffers, int light) {
@@ -75,14 +77,18 @@ public class SoldierShieldRenderer extends EntityRenderer<SoldierShieldEntity> {
 		if (CapShieldModel.isCapShield(stack)) {
 			// v0.17.5: the stepped dish, flat and face up, spinning fast about its own centre, with three fading after-images
 			ResourceLocation tex = CapShieldModel.texture(stack);
-			for (int i = TRAIL_BACK.length - 1; i >= 0; i--) {
+			boolean storm = e.isStorm();
+			float[] back = storm ? STORM_BACK : TRAIL_BACK;
+			float[] alpha = storm ? STORM_ALPHA : TRAIL_ALPHA;
+			for (int i = back.length - 1; i >= 0; i--) {
 				if (v.lengthSqr() < 0.04) {
 					break;
 				}
 				pose.pushPose();
-				pose.translate(-v.x * TRAIL_BACK[i], -v.y * TRAIL_BACK[i], -v.z * TRAIL_BACK[i]);
-				flat(pose, yaw, pitch, spin - TRAIL_LAG[i]);
-				CapShieldModel.renderGhost(pose, buffers, tex, light, OverlayTexture.NO_OVERLAY, TRAIL_ALPHA[i]);
+				pose.translate(-v.x * back[i], -v.y * back[i], -v.z * back[i]);
+				flat(pose, yaw, pitch, spin - 14f * (i + 1));
+				// v0.17.7: the Shield Storm's ghosts are brighter and longer, and full-bright so they read against any sky
+				CapShieldModel.renderGhost(pose, buffers, tex, storm ? 0xF000F0 : light, OverlayTexture.NO_OVERLAY, alpha[i]);
 				pose.popPose();
 			}
 			pose.pushPose();

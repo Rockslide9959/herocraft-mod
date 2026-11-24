@@ -169,6 +169,8 @@
 		"BlackPantherFirstPersonArmMixin",
 		"BlackPantherFlipMixin",
 		"ItemInHandRendererBlackPantherMixin",
+		"ItemInHandRendererSuperSoldierMixin",
+		"SuperSoldierBodyMixin",
 		"BeamClashInputMixin",
 		"BeamClashKeyMixin",
 		"RyukoFirstPersonArmMixin",

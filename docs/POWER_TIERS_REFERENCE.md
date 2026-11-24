@@ -19,7 +19,7 @@ Every other power is unplaced (no badge) until the user assigns it. Don't place 
 
 - **Per hit.** Each hit of a multi-hit move sits in the range (combo slashes count as melee hits, 7-10).
 - **Buffs may exceed the base range but never the tier's ultimate max** (Street: 20). Each power has a
-  `MAX_HIT` constant applied after its multipliers (Onslaught, Tactical Focus, Stalk, Kimoyo Scan, Target Designation,
+  `MAX_HIT` constant applied after its multipliers (Super Soldier: Assemble on the marked -- was Onslaught / Tactical Focus; Stalk, Kimoyo Scan, Target Designation,
   Kinetic Return). Boss caps still apply on top.
 - **Main fighting form only.** Black Panther's unsuited (T'Challa) kit was left as it was: weaker by design.
 - **Toughness ~ full diamond armour** (takes ~30-40% of a 10-damage hit), at most +10 max health.
@@ -37,10 +37,23 @@ Every other power is unplaced (no badge) until the user assigns it. Don't place 
 | Judo Takedown | 14 | 10 |
 | Leaping Slam | 12 (edge 60%) | 10 |
 | Shield throw: other / Adamantium / Vibranium | 6 / 9 / 12 | 8 / 9 / 10 |
-| Onslaught burst | 8 (x1.25 = 10) | 16 (x1.25 = 20) |
-| Onslaught punch bonus / shock | +5 / 4 | +2 / 6 |
-| Cap | none | 20 per move hit |
+| Onslaught burst | 8 (x1.25 = 10) | 16 (x1.25 = 20); removed in the v0.17.7 rework below |
+| Onslaught punch bonus / shock | +5 / 4 | +2 / 6; now Assemble's shock (6) |
+| Cap | none | 20 per move hit (punches too while Assemble boosts them) |
 Toughness unchanged (+10 HP, 30% less, suit 18 armour).
+
+**v0.17.7 kit rework (after the pass):** Onslaught, Battle Cry and Tactical Focus merged into **Assemble** (Shift+V: buffs, debuffs,
+marks; x1.25 on the marked, punch shock 6; no damage of its own). V is **Counter Stance** (counter 10 -- ability range). Shift+Z is two
+ultimates on one 95 s cooldown: **Peak Human Barrage** (6 x 7.5 melee-range blows, then a 20 haymaker; burst 10) and **Shield Storm**
+(ricochets 15 each, up to 8; star slam 20 -> 12 at 6 blocks). Ultimate hits sit in 15-20; every hit stays at or under `MAX_HIT` 20 with
+Assemble on top; bosses keep the 6% cap and are never launched.
+
+| Hit (v0.17.7) | Damage |
+|---|---|
+| Counter Stance counter | 10 |
+| Barrage flurry blow / haymaker / burst | 7.5 x 6 / 20 / 10 |
+| Shield Storm ricochet / star slam | 15 (up to 8) / 20 -> 12 |
+| Assemble punch shock | 6 (7.5 on a marked enemy) |
 
 ### Black Panther, suited (`BlackPantherConfig`)
 | Hit | Before | After |
