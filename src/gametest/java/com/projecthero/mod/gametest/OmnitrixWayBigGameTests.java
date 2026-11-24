@@ -124,6 +124,29 @@ public class OmnitrixWayBigGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/**
+	 * v0.17.7 (player report: "when I take off the Omnitrix, I lose all the DNA I've collected as well as Master Control"):
+	 * Master Control, the transformations the watch learnt his DNA from and the code digits he found all outlive the watch.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void masterControlAndLearntDnaStayWhenTheWatchComesOff(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = mock(helper, 3.5, 2, 1.5);
+		helper.assertTrue(Omnitrix.grant(p), "the Omnitrix goes on");
+		Omnitrix.setPrototypeTransforms(p, 19);
+		com.projecthero.mod.omnitrix.OmnitrixCodes.learnDigit(p, 2);
+		Omnitrix.setMasterControl(p, true);
+		helper.assertTrue(Omnitrix.masterControl(p), "Master Control is on");
+		Omnitrix.revoke(p);
+		helper.assertFalse(Omnitrix.hasPower(p), "the watch is off");
+		helper.assertTrue(Omnitrix.grant(p), "and back on");
+		helper.assertTrue(Omnitrix.masterControl(p), "Master Control is still on");
+		helper.assertTrue(Omnitrix.masterKnown(p), "and still known (Guidebook page)");
+		helper.assertTrue(Omnitrix.prototypeTransforms(p) == 19, "the learnt DNA (19 transformations) kept: " + Omnitrix.prototypeTransforms(p));
+		helper.assertTrue(com.projecthero.mod.omnitrix.OmnitrixCodes.knownDigit(p, 2) >= 0, "the code digit he found kept");
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void wayBigIsUnlockedOnlyByHisItemNeverByAMistransform(GameTestHelper helper) {
 		floor(helper);

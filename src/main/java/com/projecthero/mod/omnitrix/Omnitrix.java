@@ -967,12 +967,16 @@ public final class Omnitrix {
 	 * every alien he has unlocked ({@code Aliens.foundKey}: a mistransform or the To'kustar Shard) and his mistransform count -- is
 	 * carried from {@code from} into the fresh state when the watch comes off ({@link #revoke}) and when one goes back on
 	 * ({@link #grant}). The state attachment is persistent and copied on death, so it survives logging out and dying too.
+	 * v0.17.7: Master Control (on stays on) and the transformation count come along as well.
 	 */
 	public static void keepPlayerData(OmnitrixState from, OmnitrixState to) {
 		for (var e : from.timers.entrySet()) {
 			// v0.17.5: and the Master Control digits / hidden-alien codes he has found (OmnitrixCodes.PREFIX)
+			// v0.17.7 (player report: "when I take off the Omnitrix, I lose all the DNA I've collected as well as Master Control"):
+			// Master Control itself (MASTER) and the transformations the watch has learnt his DNA from (TRANSFORMS, the Recalibration
+			// Chip's 25) are his too. The code-entry screen's own short-lived keys (reveal / flash) aren't worth keeping but are harmless.
 			if (e.getKey().startsWith("omnitrix.found.") || e.getKey().equals(MISTRANSFORMS) || e.getKey().equals(MASTER_KNOWN)
-					|| e.getKey().startsWith(OmnitrixCodes.PREFIX)) {
+					|| e.getKey().equals(MASTER) || e.getKey().equals(TRANSFORMS) || e.getKey().startsWith(OmnitrixCodes.PREFIX)) {
 				to.timers.put(e.getKey(), e.getValue());
 			}
 		}
