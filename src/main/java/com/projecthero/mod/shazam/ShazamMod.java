@@ -51,7 +51,7 @@ public final class ShazamMod {
 			sender.server.execute(() -> Shazam.speak(sender));
 			return false;
 		});
-		ServerTickEvents.END_WORLD_TICK.register(ShazamWizards::tickLevel);
+		// v0.17.7: the storm visits are gone -- the power comes through the journey (journey.ShazamJourney); the Wizard is admin-only now
 		ServerEntityEvents.ENTITY_LOAD.register((entity, level) -> {
 			if (entity instanceof LightningBolt bolt && level instanceof ServerLevel server) {
 				Shazam.onLightning(server, bolt);

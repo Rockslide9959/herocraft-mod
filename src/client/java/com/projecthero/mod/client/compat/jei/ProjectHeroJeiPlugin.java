@@ -48,6 +48,9 @@ public final class ProjectHeroJeiPlugin implements IModPlugin {
 				net.minecraft.network.chat.Component.translatable("projecthero.jei.stormbreaker_head"));
 		registration.addItemStackInfo(new ItemStack(com.projecthero.mod.thoracquire.ThorAcquire.DESTROYER_SPAWN_EGG),
 				net.minecraft.network.chat.Component.translatable("projecthero.jei.destroyer"));
+		// v0.17.7: Shazam acquisition -- the Wizard Shazam egg (creative / admin)
+		registration.addItemStackInfo(new ItemStack(com.projecthero.mod.shazam.journey.ShazamJourney.WIZARD_SPAWN_EGG),
+				net.minecraft.network.chat.Component.translatable("projecthero.jei.wizard_shazam"));
 		// v0.17.5: the Omnitrix Data Fragment (Hero Vault loot; reveals a Master Control digit)
 		registration.addItemStackInfo(new ItemStack(com.projecthero.mod.omnitrix.item.OmnitrixItems.DATA_FRAGMENT),
 				net.minecraft.network.chat.Component.translatable("item.projecthero.omnitrix_data_fragment.use"),

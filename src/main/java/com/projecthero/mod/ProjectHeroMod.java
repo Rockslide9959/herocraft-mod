@@ -337,6 +337,7 @@ public class ProjectHeroMod implements ModInitializer {
 		CraterAmbience.initialize();
 		com.projecthero.mod.hammer.MjolnirSeer.initialize();
 		com.projecthero.mod.thoracquire.ThorAcquire.initialize(); // v0.17.7: Valor, the Trial of Asgard, the lift, the Star Forge, the Living Branch
+		com.projecthero.mod.shazam.journey.ShazamJourney.initialize(); // v0.17.7: how players get Shazam -- illusions, the subway, the train, the Rock of Eternity
 		// v0.14.16: retires superseded (recalled) hammer copies wherever they are next observed
 		com.projecthero.mod.hammer.MjolnirGuard.initialize();
 		com.projecthero.mod.maxsteel.worldgen.SteelCrashAmbience.initialize();
