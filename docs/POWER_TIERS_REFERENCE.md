@@ -12,7 +12,7 @@ placed power's "Primary Power" line, so the Guidebook and the I menu both show i
 | Planet | 16-19 | 16-20 | 32-40 | green |
 | Cosmic | 21-28 | 22-30 | 45-60 | light purple |
 
-**Placed so far (user, 2026-11-23):** Street = Super Soldier, Punisher, Black Panther, Power Armour.
+**Placed so far (user, 2026-11-23):** Street = Super Soldier, Punisher, Black Panther, Power Armour. Cosmic = Thor (user, v0.17.7 Thor revamp).
 Every other power is unplaced (no badge) until the user assigns it. Don't place powers yourself.
 
 ## Rules used for the pass
@@ -24,6 +24,29 @@ Every other power is unplaced (no badge) until the user assigns it. Don't place 
 - **Main fighting form only.** Black Panther's unsuited (T'Challa) kit was left as it was: weaker by design.
 - **Toughness ~ full diamond armour** (takes ~30-40% of a 10-damage hit), at most +10 max health.
 - Gear anyone can use (the Punisher guns) was tuned too, since it is the Punisher's kit.
+
+## Cosmic: Thor (v0.17.7 revamp, `power/ThorKit`, `MAX_HIT` 60)
+
+Four weapon states from the hands (see `docs/THOR_REFERENCE.md`). Every move hit goes through `ThorKit.hit` (capped 60); the storm
+buff (+30%) and Sunder (+20%) are capped at 60 in the hurt hook. Bosses keep their per-hit caps.
+
+| Hit | Before | After |
+|---|---|---|
+| Melee (fist / Mjolnir / Stormbreaker / both) | 12 / 22 / 25 / main-hand | 24 / 24 / 26 / 27 |
+| Combo finisher area (Mjolnir shock / Stormbreaker cleave) | 4 / 6 | 22 / 22 (finisher hit itself max 28) |
+| Thrown Mjolnir / Stormbreaker | 18 / 20 | 22 / 24 |
+| Lightning Strike / chain | 22 / 11 | 26 / 22 |
+| Chain Lightning | 18 | 24 |
+| Lightning Beam | 8 every tick | 22 every 5 ticks (Bifrost Beam 26, Twin Beam 28) |
+| Thunderclap | 22 | 26 |
+| Thunder Field pulse | 4 every 10 ticks | 22 every 20 |
+| Twin Thunder slam / ring | 20 / 8 | 30 / 22 |
+| Storm Call bolt | 8 | 22 |
+| God of Thunder's Wrath | 100 | removed (four new ultimates, 45-60) |
+| New ability hits | -- | 22-30 (Executioner's Drop x1.5 under 30% health, max 30) |
+| Ultimates | -- | Incarnate aura 22 + burst 60; Wrath rain 45 + bolt 60; Judgement 60 + 45; Ragnarok rain 45 + 60 |
+
+Toughness unchanged (takes 20%, +10 hearts).
 
 ## Street pass: before -> after
 

@@ -6,10 +6,111 @@ Power logic `com.projecthero.mod.power` (`ThorPowers`, `ThorPassives`, `StormEne
 HUD `client/gui/ThorHud`. Player-facing text: the Guidebook's Thor chapter (`hero/guide/HeroPackGuide`, keys
 `projecthero.guide.thor.*`, which the power info screen shows too).
 
-Keys: R Call Mjolnir (right-click throws), G Lightning Strike, Shift+G Thunder Field (v0.16.1), X Lightning Beam (hold),
+Keys (before v0.17.7 -- see the Cosmic revamp below for today's four-state kit): R Call Mjolnir (right-click throws), G Lightning Strike, Shift+G Thunder Field (v0.16.1), X Lightning Beam (hold),
 Z God of Thunder's Wrath (hold 5 s), V Hammer Volley, Shift+V Thunderclap, C Chain Lightning, H Thor's Armour, N weapon
 selector (v0.15.3), double-tap Jump flight.
 Storm Call (`ThorPowers.stormCall`) is still in the code but not on any key since v0.6.22. There is no Thor Parry.
+
+## v0.17.7: Cosmic revamp -- four weapon states
+
+User-approved design; tier **Cosmic** (`hero/PowerRank.COSMIC`, placed in `PowerRank.ofGuideKey`, so the Guidebook and the I menu
+show the badge). Melee 21-28, abilities 22-30, ultimates 45-60 per hit. **No single Thor hit over `ThorKit.MAX_HIT` 60**: every move
+goes through `ThorKit.hit` (capped there), and the storm buff / Sunder are capped in the one hurt hook (`ThorStorm.enter`, only for
+a Thor attacker, and never lowering a hit that was already higher). Bosses keep their own per-hit caps. Everything stays squad-safe
+(`WeaponCombo.friendly` + `ThorTargets.canAffect`).
+
+Code: `power/ThorState` (the state from the hands), `power/ThorKit` (routing, numbers, shared rules, HUD table `moveId` /
+`cooldownOf`, melee per state, God of Thunder, timed states), `ThorUnarmedKit`, `ThorMjolnirKit`, `ThorStormbreakerKit`,
+`ThorTwinKit`, `ThorUltimates`, `ThorSequences` (timed moves, static map cleared by `ServerStateReset`), `ThorSunder` (static map,
+cleared too). `hero/ThorAbilityAdapter` just calls `ThorKit.handle`. The binding API (`ThorPassives.hasPowerOfThor`,
+`BOUND_STORMBREAKER_ID`, `ThorPowers.bindOnAscend` / `toggleBinding`) is unchanged; `ThorState.hasKit` = worthy and (holding a Thor
+weapon, or bound to Mjolnir, or bound to a Stormbreaker).
+
+### States (`ThorState.of`: both weapons = TWIN, else Mjolnir, else Stormbreaker, else UNARMED)
+| State | Melee | Flight speed | Perk | Drawback |
+|---|---|---|---|---|
+| Unarmed: Warrior of Asgard | fist 24 at 1.8 swings/s | none (double-tap jump does nothing) | every cooldown x0.75 | short range |
+| Mjolnir: Storm Caller | 24 | 0.080 (fastest; was one shared 0.069) | lightning stuns (Slowness X 0.8 s, mob path stopped; bosses immune); Storm Call x1.5 long | lowest single-target damage |
+| Stormbreaker: Executioner | 26 (slow item swing) | 0.052 | ability hits use an armour-ignoring source (indirect magic) and do x1.25 under 30% health | slow swings, slow flight |
+| Both: Twin Gods | 27 | 0.066 | the highest damage | every Storm Energy cost x2; `Bifrost.canUse` is false |
+
+Melee is one transient modifier (`ThorKit.reconcileMelee`, every tick) making up the difference from base 1 + item + the Power of
+Thor's +11; anything else in the main hand keeps its own damage. Flight speed follows a weapon swap mid-flight.
+
+### Kit (damage / base cooldown / base Storm Energy; Unarmed cooldowns x0.75, Twin energy x2)
+| Key | Unarmed | Mjolnir | Stormbreaker | Both |
+|---|---|---|---|---|
+| R | Call Weapon | Call Weapon | Call Weapon | Call Weapon |
+| Shift+R | Thunder Fist, hold up to 1.5 s: 24-30 / 8 s / 15 | Whirlwind Throw: 10-tick spin, pierces 6 x 24 / 10 s / 15 | Bifrost Hurl: pierces 4 x 28 + Sunder / 10 s / 15 | Twin Throw: 28 within 4 / 12 s / 20 |
+| G | Lightning Palm 22 (12 blocks) / 4 s / 12 | Lightning Strike 26, chain 2 x 22 / 3.5 s / 18 | Storm Cleave 30 / 6 s / 15 | Thunderstruck Cleave: wave 13 blocks, 28 / 9 s / 18 |
+| Shift+G | Asgardian Grapple 24 / 12 s / 18 | Thunder Field 22 a second x4 / 15 s / 25 | Bifrost Step: blink 20, cleave 26 / 10 s / 20 | Storm Anchor: field radius 10 / 20 s / 25 |
+| C | Storm Rush 4 x 22 / 10 s / 20 | Chain Lightning cone 24 (32 blocks, was 122) / 8 s / 20 | Rending Arc 180 deg r6.5, 24 / 8 s / 18 | Crossfire 24 + 24 / 9 s / 20 |
+| Shift+C | Static Burst 22 within 5 / 9 s / 18 | Lightning Beam 22 every 5 ticks, 8/s | Bifrost Beam 26 every 5 ticks, 10/s | Twin Beam 28 every 5 ticks, 12/s (24 with x2) |
+| Z | Ground Pound 26 within 5 / 10 s / 20 | Thunderclap 26 within 7 / 6 s / 15 | Executioner's Drop 28 within 4.5, x1.5 under 30% max 30 / 10 s / 20 | Twin Thunder Strike 30 + ring 22 / 15 s / 20 |
+| X | Storm Sprint 4 s +60% speed / 8 s / 10 | Storm Dash 9 blocks, trail 22 / 5 s / 10 | Bifrost Dash blink 10 / 4 s / 8 | Storm Dash |
+| Shift+X | Thunder Leap 28 within 5 / 12 s / 20 | Meteor Dive 28 within 5.5 / 12 s / 25 | Bifrost Travel (the waypoint screen; moved off Shift + right-click) | Meteor Dive |
+| Shift+Z | Lightning Incarnate | Wrath of the Storm | Bifrost Judgement | Ragnarok |
+| V | Storm Call: 18 s storm (27 s Mjolnir), Storm-Charged +30%, a 22 bolt every 2.5 s / 60 s / 30 | same | same | same |
+| Shift+V | God of Thunder: 15 s, glowing eyes, every hit chains 22 to the nearest enemy (once per 8 ticks), +0.5 knockback resistance / 45 s / 40 | same | same | same |
+
+**Ultimates** share one `ThorAbility.ULTIMATE` cooldown: 120 s (90 s unarmed), 100 Storm Energy (200 Twin). One shared cooldown
+because swapping weapons must never chain four ultimates back to back, and it is one box on the HUD.
+- Lightning Incarnate: 200 ticks as lightning (+45% speed, knockback resistance, aura 22 a second within 3.5), then 60 within 10.
+- Wrath of the Storm: hover 3.5 up; t12-62 a bolt every 3 ticks on a random enemy within 18 (45, each foe at most once per 10
+  ticks); t72 the giant bolt on the aimed spot, 60 within ~7.3 (`ThorPowers.wrathTargets`).
+- Bifrost Judgement: t8 the spectral axe flies, t16 impales the aimed foe (60), pinned (non-bosses) while the Bifrost gathers, a
+  real Bifrost column crashes at t32, t38 45 within 7.
+- Ragnarok: rise 6 up; t20-60 bolts rain within 14 of the aimed centre (45); t62 the spectral Stormbreaker hurled down; t70 60
+  within 8, bolts round the centre, a Bifrost column.
+
+Gone: Hammer Volley (as its own key), the hold-Z God of Thunder's Wrath, the old X beam (now Shift+C). Retuned to Cosmic: thrown
+Mjolnir 18 -> 22, thrown Stormbreaker 20 -> 24, combo finisher area hits 4 / 6 -> 22 (the finisher hit itself capped at 28),
+Twin Thunder 20 / ring 8 -> 30 / 22, Thunder Field 4 every 10 ticks -> 22 every 20 (`ThorConfig` version 2 resets those keys).
+
+### Rules worth knowing
+- Storm-Charged now also comes from his own Storm Call (`ThorStorm.isCharged`).
+- Sunder: +20% from every source for 8 s, applied in the hurt hook with the storm buff (never twice on a re-issued hit).
+- Timed state flags live in the synced cooldown map as "ready at = when it ends": `GOD_ACTIVE`, `SPRINT_ACTIVE`,
+  `INCARNATE_ACTIVE`; `GOD_CHAIN` is the chain throttle.
+- The Lightning Beam's per-tick clock reuses the old `THOR_WRATH_CHARGE` attachment.
+- `ThorTwinThunder.queueNow` starts the strike at once (Z); the combo path still queues it after the hop.
+
+### Look -- client `thor/ThorKitPose`, `thor/ThorKitFxRenderer`
+- **Poses** (`ThorKitPose`, called from `ThorPose.apply` after the beam pose): the `SuperSoldierPose` clip technique -- keys with an
+  anticipation, a SNAP into the strike, a follow-through and recovery faded back to vanilla; the twist carries the shoulders, the
+  lean bends from the hips (`HipBend`), a crouch uses the sneak offsets. Lead arm = the Mjolnir hand, else the Stormbreaker hand,
+  else the main arm (Ragnarok's hurl: the axe hand); mirrored for a left lead. Held clips (leap / dive / Executioner take-off) hold
+  their last pose while airborne until the landing clip arrives. The Thunder Fist charge is a held channel pose (cocked fist,
+  trembling harder as it builds). Twin Beam levels both weapons.
+- **First person**: weapon states through `WeaponComboPose.firstPerson` (both hands while dual); Unarmed bare hands through
+  `ItemInHandRendererThorMixin` (vanilla swing held off while a move owns the hands).
+- **Stormbreaker grip** (v0.17.7 user): held like a greataxe a third of the way up the haft; a move's re-grip only takes
+  `ThorKitPose.AXE_GRIP` of the -90 degree turn, so the head stands up out of the fist and the haft never runs back through him.
+- **Spectral weapons**: Twin Throw, Bifrost Judgement and Ragnarok fly item-model copies (`ThorKitFxRenderer`, drawn last in their
+  own pass); `ItemInHandLayerThorHideMixin` hides the real one in hand while its copy flies.
+- **Effects per state**: Unarmed -- fist charge ball + arcs up the arm, punch shock discs facing the blow, Static Burst's shell of
+  rings and bolts, Incarnate's cage of arcs + ground strikes; Mjolnir -- the whirling strap ring, the dash's burnt bolt trail, the
+  meteor streak + falling-star flare, shockwaves with ground lightning and cracks, the Wrath vortex and its colossal bolt; Stormbreaker
+  -- rainbow streaks (`rainbowBeam`: seven strands spiralling round a white core), rainbow rings / walls, prismatic shards, the
+  rainbow sweep arcs, the gathering rainbow column over the impaled foe; Twin -- the crossing spectral throw (lightning and rainbow
+  trails), the lightning flowing hammer to axe and the rainbow crescent wave, the rainbow beam wound with a lightning helix,
+  Ragnarok's storm-and-rainbow wheel. God of Thunder: two glowing eye orbs + sparks. Beams skip `BeamClashClient.hides` (and the
+  arc renderer now does too); Stormbreaker's beam is drawn rainbow instead of the bolt.
+- **Sound**: vanilla layers per move (thunder, trident thunder / riptide, wind charge burst, beacon, amethyst for the Bifrost, mace
+  smash, warden sonic boom only on the three biggest blasts). Screen shake through `TitanShakePayload` (`ThorTwinThunder.shake`).
+
+### HUD -- `client/gui/ThorHud`
+State badge first in the tags (Unarmed / Mjolnir / Stormbreaker / Twin Gods), then Storm-Charged, God of Thunder, Lightning
+Incarnate. The boxes show the state's cooldowns (Shift swaps to the Shift moves, the other on the durability bar); a narrow
+wrapped line above them names the six moves the boxes hold right now. A Charge meter while Thunder Fist charges.
+
+### Tests -- `ThorRevampV0177GameTests`
+State from the hands; 23 key routes across the states (each fires its move's cooldown and matches the HUD table); Lightning
+Strike 26, cap 60 (also with Storm Call's +30%), melee 24 / 24 / 26 / 27; Sunder +20%; Executioner's Drop 28 / 30; Twin pays x2;
+no unarmed flight + speed order; Unarmed cooldowns x0.75; each ultimate fires and lands. `StormbreakerGameTests` sneak-click test
+now opens the Bifrost through Shift+X.
+
+Films: `docs/screenshots/v0177/thor_revamp/`.
 
 ## v0.16.1: storm buff, dual-wield combo, Twin Thunder Strike, Thunder Field
 
