@@ -174,6 +174,18 @@ public final class SpeedForceConfig {
 	public static final float ARMS_COST_PER_SECOND = 8f;
 	public static final float ARMS_MIN = 4f;
 	public static final int ARMS_COOLDOWN = 2 * 20;
+	/** v0.17.7 (user): "make it deal 5 damage per damage tick" -- every creature in the cone takes this every {@link #ARMS_DAMAGE_EVERY} ticks. */
+	public static final float ARMS_DAMAGE = 5f;
+	public static final int ARMS_DAMAGE_EVERY = 10;
+	/**
+	 * v0.17.7 (user: "make the tornado arms make you float upwards if used when shooting it at the ground"): aimed this steeply down
+	 * (look y below this) with ground within the cone, the wind pushes him up at {@link #ARMS_SELF_RISE} a tick; near the top of the
+	 * cone's reach (past {@link #ARMS_HOVER_SHARE} of it) he only hovers, sinking very slowly.
+	 */
+	public static final double ARMS_GROUND_LOOK_Y = -0.6;
+	public static final double ARMS_SELF_RISE = 0.3;
+	public static final double ARMS_HOVER_SHARE = 0.8;
+	public static final double ARMS_HOVER_SINK = -0.04;
 
 	// ---------------------------------------------------------------- Shift+C: Phase (held)
 

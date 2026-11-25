@@ -601,6 +601,63 @@ public final class SpeedForceAbilities {
 		cooldown(p, ARMS, SpeedForceConfig.ARMS_COOLDOWN);
 	}
 
+	/** v0.17.7: every fire block, lit campfire and lit candle inside the Tornado Arms cone goes out. Public for the tests. */
+	public static int putOutFires(ServerPlayer p, ServerLevel level, Vec3 apex, double r) {
+		int out = 0;
+		BlockPos.MutableBlockPos mp = new BlockPos.MutableBlockPos();
+		int ir = (int) Math.ceil(r);
+		BlockPos c = BlockPos.containing(apex);
+		for (int dx = -ir; dx <= ir; dx++) {
+			for (int dy = -ir; dy <= ir; dy++) {
+				for (int dz = -ir; dz <= ir; dz++) {
+					mp.set(c.getX() + dx, c.getY() + dy, c.getZ() + dz);
+					net.minecraft.world.level.block.state.BlockState st = level.getBlockState(mp);
+					boolean fire = st.is(BlockTags.FIRE);
+					boolean lit = !fire && st.hasProperty(net.minecraft.world.level.block.state.properties.BlockStateProperties.LIT)
+							&& st.getValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.LIT)
+							&& (st.is(BlockTags.CAMPFIRES) || st.is(BlockTags.CANDLES) || st.is(BlockTags.CANDLE_CAKES));
+					if ((!fire && !lit) || !inArmsCone(p, Vec3.atCenterOf(mp))) {
+						continue;
+					}
+					if (fire) {
+						level.setBlockAndUpdate(mp, Blocks.AIR.defaultBlockState());
+					} else {
+						level.setBlockAndUpdate(mp, st.setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.LIT, false));
+					}
+					level.sendParticles(ParticleTypes.SMOKE, mp.getX() + 0.5, mp.getY() + 0.3, mp.getZ() + 0.5, 4, 0.2, 0.1, 0.2, 0.02);
+					out++;
+				}
+			}
+		}
+		if (out > 0) {
+			level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.FIRE_EXTINGUISH, net.minecraft.sounds.SoundSource.PLAYERS, 0.5f, 1.4f);
+		}
+		return out;
+	}
+
+	/** v0.17.7: aimed at the ground within the cone's reach, the wind lifts him (a slow hover near the top of its reach). Public for the tests. */
+	public static boolean armsLift(ServerPlayer p, ServerLevel level, Vec3 apex, Vec3 look, double r) {
+		if (look.y > SpeedForceConfig.ARMS_GROUND_LOOK_Y) {
+			return false;
+		}
+		net.minecraft.world.phys.BlockHitResult hit = level.clip(new net.minecraft.world.level.ClipContext(apex, apex.add(look.scale(r)),
+				net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.ANY, p));
+		if (hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS) {
+			return false;
+		}
+		double dist = hit.getLocation().distanceTo(apex);
+		Vec3 v = p.getDeltaMovement();
+		double vy = dist < r * SpeedForceConfig.ARMS_HOVER_SHARE ? Math.max(v.y, SpeedForceConfig.ARMS_SELF_RISE) : Math.max(v.y, SpeedForceConfig.ARMS_HOVER_SINK);
+		p.setDeltaMovement(v.x, vy, v.z);
+		p.resetFallDistance();
+		p.hurtMarked = true;
+		if (p.tickCount % 2 == 0) {
+			Vec3 at = hit.getLocation();
+			level.sendParticles(ParticleTypes.CLOUD, at.x, at.y + 0.1, at.z, 6, 0.6, 0.05, 0.6, 0.08);
+		}
+		return true;
+	}
+
 	/** Whether Tornado Arms is running (client-safe: the pose and the wind are drawn from it). */
 	public static boolean tornadoArms(Player p) {
 		return holding(p, SpeedForceState.ANIM_ARMS);
@@ -654,6 +711,16 @@ public final class SpeedForceAbilities {
 			if (e.isOnFire()) {
 				e.clearFire();
 			}
+			// v0.17.7 (user): 5 damage a damage tick
+			if (p.tickCount % SpeedForceConfig.ARMS_DAMAGE_EVERY == 0) {
+				SpeedForceCombat.strike(p, e, apex, SpeedForceConfig.ARMS_DAMAGE, 0.0, 0.0);
+			}
+		}
+		// v0.17.7 (user): blasted at the ground, the wind lifts him -- up to near the cone's reach, then a slow hover
+		armsLift(p, level, apex, look, r);
+		// v0.17.7 (user: "make tornado arms put out fires aswell"): his own flames go out in the wind too
+		if (p.isOnFire()) {
+			p.clearFire();
 		}
 		for (Projectile pr : level.getEntitiesOfClass(Projectile.class, box, e -> e.getOwner() != p)) {
 			if (!inArmsCone(p, pr.position())) {
@@ -667,22 +734,11 @@ public final class SpeedForceAbilities {
 			}
 			level.sendParticles(ParticleTypes.CLOUD, pr.getX(), pr.getY(), pr.getZ(), 3, 0.1, 0.1, 0.1, 0.05);
 		}
-		// fire in the cone is blown out (every few ticks: a box of block checks)
+		// fire in the cone is blown out (every few ticks: a box of block checks). v0.17.7 (user: "make tornado arms put out fires"):
+		// the whole cone now -- it used to look only 3 blocks above / below his arms, so fire aimed down at (or under him while he
+		// floats) was missed -- and lit campfires and candles go out too
 		if (p.tickCount % 4 == 0) {
-			BlockPos.MutableBlockPos mp = new BlockPos.MutableBlockPos();
-			int ir = (int) Math.ceil(r);
-			BlockPos c = BlockPos.containing(apex);
-			for (int dx = -ir; dx <= ir; dx++) {
-				for (int dy = -3; dy <= 3; dy++) {
-					for (int dz = -ir; dz <= ir; dz++) {
-						mp.set(c.getX() + dx, c.getY() + dy, c.getZ() + dz);
-						if (level.getBlockState(mp).is(BlockTags.FIRE) && inArmsCone(p, Vec3.atCenterOf(mp))) {
-							level.setBlockAndUpdate(mp, Blocks.AIR.defaultBlockState());
-							level.sendParticles(ParticleTypes.SMOKE, mp.getX() + 0.5, mp.getY() + 0.3, mp.getZ() + 0.5, 4, 0.2, 0.1, 0.2, 0.02);
-						}
-					}
-				}
-			}
+			putOutFires(p, level, apex, r);
 		}
 		// the wind itself: gusts and spinning cloud down the cone
 		double t = p.tickCount * 0.9;
