@@ -526,18 +526,53 @@ and only on change (the per-tick channel calls are free on the wire).
   cape reds.
 - Timeline (`ThorArmor.partProgress`, parts `PART_BOOTS` / `PART_GREAVES` / `PART_CHEST` / `PART_HELMET` / `PART_CAPE`):
   `SUIT_UP_TICKS` 60 -- boots 6-12, greaves 14-20, chestplate 22-30, helmet 32-38, cape 38-52 (unrolls from the collar via
-  `unfurl`). No pixel sweep any more: each piece appears **whole** at the start of its window, about 1.35x its size, and settles to
-  1x by the end (`ThorSuitReveal.pieceScale`, cubic ease-out; the bone scale is applied round the piece's own centre and reset every
-  pass, the baked bones are shared). Visual-only vanilla bolts round the wearer at ticks 6/10/14/18/22/26/32/36/42/48 (plus the
+  `unfurl`). **v0.17.7 polish: pixel by pixel again** -- each piece builds on the body texel by texel over its window (see
+  "v0.17.7 polish" below; the earlier whole-piece pop-and-settle `ThorSuitReveal.pieceScale` is gone). Visual-only vanilla bolts round the wearer at ticks 6/10/14/18/22/26/32/36/42/48 (plus the
   opening bolt at 0), a rising crackle every 3 ticks, a clink (`pieceArrives`) as each part locks on (window end), and the final
   bolt + flash + layered thunder at `FINAL_BOLT_TICK` 54. The client also draws a sky bolt as the greaves and the chestplate start
   (`ThorFxRenderer.suitBolts` via `arrivalTick`). No spark particles in the suit-up or removal.
 - H again starts `SUIT_DOWN` (26 ticks, the build backwards: cape 0-8, helmet 8-12, chestplate 12-17, greaves 17-21, boots 21-25;
-  each piece swells back out and vanishes, with a crackle and an unclasping clink, `pieceLeaves`); `ThorArmor.tick` strips the
+  each piece's pixels vanish in the reverse order, with a crackle and an unclasping clink, `pieceLeaves`); `ThorArmor.tick` strips the
   pieces when it ends and clears the clock 20 ticks later (clearing at once could flash the suit back on for a frame).
 - Toggle debounce: `SUIT_UP_TICKS + 4` after summoning, 20 after dismissing. Death / the once-a-second audit still
   strip instantly.
 - Hooked in `SuperheroArmorRenderer#applyBoneVisibilityBySlot` (`applyThorPieces`); no texture swap any more.
+
+### v0.17.7 polish -- pixel suit-up, blue XP bar, flight trail, vanilla landing sounds
+Films and stills: `docs/screenshots/v0177/thor_polish/`. Harness: `scratchpad/ThorPolishHarness.v0177.java.txt` (built from the skin
+harness + `scratchpad/v0177/thor_polish_plan.java.txt` by `thor_polish_build.js`; install / remove with `thor_polish_harness.js`,
+films with `thor_polish_film.js`). No gameplay number changed.
+- **Suit-up pixel by pixel** (user: "change the suitup animation, the suit should appear pixel by pixel like i said before please"):
+  `client thor/ThorSuitReveal#texture`, swapped in by `SuperheroArmorRenderer#getRenderType` per slot pass (and by
+  `SuperheroFirstPersonArm` for the first-person sleeve). Like the old `ArmorSweepReveal`: pre-built copies of `textures/armor/thor.png`
+  with the not-yet-formed texels cleared; each texel's order comes from where it sits on the rest-pose `geo/thor.geo.json`
+  (`ArmorSweepReveal.forEachTexel`): boots and greaves fill from the ground up, the chestplate spreads out from the sternum (shoulders
+  and bracers last), the helmet climbs from the neck to the wing tips; 76% body order + 24% fixed per-texel scatter, 24 steps per piece,
+  so the edge is ragged single pixels. The newest texels flash storm white (`#EAF6FF`), the row behind a pale blue blend. The boots
+  share the greaves' texels in the UV, so each slot pass has its own frames (FEET = boots, LEGS = greaves, CHEST = chestplate then
+  helmet, which never overlap in time, so their summed progress picks the frame). Bones are only hidden until their part starts; no
+  more scaling. **Cape**: `ThorCapeLayer` shows it full length once its part starts and its texture (`ThorSuitReveal#capeTexture`)
+  fills from the collar to the hem (v runs down the cloth); on H it empties hem first. Complete = the shipped textures untouched, so
+  the finished look is unchanged. Bolts, crackle, clinks, final bolt + flash and the part windows are unchanged. Frames are built
+  lazily on the render thread and cached (texture ids only).
+- **Storm Energy as a blue XP bar** (user: "Can you make thors bar look like a blue xp bar please"): `ThorHud.stormBar` replaces the
+  Hairline meter row: the vanilla experience bar's own background + progress sprites via `SentryHud.xpBar` (now public; the Sentry's
+  Sun / Void bars use it), progress tinted `#3DA5FF` (`#2A4E9A` under 20%, top row breathing softly when full), across the column
+  (at most 182 px, right-aligned), the percentage centred above it in the XP level's black-outlined digits (`#8FC8FF`, `#6F8FD8` low)
+  and the "Storm" label at the left, cut to fit. 17 px row in the shared column; Left-Alt names / move list unchanged.
+- **Flight trail** (user: "Change the flight vfx please, remove the particles, make it a very slightly trail behind him please"): the
+  server's `ThorPowers.tickFlightTrail` (electric sparks + clouds every other tick) is removed. Client `thor/ThorFlightTrail` samples
+  each flying Thor's body centre every client tick and draws a faint camera-facing streak through the last 6 ticks: a soft
+  `#9CCBFF` band (alpha 0.16, half width 0.2) with a thin `#EAF5FF` core (0.22, 0.045), width and alpha falling off with the square
+  of age, starting 0.45 blocks behind him, and only once the streak is over 0.6 blocks long (hovering leaves nothing). Not drawn for
+  your own body in first person. Samples are plain coordinates per entity id, cleared on a world change / disconnect.
+- **Landing sound** (user: "Also change the landing sfx please, make it existing minecraft sounds so that it doesnt sound ai
+  generated please"): the Thor hero landing (`HeroLandingFx.thor`) no longer plays the synthesised `hero_landing_impact` thud or
+  `hero_landing_thunder` crack. `HeroLandingFx.thorSounds`, by strength s: `MACE_SMASH_GROUND` (`_HEAVY` from s 0.55), vol
+  0.55-1.0, pitch 0.92 -> 0.80; the landed-on block's fall sound pitched down (x0.72 -> 0.64); `LIGHTNING_BOLT_IMPACT` quietly with the
+  hammer bolt (s 0.3+); a soft low `LIGHTNING_BOLT_THUNDER` rumble on a hard landing (s 0.6+, vol 0.12-0.5, pitch ~0.65). The
+  `hero_landing_thunder` event, its `sounds.json` entry, subtitle and `sounds/hero_landing/thunder.ogg` are deleted (nothing else used
+  them); the shared impact thud stays for the other styles. The flight on/off breeze sounds were already vanilla and are unchanged.
 
 ### Move animations -- client `thor/ThorPose`
 Hooked as its own `HumanoidModelMixin` TAIL injection declared **after** the flight pose, so a move made mid-flight

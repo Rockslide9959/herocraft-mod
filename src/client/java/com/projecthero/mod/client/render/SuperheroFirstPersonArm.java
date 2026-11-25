@@ -161,6 +161,9 @@ public final class SuperheroFirstPersonArm {
 						partial) <= 0f) {
 					return;
 				}
+				// v0.17.7 polish: and builds on texel by texel with it, like the third-person suit
+				texture = com.projecthero.mod.client.thor.ThorSuitReveal.texture(local, net.minecraft.world.entity.EquipmentSlot.CHEST, texture,
+						partial);
 			} else if (chestItem instanceof com.projecthero.mod.flash.item.FlashSuitItem) {
 				texture = com.projecthero.mod.client.flash.FlashSuitReveal.texture(local, texture, partial);
 			}

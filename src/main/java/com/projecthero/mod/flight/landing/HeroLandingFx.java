@@ -100,7 +100,7 @@ public final class HeroLandingFx {
 			// v0.17.2 (user: "change heatblasts landing sound effect, it sounds weird, make it slightly softer too"): his own
 			// softer fire-and-rock touchdown instead of the shared thud (and the FIRE element's fire charge below)
 			com.projecthero.mod.omnitrix.alien.heatblast.HeatblastKit.heroLanding(p, level, s);
-		} else {
+		} else if (style != HeroLandingStyle.THOR) { // v0.17.7 polish: Thor lands on vanilla sounds only, see thorSounds
 			sound(level, feet, HeroLandingSounds.IMPACT, 0.7f + 0.5f * s, 0.95f - 0.15f * s + p.getRandom().nextFloat() * 0.08f);
 		}
 		QuirkCamera.shakeAround(level, feet, 10 + 12 * s, 0.16f + 0.5f * s, 6 + (int) (8 * s));
@@ -214,7 +214,32 @@ public final class HeroLandingFx {
 				.flags(QuirkFx.F_NO_SMOKE | QuirkFx.F_NO_RING).spawn();
 		burst(level, ParticleTypes.ELECTRIC_SPARK, p.position(), 24, 0.8, 2.4 + 1.2 * s, 0.5);
 		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, head.x, head.y + 0.3, head.z, 12, 0.25, 0.2, 0.25, 0.4);
-		sound(level, head, HeroLandingSounds.THUNDER, 0.8f + 0.3f * s, 0.95f + p.getRandom().nextFloat() * 0.1f);
+		thorSounds(p, level, head, s);
+	}
+
+	/**
+	 * v0.17.7 polish (user: "Also change the landing sfx please, make it existing minecraft sounds so that it doesnt sound ai generated
+	 * please"): Thor's touchdown is layered from vanilla sounds only -- the shared synthesised thud and the synthesised thunder crack are
+	 * gone for him. Scaled by the landing's strength {@code s} (0..1, from the descent speed):
+	 * <ul>
+	 *   <li>the Mace's ground smash (the heavy variant from {@code s} 0.55), lower and louder the harder he lands;</li>
+	 *   <li>a heavy step: the fall sound of the block he lands on, pitched down;</li>
+	 *   <li>with the bolt onto the hammer ({@code s} 0.3+): the lightning bolt's impact crackle, quiet;</li>
+	 *   <li>a hard landing ({@code s} 0.6+): a soft, low thunder rumble, fading in with the strength.</li>
+	 * </ul>
+	 */
+	static void thorSounds(ServerPlayer p, ServerLevel level, Vec3 at, float s) {
+		var rnd = p.getRandom();
+		sound(level, at, s >= 0.55f ? SoundEvents.MACE_SMASH_GROUND_HEAVY : SoundEvents.MACE_SMASH_GROUND, 0.55f + 0.45f * s,
+				0.92f - 0.12f * s + rnd.nextFloat() * 0.06f);
+		net.minecraft.world.level.block.SoundType step = ground(p).getSoundType();
+		sound(level, p.position(), step.getFallSound(), 0.8f + 0.2f * s, step.getPitch() * (0.72f - 0.08f * s));
+		if (s >= 0.3f) {
+			sound(level, at, SoundEvents.LIGHTNING_BOLT_IMPACT, 0.25f + 0.3f * s, 1.15f + rnd.nextFloat() * 0.1f);
+		}
+		if (s >= 0.6f) {
+			sound(level, at, SoundEvents.LIGHTNING_BOLT_THUNDER, 0.12f + 0.38f * (s - 0.6f) / 0.4f, 0.62f + rnd.nextFloat() * 0.08f);
+		}
 	}
 
 	// ---------------------------------------------------------------- Nova

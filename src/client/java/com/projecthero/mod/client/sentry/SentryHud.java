@@ -205,7 +205,8 @@ public final class SentryHud {
 	 * Void's darkening red). Both are cropped from the left to {@code w} (at most 182) with the right-hand end cap kept, so the notches keep
 	 * vanilla's spacing; 5 px tall like the XP bar. {@code marks}: extra notches (0..1) a shade stronger (the Void's 50 / 75 / 90).
 	 */
-	static void xpBar(GuiGraphics g, int x, int y, int w, float frac, int rgb, float brighten, float[] marks) {
+	// v0.17.7: public -- Thor's Storm Energy bar is the same XP bar in blue (ThorHud#stormBar)
+	public static void xpBar(GuiGraphics g, int x, int y, int w, float frac, int rgb, float brighten, float[] marks) {
 		w = Math.max(4, Math.min(XP_W, w));
 		com.mojang.blaze3d.systems.RenderSystem.enableBlend();
 		g.blitSprite(XP_BACKGROUND, XP_W, XP_H, 0, 0, x, y, w - 1, XP_H);
