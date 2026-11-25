@@ -199,6 +199,13 @@ public final class ShazamKitHarness implements ClientModInitializer {
 		p.setHealth(p.getMaxHealth());
 		Shazam.clearCooldowns(p);
 		Shazam.setLightning(p, 100f);
+		com.projecthero.mod.shazam.data.ShazamState n = Shazam.state(p).copy(); // no buff left over from the scene before
+		n.wisdomUntil = 0L;
+		n.standUntil = 0L;
+		n.thunderUntil = 0L;
+		n.boostUntil = 0L;
+		p.setAttached(com.projecthero.mod.attachment.ModAttachments.SHAZAM_STATE, n);
+		Shazam.reconcile(p);
 		p.setDeltaMovement(Vec3.ZERO);
 		p.connection.teleport(base.getX() + 0.5, base.getY(), base.getZ() + 0.5, 0f, pitch);
 	}
@@ -245,6 +252,7 @@ public final class ShazamKitHarness implements ClientModInitializer {
 
 	/** One move: reset, crowd, press {slot, shift}, release after {@code holdTicks} (a tap: one tick), with a still. */
 	private static int move(Minecraft mc, int t, int slot, boolean shift, int holdTicks, int len, String still, int stillAt) {
+		at(t, com.projecthero.mod.client.shazam.ShazamBoltFx::reset);
 		at(t, () -> server(mc, p -> {
 			reset(p);
 			crowd(p);
@@ -263,7 +271,7 @@ public final class ShazamKitHarness implements ClientModInitializer {
 		final int R = 1, G = 2, X = 3, Z = 4, V = 5, C = 6;
 
 		// ================= R: the Strength of Hercules -- the combo, the uppercut
-		at(t, () -> cam3(62f, 6.5f, 2.2f, 2.5f, 1.2f));
+		at(t, () -> cam3(65f, 4.8f, 1.9f, 1.4f, 1.1f));
 		int r0 = t;
 		at(t, () -> server(mc, p -> {
 			reset(p);

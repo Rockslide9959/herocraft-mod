@@ -130,8 +130,13 @@ public final class ShazamAbilityManager {
 			}
 			return;
 		}
-		if (!player.isAlive() || player.isSpectator() || mine.containsKey(slot.ordinal())) {
-			return; // (a key already down: an OS repeat)
+		if (!player.isAlive() || player.isSpectator()) {
+			return;
+		}
+		Down old = mine.get(slot.ordinal());
+		long now = player.level().getGameTime();
+		if (old != null && ((!old.holding && now - old.at < 100) || (old.holding && ShazamMoves.holding(player) != ShazamAnim.HOLD_NONE))) {
+			return; // a key already down: an OS repeat (a stale entry whose release never came is replaced)
 		}
 		boolean shift = player.isShiftKeyDown();
 		if (shift || holdFor(slot) == null) {
