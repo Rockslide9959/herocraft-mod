@@ -908,7 +908,7 @@ public final class ThorPowers {
 				ThorKit.hit(player, living, beamDamage(player), ThorKit.Kind.LIGHTNING, true, true);
 				serverLevel.sendParticles(ParticleTypes.ELECTRIC_SPARK, end.x, end.y, end.z, 10, 0.2, 0.2, 0.2, 0.2);
 				if (ThorState.of(player) != ThorState.MJOLNIR) {
-					ThorKit.prism(serverLevel, end, 8, 0.25, 0.25);
+					ThorKit.storm(serverLevel, end, 8, 0.25, 0.25);
 				}
 			}
 		} else if (hit != null) {
@@ -925,11 +925,11 @@ public final class ThorPowers {
 		}
 		if (player.tickCount % 10 == 0 && ThorState.of(player) != ThorState.MJOLNIR) {
 			serverLevel.playSound(null, player.getX(), player.getY(), player.getZ(),
-					SoundEvents.BEACON_AMBIENT, SoundSource.PLAYERS, 0.9f, 1.6f); // the Bifrost's hum
+					SoundEvents.TRIDENT_THUNDER, SoundSource.PLAYERS, 0.4f, 1.8f); // the axe's heavier crackle
 		}
 	}
 
-	/** v0.17.7: the held beam per state -- Lightning Beam 22, Bifrost Beam 26 (narrow), Twin Beam 28 -- every 1/4 s. */
+	/** v0.17.7: the held beam per state -- Lightning Beam 22, Stormbreaker Beam 26 (narrow), Twin Beam 28 -- every 1/4 s. */
 	public static float beamDamage(Player player) {
 		return switch (ThorState.of(player)) {
 			case STORMBREAKER -> ThorKit.BEAM_STORMBREAKER;
@@ -959,8 +959,8 @@ public final class ThorPowers {
 
 	private static int beamColour(Player player) {
 		return switch (ThorState.of(player)) {
-			case STORMBREAKER -> 0xFF7BE8;
-			case TWIN -> 0xD8B8FF;
+			case STORMBREAKER -> 0xFFF1C2; // v0.17.7: golden-white lightning (was the Bifrost's pink)
+			case TWIN -> 0xDDEEFF; // white-blue lightning (was lilac)
 			default -> 0x9FD8FF;
 		};
 	}

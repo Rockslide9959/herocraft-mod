@@ -624,30 +624,39 @@ public final class ThorKit {
 
 	// ================================================================== effect helpers
 
-	/** The Bifrost's seven colours. */
-	public static final int[] RAINBOW = { 0xFF3B3B, 0xFF9A2E, 0xFFE83A, 0x45F06A, 0x3AD8FF, 0x4A6BFF, 0xB84AFF };
+	/**
+	 * v0.17.7 (user: "remove the rainbow vfx for stormbreakers powers ... just use the lightning vfx"): Stormbreaker's and the
+	 * Twin Gods' lightning particles -- Mjolnir's electric sparks with a little white-hot dust. Kept to white / pale blue on
+	 * purpose: tinted dust (gold, mid blue) is shaded per particle by vanilla and came out as pastel confetti that read as
+	 * rainbow, so the golden-white flavour lives in the client renderer ({@code ThorKitFxRenderer}) instead. The rainbow now
+	 * belongs only to Bifrost Travel ({@code BifrostBeamRenderer}).
+	 */
+	public static final int[] STORM = { 0xFFFFFF, 0xEEF6FF };
 
-	/** A burst of rainbow dust (the Bifrost palette) at {@code at}. */
-	public static void prism(ServerLevel level, Vec3 at, int count, double spread, double spreadY) {
-		for (int i = 0; i < count; i++) {
-			int c = RAINBOW[(i + level.random.nextInt(RAINBOW.length)) % RAINBOW.length];
-			DustParticleOptions dust = new DustParticleOptions(new Vector3f(((c >> 16) & 0xFF) / 255f, ((c >> 8) & 0xFF) / 255f,
-					(c & 0xFF) / 255f), 1.3f);
-			level.sendParticles(dust, at.x + (level.random.nextDouble() - 0.5) * 2 * spread,
+	private static DustParticleOptions stormDust(int c, float size) {
+		return new DustParticleOptions(new Vector3f(((c >> 16) & 0xFF) / 255f, ((c >> 8) & 0xFF) / 255f, (c & 0xFF) / 255f), size);
+	}
+
+	/** A crackling burst of lightning (electric sparks plus a third as much white dust) at {@code at}. */
+	public static void storm(ServerLevel level, Vec3 at, int count, double spread, double spreadY) {
+		for (int i = 0; i < count / 3; i++) {
+			level.sendParticles(stormDust(STORM[i % STORM.length], 0.9f), at.x + (level.random.nextDouble() - 0.5) * 2 * spread,
 					at.y + (level.random.nextDouble() - 0.5) * 2 * spreadY, at.z + (level.random.nextDouble() - 0.5) * 2 * spread, 1,
 					0, 0, 0, 0);
 		}
+		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, Math.max(1, count), spread, spreadY, spread, 0.25);
 	}
 
-	/** A rainbow streak of dust from {@code a} to {@code b}. */
-	public static void prismLine(ServerLevel level, Vec3 a, Vec3 b, double step) {
+	/** A lightning streak of sparks (and white dust every few steps) from {@code a} to {@code b}. */
+	public static void stormLine(ServerLevel level, Vec3 a, Vec3 b, double step) {
 		Vec3 d = b.subtract(a);
 		int n = Math.max(2, (int) (d.length() / step));
 		for (int i = 0; i <= n; i++) {
 			Vec3 at = a.add(d.scale(i / (double) n));
-			int c = RAINBOW[i % RAINBOW.length];
-			level.sendParticles(new DustParticleOptions(new Vector3f(((c >> 16) & 0xFF) / 255f, ((c >> 8) & 0xFF) / 255f,
-					(c & 0xFF) / 255f), 1.6f), at.x, at.y, at.z, 1, 0.05, 0.05, 0.05, 0);
+			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, 1, 0.1, 0.1, 0.1, 0.05);
+			if (i % 3 == 0) {
+				level.sendParticles(stormDust(STORM[0], 1.0f), at.x, at.y, at.z, 1, 0.1, 0.1, 0.1, 0);
+			}
 		}
 	}
 

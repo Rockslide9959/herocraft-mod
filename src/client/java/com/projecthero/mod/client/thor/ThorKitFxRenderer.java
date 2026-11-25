@@ -42,16 +42,21 @@ import net.minecraft.world.phys.Vec3;
  *   Static Burst's shell of bolts, Lightning Incarnate's body of living lightning.</li>
  *   <li><b>Mjolnir</b> -- classic white-blue lightning: sky bolts, shockwave rings, the whirling strap ring, the dash's burnt
  *   trail, the Wrath of the Storm vortex and its giant bolt.</li>
- *   <li><b>Stormbreaker</b> -- lightning with the Bifrost's rainbow: rainbow streaks (Bifrost Step / Dash), prismatic rings and
- *   bursts, the spiralling rainbow beam, the impaling spectral axe of Bifrost Judgement.</li>
- *   <li><b>Twin Gods</b> -- both intertwined: the rainbow beam wound with lightning, the crossing spectral throw, the
- *   Thunderstruck wave, Ragnarok.</li>
+ *   <li><b>Stormbreaker</b> -- heavier golden-white lightning: lightning-streak blinks (Thunder Step / Lightning Dash) with a
+ *   bolt-flash at both ends, axe-edge sparks, cleaving arc trails, storm shock rings, the Stormbreaker Beam, the impaling spectral
+ *   axe of Stormbreaker's Judgement under a gathering storm.</li>
+ *   <li><b>Twin Gods</b> -- both lightnings intertwined: the beam wound with a lightning helix, the crossing spectral throw, the
+ *   Thunderstruck crescent, Ragnarok.</li>
  * </ul>
+ * v0.17.7 (user: "remove the rainbow vfx for stormbreakers powers ... only make the rainbow show up for the actual teleporting
+ * with the bifrost"): no rainbow here any more; the only rainbow left is Bifrost Travel's column ({@code BifrostBeamRenderer}).
  * Every beam is skipped while {@code BeamClashClient.hides} its caster. Spectral weapons are drawn last, in their own pass.
  */
 public final class ThorKitFxRenderer {
 	private static final double MAX_DISTANCE_SQ = 128.0 * 128.0;
-	private static final int[] RAINBOW = ThorKit.RAINBOW;
+	/** Stormbreaker's golden-white lightning (warmer and heavier than Mjolnir's {@link ThorDraw#GLOW} / {@link ThorDraw#CORE}). */
+	private static final int SB_GOLD = 0xFFE08A;
+	private static final int SB_WHITE = 0xFFF8E6;
 
 	private record Spectral(ItemStack stack, Vec3 at, float yaw, float pitch, float roll, float scale) {
 	}
@@ -106,7 +111,7 @@ public final class ThorKitFxRenderer {
 			if (fx.has(ThorFx.CH_BEAM) && !com.projecthero.mod.client.beamclash.BeamClashClient.hides(p)) {
 				ThorState st = ThorState.of(p);
 				if (st == ThorState.STORMBREAKER || st == ThorState.TWIN) {
-					bifrostBeam(ps, vc, p, cam, now, partial, st == ThorState.TWIN, self);
+					stormbreakerBeam(ps, vc, p, cam, now, partial, st == ThorState.TWIN, self);
 				}
 			}
 		}
@@ -235,13 +240,13 @@ public final class ThorKitFxRenderer {
 				shockwave(vc, ps, a.add(0, 0.06, 0), t - 7, 6.5f, seed, false);
 			}
 			case ThorFx.ANIM_LEAP, ThorFx.ANIM_METEOR_DIVE, ThorFx.ANIM_EXECUTIONER -> {
-				boolean rainbow = anim == ThorFx.ANIM_EXECUTIONER;
+				boolean axe = anim == ThorFx.ANIM_EXECUTIONER;
 				if (t < 10) {
 					float f = fade(t, 0, 10);
 					float r = 0.5f + 2.5f * (float) (t / 10.0);
 					ThorDraw.ring(vc, pose, a.add(0, 0.06, 0), Math.max(0f, r - 0.6f), r, ThorDraw.GLOW, 0.7f * f, 40);
-					if (rainbow) {
-						rainbowRing(vc, pose, a.add(0, 0.08, 0), r * 0.7f, r, 0.6f * f, 40);
+					if (axe) {
+						stormRing(vc, pose, a.add(0, 0.08, 0), r * 0.7f, r, 0.6f * f, 40);
 					}
 				}
 				if (!p.onGround() && t < 70) {
@@ -250,8 +255,8 @@ public final class ThorKitFxRenderer {
 					if (v.lengthSqr() > 0.01) {
 						Vec3 c = feet.add(0, 1.0, 0);
 						Vec3 back = c.subtract(v.normalize().scale(3.5));
-						if (rainbow) {
-							rainbowStreak(vc, pose, c, back, 0.35f, 0.8f, now);
+						if (axe) {
+							axeBolt(vc, pose, ThorDraw.jagged(c, back, 7, 0.35, seed + frame * 11), 1.1f, 0.9f);
 						} else {
 							ThorDraw.bolt(vc, pose, ThorDraw.jagged(c, back, 7, 0.35, seed + frame * 11), anim == ThorFx.ANIM_METEOR_DIVE ? 1.3f : 0.8f, 0.9f);
 						}
@@ -267,8 +272,9 @@ public final class ThorKitFxRenderer {
 				if (t < 16) {
 					float f = fade(t, 0, 16);
 					float r = 0.6f + 5.5f * (float) (1 - Math.pow(1 - Math.min(1, t / 10.0), 3));
-					rainbowRing(vc, pose, a.add(0, 0.1, 0), Math.max(0f, r - 1.4f), r, 0.85f * f, 56);
-					prismBurst(vc, pose, a.add(0, 0.5, 0), 3.0 * (1 - f) + 0.5, 10, seed + 3, f);
+					stormRing(vc, pose, a.add(0, 0.1, 0), Math.max(0f, r - 1.4f), r, 0.85f * f, 56);
+					sparkBurst(vc, pose, a.add(0, 0.5, 0), 3.0 * (1 - f) + 0.5, 12, seed + 3, f);
+					radialBolts(vc, pose, a.add(0, 0.3, 0), r, 8, seed + frame * 5, 0.8f, f);
 				}
 			}
 			case ThorFx.ANIM_WHIRLWIND -> {
@@ -300,12 +306,14 @@ public final class ThorKitFxRenderer {
 					ThorDraw.flare(vc, ps, to, 0.5f * f, (float) t * 40f, f);
 				}
 			}
-			case ThorFx.ANIM_BIFROST_HURL -> {
+			case ThorFx.ANIM_BIFROST_HURL -> { // Storm Hurl
 				if (t < 6.5) {
-					prismBurst(vc, pose, hand(p, feetW, weaponInMain(p, false), 0.95f, -0.1f, partial).subtract(cam), 0.6, 6, seed + frame, 0.7f);
+					sparkBurst(vc, pose, hand(p, feetW, weaponInMain(p, false), 0.95f, -0.1f, partial).subtract(cam), 0.6, 6, seed + frame, 0.7f);
 				} else if (t < 14) {
 					float f = fade(t, 6.5, 7.5);
-					prismBurst(vc, pose, hand(p, feetW, true, 0.6f, 1.0f, partial).subtract(cam), 1.6 * (1 - f) + 0.3, 12, seed + 9, f);
+					Vec3 rel = hand(p, feetW, true, 0.6f, 1.0f, partial).subtract(cam);
+					sparkBurst(vc, pose, rel, 1.6 * (1 - f) + 0.3, 12, seed + 9, f);
+					radialBolts(vc, pose, rel, 1.4, 5, seed + frame * 3, 0.6f, f);
 				}
 			}
 			case ThorFx.ANIM_STORM_CLEAVE -> {
@@ -314,35 +322,48 @@ public final class ThorKitFxRenderer {
 					Vec3 sky = blade.add((ThorDraw.hash(seed) - 0.5) * 3, 16, (ThorDraw.hash(seed + 1) - 0.5) * 3);
 					ThorDraw.bolt(vc, pose, ThorDraw.jagged(sky, blade, 12, 1.0, seed + frame * 5), 1.0f, 0.9f);
 					ThorDraw.flare(vc, ps, blade, 0.45f, (float) now * 40f, 0.9f);
-					prismBurst(vc, pose, blade, 0.8, 5, seed + frame, 0.6f);
+					sparkBurst(vc, pose, blade, 0.8, 6, seed + frame, 0.7f);
 				}
 				if (t >= 7.2 && t < 18) {
 					float f = fade(t, 7.2, 10);
 					float r = 0.5f + 3.0f * (float) (1 - Math.pow(1 - Math.min(1, (t - 7.2) / 6), 3));
 					ThorDraw.ring(vc, pose, a.add(0, 0.08, 0), Math.max(0f, r - 0.8f), r, ThorDraw.GLOW, 0.8f * f, 40);
-					rainbowRing(vc, pose, a.add(0, 0.1, 0), Math.max(0f, r - 0.5f), r + 0.2f, 0.7f * f, 40);
+					stormRing(vc, pose, a.add(0, 0.1, 0), Math.max(0f, r - 0.5f), r + 0.2f, 0.7f * f, 40);
 					ThorDraw.flare(vc, ps, a.add(0, 1.0, 0), 0.9f * f, (float) t * 30f, f);
 				}
 			}
-			case ThorFx.ANIM_BIFROST_STEP, ThorFx.ANIM_BIFROST_DASH -> {
+			case ThorFx.ANIM_BIFROST_STEP, ThorFx.ANIM_BIFROST_DASH -> { // Thunder Step / Lightning Dash: lightning-streak blinks
 				double len = anim == ThorFx.ANIM_BIFROST_STEP ? 14 : 10;
 				if (t < len) {
 					float f = fade(t, 2, len - 2);
 					Vec3 from = a.add(0, 1.0, 0);
 					Vec3 to = feet.add(0, 1.0, 0);
-					rainbowStreak(vc, pose, from, to, 0.55f * (0.5f + 0.5f * f), f, now);
-					rainbowRing(vc, pose, a.add(0, 0.08, 0), 0.4f, 1.6f + (1 - f) * 1.5f, 0.7f * f, 32);
-					rainbowRing(vc, pose, feet.add(0, 0.08, 0), 0.4f, 1.2f + (1 - f) * 2.0f, 0.7f * f, 32);
+					lightningStreak(vc, pose, from, to, 0.9f * (0.5f + 0.5f * f), f, now, seed);
+					// a bolt-flash at both ends
+					if (t < 5) {
+						float ff = fade(t, 0, 5);
+						for (int e = 0; e < 2; e++) {
+							Vec3 end = e == 0 ? a : feet;
+							Vec3 sky = end.add((ThorDraw.hash(seed + e) - 0.5) * 1.5, 9, (ThorDraw.hash(seed + e + 0.5) - 0.5) * 1.5);
+							axeBolt(vc, pose, ThorDraw.jagged(sky, end.add(0, 0.2, 0), 9, 0.7, seed + frame * 7 + e * 3), 1.0f, ff);
+						}
+					}
+					ThorDraw.flare(vc, ps, from, 0.6f * f, (float) t * 40f, f);
+					ThorDraw.flare(vc, ps, to, 0.5f * f, (float) t * 40f, f);
+					radialBolts(vc, pose, from, 1.3, 5, seed + frame * 3, 0.45f, f);
+					radialBolts(vc, pose, to, 1.1, 5, seed + frame * 3 + 40, 0.45f, f);
+					stormRing(vc, pose, a.add(0, 0.08, 0), 0.4f, 1.6f + (1 - f) * 1.5f, 0.6f * f, 32);
+					stormRing(vc, pose, feet.add(0, 0.08, 0), 0.4f, 1.2f + (1 - f) * 2.0f, 0.6f * f, 32);
 					if (anim == ThorFx.ANIM_BIFROST_STEP && t >= 2 && t < 9) {
-						arcSweep(vc, pose, p, feet, partial, 4.0f, 75f, fade(t, 2, 7), now, true);
+						arcSweep(vc, pose, p, feet, partial, 4.0f, 75f, fade(t, 2, 7), now, seed);
 					}
 				}
 			}
 			case ThorFx.ANIM_RENDING_ARC -> {
 				if (t >= 5 && t < 13) {
-					arcSweep(vc, pose, p, feet, partial, (float) ThorKit.ARC_RADIUS, 90f, fade(t, 5, 8), now, true);
+					arcSweep(vc, pose, p, feet, partial, (float) ThorKit.ARC_RADIUS, 90f, fade(t, 5, 8), now, seed);
 				} else if (t < 5 && !self) {
-					prismBurst(vc, pose, hand(p, feetW, weaponInMain(p, false), 0.55f, 0f, partial).subtract(cam), 0.5, 4, seed + frame, 0.6f);
+					sparkBurst(vc, pose, hand(p, feetW, weaponInMain(p, false), 0.55f, 0f, partial).subtract(cam), 0.5, 4, seed + frame, 0.6f);
 				}
 			}
 			case ThorFx.ANIM_TWIN_THROW -> twinThrow(vc, ps, p, t, at, feetW, cam, now, seed, partial, spectral);
@@ -351,10 +372,11 @@ public final class ThorKitFxRenderer {
 				if (t >= 2 && t < ThorTwinKit.CROSSFIRE_HIT + 5) {
 					float f = t < ThorTwinKit.CROSSFIRE_HIT + 1 ? 1f : fade(t, ThorTwinKit.CROSSFIRE_HIT + 1, 4);
 					Vec3 axe = hand(p, feetW, weaponInMain(p, false), 0.62f, 0.9f, partial).subtract(cam);
-					rainbowBeam(vc, pose, axe, a, 0.3f, f, now);
+					stormBeam(vc, pose, axe, a, 0.3f, f, now, seed);
 					if (t >= ThorTwinKit.CROSSFIRE_HIT) {
 						ThorDraw.flare(vc, ps, a, 0.9f * f, (float) t * 40f, f);
-						prismBurst(vc, pose, a, 1.5, 12, seed + 4, f);
+						sparkBurst(vc, pose, a, 1.5, 12, seed + 4, f);
+						radialBolts(vc, pose, a, 1.8, 6, seed + frame * 3, 0.6f, f);
 					}
 				}
 			}
@@ -392,7 +414,9 @@ public final class ThorKitFxRenderer {
 			case ThorFx.ANIM_STORM_ANCHOR -> {
 				if (t >= 3 && t < 12) {
 					float f = fade(t, 3, 9);
-					prismBurst(vc, pose, hand(p, feetW, true, 0.4f, 0.8f, partial).subtract(cam), 1.2, 10, seed, f);
+					Vec3 h = hand(p, feetW, true, 0.4f, 0.8f, partial).subtract(cam);
+					sparkBurst(vc, pose, h, 1.2, 10, seed, f);
+					radialBolts(vc, pose, h, 1.5, 5, seed + frame * 3, 0.5f, f);
 				}
 			}
 			default -> {
@@ -511,8 +535,8 @@ public final class ThorKitFxRenderer {
 
 	// ---------------------------------------------------------------- beams
 
-	/** Bifrost Beam (narrow, rainbow) / Twin Beam (rainbow wound with lightning) from the weapon along his aim. */
-	private static void bifrostBeam(PoseStack ps, VertexConsumer vc, Player p, Vec3 cam, double now, float partial, boolean twin,
+	/** Stormbreaker Beam (narrow, golden-white lightning) / Twin Beam (wound with a white-blue lightning helix) from the weapon. */
+	private static void stormbreakerBeam(PoseStack ps, VertexConsumer vc, Player p, Vec3 cam, double now, float partial, boolean twin,
 			boolean self) {
 		Minecraft mc = Minecraft.getInstance();
 		Vec3 eye = p.getEyePosition(partial);
@@ -539,9 +563,9 @@ public final class ThorKitFxRenderer {
 		Vec3 a = start.subtract(cam);
 		Vec3 b = end.subtract(cam);
 		float width = twin ? 0.36f : 0.22f;
-		rainbowBeam(vc, ps.last(), a, b, width, 1f, now);
+		stormBeam(vc, ps.last(), a, b, width, 1f, now, p.getId() * 5.13);
 		ThorDraw.flare(vc, ps, b, twin ? 0.7f : 0.5f, (float) (now * 40 % 360), 0.9f);
-		prismBurst(vc, ps.last(), b, 0.9, 6, p.getId() + Math.floor(now * 0.5), 0.8f);
+		sparkBurst(vc, ps.last(), b, 0.9, 6, p.getId() + Math.floor(now * 0.5), 0.8f);
 		if (twin) {
 			// the lightning wound round it
 			double frame = Math.floor(now * 0.5);
@@ -588,7 +612,7 @@ public final class ThorKitFxRenderer {
 				if (mj) {
 					ThorDraw.bolt(vc, pose, ThorDraw.jagged(a, b, 6, 0.25, seed + Math.floor(now * 0.6) * 3), 0.8f, 0.95f);
 				} else {
-					rainbowStreak(vc, pose, a, b, 0.3f, 0.95f, now);
+					axeBolt(vc, pose, ThorDraw.jagged(a, b, 6, 0.25, seed + Math.floor(now * 0.6) * 5 + 2), 0.9f, 0.95f);
 				}
 			}
 		}
@@ -600,9 +624,9 @@ public final class ThorKitFxRenderer {
 			float r = 0.6f + 4.5f * (float) (1 - Math.pow(1 - Math.min(1, ti / 10), 3));
 			Vec3 ground = c.add(0, -0.9, 0);
 			ThorDraw.ring(vc, pose, ground, Math.max(0f, r - 1.2f), r, ThorDraw.GLOW, 0.8f * f, 56);
-			rainbowRing(vc, pose, ground.add(0, 0.03, 0), Math.max(0f, r - 0.6f), r + 0.3f, 0.75f * f, 56);
+			stormRing(vc, pose, ground.add(0, 0.03, 0), Math.max(0f, r - 0.6f), r + 0.3f, 0.75f * f, 56);
 			radialBolts(vc, pose, c, 4.0 * Math.min(1, ti / 4 + 0.4), 10, seed + Math.floor(ti * 0.7), 0.7f, f);
-			prismBurst(vc, pose, c, 3.0 * (1 - f) + 0.5, 14, seed + 1, f);
+			sparkBurst(vc, pose, c, 3.0 * (1 - f) + 0.5, 14, seed + 1, f);
 		}
 	}
 
@@ -619,7 +643,7 @@ public final class ThorKitFxRenderer {
 				ThorDraw.bolt(vc, pose, ThorDraw.jagged(m, s, 6, 0.2, seed + frame * 7 + i), 0.5f + build * 0.3f, 0.95f);
 			}
 			ThorDraw.flare(vc, ps, s, 0.15f + 0.35f * build, (float) now * 40f, 0.9f);
-			prismBurst(vc, pose, s, 0.4 + build * 0.5, 4, seed + frame, 0.7f);
+			sparkBurst(vc, pose, s, 0.4 + build * 0.5, 4, seed + frame, 0.7f);
 		} else {
 			double tw = t - ThorTwinKit.CLEAVE_SLASH;
 			if (tw < ThorTwinKit.CLEAVE_WAVE_TICKS + 6) {
@@ -638,13 +662,14 @@ public final class ThorKitFxRenderer {
 					double u = i / (double) n * 2 - 1;
 					crescent[i] = front.add(side.scale(u * half)).add(dir.scale(-(u * u) * 1.1)).add(0, -Math.abs(u) * 0.25, 0);
 				}
-				// a rainbow crescent with a white-hot lightning edge
-				for (int c = 0; c < RAINBOW.length; c++) {
+				// a crescent of lightning: blue to golden-white bands behind a white-hot crackling edge
+				int[] bands = { ThorDraw.HALO, ThorDraw.GLOW, SB_GOLD, SB_WHITE };
+				for (int c = 0; c < bands.length; c++) {
 					Vec3[] band = new Vec3[n + 1];
 					for (int i = 0; i <= n; i++) {
-						band[i] = crescent[i].add(dir.scale(-0.12 * c)).add(0, 0.05 * (c - 3), 0);
+						band[i] = crescent[i].add(dir.scale(-0.16 * (bands.length - 1 - c))).add(0, 0.04 * (c - 2), 0);
 					}
-					ThorDraw.ribbon(vc, pose, band, 0.09f, RAINBOW[c], 0.65f * f);
+					ThorDraw.ribbon(vc, pose, band, 0.14f - c * 0.02f, bands[c], (0.35f + 0.12f * c) * f);
 				}
 				ThorDraw.bolt(vc, pose, ThorDraw.jagged(crescent[0], crescent[n], n, 0.12, seed + frame * 3), 1.0f, f);
 				for (int i = 0; i < 3; i++) {
@@ -707,7 +732,7 @@ public final class ThorKitFxRenderer {
 		int jt = ThorUltimates.JUDGE_THROW, ji = ThorUltimates.JUDGE_IMPALE, jb = ThorUltimates.JUDGE_BURST;
 		Vec3 target = at.add(0, 1.0, 0);
 		if (t < jt) {
-			prismBurst(vc, pose, hand(p, feetW, weaponInMain(p, false), 1f, -0.2f, partial).subtract(cam), 0.7, 6, seed + Math.floor(now * 0.5), 0.8f);
+			sparkBurst(vc, pose, hand(p, feetW, weaponInMain(p, false), 1f, -0.2f, partial).subtract(cam), 0.7, 6, seed + Math.floor(now * 0.5), 0.8f);
 		} else if (t < ji) {
 			double k = (t - jt) / (ji - jt);
 			Vec3 from = hand(p, feetW, true, 1f, 0.2f, partial);
@@ -715,19 +740,24 @@ public final class ThorKitFxRenderer {
 			Vec3 dir = target.subtract(from);
 			float yaw = (float) Math.toDegrees(Math.atan2(-dir.x, dir.z));
 			spectral.add(new Spectral(new ItemStack(ModItems.STORMBREAKER), pos, yaw, (float) (t * 60), 0, 1.15f));
-			rainbowStreak(vc, pose, pos.subtract(cam), from.lerp(target, Math.max(0, k - 0.35)).subtract(cam), 0.4f, 0.95f, now);
+			lightningStreak(vc, pose, pos.subtract(cam), from.lerp(target, Math.max(0, k - 0.35)).subtract(cam), 0.8f, 0.95f, now, seed);
 		} else if (t < jb + 2) {
 			// impaled: the axe stands in the target, blade-down
 			spectral.add(new Spectral(new ItemStack(ModItems.STORMBREAKER), target.add(0, 0.6, 0), 0, 180, 0, 1.15f));
 			Vec3 c = target.subtract(cam);
 			double k = (t - ji) / (jb - ji);
+			// the storm gathers on the axe: shock rings climbing it and more and more bolts reaching down onto the haft
 			for (int s = 0; s < 6; s++) {
 				double y = s * 1.6 + k * 5;
 				float r = (float) (2.6 - s * 0.32) * (float) (0.4 + 0.6 * k);
-				rainbowRing(vc, pose, c.add(0, y, 0), Math.max(0f, r - 0.4f), r, (float) (0.25 + 0.5 * k), 40);
+				stormRing(vc, pose, c.add(0, y, 0), Math.max(0f, r - 0.4f), r, (float) (0.25 + 0.5 * k), 40);
 			}
-			Vec3 sky = c.add(0, 30, 0);
-			rainbowBeam(vc, pose, sky, c.add(0, 1.0, 0), (float) (0.1 + 0.4 * k), (float) k, now);
+			double frame = Math.floor(now * 0.5);
+			int bolts = 1 + (int) (k * 4);
+			for (int i = 0; i < bolts; i++) {
+				Vec3 sky = c.add((ThorDraw.hash(seed + frame + i) - 0.5) * 8, 26, (ThorDraw.hash(seed + frame * 2 + i) - 0.5) * 8);
+				axeBolt(vc, pose, ThorDraw.jagged(sky, c.add(0, 1.0, 0), 14, 1.2, seed + frame * 9 + i * 5), (float) (0.6 + 1.2 * k), (float) (0.5 + 0.5 * k));
+			}
 			ThorDraw.flare(vc, ps, c, 0.5f + 0.4f * (float) k, (float) now * 40f, 0.9f);
 		}
 		double tb = t - jb;
@@ -735,10 +765,13 @@ public final class ThorKitFxRenderer {
 			Vec3 c = target.subtract(cam).add(0, -0.9, 0);
 			float f = fade(tb, 0, 18);
 			float r = 0.8f + (float) ThorUltimates.JUDGE_BURST_RADIUS * 1.2f * (float) (1 - Math.pow(1 - Math.min(1, tb / 12), 3));
-			rainbowRing(vc, pose, c.add(0, 0.08, 0), Math.max(0f, r - 2.2f), r, 0.95f * f, 72);
+			stormRing(vc, pose, c.add(0, 0.08, 0), Math.max(0f, r - 2.2f), r, 0.95f * f, 72);
 			ThorDraw.ring(vc, pose, c.add(0, 0.06, 0), Math.max(0f, r - 0.4f), r + 0.2f, ThorDraw.CORE, 0.9f * f, 72);
-			rainbowWall(vc, pose, c, r, 3.2f * f + 0.3f, 0.5f * f, 72);
-			prismBurst(vc, pose, c.add(0, 1.2, 0), 6 * (1 - f) + 0.6, 22, seed + 7, f);
+			stormWall(vc, pose, c, r, 3.2f * f + 0.3f, 0.5f * f, 72);
+			sparkBurst(vc, pose, c.add(0, 1.2, 0), 6 * (1 - f) + 0.6, 22, seed + 7, f);
+			if (tb < 10) {
+				radialBolts(vc, pose, c.add(0, 0.3, 0), r, 14, seed + Math.floor(tb * 0.7) * 5, 0.9f, fade(tb, 0, 10));
+			}
 			ThorDraw.flare(vc, ps, c.add(0, 1.2, 0), 2.4f * f + 0.2f, (float) tb * 30f, f);
 		}
 	}
@@ -753,18 +786,18 @@ public final class ThorKitFxRenderer {
 		Vec3 sh = hand(p, feetW, weaponInMain(p, false), 1f, 0f, partial).subtract(cam);
 		if (t < ThorUltimates.RAG_HURL) {
 			float in = (float) Math.min(1, t / 12);
-			// lightning between the raised weapons, a rainbow halo round him
+			// lightning between the raised weapons, a storm halo round him
 			ThorDraw.bolt(vc, pose, ThorDraw.jagged(mh, sh, 6, 0.3, seed + frame * 3), 0.8f, 0.9f * in);
-			rainbowRing(vc, pose, feet.add(0, 1.0, 0), 1.0f, 1.8f, 0.5f * in, 40);
+			stormRing(vc, pose, feet.add(0, 1.0, 0), 1.0f, 1.8f, 0.5f * in, 40);
 			ThorDraw.flare(vc, ps, mh, 0.35f, (float) now * 40f, in);
-			prismBurst(vc, pose, sh, 0.6, 4, seed + frame, 0.8f * in);
+			sparkBurst(vc, pose, sh, 0.6, 4, seed + frame, 0.8f * in);
 			if (t >= ThorUltimates.RAG_RAIN_START) {
-				// over the centre: a wheel of storm and rainbow
+				// over the centre: a wheel of storm rings
 				Vec3 sky = c0.add(0, 14, 0);
 				for (int r = 0; r < 3; r++) {
 					float rr = 4f + r * 4f;
 					ThorDraw.ring(vc, pose, sky.add(0, r * 0.5, 0), rr - 1.5f, rr, ThorDraw.GLOW, 0.35f, 56);
-					rainbowRing(vc, pose, sky.add(0, r * 0.5 - 0.2, 0), rr - 0.6f, rr + 0.4f, 0.35f, 56);
+					stormRing(vc, pose, sky.add(0, r * 0.5 - 0.2, 0), rr - 0.6f, rr + 0.4f, 0.35f, 56);
 				}
 			}
 		}
@@ -775,7 +808,7 @@ public final class ThorKitFxRenderer {
 			Vec3 dir = at.subtract(from);
 			float yaw = (float) Math.toDegrees(Math.atan2(-dir.x, dir.z));
 			spectral.add(new Spectral(new ItemStack(ModItems.STORMBREAKER), pos, yaw, (float) (t * 70), 0, 1.4f));
-			rainbowStreak(vc, pose, pos.subtract(cam), from.lerp(at, Math.max(0, k * k - 0.3)).subtract(cam), 0.5f, 1f, now);
+			lightningStreak(vc, pose, pos.subtract(cam), from.lerp(at, Math.max(0, k * k - 0.3)).subtract(cam), 1.0f, 1f, now, seed);
 			ThorDraw.bolt(vc, pose, ThorDraw.jagged(pos.subtract(cam), mh, 8, 0.5, seed + frame * 5), 0.7f, 0.8f);
 		}
 		double ti = t - ThorUltimates.RAG_IMPACT;
@@ -786,9 +819,9 @@ public final class ThorKitFxRenderer {
 			float f = fade(ti, 0, 30);
 			shockwave(vc, ps, c0.add(0, 0.08, 0), ti, 14f, seed, true);
 			float r = 1f + 13f * (float) (1 - Math.pow(1 - Math.min(1, ti / 18), 3));
-			rainbowRing(vc, pose, c0.add(0, 0.12, 0), Math.max(0f, r - 2.5f), r, 0.9f * f, 80);
-			rainbowWall(vc, pose, c0, r, 4f * f + 0.4f, 0.45f * f, 80);
-			prismBurst(vc, pose, c0.add(0, 1.5, 0), 8 * (1 - f) + 0.6, 26, seed + 11, f);
+			stormRing(vc, pose, c0.add(0, 0.12, 0), Math.max(0f, r - 2.5f), r, 0.9f * f, 80);
+			stormWall(vc, pose, c0, r, 4f * f + 0.4f, 0.45f * f, 80);
+			sparkBurst(vc, pose, c0.add(0, 1.5, 0), 8 * (1 - f) + 0.6, 26, seed + 11, f);
 			ThorDraw.flare(vc, ps, c0.add(0, 1.5, 0), 3.4f * f + 0.3f, (float) ti * 20f, f);
 			if (ti < 12) {
 				Vec3 top = c0.add(0, 50, 0);
@@ -869,63 +902,65 @@ public final class ThorKitFxRenderer {
 		}
 	}
 
-	/** A ring of the Bifrost's seven colours, red outside to violet in. */
-	static void rainbowRing(VertexConsumer vc, PoseStack.Pose pose, Vec3 c, float inner, float outer, float alpha, int seg) {
+	/** A heavy Stormbreaker bolt: storm-blue halo, golden-white glow, white-hot core. */
+	static void axeBolt(VertexConsumer vc, PoseStack.Pose pose, Vec3[] path, float width, float alpha) {
+		ThorDraw.ribbon(vc, pose, path, 0.30f * width, ThorDraw.HALO, 0.18f * alpha);
+		ThorDraw.ribbon(vc, pose, path, 0.13f * width, SB_GOLD, 0.45f * alpha);
+		ThorDraw.ribbon(vc, pose, path, 0.05f * width, SB_WHITE, 0.95f * alpha);
+	}
+
+	/** A lightning shock ring: a blue glow band, a golden-white band on its outer half and a white-hot rim. */
+	static void stormRing(VertexConsumer vc, PoseStack.Pose pose, Vec3 c, float inner, float outer, float alpha, int seg) {
 		if (alpha <= 0.01f || outer <= inner) {
 			return;
 		}
-		float step = (outer - inner) / RAINBOW.length;
-		for (int i = 0; i < RAINBOW.length; i++) {
-			float r1 = outer - step * i;
-			ThorDraw.ring(vc, pose, c, Math.max(0f, r1 - step * 1.6f), r1, RAINBOW[i], alpha * 0.8f, seg);
-		}
+		ThorDraw.ring(vc, pose, c, inner, outer, ThorDraw.GLOW, alpha * 0.6f, seg);
+		ThorDraw.ring(vc, pose, c.add(0, 0.01, 0), inner + (outer - inner) * 0.5f, outer, SB_GOLD, alpha * 0.5f, seg);
+		ThorDraw.ring(vc, pose, c.add(0, 0.02, 0), Math.max(0f, outer - 0.15f), outer + 0.05f, ThorDraw.CORE, alpha * 0.9f, seg);
 	}
 
-	/** A standing band of rainbow light on a circle. */
-	private static void rainbowWall(VertexConsumer vc, PoseStack.Pose pose, Vec3 c, float r, float h, float alpha, int seg) {
-		for (int i = 0; i < RAINBOW.length; i++) {
-			ThorDraw.wall(vc, pose, c.add(0, i * h * 0.04, 0), r - i * 0.08f, h * (1f - i * 0.06f), RAINBOW[i], alpha * 0.6f, seg);
-		}
+	/** A standing band of storm light on a circle (blue outside, golden-white inside). */
+	private static void stormWall(VertexConsumer vc, PoseStack.Pose pose, Vec3 c, float r, float h, float alpha, int seg) {
+		ThorDraw.wall(vc, pose, c, r, h, ThorDraw.GLOW, alpha * 0.6f, seg);
+		ThorDraw.wall(vc, pose, c, Math.max(0.1f, r - 0.12f), h * 0.6f, SB_GOLD, alpha * 0.45f, seg);
 	}
 
-	/** A rainbow streak from {@code a} to {@code b}: seven bands twisting round a white core. */
-	static void rainbowStreak(VertexConsumer vc, PoseStack.Pose pose, Vec3 a, Vec3 b, float width, float alpha, double now) {
-		rainbowBeam(vc, pose, a, b, width, alpha, now);
-	}
-
-	/** The rainbow beam: seven coloured strands spiralling round a white-hot core, in a soft white glow. */
-	static void rainbowBeam(VertexConsumer vc, PoseStack.Pose pose, Vec3 a, Vec3 b, float width, float alpha, double now) {
-		Vec3 d = b.subtract(a);
-		double len = d.length();
+	/** A lightning streak from {@code a} to {@code b}: a heavy jagged bolt with a thinner one crackling round it. */
+	static void lightningStreak(VertexConsumer vc, PoseStack.Pose pose, Vec3 a, Vec3 b, float width, float alpha, double now, double seed) {
+		double len = b.subtract(a).length();
 		if (len < 1e-3 || alpha <= 0.01f) {
 			return;
 		}
-		Vec3 dir = d.scale(1 / len);
-		Vec3 ref = Math.abs(dir.y) > 0.9 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0);
-		Vec3 u = dir.cross(ref).normalize();
-		Vec3 w = dir.cross(u).normalize();
-		int n = Math.max(4, (int) (len * 3));
-		for (int c = 0; c < RAINBOW.length; c++) {
-			Vec3[] strand = new Vec3[n + 1];
-			double phase = c * Math.PI * 2 / RAINBOW.length - now * 0.35;
-			for (int i = 0; i <= n; i++) {
-				double k = i / (double) n;
-				double ang = phase + k * len * 0.9;
-				double r = width * 0.75;
-				strand[i] = a.add(d.scale(k)).add(u.scale(Math.cos(ang) * r)).add(w.scale(Math.sin(ang) * r));
-			}
-			ThorDraw.ribbon(vc, pose, strand, width * 0.32f, RAINBOW[c], 0.75f * alpha);
-		}
-		Vec3[] line = { a, a.lerp(b, 0.5), b };
-		ThorDraw.ribbon(vc, pose, line, width * 1.6f, 0xFFFFFF, 0.18f * alpha);
-		ThorDraw.ribbon(vc, pose, line, width * 0.45f, 0xFFFFFF, 0.95f * alpha);
+		double frame = Math.floor(now * 0.6);
+		int nodes = Math.max(4, (int) (len * 1.2));
+		double amp = Math.min(0.9, 0.12 + len * 0.04);
+		axeBolt(vc, pose, ThorDraw.jagged(a, b, nodes, amp, seed + frame * 13), width, alpha);
+		ThorDraw.bolt(vc, pose, ThorDraw.jagged(a, b, nodes, amp * 1.5, seed + frame * 17 + 3), width * 0.5f, alpha * 0.8f);
 	}
 
-	/** Prismatic sparks: short rainbow shards flying out of {@code c}. */
-	static void prismBurst(VertexConsumer vc, PoseStack.Pose pose, Vec3 c, double reach, int count, double seed, float alpha) {
+	/** The Stormbreaker Beam: a straight golden-white core in a soft glow with two jagged bolts crackling along it. */
+	static void stormBeam(VertexConsumer vc, PoseStack.Pose pose, Vec3 a, Vec3 b, float width, float alpha, double now, double seed) {
+		double len = b.subtract(a).length();
+		if (len < 1e-3 || alpha <= 0.01f) {
+			return;
+		}
+		Vec3[] line = { a, a.lerp(b, 0.5), b };
+		ThorDraw.ribbon(vc, pose, line, width * 1.6f, ThorDraw.GLOW, 0.2f * alpha);
+		ThorDraw.ribbon(vc, pose, line, width * 0.8f, SB_GOLD, 0.35f * alpha);
+		ThorDraw.ribbon(vc, pose, line, width * 0.35f, SB_WHITE, 0.95f * alpha);
+		double frame = Math.floor(now * 0.5);
+		int nodes = Math.max(6, (int) (len * 1.5));
+		for (int i = 0; i < 2; i++) {
+			axeBolt(vc, pose, ThorDraw.jagged(a, b, nodes, width * 1.4, seed + frame * 11 + i * 7), width * 2.2f, 0.85f * alpha);
+		}
+	}
+
+	/** Axe-edge sparks: short white, golden-white and blue shards flying out of {@code c}. */
+	static void sparkBurst(VertexConsumer vc, PoseStack.Pose pose, Vec3 c, double reach, int count, double seed, float alpha) {
 		if (alpha <= 0.01f) {
 			return;
 		}
+		int[] cols = { SB_WHITE, SB_GOLD, ThorDraw.GLOW, ThorDraw.CORE };
 		for (int i = 0; i < count; i++) {
 			Vec3 dir = new Vec3(ThorDraw.hash(seed + i * 1.1) - 0.5, ThorDraw.hash(seed + i * 2.7) - 0.5, ThorDraw.hash(seed + i * 4.3) - 0.5);
 			if (dir.lengthSqr() < 1e-4) {
@@ -933,13 +968,13 @@ public final class ThorKitFxRenderer {
 			}
 			Vec3 s = c.add(dir.normalize().scale(reach * 0.3 * ThorDraw.hash(seed + i * 6.1)));
 			Vec3 e = c.add(dir.normalize().scale(reach * (0.5 + 0.5 * ThorDraw.hash(seed + i * 7.9))));
-			ThorDraw.ribbon(vc, pose, new Vec3[] { s, e }, 0.06f, RAINBOW[i % RAINBOW.length], 0.9f * alpha);
+			ThorDraw.ribbon(vc, pose, new Vec3[] { s, e }, 0.05f, cols[i % cols.length], 0.9f * alpha);
 		}
 	}
 
-	/** A sweep of light through {@code halfDeg} either side of his facing at {@code r}: rainbow bands + a lightning edge. */
+	/** A cleaving arc trail through {@code halfDeg} either side of his facing at {@code r}: blue to golden-white bands + a jagged lightning edge. */
 	private static void arcSweep(VertexConsumer vc, PoseStack.Pose pose, Player p, Vec3 feet, float partial, float r, float halfDeg, float alpha,
-			double now, boolean rainbow) {
+			double now, double seed) {
 		if (alpha <= 0.01f) {
 			return;
 		}
@@ -947,21 +982,23 @@ public final class ThorKitFxRenderer {
 		Vec3 side = right(p, partial);
 		int n = 18;
 		double half = Math.toRadians(halfDeg);
-		for (int band = 0; band < (rainbow ? RAINBOW.length : 1); band++) {
+		int[] bands = { ThorDraw.HALO, ThorDraw.GLOW, SB_GOLD };
+		for (int band = 0; band < bands.length; band++) {
 			Vec3[] arc = new Vec3[n + 1];
-			double rr = r * (0.55 + 0.45 * band / (double) RAINBOW.length);
+			double rr = r * (0.55 + 0.45 * (band + 1) / (double) (bands.length + 1));
 			for (int i = 0; i <= n; i++) {
 				double a = -half + 2 * half * i / n;
 				arc[i] = feet.add(0, 1.0 + band * 0.03, 0).add(fwd.scale(Math.cos(a) * rr)).add(side.scale(Math.sin(a) * rr));
 			}
-			ThorDraw.ribbon(vc, pose, arc, 0.12f, rainbow ? RAINBOW[band] : ThorDraw.GLOW, 0.7f * alpha);
+			ThorDraw.ribbon(vc, pose, arc, 0.16f, bands[band], 0.55f * alpha);
 		}
 		Vec3[] edge = new Vec3[n + 1];
 		for (int i = 0; i <= n; i++) {
 			double a = -half + 2 * half * i / n;
-			edge[i] = feet.add(0, 1.0, 0).add(fwd.scale(Math.cos(a) * r)).add(side.scale(Math.sin(a) * r));
+			double wob = (ThorDraw.hash(seed + Math.floor(now * 0.6) * 3 + i) - 0.5) * 0.25;
+			edge[i] = feet.add(0, 1.0 + wob, 0).add(fwd.scale(Math.cos(a) * (r + wob))).add(side.scale(Math.sin(a) * (r + wob)));
 		}
-		ThorDraw.ribbon(vc, pose, edge, 0.05f, ThorDraw.CORE, 0.9f * alpha);
+		axeBolt(vc, pose, edge, 0.9f, alpha);
 	}
 
 	private static Vec3 bezier(Vec3 a, Vec3 c, Vec3 b, double k) {

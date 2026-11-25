@@ -117,7 +117,7 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 	private double returnSpeed = RETURN_SPEED_MIN;
 	/** Everything struck on this outbound flight -- one hit each. Not saved: a reload simply allows a fresh hit. */
 	private final Set<UUID> struck = new HashSet<>();
-	/** v0.17.7 Bifrost Hurl ({@code ThorStormbreakerKit}): per-pierce damage, pierces, and whether each hit Sunders. Not saved. */
+	/** v0.17.7 Storm Hurl ({@code ThorStormbreakerKit}): per-pierce damage, pierces, and whether each hit Sunders. Not saved. */
 	private float throwDamage = DAMAGE;
 	private int maxPierce = MAX_PIERCE;
 	private boolean sunders;
@@ -560,7 +560,7 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 		var source = level().damageSources().trident(this, owner == null ? this : owner);
 		if (target.hurt(source, throwDamage)) {
 			if (sunders && target instanceof LivingEntity sundered) {
-				com.projecthero.mod.power.ThorSunder.apply(sundered); // v0.17.7 Bifrost Hurl
+				com.projecthero.mod.power.ThorSunder.apply(sundered); // v0.17.7 Storm Hurl
 			}
 			if (target instanceof LivingEntity living) {
 				Vec3 push = this.getDeltaMovement().normalize();

@@ -192,7 +192,7 @@ public class ThorRevampV0177GameTests implements FabricGameTest {
 		ServerPlayer p = thor(helper, ModItems.MJOLNIR, null);
 		Zombie z = dummy(helper, 1.5, 5.5);
 		ThorSunder.apply(z);
-		helper.assertTrue(ThorSunder.isSundered(z), "Bifrost Hurl's mark is on");
+		helper.assertTrue(ThorSunder.isSundered(z), "Storm Hurl's mark is on");
 		ThorKit.hit(p, z, 25f, ThorKit.Kind.PHYSICAL);
 		helper.assertTrue(Math.abs(500f - z.getHealth() - 30f) < 0.01f, "25 on a Sundered foe lands 30 (got " + (500f - z.getHealth()) + ")");
 		Zombie plain = dummy(helper, 4.5, 5.5);
@@ -291,10 +291,10 @@ public class ThorRevampV0177GameTests implements FabricGameTest {
 		ServerPlayer p = thor(helper, ModItems.STORMBREAKER, null);
 		Zombie z = dummy(helper, 1.5, 7.5);
 		ultimate(p);
-		helper.assertTrue(ThorVisuals.fx(p).anim() == ThorFx.ANIM_JUDGEMENT, "Bifrost Judgement starts");
+		helper.assertTrue(ThorVisuals.fx(p).anim() == ThorFx.ANIM_JUDGEMENT, "Stormbreaker's Judgement starts");
 		helper.runAfterDelay(ThorUltimates.JUDGE_BURST + 4, () -> {
 			float took = 500f - z.getHealth();
-			helper.assertTrue(took >= ThorKit.JUDGEMENT_IMPALE + ThorKit.JUDGEMENT_BURST - 0.01f, "impaled (60) then the Bifrost (45) (took " + took + ")");
+			helper.assertTrue(took >= ThorKit.JUDGEMENT_IMPALE + ThorKit.JUDGEMENT_BURST - 0.01f, "impaled (60) then the storm column (45) (took " + took + ")");
 			helper.succeed();
 		});
 	}
