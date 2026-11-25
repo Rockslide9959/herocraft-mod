@@ -9,6 +9,7 @@ import java.util.Map;
 
 import org.lwjgl.glfw.GLFW;
 
+import com.projecthero.mod.hero.PowerRank;
 import com.projecthero.mod.hero.guide.HeroPackGuide;
 import com.projecthero.mod.hero.guide.HeroPackGuide.Category;
 import com.projecthero.mod.hero.guide.HeroPackGuide.IndexEntry;
@@ -17,39 +18,76 @@ import com.projecthero.mod.hero.guide.HeroPackGuide.SearchHit;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TextColor;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 /**
- * The Guidebook (v0.16.7 remake; user: "make it look nicer and have more sub menus like marvel, dc, quirks, miraculous
- * ... add a search bar as well").
+ * The Guidebook (v0.16.7 remake; v0.17.7 remake -- user: "can you add the tiers to the guidebook aswell please i didnt see it when
+ * i look in it, remake the guidebook aswell please").
  *
  * <ul>
- * <li><b>Home</b>: a framed panel of category tiles ({@link Category}: Marvel, DC, Quirks, Miraculous, ...), each with
- * its item icon, colour, chapter count and a one-line description, plus "Continue reading".</li>
- * <li><b>Category</b>: a smooth-scrolling list of its chapters (icon, title, the chapter's first line as a subtitle)
- * under sub-headings.</li>
- * <li><b>Chapter</b>: the chapter laid out as numbered book pages (two side by side when there is room), turned with
- * the wheel, the arrow keys or the Prev / Next links; the last page links the next chapter of the category.</li>
- * <li><b>Search</b>: the box at the top of every page. Typing anywhere starts a search across every chapter's title,
- * section headings and body text (case-insensitive, {@link HeroPackGuide#search}); each result shows its chapter, the
- * section it is in and the matching text with the match highlighted. Clicking one opens the chapter at that line and
- * flashes it. Esc leaves the box (a second Esc closes the book); while the box has focus no key does anything else.</li>
+ * <li><b>Home</b>: three shelves of tiles ({@link HeroPackGuide#HOME_SHELVES}) -- <i>Start here</i> (Getting Started, Power
+ * Tiers), <i>Powers</i> (Powers by Tier, Marvel, DC, Quirks, Miraculous, Other) and <i>Gear, World &amp; Events</i> -- each tile
+ * with its icon, colour, count and a wrapped description; the tier tiles carry a bar of the four tier colours. "Continue
+ * reading" under them. A category with one chapter (Getting Started, Power Tiers) opens it straight away.</li>
+ * <li><b>Category</b> / <b>Powers by Tier</b>: a smooth-scrolling list of chapters (icon, title, first line, and a coloured tier
+ * pill on every placed power) under sub-headings. Lists of powers get a tier filter row: All / Street / City / Planet / Cosmic /
+ * Unranked, with counts.</li>
+ * <li><b>Chapter</b>: numbered book pages (two side by side when there is room) turned with the wheel, the arrow keys or the
+ * Prev / Next links, with a page-turn sound. A placed power's page has a coloured tier banner under its title (click it for the
+ * Power Tiers chapter). Link lines (the Power Tiers roster) highlight on hover and open their chapter. Each chapter remembers
+ * the page you were on for the session.</li>
+ * <li><b>Search</b>: the box at the top of every page, across every chapter's title, headings and body text; typing anywhere
+ * starts it. Results show their tier pill too.</li>
  * </ul>
- * A breadcrumb (Guidebook > Marvel > Iron Man) and a back arrow sit in the header; Backspace / right-click go back.
+ * Back (arrow, Backspace, right-click), Home (house button) and breadcrumbs (Guidebook > Marvel > Iron Man) sit in the header.
  * All text wraps or is cut to fit, so it reads at every GUI scale. Content comes from {@link HeroPackGuide} only.
  */
 public final class HeroPackGuideScreen extends Screen {
 	private enum View {
-		HOME, CATEGORY, CHAPTER, SEARCH
+		HOME, CATEGORY, POWERS, CHAPTER, SEARCH
 	}
 
 	/** One place in the book, for Back and for reopening where you left off. */
 	private record Nav(View view, Category category, int chapter, int spread, double scroll) {
+	}
+
+	/** v0.17.7: the tier filter on lists of powers. */
+	private enum Filter {
+		ALL(null), STREET(PowerRank.STREET), CITY(PowerRank.CITY), PLANET(PowerRank.PLANET), COSMIC(PowerRank.COSMIC), UNRANKED(null);
+
+		final PowerRank rank;
+
+		Filter(PowerRank rank) {
+			this.rank = rank;
+		}
+
+		boolean matches(int ch) {
+			return switch (this) {
+				case ALL -> true;
+				case UNRANKED -> HeroPackGuide.isPowerChapter(ch) && HeroPackGuide.rankOf(ch) == null;
+				default -> HeroPackGuide.rankOf(ch) == rank;
+			};
+		}
+
+		String label() {
+			return switch (this) {
+				case ALL -> Component.translatable("projecthero.guide.ui.filter.all").getString();
+				case UNRANKED -> Component.translatable("projecthero.guide.ui.filter.unranked").getString();
+				default -> Component.translatable("projecthero.rank.short." + rank.id).getString();
+			};
+		}
+
+		int colour() {
+			return rank != null ? 0xFF000000 | rank.colour : this == ALL ? GOLD : 0xFF9A9AA8;
+		}
 	}
 
 	// palette (the mod's HUD / overlay style: dark glass, grey rules, gold accents)
@@ -65,6 +103,7 @@ public final class HeroPackGuideScreen extends Screen {
 	private static final int TEXT_FAINT = 0xFF6A6A78;
 	private static final int MATCH_BG = 0xB0806010;
 	private static final int MATCH_FG = 0xFFFFF0A0;
+	private static final int UNRANKED_GREY = 0xFF5A5A66;
 
 	private static final int LINE_H = 10;
 	private static final int HEADER_H = 24;
@@ -73,10 +112,17 @@ public final class HeroPackGuideScreen extends Screen {
 	private static final int SUB_H = 15;
 	private static final int RESULT_H = 24;
 	private static final int TITLE_BAND = 22;
+	private static final int FILTER_H = 18;
+	private static final int SHELF_H = 13;
+	private static final int TILE_GAP = 5;
 
 	// v0.12.25: the book reopens where you left it (for the whole game session)
 	private static Nav saved = new Nav(View.HOME, Category.GETTING_STARTED, -1, 0, 0);
 	private static int lastChapterRead = -1;
+	/** v0.17.7: the tier filter (kept for the session). */
+	private static Filter filter = Filter.ALL;
+	/** v0.17.7: the page each chapter was left on (for the session), so reopening a chapter doesn't lose your place. */
+	private static final Map<Integer, Integer> PAGE_MEMORY = new HashMap<>();
 
 	private View view = View.HOME;
 	private Category category = Category.GETTING_STARTED;
@@ -102,12 +148,17 @@ public final class HeroPackGuideScreen extends Screen {
 	private final List<FormattedCharSequence> rows = new ArrayList<>();
 	private final List<Integer> rowLine = new ArrayList<>();
 	private final List<Boolean> rowBlank = new ArrayList<>();
+	/** v0.17.7: the chapter each row links to (-1 = not a link). */
+	private final List<Integer> rowLink = new ArrayList<>();
 	private final List<int[]> pages = new ArrayList<>();
 	private int columns = 1;
 	private int colW = 100;
 	private int flashLine = -1;
 	private long flashUntil = 0;
 	private int pendingLine = -1;
+	/** v0.17.7: the open chapter's tier (null = no banner) and the banner's wrapped range lines. */
+	private PowerRank bannerRank;
+	private List<FormattedCharSequence> bannerLines = List.of();
 
 	// panel geometry
 	private int px, py, pw, ph;
@@ -196,6 +247,9 @@ public final class HeroPackGuideScreen extends Screen {
 
 	@Override
 	public void removed() {
+		if (view == View.CHAPTER) {
+			PAGE_MEMORY.put(chapter, spread);
+		}
 		if (view != View.SEARCH) {
 			saved = here();
 		} else if (!history.isEmpty()) {
@@ -219,6 +273,8 @@ public final class HeroPackGuideScreen extends Screen {
 		this.by = py + HEADER_H + 6;
 		this.bw = pw - 16;
 		this.bh = ph - HEADER_H - 6 - FOOTER_H - 4;
+		this.homeLayout = null;
+		this.entriesKey = null;
 
 		int sw = Math.max(70, Math.min(150, pw / 3));
 		searchBox = new EditBox(this.font, px + pw - sw - 6, py + 5, sw, 14, Component.translatable("projecthero.guide.ui.search"));
@@ -261,24 +317,61 @@ public final class HeroPackGuideScreen extends Screen {
 		}
 	}
 
+	// ---------------------------------------------------------------- v0.17.7: sounds
+
+	/** The page-turn rustle (turning a page, opening a chapter). */
+	private static void pageSound() {
+		try {
+			net.minecraft.client.Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.BOOK_PAGE_TURN, 1.0F));
+		} catch (RuntimeException ignored) {
+			// a sound is never worth a crash
+		}
+	}
+
+	/** A soft click (tiles, chips, header buttons). */
+	private static void clickSound() {
+		try {
+			net.minecraft.client.Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK.value(), 1.0F, 0.35F));
+		} catch (RuntimeException ignored) {
+			// a sound is never worth a crash
+		}
+	}
+
 	// ---------------------------------------------------------------- navigation
 
 	private void go(View v, Category c, int ch, int line) {
+		navCount++;
+		if (view == View.CHAPTER) {
+			PAGE_MEMORY.put(chapter, spread);
+		}
 		history.push(here());
 		this.view = v;
 		this.category = c;
 		this.chapter = ch;
-		this.spread = 0;
+		this.spread = v == View.CHAPTER && line < 0 ? PAGE_MEMORY.getOrDefault(ch, 0) : 0;
 		jumpScroll(0);
 		if (v == View.CHAPTER) {
 			lastChapterRead = ch;
 			pendingLine = line;
 			layoutChapter();
+			pageSound();
+		} else {
+			clickSound();
 		}
 	}
 
 	private void openCategory(Category c) {
+		// v0.17.7: a category with one chapter (Getting Started, Power Tiers) opens it straight away
+		List<Integer> list = HeroPackGuide.chaptersIn(c);
+		if (list.size() == 1) {
+			openChapter(list.get(0), -1);
+			return;
+		}
 		go(View.CATEGORY, c, -1, -1);
+	}
+
+	private void openPowers() {
+		go(View.POWERS, category, -1, -1);
 	}
 
 	private void openChapter(int ch, int line) {
@@ -286,12 +379,16 @@ public final class HeroPackGuideScreen extends Screen {
 	}
 
 	private void goHome() {
+		if (view == View.CHAPTER) {
+			PAGE_MEMORY.put(chapter, spread);
+		}
 		history.clear();
 		view = View.HOME;
 		jumpScroll(0);
 		if (!query.isEmpty()) {
 			clearSearchBox();
 		}
+		clickSound();
 	}
 
 	/** Set while the screen itself empties the search box, so the box's responder doesn't react to it. */
@@ -318,6 +415,10 @@ public final class HeroPackGuideScreen extends Screen {
 	}
 
 	private void back() {
+		navCount++;
+		if (view == View.CHAPTER) {
+			PAGE_MEMORY.put(chapter, spread);
+		}
 		if (view == View.SEARCH) {
 			clearSearchBox();
 			view = View.HOME; // where an empty history lands; the pop below restores the page the search started from
@@ -328,7 +429,7 @@ public final class HeroPackGuideScreen extends Screen {
 		}
 		if (history.isEmpty()) {
 			if (view != View.HOME) {
-				view = view == View.CHAPTER ? View.CATEGORY : View.HOME;
+				view = view == View.CHAPTER && HeroPackGuide.chaptersIn(category).size() > 1 ? View.CATEGORY : View.HOME;
 				jumpScroll(0);
 			}
 			return;
@@ -374,11 +475,22 @@ public final class HeroPackGuideScreen extends Screen {
 
 	// ---------------------------------------------------------------- chapter layout
 
+	private int titleBand() {
+		return TITLE_BAND + (bannerRank != null ? bannerHeight() : 0);
+	}
+
+	private int bannerHeight() {
+		return 5 + 10 + bannerLines.size() * 10 + 4;
+	}
+
 	private void layoutChapter() {
 		rows.clear();
 		rowLine.clear();
 		rowBlank.clear();
+		rowLink.clear();
 		pages.clear();
+		bannerRank = null;
+		bannerLines = List.of();
 		spread = Math.max(0, spread);
 		if (!HeroPackGuide.validChapter(chapter)) {
 			pages.add(new int[] { 0, 0 });
@@ -389,22 +501,48 @@ public final class HeroPackGuideScreen extends Screen {
 		colW = (bw - gap * (columns - 1)) / columns - 4;
 		List<Component> lines = new ArrayList<>(HeroPackGuide.chapterAt(chapter).lines()); // a snapshot: the page may be rebuilt meanwhile
 		lines.replaceAll(l -> l == null ? Component.empty() : l);
+		// v0.17.7: a placed power's tier line becomes the banner under the title (its row is left out of the pages)
+		for (Component l : lines) {
+			PowerRank r = HeroPackGuide.tierOfLine(l);
+			if (r != null) {
+				bannerRank = r;
+				bannerLines = this.font.split(HeroPackGuide.tierRanges(r), Math.max(40, bw - 18));
+				break;
+			}
+		}
 		for (int i = 0; i < lines.size(); i++) {
-			List<FormattedCharSequence> split = this.font.split(lines.get(i), Math.max(20, colW));
-			boolean blank = lines.get(i).getString().isBlank();
+			if (bannerRank != null && HeroPackGuide.tierOfLine(lines.get(i)) != null) {
+				continue;
+			}
+			int link = HeroPackGuide.linkTarget(lines.get(i));
+			// v0.17.7: a line that starts indented keeps its wrapped rows under the same indent (a hanging indent, like the I menu)
+			String text = lines.get(i).getString();
+			int lead = 0;
+			while (lead < text.length() && lead < 8 && text.charAt(lead) == ' ') {
+				lead++;
+			}
+			boolean blank = text.isBlank();
+			String indent = blank ? "" : " ".repeat(lead);
+			int indentW = this.font.width(indent);
+			List<FormattedCharSequence> split = new ArrayList<>(this.font.split(lines.get(i), Math.max(20, colW - indentW)));
+			for (int k = 1; k < split.size() && indentW > 0; k++) {
+				split.set(k, FormattedCharSequence.composite(FormattedCharSequence.forward(indent, net.minecraft.network.chat.Style.EMPTY), split.get(k)));
+			}
 			if (split.isEmpty()) {
 				rows.add(FormattedCharSequence.EMPTY);
 				rowLine.add(i);
 				rowBlank.add(blank);
+				rowLink.add(link);
 			} else {
 				for (FormattedCharSequence s : split) {
 					rows.add(s);
 					rowLine.add(i);
 					rowBlank.add(blank);
+					rowLink.add(link);
 				}
 			}
 		}
-		int perPage = Math.max(4, (bh - TITLE_BAND - 12) / LINE_H);
+		int perPage = Math.max(4, (bh - titleBand() - 12) / LINE_H);
 		int r = 0;
 		while (r < rows.size()) {
 			while (r < rows.size() && isBlankRow(r)) {
@@ -482,6 +620,18 @@ public final class HeroPackGuideScreen extends Screen {
 			return;
 		}
 		spread = next;
+		PAGE_MEMORY.put(chapter, spread);
+		pageSound();
+	}
+
+	/** Footer Prev / Next past the chapter's ends: the previous / next chapter of the category, from its first page. */
+	private void switchChapter(int ch) {
+		PAGE_MEMORY.put(chapter, spread);
+		this.chapter = ch;
+		this.spread = 0;
+		lastChapterRead = ch;
+		layoutChapter();
+		pageSound();
 	}
 
 	// ---------------------------------------------------------------- input
@@ -504,6 +654,10 @@ public final class HeroPackGuideScreen extends Screen {
 	@Override
 	public boolean mouseScrolled(double mx, double my, double dx, double dy) {
 		return guard("scroll", () -> doMouseScrolled(mx, my, dx, dy));
+	}
+
+	private boolean isList() {
+		return view == View.CATEGORY || view == View.SEARCH || view == View.POWERS;
 	}
 
 	private boolean doKeyPressed(int key, int scan, int mods) {
@@ -530,6 +684,12 @@ public final class HeroPackGuideScreen extends Screen {
 					return true;
 				}
 			}
+			case GLFW.GLFW_KEY_HOME -> {
+				if (view != View.HOME) {
+					goHome();
+					return true;
+				}
+			}
 			case GLFW.GLFW_KEY_LEFT, GLFW.GLFW_KEY_PAGE_UP -> {
 				if (view == View.CHAPTER) {
 					turn(-1);
@@ -543,14 +703,14 @@ public final class HeroPackGuideScreen extends Screen {
 				}
 			}
 			case GLFW.GLFW_KEY_UP -> {
-				if (view == View.CATEGORY || view == View.SEARCH) {
+				if (isList()) {
 					syncScroll();
 					scroll.by(-30);
 					return true;
 				}
 			}
 			case GLFW.GLFW_KEY_DOWN -> {
-				if (view == View.CATEGORY || view == View.SEARCH) {
+				if (isList()) {
 					syncScroll();
 					scroll.by(30);
 					return true;
@@ -609,31 +769,56 @@ public final class HeroPackGuideScreen extends Screen {
 				return true;
 			}
 		}
-		// header: back arrow and breadcrumbs
+		// header: back arrow, home and breadcrumbs
 		if (view != View.HOME && hit(mx, my, px + 6, py + 5, 14, 14)) {
 			back();
+			clickSound();
+			return true;
+		}
+		if (view != View.HOME && hit(mx, my, px + 22, py + 5, 14, 14)) {
+			goHome();
 			return true;
 		}
 		for (Crumb c : crumbs()) {
 			if (c.action != null && hit(mx, my, c.x, py + 5, c.w, 14)) {
 				c.action.run();
+				clickSound();
 				return true;
+			}
+		}
+		// v0.17.7: the tier filter chips
+		if (filterable()) {
+			for (Chip chip : chips()) {
+				if (hit(mx, my, chip.x, chip.y, chip.w, 14)) {
+					if (filter != chip.filter) {
+						filter = chip.filter;
+						entriesKey = null;
+						jumpScroll(0);
+					}
+					clickSound();
+					return true;
+				}
 			}
 		}
 		switch (view) {
 			case HOME -> {
-				Category c = tileAt(mx, my);
-				if (c != null) {
-					openCategory(c);
-					return true;
+				for (HomeTile t : homeLayout()) {
+					if (my >= by && my <= by + bh && hit(mx, my, t.x, t.y - scrollY(), t.w, t.h)) {
+						if (t.category == null) {
+							openPowers();
+						} else {
+							openCategory(t.category);
+						}
+						return true;
+					}
 				}
 				if (lastChapterRead >= 0 && HeroPackGuide.validChapter(lastChapterRead) && continueRowHit(mx, my)) {
 					openChapter(lastChapterRead, -1);
 					return true;
 				}
 			}
-			case CATEGORY -> {
-				int ch = categoryRowAt(mx, my);
+			case CATEGORY, POWERS -> {
+				int ch = listRowAt(mx, my);
 				if (ch >= 0) {
 					openChapter(ch, -1);
 					return true;
@@ -647,17 +832,23 @@ public final class HeroPackGuideScreen extends Screen {
 				}
 			}
 			case CHAPTER -> {
+				// v0.17.7: the tier banner opens the Power Tiers chapter; a link line opens its chapter
+				if (bannerRank != null && hit(mx, my, bx, by + TITLE_BAND, bw, bannerHeight())) {
+					openChapter(HeroPackGuide.powerTiersChapterIndex(), -1);
+					return true;
+				}
+				int row = chapterRowAt(mx, my);
+				if (row >= 0 && rowLink.get(row) >= 0 && HeroPackGuide.validChapter(rowLink.get(row))) {
+					openChapter(rowLink.get(row), -1);
+					return true;
+				}
 				int fy = py + ph - FOOTER_H - 2;
 				if (my >= fy && my <= fy + FOOTER_H) {
 					if (mx < px + pw / 3) {
 						if (spread > 0) {
 							turn(-1);
 						} else if (prevChapterInCategory() >= 0) {
-							int prev = prevChapterInCategory();
-							this.chapter = prev;
-							this.spread = 0;
-							lastChapterRead = prev;
-							layoutChapter();
+							switchChapter(prevChapterInCategory());
 						}
 						return true;
 					}
@@ -665,11 +856,7 @@ public final class HeroPackGuideScreen extends Screen {
 						if (spread < spreadCount() - 1) {
 							turn(1);
 						} else if (nextChapterInCategory() >= 0) {
-							int next = nextChapterInCategory();
-							this.chapter = next;
-							this.spread = 0;
-							lastChapterRead = next;
-							layoutChapter();
+							switchChapter(nextChapterInCategory());
 						}
 						return true;
 					}
@@ -684,11 +871,8 @@ public final class HeroPackGuideScreen extends Screen {
 			turn(dy < 0 ? 1 : -1);
 			return true;
 		}
-		if (view == View.CATEGORY || view == View.SEARCH || view == View.HOME) {
-			syncScroll();
-			return scroll.mouseScrolled(dy);
-		}
-		return false;
+		syncScroll();
+		return scroll.mouseScrolled(dy);
 	}
 
 	@Override
@@ -716,14 +900,18 @@ public final class HeroPackGuideScreen extends Screen {
 		scrollPos = scroll.offset();
 	}
 
+	private int scrollY() {
+		return (int) Math.round(scrollPos);
+	}
+
 	private int contentHeight() {
 		return switch (view) {
-			case CATEGORY -> {
+			case CATEGORY, POWERS -> {
 				int h = 0;
-				for (IndexEntry e : HeroPackGuide.categoryEntries(category)) {
+				for (IndexEntry e : entries()) {
 					h += e.isHeading() ? SUB_H : ROW_H + 2;
 				}
-				yield h + 4;
+				yield Math.max(h, 30) + 4;
 			}
 			case SEARCH -> hits.size() * (RESULT_H + 2) + 4;
 			case HOME -> homeHeight();
@@ -732,7 +920,10 @@ public final class HeroPackGuideScreen extends Screen {
 	}
 
 	private int listTop() {
-		return view == View.SEARCH ? by + 14 : by;
+		if (view == View.SEARCH) {
+			return by + 14;
+		}
+		return filterable() ? by + FILTER_H : by;
 	}
 
 	private int listBottom() {
@@ -741,6 +932,135 @@ public final class HeroPackGuideScreen extends Screen {
 
 	private static boolean hit(double mx, double my, int x, int y, int w, int h) {
 		return mx >= x && mx < x + w && my >= y && my < y + h;
+	}
+
+	// ---------------------------------------------------------------- v0.17.7: list entries + the tier filter
+
+	/** Lists of powers (a power category, or Powers by Tier) get the tier filter row. */
+	private boolean filterable() {
+		return view == View.POWERS || (view == View.CATEGORY && category != null && category.holdsPowers());
+	}
+
+	private String entriesKey;
+	/** Bumped on every page change, so the cached list is rebuilt (a page revealed meanwhile shows up). */
+	private int navCount;
+	private List<IndexEntry> entriesCache = List.of();
+
+	/** The current list's rows: the category's (or Powers by Tier), filtered by tier; headings with nothing under them left out. */
+	private List<IndexEntry> entries() {
+		String key = view + "/" + category + "/" + (filterable() ? filter : Filter.ALL) + "/" + navCount;
+		if (key.equals(entriesKey)) {
+			return entriesCache;
+		}
+		List<IndexEntry> src = view == View.POWERS ? HeroPackGuide.powersByTier() : HeroPackGuide.categoryEntries(category);
+		List<IndexEntry> out;
+		if (!filterable() || filter == Filter.ALL) {
+			out = src;
+		} else {
+			out = new ArrayList<>();
+			List<IndexEntry> heads = new ArrayList<>();
+			for (IndexEntry e : src) {
+				if (e.isHeading()) {
+					while (!heads.isEmpty() && heads.get(heads.size() - 1).depth() >= e.depth()) {
+						heads.remove(heads.size() - 1);
+					}
+					heads.add(e);
+					continue;
+				}
+				if (!filter.matches(e.chapterIndex())) {
+					continue;
+				}
+				out.addAll(heads);
+				heads.clear();
+				out.add(e);
+			}
+		}
+		entriesCache = out;
+		entriesKey = key;
+		return out;
+	}
+
+	/** How many links of the unfiltered list a filter keeps (the chip's count). */
+	private int countFor(Filter f) {
+		List<IndexEntry> src = view == View.POWERS ? HeroPackGuide.powersByTier() : HeroPackGuide.categoryEntries(category);
+		java.util.Set<Integer> seen = new java.util.HashSet<>();
+		for (IndexEntry e : src) {
+			if (!e.isHeading() && f.matches(e.chapterIndex())) {
+				seen.add(e.chapterIndex());
+			}
+		}
+		return seen.size();
+	}
+
+	private record Chip(Filter filter, String text, int x, int y, int w) {
+	}
+
+	private List<Chip> chipsCache;
+	private String chipsKey;
+
+	/** The filter row: "Tier:" then one chip per filter (with its count when there is room; just the name when there isn't). */
+	private List<Chip> chips() {
+		String key = view + "/" + category + "/" + bw;
+		if (key.equals(chipsKey) && chipsCache != null) {
+			return chipsCache;
+		}
+		Filter[] fs = Filter.values();
+		String[] withCount = new String[fs.length];
+		String[] plain = new String[fs.length];
+		for (int i = 0; i < fs.length; i++) {
+			plain[i] = fs[i].label();
+			withCount[i] = plain[i] + " " + countFor(fs[i]);
+		}
+		String label = Component.translatable("projecthero.guide.ui.filter").getString();
+		int labelW = this.font.width(label) + 6;
+		String[] use = withCount;
+		if (rowWidth(withCount) + labelW > bw) {
+			use = plain;
+		}
+		if (rowWidth(use) + labelW > bw) {
+			labelW = 0;
+		}
+		List<Chip> out = new ArrayList<>();
+		int x = bx + labelW;
+		int room = bw - labelW;
+		int each = rowWidth(use) > room ? room / fs.length - 3 : -1;
+		for (int i = 0; i < fs.length; i++) {
+			int w = each > 0 ? each : this.font.width(use[i]) + 10;
+			String t = each > 0 ? fit(use[i], w - 4) : use[i];
+			out.add(new Chip(fs[i], t, x, by, w));
+			x += w + 3;
+		}
+		chipsCache = out;
+		chipsKey = key;
+		chipsLabelW = labelW;
+		return out;
+	}
+
+	private int chipsLabelW;
+
+	private int rowWidth(String[] texts) {
+		int w = 0;
+		for (String t : texts) {
+			w += this.font.width(t) + 13;
+		}
+		return w;
+	}
+
+	private void drawChips(GuiGraphics g, int mx, int my) {
+		List<Chip> cs = chips();
+		if (chipsLabelW > 0) {
+			g.drawString(this.font, Component.translatable("projecthero.guide.ui.filter").getString(), bx, by + 3, TEXT_DIM, false);
+		}
+		for (Chip c : cs) {
+			boolean on = c.filter == filter;
+			boolean over = hit(mx, my, c.x, c.y, c.w, 14);
+			int col = c.filter.colour();
+			g.fill(c.x, c.y, c.x + c.w, c.y + 14, on ? (col & 0x00FFFFFF) | 0x70000000 : over ? 0x60303648 : 0x50202430);
+			g.renderOutline(c.x, c.y, c.w, 14, on || over ? col : (col & 0x00FFFFFF) | 0x60000000);
+			int tw = this.font.width(c.text);
+			g.drawString(this.font, c.text, c.x + (c.w - tw) / 2, c.y + 3, on ? 0xFFFFFFFF : over ? brighten(col) : col, false);
+		}
+		g.fill(bx, by + FILTER_H - 3, bx + bw, by + FILTER_H - 2, 0x30FFFFFF);
 	}
 
 	// ---------------------------------------------------------------- rendering
@@ -764,7 +1084,7 @@ public final class HeroPackGuideScreen extends Screen {
 			drawSafely(g, "page", () -> {
 				switch (view) {
 					case HOME -> drawHome(g, mouseX, mouseY);
-					case CATEGORY -> drawCategory(g, mouseX, mouseY);
+					case CATEGORY, POWERS -> drawList(g, mouseX, mouseY);
 					case CHAPTER -> drawChapter(g, mouseX, mouseY);
 					case SEARCH -> drawSearch(g, mouseX, mouseY);
 				}
@@ -851,8 +1171,18 @@ public final class HeroPackGuideScreen extends Screen {
 	private static final java.util.Set<String> brokenIcons = new java.util.HashSet<>();
 	private static final ItemStack BOOK = new ItemStack(Items.BOOK);
 
+	/** The colour of the current view: gold at home / search, the tiers' purple on Powers by Tier, else the category's. */
+	private int accent() {
+		return switch (view) {
+			case HOME, SEARCH -> GOLD;
+			case POWERS -> Category.TIERS.colour;
+			case CHAPTER -> bannerRank != null ? 0xFF000000 | bannerRank.colour : category.colour;
+			default -> category.colour;
+		};
+	}
+
 	private void drawPanel(GuiGraphics g) {
-		int accent = view == View.HOME ? GOLD : category.colour;
+		int accent = accent();
 		// soft drop shadow, body, double rule
 		g.fill(px + 3, py + 3, px + pw + 3, py + ph + 3, 0x60000000);
 		g.fill(px, py, px + pw, py + ph, PANEL_BG);
@@ -875,7 +1205,7 @@ public final class HeroPackGuideScreen extends Screen {
 
 	private List<Crumb> crumbs() {
 		List<Crumb> out = new ArrayList<>();
-		int x = px + (view == View.HOME ? 8 : 24);
+		int x = px + (view == View.HOME ? 8 : 42);
 		int limit = searchBox.getX() - 8;
 		List<String> labels = new ArrayList<>();
 		List<Integer> colours = new ArrayList<>();
@@ -883,16 +1213,23 @@ public final class HeroPackGuideScreen extends Screen {
 		labels.add(this.title.getString());
 		colours.add(GOLD);
 		actions.add(view == View.HOME ? null : this::goHome);
-		if (view == View.CATEGORY || view == View.CHAPTER) {
+		boolean single = HeroPackGuide.chaptersIn(category).size() <= 1; // Getting Started, Power Tiers: no list page to go to
+		if (view == View.CATEGORY || (view == View.CHAPTER && !single)) {
 			labels.add(Component.translatable(category.nameKey()).getString());
 			colours.add(category.colour);
 			Category c = category;
 			actions.add(view == View.CHAPTER ? () -> {
+				PAGE_MEMORY.put(chapter, spread);
 				history.clear();
 				history.push(new Nav(View.HOME, c, -1, 0, 0));
 				view = View.CATEGORY;
 				jumpScroll(0);
 			} : null);
+		}
+		if (view == View.POWERS) {
+			labels.add(Component.translatable("projecthero.guide.category.powers").getString());
+			colours.add(Category.TIERS.colour);
+			actions.add(null);
 		}
 		if (view == View.CHAPTER) {
 			labels.add(HeroPackGuide.chapterAt(chapter).title().getString());
@@ -925,10 +1262,34 @@ public final class HeroPackGuideScreen extends Screen {
 
 	private void drawHeader(GuiGraphics g, int mx, int my) {
 		if (view != View.HOME) {
+			// back
 			boolean over = hit(mx, my, px + 6, py + 5, 14, 14);
 			g.fill(px + 6, py + 5, px + 20, py + 19, over ? 0xFF3A4050 : 0xFF242834);
 			g.renderOutline(px + 6, py + 5, 14, 14, over ? GOLD : PANEL_EDGE_HI);
 			g.drawString(this.font, "<", px + 11, py + 8, over ? GOLD : TEXT, false);
+			// v0.17.7: home (a little house)
+			boolean overHome = hit(mx, my, px + 22, py + 5, 14, 14);
+			g.fill(px + 22, py + 5, px + 36, py + 19, overHome ? 0xFF3A4050 : 0xFF242834);
+			g.renderOutline(px + 22, py + 5, 14, 14, overHome ? GOLD : PANEL_EDGE_HI);
+			int c = overHome ? GOLD : TEXT;
+			int hx = px + 29, hy = py + 8;
+			for (int r = 0; r < 4; r++) {
+				g.fill(hx - r - 1, hy + r, hx + r + 1, hy + r + 1, c); // roof
+			}
+			g.fill(hx - 3, hy + 4, hx + 3, hy + 9, c); // walls
+			g.fill(hx - 1, hy + 6, hx + 1, hy + 9, overHome ? 0xFF3A4050 : 0xFF242834); // door
+			if (over || overHome) {
+				String tip = over ? Component.translatable("projecthero.guide.ui.back").getString()
+						: Component.translatable("projecthero.guide.ui.home").getString();
+				int tw = this.font.width(tip);
+				int tx = Math.min(mx + 8, this.width - tw - 6);
+				g.pose().pushPose();
+				g.pose().translate(0, 0, 400);
+				g.fill(tx - 3, my + 10, tx + tw + 3, my + 22, 0xF0101218);
+				g.renderOutline(tx - 3, my + 10, tw + 6, 12, PANEL_EDGE_HI);
+				g.drawString(this.font, tip, tx, my + 12, TEXT, false);
+				g.pose().popPose();
+			}
 		}
 		List<Crumb> crumbs = crumbs();
 		for (int i = 0; i < crumbs.size(); i++) {
@@ -952,7 +1313,7 @@ public final class HeroPackGuideScreen extends Screen {
 			int last = Math.min(pages.size(), first + columns - 1);
 			Component mid = first == last ? Component.translatable("projecthero.guide.ui.page", first, pages.size())
 					: Component.translatable("projecthero.guide.ui.pages", first, last, pages.size());
-			g.drawCenteredString(this.font, mid, px + pw / 2, fy, TEXT_DIM);
+			g.drawCenteredString(this.font, fit(mid.getString(), pw / 3 - 4), px + pw / 2, fy, TEXT_DIM);
 			// prev
 			String prev = null;
 			if (spread > 0) {
@@ -977,20 +1338,30 @@ public final class HeroPackGuideScreen extends Screen {
 				boolean over = my >= fy - 3 && my <= fy + 11 && mx > px + pw * 2 / 3;
 				g.drawString(this.font, next, px + pw - 8 - this.font.width(next), fy, over ? GOLD : TEXT, false);
 			}
+			// a thin progress line through the chapter
+			int barW = pw - 16;
+			int done = (int) Math.round(barW * (spread + 1) / (double) n);
+			g.fill(px + 8, py + ph - 3, px + 8 + barW, py + ph - 2, 0x30FFFFFF);
+			g.fill(px + 8, py + ph - 3, px + 8 + done, py + ph - 2, (accent() & 0x00FFFFFF) | 0xC0000000);
 			return;
 		}
 		String hint = switch (view) {
 			case HOME -> Component.translatable("projecthero.guide.ui.hint.home").getString();
 			case SEARCH -> Component.translatable("projecthero.guide.ui.hint.search").getString();
+			case POWERS -> Component.translatable("projecthero.guide.ui.hint.powers").getString();
 			default -> Component.translatable("projecthero.guide.ui.hint.list").getString();
 		};
 		if (System.currentTimeMillis() < noticeUntil) {
 			g.drawString(this.font, fit(HeroPackGuide.pageError().getString(), pw - 16), px + 8, fy, 0xFFFF6060, false);
 			return;
 		}
-		String right = view == View.CATEGORY
-				? Component.translatable("projecthero.guide.ui.chapters", HeroPackGuide.chapterCount(category)).getString()
-				: "";
+		String right = "";
+		if (view == View.CATEGORY) {
+			right = Component.translatable("projecthero.guide.ui.chapters", HeroPackGuide.chapterCount(category)).getString();
+		} else if (view == View.POWERS) {
+			int[] rc = HeroPackGuide.rankedCount();
+			right = Component.translatable("projecthero.guide.ui.tiers_ranked", rc[0], rc[1]).getString();
+		}
 		int rw = this.font.width(right);
 		g.drawString(this.font, fit(hint, pw - 24 - rw), px + 8, fy, TEXT_FAINT, false);
 		if (!right.isEmpty()) {
@@ -998,172 +1369,257 @@ public final class HeroPackGuideScreen extends Screen {
 		}
 	}
 
-	// ---- home
+	// ---- home (v0.17.7: shelves)
 
-	private int tileCols() {
-		return bw >= 360 ? 4 : 2;
+	private record HomeTile(Category category, int x, int y, int w, int h) {
 	}
 
-	private int tileH() {
-		int rowsN = (Category.values().length + tileCols() - 1) / tileCols();
-		int room = bh - (lastChapterRead >= 0 ? 20 : 0) - (rowsN - 1) * 6;
-		int fit = room / rowsN;
-		if (fit < 50) {
-			return Math.max(30, fit); // short tiles: icon + name + count
+	private record ShelfLabel(String text, int y) {
+	}
+
+	private List<HomeTile> homeLayout;
+	private List<ShelfLabel> shelfLabels = List.of();
+	private int homeContentH;
+	private boolean homeLaidOutWithContinue;
+
+	/** Lays the shelves out (cached until the window or "Continue reading" changes); y is relative to the unscrolled list. */
+	private List<HomeTile> homeLayout() {
+		boolean cont = lastChapterRead >= 0;
+		if (homeLayout != null && homeLaidOutWithContinue == cont) {
+			return homeLayout;
 		}
-		return Math.max(50, Math.min(fit, neededTileH()));
-	}
-
-	private int neededTileH = -1;
-	private int neededForW = -1;
-
-	/** The tallest a big tile needs to be for its name (3 lines max), count and wrapped description. */
-	private int neededTileH() {
-		int w = tileW();
-		if (neededTileH > 0 && neededForW == w) {
-			return neededTileH;
+		Category[][] shelves = HeroPackGuide.HOME_SHELVES;
+		int[] cols = new int[shelves.length];
+		int rowsTotal = 0;
+		for (int s = 0; s < shelves.length; s++) {
+			int n = shelves[s].length;
+			// tiles stay at least ~120 px wide so their names fit: 4 across on a wide book, 3 or 2 on a narrow one
+			int fit = Math.max(2, Math.min(4, (bw + TILE_GAP) / (120 + TILE_GAP)));
+			cols[s] = Math.min(n, n == 6 ? Math.min(3, fit) : fit);
+			rowsTotal += (n + cols[s] - 1) / cols[s];
 		}
-		int need = 50;
-		for (Category c : Category.values()) {
-			int textW = w - 4 - 34;
-			int n = Math.min(3, this.font.split(Component.literal(Component.translatable(c.nameKey()).getString()).withStyle(st -> st.withBold(true)), Math.max(20, textW)).size());
-			int nameBottom = n == 1 ? 12 + 9 : 7 + n * 9;
-			int cy = Math.max(nameBottom + 3, 34);
-			int desc = this.font.split(Component.translatable(c.descKey()), w - 12).size();
-			need = Math.max(need, cy + 11 + desc * 9 + 6);
+		int avail = bh - shelves.length * SHELF_H - (cont ? 22 : 0) - rowsTotal * TILE_GAP;
+		int th = Math.max(32, Math.min(84, avail / Math.max(1, rowsTotal)));
+		List<HomeTile> tiles = new ArrayList<>();
+		List<ShelfLabel> labels = new ArrayList<>();
+		int y = 0;
+		for (int s = 0; s < shelves.length; s++) {
+			labels.add(new ShelfLabel(Component.translatable(HeroPackGuide.HOME_SHELF_KEYS[s]).getString(), y));
+			y += SHELF_H;
+			int c = cols[s];
+			int tw = (bw - (c - 1) * TILE_GAP) / c;
+			int n = shelves[s].length;
+			for (int i = 0; i < n; i++) {
+				tiles.add(new HomeTile(shelves[s][i], bx + (i % c) * (tw + TILE_GAP), y + (i / c) * (th + TILE_GAP), tw, th));
+			}
+			y += ((n + c - 1) / c) * (th + TILE_GAP);
 		}
-		neededTileH = need;
-		neededForW = w;
-		return need;
+		homeContentH = y + (cont ? 20 : 0);
+		int off = Math.max(0, (bh - homeContentH) / 3);
+		List<HomeTile> placed = new ArrayList<>();
+		for (HomeTile t : tiles) {
+			placed.add(new HomeTile(t.category, t.x, by + off + t.y, t.w, t.h));
+		}
+		List<ShelfLabel> placedLabels = new ArrayList<>();
+		for (ShelfLabel l : labels) {
+			placedLabels.add(new ShelfLabel(l.text, by + off + l.y));
+		}
+		shelfLabels = placedLabels;
+		homeOff = off;
+		homeLayout = placed;
+		homeLaidOutWithContinue = cont;
+		return placed;
 	}
 
-	/** The home grid sits a little above the middle when there is spare room. */
-	private int homeOffset() {
-		return Math.max(0, (bh - homeHeight()) / 3);
-	}
+	private int homeOff;
 
 	private int homeHeight() {
-		int rowsN = (Category.values().length + tileCols() - 1) / tileCols();
-		return rowsN * (tileH() + 6) + (lastChapterRead >= 0 ? 20 : 0);
-	}
-
-	private int tileW() {
-		return (bw - (tileCols() - 1) * 6) / tileCols();
-	}
-
-	private Category tileAt(double mx, double my) {
-		if (my < by || my > by + bh) {
-			return null;
-		}
-		Category[] cats = Category.values();
-		for (int i = 0; i < cats.length; i++) {
-			int[] r = tileRect(i);
-			if (hit(mx, my, r[0], r[1], r[2], r[3])) {
-				return cats[i];
-			}
-		}
-		return null;
-	}
-
-	private int[] tileRect(int i) {
-		int cols = tileCols();
-		int tw = tileW();
-		int th = tileH();
-		int x = bx + (i % cols) * (tw + 6);
-		int y = by + homeOffset() + (i / cols) * (th + 6) - (int) Math.round(scrollPos);
-		return new int[] { x, y, tw, th };
+		homeLayout();
+		return homeContentH;
 	}
 
 	private boolean continueRowHit(double mx, double my) {
-		int y = continueRowY();
-		return hit(mx, my, bx, y, bw, 16);
+		return hit(mx, my, bx, continueRowY(), bw, 16);
 	}
 
 	private int continueRowY() {
-		int rowsN = (Category.values().length + tileCols() - 1) / tileCols();
-		return by + homeOffset() + rowsN * (tileH() + 6) - (int) Math.round(scrollPos);
+		homeLayout();
+		return by + homeOff + homeContentH - 18 - scrollY();
+	}
+
+	/** The tile's name, count and description; "Powers by Tier" is the null tile. */
+	private String tileName(Category c) {
+		return Component.translatable(c == null ? "projecthero.guide.category.powers" : c.nameKey()).getString();
+	}
+
+	private Component tileDesc(Category c) {
+		return Component.translatable(c == null ? "projecthero.guide.category.powers.desc" : c.descKey());
+	}
+
+	private String tileCount(Category c) {
+		if (c == null) {
+			return Component.translatable("projecthero.guide.ui.powers_count", HeroPackGuide.rankedCount()[1]).getString();
+		}
+		if (c == Category.TIERS) {
+			int[] rc = HeroPackGuide.rankedCount();
+			return Component.translatable("projecthero.guide.ui.tiers_ranked", rc[0], rc[1]).getString();
+		}
+		int n = HeroPackGuide.chapterCount(c);
+		return n == 1 ? Component.translatable("projecthero.guide.ui.one_chapter").getString()
+				: Component.translatable("projecthero.guide.ui.chapters", n).getString();
+	}
+
+	private int tileColour(Category c) {
+		return c == null ? 0xFFE0B0FF : c.colour;
+	}
+
+	private ItemStack tileIcon(Category c) {
+		if (c == null) {
+			ItemStack s = stackOf("minecraft:totem_of_undying");
+			return s.isEmpty() ? new ItemStack(Items.BOOK) : s;
+		}
+		return categoryIcon(c);
 	}
 
 	private void drawHome(GuiGraphics g, int mx, int my) {
+		List<HomeTile> tiles = homeLayout();
 		scissor(g, bx - 2, by - 2, bx + bw + 2, by + bh + 2);
-		Category[] cats = Category.values();
-		for (int i = 0; i < cats.length; i++) {
-			Category c = cats[i];
-			int[] r = tileRect(i);
-			int x = r[0], y = r[1], w = r[2], h = r[3];
-			boolean over = hit(mx, my, x, y, w, h) && my >= by && my <= by + bh;
-			int dark = (c.colour & 0x00FFFFFF) | (over ? 0x50000000 : 0x28000000);
-			g.fillGradient(x, y, x + w, y + h, over ? 0xE0262A38 : 0xD01A1D27, dark);
-			g.renderOutline(x, y, w, h, over ? c.colour : PANEL_EDGE);
-			g.fill(x + 1, y + 1, x + 3, y + h - 1, c.colour);
-			// icon (bigger on tall tiles)
-			ItemStack icon = categoryIcon(c);
-			boolean big = h >= 50 && w >= 90;
-			int textX;
-			if (big) {
-				g.pose().pushPose();
-				g.pose().translate(x + 7, y + 6, 0);
-				g.pose().scale(1.5f, 1.5f, 1f);
-				item(g, icon, 0, 0);
-				g.pose().popPose();
-				textX = x + 34;
+		int sy = scrollY();
+		for (ShelfLabel l : shelfLabels) {
+			int y = l.y - sy;
+			String s = l.text.toUpperCase(java.util.Locale.ROOT);
+			s = fit(s, bw - 20);
+			g.drawString(this.font, s, bx + 1, y + 2, GOLD, false);
+			int lx = bx + 6 + this.font.width(s);
+			g.fill(lx, y + 6, bx + bw, y + 7, 0x40FFD25A);
+		}
+		for (HomeTile t : tiles) {
+			drawTile(g, t.category, t.x, t.y - sy, t.w, t.h, mx, my);
+		}
+		if (lastChapterRead >= 0 && lastChapterRead < HeroPackGuide.chapters().size()) {
+			int y = continueRowY();
+			boolean over = hit(mx, my, bx, y, bw, 16) && my >= by && my <= by + bh;
+			g.fill(bx, y, bx + bw, y + 16, over ? ROW_HOVER : ROW_BG);
+			g.fill(bx, y, bx + 2, y + 16, GOLD);
+			item(g, chapterIcon(lastChapterRead), bx + 4, y);
+			String s = Component.translatable("projecthero.guide.ui.continue",
+					HeroPackGuide.chapterAt(lastChapterRead).title().getString()).getString();
+			g.drawString(this.font, fit(s, bw - 30), bx + 24, y + 4, over ? GOLD : TEXT_DIM, false);
+		}
+		unscissor(g);
+		// v0.17.3: Home scrolls on a small window too -- now with a bar to show it (and to drag)
+		drawScrollbar(g, by, by + bh, homeContentH > bh ? 1 : 0);
+	}
+
+	private void drawTile(GuiGraphics g, Category c, int x, int y, int w, int h, int mx, int my) {
+		int colour = tileColour(c);
+		boolean over = hit(mx, my, x, y, w, h) && my >= by && my <= by + bh;
+		int dark = (colour & 0x00FFFFFF) | (over ? 0x50000000 : 0x28000000);
+		g.fillGradient(x, y, x + w, y + h, over ? 0xE0262A38 : 0xD01A1D27, dark);
+		g.renderOutline(x, y, w, h, over ? colour : PANEL_EDGE);
+		g.fill(x + 1, y + 1, x + 3, y + h - 1, colour);
+		if (over) {
+			g.fill(x + 3, y + 1, x + w - 1, y + 2, (colour & 0x00FFFFFF) | 0x90000000); // a lit top edge
+		}
+		ItemStack icon = tileIcon(c);
+		boolean big = h >= 50 && w >= 90;
+		boolean tierBar = c == null || c == Category.TIERS;
+		int textX;
+		if (big) {
+			g.pose().pushPose();
+			g.pose().translate(x + 7, y + 6, 0);
+			g.pose().scale(1.5f, 1.5f, 1f);
+			item(g, icon, 0, 0);
+			g.pose().popPose();
+			textX = x + 34;
+		} else {
+			item(g, icon, x + 6, y + (h - 16) / 2);
+			textX = x + 26;
+		}
+		int textW = x + w - 4 - textX;
+		String name = tileName(c);
+		String count = tileCount(c);
+		if (!big) {
+			// a short tile: one line of name, one of count, centred on the icon; a name too long for one line wraps onto the
+			// count's line instead (the count is on the list page anyway)
+			int ty = y + Math.max(3, (h - 20) / 2);
+			List<FormattedCharSequence> nameLines = this.font.split(Component.literal(name).withStyle(s -> s.withBold(true)), Math.max(20, textW));
+			if (nameLines.size() == 1) {
+				g.drawString(this.font, nameLines.get(0), textX, ty, over ? 0xFFFFFFFF : TEXT, true);
+				g.drawString(this.font, fit(count, textW), textX, ty + 11, colour, false);
 			} else {
-				item(g, icon, x + 6, y + (h - 16) / 2);
-				textX = x + 26;
+				g.drawString(this.font, nameLines.get(0), textX, ty, over ? 0xFFFFFFFF : TEXT, true);
+				String rest = name.substring(Math.min(name.length(), stringOf(nameLines.get(0)).length())).trim();
+				g.drawString(this.font, Component.literal(fit(rest, textW)).withStyle(s -> s.withBold(true)), textX, ty + 10, over ? 0xFFFFFFFF : TEXT, true);
 			}
-			int textW = x + w - 4 - textX;
-			String name = Component.translatable(c.nameKey()).getString();
-			String count = Component.translatable("projecthero.guide.ui.chapters", HeroPackGuide.chapterCount(c)).getString();
-			if (!big) {
-				// a short tile: one line of name, one of count, centred on the icon
-				int ty = y + Math.max(3, (h - 20) / 2);
-				g.drawString(this.font, Component.literal(fit(name, textW)).withStyle(s -> s.withBold(true)), textX, ty, over ? 0xFFFFFFFF : TEXT, true);
-				g.drawString(this.font, fit(count, textW), textX, ty + 11, c.colour, false);
-			} else {
-				// name beside the big icon (up to 3 lines), then the count and the description across the whole tile
-				List<FormattedCharSequence> nameLines = this.font.split(Component.literal(name).withStyle(s -> s.withBold(true)), Math.max(20, textW));
-				int ty = y + 7;
-				if (nameLines.size() == 1) {
-					ty = y + 12;
-				}
-				for (int l = 0; l < Math.min(3, nameLines.size()); l++) {
-					g.drawString(this.font, nameLines.get(l), textX, ty, over ? 0xFFFFFFFF : TEXT, true);
-					ty += 9;
-				}
-				int cy = Math.max(ty + 3, y + 34);
-				g.drawString(this.font, fit(count, w - 12), x + 7, cy, c.colour, false);
-				int dy = cy + 11;
-				for (FormattedCharSequence line : this.font.split(Component.translatable(c.descKey()), w - 12)) {
-					if (dy + 9 > y + h - 2) {
-						break;
-					}
+		} else {
+			// name beside the big icon (up to 2 lines), the count under it, then the description across the whole tile
+			List<FormattedCharSequence> nameLines = this.font.split(Component.literal(name).withStyle(s -> s.withBold(true)), Math.max(20, textW));
+			int ty = nameLines.size() == 1 ? y + 7 : y + 4;
+			for (int l = 0; l < Math.min(2, nameLines.size()); l++) {
+				g.drawString(this.font, nameLines.get(l), textX, ty, over ? 0xFFFFFFFF : TEXT, true);
+				ty += 9;
+			}
+			if (nameLines.size() == 1) {
+				g.drawString(this.font, fit(count, textW), textX, ty + 1, colour, false);
+				ty += 10;
+			}
+			int dy = Math.max(ty + 2, y + 30);
+			if (nameLines.size() > 1) {
+				g.drawString(this.font, fit(count, w - 12), x + 7, dy, colour, false);
+				dy += 10;
+			}
+			int bottom = y + h - (tierBar ? 6 : 2);
+			// the description only when all of it fits (a sentence cut off halfway reads worse than none)
+			List<FormattedCharSequence> desc = this.font.split(tileDesc(c), w - 12);
+			if (dy + desc.size() * 9 <= bottom) {
+				for (FormattedCharSequence line : desc) {
 					g.drawString(this.font, line, x + 7, dy, TEXT_DIM, false);
 					dy += 9;
 				}
 			}
 		}
-		if (lastChapterRead >= 0 && lastChapterRead < HeroPackGuide.chapters().size()) {
-			int y = continueRowY();
-			boolean over = hit(mx, my, bx, y, bw, 16);
-			g.fill(bx, y, bx + bw, y + 16, over ? ROW_HOVER : ROW_BG);
-			item(g, chapterIcon(lastChapterRead), bx + 2, y);
-			String s = Component.translatable("projecthero.guide.ui.continue",
-					HeroPackGuide.chapterAt(lastChapterRead).title().getString()).getString();
-			g.drawString(this.font, fit(s, bw - 30), bx + 22, y + 4, over ? GOLD : TEXT_DIM, false);
+		if (tierBar) {
+			drawTierBar(g, x + 5, y + h - 4, w - 9);
 		}
-		unscissor(g);
-		// v0.17.3: Home scrolls on a small window too -- now with a bar to show it (and to drag)
-		drawScrollbar(g, by, by + bh, 1);
 	}
 
-	// ---- category
+	/** v0.17.7: a 2 px bar split by how many powers sit in each tier (grey = not yet ranked). */
+	private void drawTierBar(GuiGraphics g, int x, int y, int w) {
+		int[] counts = new int[PowerRank.values().length + 1];
+		int total = 0;
+		for (IndexEntry e : HeroPackGuide.powersByTier()) {
+			if (e.isHeading()) {
+				continue;
+			}
+			PowerRank r = HeroPackGuide.rankOf(e.chapterIndex());
+			counts[r == null ? counts.length - 1 : r.ordinal()]++;
+			total++;
+		}
+		if (total == 0) {
+			return;
+		}
+		int cx = x;
+		for (int i = 0; i < counts.length; i++) {
+			if (counts[i] == 0) {
+				continue;
+			}
+			int seg = Math.max(2, (int) Math.round(w * counts[i] / (double) total));
+			int end = Math.min(x + w, i == counts.length - 1 ? x + w : cx + seg);
+			int col = i < PowerRank.values().length ? 0xFF000000 | PowerRank.values()[i].colour : UNRANKED_GREY;
+			g.fill(cx, y, end, y + 2, col);
+			cx = end;
+		}
+	}
 
-	private int categoryRowAt(double mx, double my) {
+	// ---- category / Powers by Tier
+
+	private int listRowAt(double mx, double my) {
 		if (my < listTop() || my > listBottom() || mx < bx || mx > bx + bw) {
 			return -1;
 		}
-		int y = listTop() - (int) Math.round(scrollPos);
-		for (IndexEntry e : HeroPackGuide.categoryEntries(category)) {
+		int y = listTop() - scrollY();
+		for (IndexEntry e : entries()) {
 			int h = e.isHeading() ? SUB_H : ROW_H + 2;
 			if (!e.isHeading() && my >= y && my < y + ROW_H) {
 				return e.chapterIndex();
@@ -1173,21 +1629,31 @@ public final class HeroPackGuideScreen extends Screen {
 		return -1;
 	}
 
-	private void drawCategory(GuiGraphics g, int mx, int my) {
+	private void drawList(GuiGraphics g, int mx, int my) {
+		if (filterable()) {
+			drawChips(g, mx, my);
+		}
 		int top = listTop();
 		int bottom = listBottom();
+		List<IndexEntry> list = entries();
+		if (list.isEmpty()) {
+			int y = top + 10;
+			for (FormattedCharSequence line : this.font.split(Component.translatable("projecthero.guide.ui.filter.none"), bw - 8)) {
+				g.drawString(this.font, line, bx + 4, y, TEXT_DIM, false);
+				y += 10;
+			}
+			return;
+		}
+		int accent = accent();
 		scissor(g, bx - 2, top, bx + bw + 2, bottom);
-		int y = top - (int) Math.round(scrollPos);
+		int y = top - scrollY();
 		int sbW = contentHeight() > bottom - top ? 6 : 0;
 		int rowW = bw - sbW;
 		boolean pointerIn = my >= top && my <= bottom;
-		for (IndexEntry e : HeroPackGuide.categoryEntries(category)) {
+		for (IndexEntry e : list) {
 			if (e.isHeading()) {
 				if (y + SUB_H > top && y < bottom) {
-					String s = e.label().getString().toUpperCase(java.util.Locale.ROOT);
-					g.drawString(this.font, fit(s, rowW - 8), bx + 2, y + 5, category.colour, false);
-					int lx = bx + 6 + Math.min(this.font.width(s), rowW - 8);
-					g.fill(lx, y + 9, bx + rowW, y + 10, (category.colour & 0x00FFFFFF) | 0x50000000);
+					drawListHeading(g, e, y, rowW, accent);
 				}
 				y += SUB_H;
 				continue;
@@ -1197,14 +1663,18 @@ public final class HeroPackGuideScreen extends Screen {
 				int x = bx + indent;
 				int w = rowW - indent;
 				boolean over = pointerIn && hit(mx, my, x, y, w, ROW_H);
+				int ch = e.chapterIndex();
+				Category cat = HeroPackGuide.categoryOf(ch);
+				int barCol = view == View.POWERS ? cat.colour : accent;
 				g.fill(x, y, x + w, y + ROW_H, over ? ROW_HOVER : ROW_BG);
-				g.fill(x, y, x + 2, y + ROW_H, over ? category.colour : (category.colour & 0x00FFFFFF) | 0x80000000);
-				item(g, chapterIcon(e.chapterIndex()), x + 5, y + 3);
-				String title = e.label().getString();
-				g.drawString(this.font, fit(title, w - 40), x + 26, y + 3, over ? 0xFFFFFFFF : TEXT, false);
-				String sub = subtitle(e.chapterIndex());
+				g.fill(x, y, x + 2, y + ROW_H, over ? barCol : (barCol & 0x00FFFFFF) | 0x80000000);
+				item(g, chapterIcon(ch), x + 5, y + 3);
+				int pillW = drawPill(g, ch, x + w - 14, y + 6, true);
+				int textW = w - 40 - (pillW > 0 ? pillW + 4 : 0);
+				g.drawString(this.font, fit(e.label().getString(), textW), x + 26, y + 3, over ? 0xFFFFFFFF : TEXT, false);
+				String sub = view == View.POWERS ? Component.translatable(cat.nameKey()).getString() : subtitle(ch);
 				if (!sub.isEmpty()) {
-					g.drawString(this.font, fit(sub, w - 40), x + 26, y + 12, TEXT_FAINT, false);
+					g.drawString(this.font, fit(sub, textW), x + 26, y + 12, view == View.POWERS ? (cat.colour & 0x00FFFFFF) | 0xB0000000 : TEXT_FAINT, false);
 				}
 				g.drawString(this.font, ">", x + w - 10, y + 7, over ? GOLD : TEXT_FAINT, false);
 			}
@@ -1214,11 +1684,89 @@ public final class HeroPackGuideScreen extends Screen {
 		drawScrollbar(g, top, bottom, sbW);
 	}
 
+	/** A sub-heading row; on Powers by Tier the tier's own colour, name and damage ranges. */
+	private void drawListHeading(GuiGraphics g, IndexEntry e, int y, int rowW, int accent) {
+		TextColor tc = e.label().getStyle().getColor();
+		int col = tc != null ? 0xFF000000 | tc.getValue() : accent;
+		String s = e.label().getString().toUpperCase(java.util.Locale.ROOT);
+		s = fit(s, rowW - 8);
+		int x = bx + 2;
+		if (view == View.POWERS) {
+			g.fill(x, y + 4, x + 4, y + 11, col); // a tier swatch
+			x += 7;
+		}
+		g.drawString(this.font, s, x, y + 4, col, false);
+		int lx = x + 4 + this.font.width(s);
+		if (view == View.POWERS) {
+			PowerRank r = rankNamed(e);
+			if (r != null) {
+				String ranges = HeroPackGuide.tierRanges(r).getString();
+				int room = bx + rowW - lx - 8;
+				if (this.font.width(ranges) <= room) {
+					g.drawString(this.font, ranges, bx + rowW - this.font.width(ranges) - 2, y + 4, TEXT_FAINT, false);
+					g.fill(lx, y + 8, bx + rowW - this.font.width(ranges) - 6, y + 9, (col & 0x00FFFFFF) | 0x50000000);
+					return;
+				}
+			}
+		}
+		g.fill(lx, y + 8, bx + rowW, y + 9, (col & 0x00FFFFFF) | 0x50000000);
+	}
+
+	/** The tier a Powers by Tier heading names (its label is that tier's badge). */
+	private static PowerRank rankNamed(IndexEntry e) {
+		if (e.label().getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents t) {
+			for (PowerRank r : PowerRank.values()) {
+				if (t.getKey().equals("projecthero.rank." + r.id)) {
+					return r;
+				}
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * v0.17.7: the chapter's tier pill ("Street" in the tier's colour), right-aligned so it ends at {@code right}. Returns its width
+	 * (0 when the chapter isn't placed).
+	 */
+	private int drawPill(GuiGraphics g, int ch, int right, int y, boolean draw) {
+		PowerRank r = HeroPackGuide.rankOf(ch);
+		if (r == null) {
+			return 0;
+		}
+		String t = Component.translatable("projecthero.rank.short." + r.id).getString();
+		int w = this.font.width(t) + 8;
+		if (draw) {
+			int col = 0xFF000000 | r.colour;
+			int x = right - w;
+			g.fill(x, y, right, y + 11, (col & 0x00FFFFFF) | 0x48000000);
+			g.renderOutline(x, y, w, 11, col);
+			g.drawString(this.font, t, x + 4, y + 2, brighten(col), false);
+		}
+		return w;
+	}
+
+	private static String stringOf(FormattedCharSequence seq) {
+		StringBuilder sb = new StringBuilder();
+		seq.accept((i, style, cp) -> {
+			sb.appendCodePoint(cp);
+			return true;
+		});
+		return sb.toString();
+	}
+
+	private static int brighten(int argb) {
+		int r = (argb >> 16) & 0xFF, gr = (argb >> 8) & 0xFF, b = argb & 0xFF;
+		r = r + (255 - r) / 3;
+		gr = gr + (255 - gr) / 3;
+		b = b + (255 - b) / 3;
+		return 0xFF000000 | (r << 16) | (gr << 8) | b;
+	}
+
 	private void drawScrollbar(GuiGraphics g, int top, int bottom, int sbW) {
 		if (sbW == 0) {
 			return;
 		}
-		scroll.renderGlass(g, this.view == View.SEARCH || this.view == View.HOME ? GOLD : category.colour, lastMouseX, lastMouseY);
+		scroll.renderGlass(g, accent(), lastMouseX, lastMouseY);
 	}
 
 	private final Map<Integer, String> subtitles = new HashMap<>();
@@ -1228,7 +1776,7 @@ public final class HeroPackGuideScreen extends Screen {
 		return subtitles.computeIfAbsent(ch, k -> {
 			for (Component line : HeroPackGuide.chapterAt(k).lines()) {
 				String s = line.getString().trim();
-				if (!s.isEmpty()) {
+				if (!s.isEmpty() && HeroPackGuide.tierOfLine(line) == null) {
 					return s;
 				}
 			}
@@ -1266,7 +1814,7 @@ public final class HeroPackGuideScreen extends Screen {
 		scissor(g, bx - 2, top, bx + bw + 2, bottom);
 		boolean pointerIn = my >= top && my <= bottom;
 		for (int i = 0; i < hits.size(); i++) {
-			int y = top + i * (RESULT_H + 2) - (int) Math.round(scrollPos);
+			int y = top + i * (RESULT_H + 2) - scrollY();
 			if (y + RESULT_H <= top || y >= bottom) {
 				continue;
 			}
@@ -1277,7 +1825,8 @@ public final class HeroPackGuideScreen extends Screen {
 			g.fill(bx, y, bx + 2, y + RESULT_H, c.colour);
 			item(g, chapterIcon(h.chapter()), bx + 5, y + 4);
 			int tx = bx + 26;
-			int tw = w - 30;
+			int pillW = drawPill(g, h.chapter(), bx + w - 4, y + 2, true); // v0.17.7: the tier pill on results too
+			int tw = w - 30 - (pillW > 0 ? pillW + 4 : 0);
 			String title = HeroPackGuide.chapterAt(h.chapter()).title().getString();
 			if (h.line() < 0) {
 				drawHighlighted(g, h.text(), h.matchStart(), h.matchLength(), tx, y + 3, tw, over ? 0xFFFFFFFF : TEXT);
@@ -1298,10 +1847,11 @@ public final class HeroPackGuideScreen extends Screen {
 						g.drawString(this.font, fit(h.section(), tx + tw - sx), sx, y + 3, c.colour, false);
 					}
 				}
+				int fullW = w - 30;
 				if (headingHit) {
-					g.drawString(this.font, fit(lineAfter(h.chapter(), h.line()), tw), tx, y + 13, TEXT_FAINT, false);
+					g.drawString(this.font, fit(lineAfter(h.chapter(), h.line()), fullW), tx, y + 13, TEXT_FAINT, false);
 				} else {
-					drawHighlighted(g, h.text(), h.matchStart(), h.matchLength(), tx, y + 13, tw, TEXT_DIM);
+					drawHighlighted(g, h.text(), h.matchStart(), h.matchLength(), tx, y + 13, fullW, TEXT_DIM);
 				}
 			}
 		}
@@ -1353,22 +1903,60 @@ public final class HeroPackGuideScreen extends Screen {
 
 	// ---- chapter
 
+	private int pageTop() {
+		return by + titleBand() + 2;
+	}
+
+	/** The chapter row under the mouse, or -1. */
+	private int chapterRowAt(double mx, double my) {
+		int top = pageTop();
+		if (my < top || my >= by + bh - 10) {
+			return -1;
+		}
+		int gap = 14;
+		int colStride = colW + 4 + gap;
+		for (int c = 0; c < columns; c++) {
+			int p = spread * columns + c;
+			int x = bx + 2 + c * colStride;
+			if (p >= pages.size() || mx < x - 2 || mx > x + colW + 2) {
+				continue;
+			}
+			int[] page = pages.get(p);
+			int r = page[0] + (int) ((my - top) / LINE_H);
+			return r >= page[0] && r < page[1] ? r : -1;
+		}
+		return -1;
+	}
+
 	private void drawChapter(GuiGraphics g, int mx, int my) {
 		if (chapter < 0) {
 			return;
 		}
 		HeroPackGuide.Chapter ch = HeroPackGuide.chapterAt(chapter);
-		// title band: icon, title, a rule in the category's colour
+		Category cat = HeroPackGuide.categoryOf(chapter);
+		// title band: icon, title, the category on the right, a rule in the category's colour
 		item(g, chapterIcon(chapter), bx + 2, by + 1);
-		String title = fit(ch.title().getString(), bw - 26);
+		String catName = Component.translatable(cat.nameKey()).getString();
+		int catW = this.font.width(catName);
+		boolean showCat = bw - 26 - catW - 12 > 80;
+		String title = fit(ch.title().getString(), bw - 26 - (showCat ? catW + 12 : 0));
 		g.drawString(this.font, Component.literal(title).withStyle(s -> s.withBold(true)), bx + 22, by + 5, 0xFFFFFFFF, true);
-		g.fill(bx, by + TITLE_BAND - 3, bx + bw, by + TITLE_BAND - 2, (category.colour & 0x00FFFFFF) | 0xA0000000);
+		if (showCat) {
+			g.drawString(this.font, catName, bx + bw - catW - 2, by + 5, (cat.colour & 0x00FFFFFF) | 0xC0000000, false);
+		}
+		g.fill(bx, by + TITLE_BAND - 3, bx + bw, by + TITLE_BAND - 2, (cat.colour & 0x00FFFFFF) | 0xA0000000);
+		if (bannerRank != null) {
+			drawBanner(g, mx, my);
+		}
 
-		int top = by + TITLE_BAND + 2;
+		int top = pageTop();
 		int gap = 14;
 		int colStride = colW + 4 + gap;
 		long now = System.currentTimeMillis();
 		float flash = flashLine >= 0 && now < flashUntil ? (flashUntil - now) / 2500f : 0f;
+		int hoverRow = chapterRowAt(mx, my);
+		int hoverLink = hoverRow >= 0 ? rowLink.get(hoverRow) : -1;
+		int hoverLine = hoverLink >= 0 ? rowLine.get(hoverRow) : -1;
 		for (int c = 0; c < columns; c++) {
 			int p = spread * columns + c;
 			int x = bx + 2 + c * colStride;
@@ -1386,12 +1974,41 @@ public final class HeroPackGuideScreen extends Screen {
 					int a = (int) (flash * 0x90);
 					g.fill(x - 2, y - 1, x + colW + 2, y + LINE_H - 1, (a << 24) | 0x806010);
 				}
+				if (hoverLine >= 0 && rowLine.get(r) == hoverLine) {
+					g.fill(x - 2, y - 1, x + colW + 2, y + LINE_H - 1, ROW_HOVER); // v0.17.7: a link lights up
+				}
 				g.drawString(this.font, rows.get(r), x, y, 0xFFD8D8E4, false);
+				if (rowLink.get(r) >= 0) {
+					g.drawString(this.font, ">", x + colW - 6, y, rowLine.get(r) == hoverLine ? GOLD : TEXT_FAINT, false);
+				}
 				y += LINE_H;
 			}
 			// page number under the column
 			String num = String.valueOf(p + 1);
 			g.drawString(this.font, num, x + colW / 2 - this.font.width(num) / 2, by + bh - 9, TEXT_FAINT, false);
+		}
+	}
+
+	/** v0.17.7: the coloured tier ribbon under a placed power's title -- "COSMIC TIER" and its damage ranges (wrapped). */
+	private void drawBanner(GuiGraphics g, int mx, int my) {
+		int y = by + TITLE_BAND;
+		int h = bannerHeight() - 3;
+		int col = 0xFF000000 | bannerRank.colour;
+		boolean over = hit(mx, my, bx, y, bw, h);
+		g.fillGradient(bx, y, bx + bw, y + h, (col & 0x00FFFFFF) | (over ? 0x70000000 : 0x55000000), (col & 0x00FFFFFF) | 0x10000000);
+		g.fill(bx, y, bx + 3, y + h, col);
+		g.fill(bx, y + h - 1, bx + bw, y + h, (col & 0x00FFFFFF) | 0x80000000);
+		String name = Component.translatable("projecthero.rank." + bannerRank.id).getString().toUpperCase(java.util.Locale.ROOT);
+		g.drawString(this.font, Component.literal(fit(name, bw - 16)).withStyle(s -> s.withBold(true)), bx + 8, y + 4, brighten(col), true);
+		String hint = Component.translatable("projecthero.guide.ui.banner_hint").getString();
+		int nameW = this.font.width(name) + 8;
+		if (over && this.font.width(hint) + nameW + 20 < bw) {
+			g.drawString(this.font, hint, bx + bw - this.font.width(hint) - 4, y + 4, 0xFFFFFFFF, false);
+		}
+		int ly = y + 15;
+		for (FormattedCharSequence line : bannerLines) {
+			g.drawString(this.font, line, bx + 8, ly, 0xFFF0F0F6, false);
+			ly += 10;
 		}
 	}
 

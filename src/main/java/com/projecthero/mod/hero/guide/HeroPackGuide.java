@@ -892,6 +892,7 @@ public final class HeroPackGuide {
 				lines.add(Component.literal("  ").append(r.guideLine()));
 			}
 			para(lines, "projecthero.guide.power_tiers.placed");
+			para(lines, "projecthero.guide.power_tiers.see_chapter"); // v0.17.7: the Power Tiers chapter has the full list
 			blank(lines);
 			// v0.16.1: the projectheroUniquePowers gamerule
 			head(lines, "projecthero.guide.unique_powers");
@@ -2605,6 +2606,8 @@ public final class HeroPackGuide {
 		for (Power power : Powers.enabled()) {
 			out.add(powerChapter(power));
 		}
+		// v0.17.7: the Power Tiers chapter (powerTiersChapterIndex), last so no index moves; it is filed second on the home page
+		out.add(powerTiersChapter(out));
 		return out;
 	}
 
@@ -2619,13 +2622,19 @@ public final class HeroPackGuide {
 	 */
 	public enum Category {
 		GETTING_STARTED("getting_started", 0xFFE8C66A, "projecthero:guidebook"),
+		/** v0.17.7 (user: "add the tiers to the guidebook"): the Power Tiers chapter, second on the home page. */
+		TIERS("tiers", 0xFFC07CFF, "minecraft:nether_star"),
 		MARVEL("marvel", 0xFFE23A3A, "projecthero:iron_man_mark_3_helmet", "projecthero:vibranium_shield"),
 		DC("dc", 0xFF3A8CFF, "projecthero:power_ring", "projecthero:kryptonian_crystal"),
 		QUIRKS("quirks", 0xFF4FD08A, "projecthero:quirk_serum_random", "projecthero:one_for_all_vestige"),
 		MIRACULOUS("miraculous", 0xFFFF5A8C, "projecthero:miraculous_box", "projecthero:ladybug_earrings"),
 		OTHER("other", 0xFFB07AFF, "projecthero:mutagenic_serum", "projecthero:prismatic_serum"),
+		/** v0.17.7 remake: lab devices, the Wardrobe / backpacks / Target Dummy and the Stark Sorting Station. */
+		GEAR("gear", 0xFFB8C4D0, "projecthero:stark_fabricator", "minecraft:crafting_table"),
+		WORLD("world", 0xFF8FD3C7, "projecthero:hideout_core", "minecraft:compass"),
 		EVENTS("events", 0xFFFF9A3A, "projecthero:boss_trophy", "projecthero:supervillain_token"),
-		WORLD("world", 0xFF8FD3C7, "projecthero:stark_fabricator", "minecraft:crafting_table");
+		/** v0.17.7 remake: squads, beam clashing, loot / alarms / progression. */
+		SYSTEMS("systems", 0xFF7FD0FF, "projecthero:hero_vault", "minecraft:comparator");
 
 		public final String id;
 		public final int colour;
@@ -2644,7 +2653,25 @@ public final class HeroPackGuide {
 		public String descKey() {
 			return "projecthero.guide.category." + id + ".desc";
 		}
+
+		/** v0.17.7: whether this category files powers (the tier badges and the tier filter apply to its list). */
+		public boolean holdsPowers() {
+			return this == MARVEL || this == DC || this == QUIRKS || this == MIRACULOUS || this == OTHER;
+		}
 	}
+
+	/**
+	 * v0.17.7 remake: the home page's shelves, top to bottom. A {@code null} tile is "Powers by Tier" (every power in one list,
+	 * grouped by tier, {@link #powersByTier}).
+	 */
+	public static final Category[][] HOME_SHELVES = {
+			{ Category.GETTING_STARTED, Category.TIERS },
+			{ null, Category.MARVEL, Category.DC, Category.QUIRKS, Category.MIRACULOUS, Category.OTHER },
+			{ Category.GEAR, Category.WORLD, Category.EVENTS, Category.SYSTEMS } };
+
+	/** v0.17.7: the lang key of each home shelf's label. */
+	public static final String[] HOME_SHELF_KEYS = { "projecthero.guide.shelf.start", "projecthero.guide.shelf.powers",
+			"projecthero.guide.shelf.world" };
 
 	private static java.util.Map<Category, List<IndexEntry>> categoryEntries;
 	private static int[] categoryOfChapter;
@@ -2711,6 +2738,9 @@ public final class HeroPackGuide {
 		String id = CHAPTER_ICONS.get(chapterIndex);
 		if (id != null) {
 			return id;
+		}
+		if (chapterIndex == powerTiersChapterIndex()) {
+			return "minecraft:nether_star"; // v0.17.7
 		}
 		if (chapterIndex >= CH_QUIRK_BASE && chapterIndex < CH_VIPERION) { // only the Quirk chapters (v0.17.3: chapters added after them, like Shazam, crashed here)
 			return "projecthero:quirk_serum_" + com.projecthero.mod.quirk.Quirk.values()[chapterIndex - CH_QUIRK_BASE].id;
@@ -2817,7 +2847,26 @@ public final class HeroPackGuide {
 		if (categoryEntries != null) {
 			return;
 		}
-		chapters(); // make sure the flat list exists
+		List<Chapter> all = chapters(); // make sure the flat list exists
+		java.util.Map<Category, List<IndexEntry>> map = categoryMap(all);
+		int[] of = new int[all.size()];
+		java.util.Arrays.fill(of, -1);
+		for (Category c : Category.values()) {
+			for (IndexEntry e : map.get(c)) {
+				if (!e.isHeading() && e.chapterIndex() < of.length) {
+					of[e.chapterIndex()] = c.ordinal();
+				}
+			}
+		}
+		categoryOfChapter = of;
+		categoryEntries = map;
+	}
+
+	/**
+	 * Every category's outline, built from the chapter list {@code all} (pure: {@link #build} uses it for the Power Tiers chapter
+	 * before the list is published).
+	 */
+	private static java.util.Map<Category, List<IndexEntry>> categoryMap(List<Chapter> all) {
 		java.util.Map<Category, List<IndexEntry>> map = new java.util.EnumMap<>(Category.class);
 		for (Category c : Category.values()) {
 			map.put(c, new ArrayList<>());
@@ -2825,8 +2874,9 @@ public final class HeroPackGuide {
 
 		List<IndexEntry> start = map.get(Category.GETTING_STARTED);
 		link(start, "projecthero.guide.overview", CH_OVERVIEW);
-		link(start, "projecthero.guide.squads", CH_SQUADS);
-		link(start, "projecthero.guide.beam_clash", CH_BEAM_CLASH); // v0.17.3
+
+		// v0.17.7 (user: "add the tiers to the guidebook aswell"): its own category, second on the home page
+		link(map.get(Category.TIERS), "projecthero.guide.power_tiers", powerTiersChapterIndex());
 
 		List<IndexEntry> marvel = map.get(Category.MARVEL);
 		link(marvel, "projecthero.guide.thor", CH_THOR);
@@ -2920,33 +2970,232 @@ public final class HeroPackGuide {
 		sub(events, "projecthero.guide.sub.raids");
 		for (int[] row : new int[][] { { CH_ZOMBIE_RAID }, { CH_SUPERVILLAIN_RAID }, { CH_DARKSEID_RAID }, { CH_HORDES }, { CH_SYNDICATE },
 				{ CH_SENTINEL_PURGE }, { CH_ULTRON }, { CH_ULTRON_CONTAGION }, { CH_FROST_GIANTS }, { CH_GALACTUS }, { CH_CRIME } }) {
-			events.add(new IndexEntry(chapters().get(row[0]).title(), 2, row[0]));
+			events.add(new IndexEntry(all.get(row[0]).title(), 2, row[0]));
 		}
 		sub(events, "projecthero.guide.sub.bosses");
 		for (int ch : new int[] { CH_TITAN, CH_ABYSSAL_BEHEMOTH, CH_OATHBREAKER, CH_CARNAGE }) {
-			events.add(new IndexEntry(chapters().get(ch).title(), 2, ch));
+			events.add(new IndexEntry(all.get(ch).title(), 2, ch));
 		}
 
+		// v0.17.7 remake: Gear & Suits / World / Systems split out of "Items, Places & Crafting" and "Getting Started"
+		List<IndexEntry> gear = map.get(Category.GEAR);
+		link(gear, "projecthero.guide.devices", CH_DEVICES);
+		link(gear, "projecthero.guide.stark_sorter", CH_STARK_SORTER);
+
 		List<IndexEntry> world = map.get(Category.WORLD);
-		link(world, "projecthero.guide.loot", CH_LOOT); // v0.17.5
-		link(world, "projecthero.guide.hideouts", CH_HIDEOUTS); // v0.17.5
 		link(world, "projecthero.guide.structures", CH_STRUCTURES);
-		link(world, "projecthero.guide.devices", CH_DEVICES);
-		link(world, "projecthero.guide.stark_sorter", CH_STARK_SORTER);
+		link(world, "projecthero.guide.hideouts", CH_HIDEOUTS); // v0.17.5
 		link(world, "projecthero.guide.city", CH_CITY);
 		link(world, "projecthero.guide.city_services", CH_CITY_SERVICES);
 
-		int[] of = new int[chapters().size()];
-		java.util.Arrays.fill(of, -1);
+		List<IndexEntry> systems = map.get(Category.SYSTEMS);
+		link(systems, "projecthero.guide.squads", CH_SQUADS);
+		link(systems, "projecthero.guide.beam_clash", CH_BEAM_CLASH); // v0.17.3
+		link(systems, "projecthero.guide.loot", CH_LOOT); // v0.17.5: loot, alarms and progression
+		return map;
+	}
+
+	// ---- v0.17.7: power tiers in the book ----
+
+	/** The style insertion that marks a chapter line as a link: {@code LINK + chapterIndex}. */
+	public static final String LINK = "projecthero:goto:";
+	/** The style insertion that marks a power's tier line ({@link #chapter} adds it under the title): {@code TIER_LINE + rank id}. */
+	public static final String TIER_LINE = "projecthero:tier:";
+
+	/** The Power Tiers chapter (after every power chapter, so no earlier index moves; filed second on the home page). */
+	public static int powerTiersChapterIndex() {
+		return CHAPTER_POWER_BASE + Powers.enabled().size();
+	}
+
+	/** The chapter a link line opens, or -1 when {@code line} is not a link. */
+	public static int linkTarget(Component line) {
+		String ins = line == null ? null : line.getStyle().getInsertion();
+		if (ins == null || !ins.startsWith(LINK)) {
+			return -1;
+		}
+		try {
+			return Integer.parseInt(ins.substring(LINK.length()));
+		} catch (NumberFormatException e) {
+			return -1;
+		}
+	}
+
+	/** The tier a power's tier line names, or null when {@code line} is not one. */
+	public static com.projecthero.mod.hero.PowerRank tierOfLine(Component line) {
+		String ins = line == null ? null : line.getStyle().getInsertion();
+		if (ins == null || !ins.startsWith(TIER_LINE)) {
+			return null;
+		}
+		for (com.projecthero.mod.hero.PowerRank r : com.projecthero.mod.hero.PowerRank.values()) {
+			if (ins.endsWith(":" + r.id)) {
+				return r;
+			}
+		}
+		return null;
+	}
+
+	/** The translation key of a chapter's title ("projecthero.guide.thor"), or "" for a literal title / bad index. */
+	public static String titleKey(int chapterIndex) {
+		if (!validChapter(chapterIndex)) {
+			return "";
+		}
+		return titleKey(chapters().get(chapterIndex));
+	}
+
+	private static String titleKey(Chapter ch) {
+		return ch != null && ch.title().getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents t ? t.getKey() : "";
+	}
+
+	/** The tier the user placed this chapter's power in ({@link com.projecthero.mod.hero.PowerRank#ofGuideKey}), or null. */
+	public static com.projecthero.mod.hero.PowerRank rankOf(int chapterIndex) {
+		String key = titleKey(chapterIndex);
+		return key.isEmpty() ? null : com.projecthero.mod.hero.PowerRank.ofGuideKey(key);
+	}
+
+	/** Whether a chapter is a power's page (filed under a power category; not an overview like Quirks or Mutations). */
+	public static boolean isPowerChapter(int chapterIndex) {
+		buildCategories();
+		return powerChapters(categoryEntries).containsKey(chapterIndex);
+	}
+
+	/** The power chapters in book order (Marvel, DC, Quirks, Miraculous, Other), each once, with the category it is filed under. */
+	private static java.util.Map<Integer, Category> powerChapters(java.util.Map<Category, List<IndexEntry>> map) {
+		java.util.Map<Integer, Category> out = new java.util.LinkedHashMap<>();
 		for (Category c : Category.values()) {
+			if (!c.holdsPowers()) {
+				continue;
+			}
 			for (IndexEntry e : map.get(c)) {
-				if (!e.isHeading() && e.chapterIndex() < of.length) {
-					of[e.chapterIndex()] = c.ordinal();
+				int ch = e.chapterIndex();
+				if (e.isHeading() || ch == CH_QUIRKS || ch == CH_MUTATION || ch == CH_COMBOS || ch == CH_MASTER_CONTROL) {
+					continue;
+				}
+				out.putIfAbsent(ch, c);
+			}
+		}
+		return out;
+	}
+
+	/**
+	 * The "Powers by Tier" list: a heading per tier (the tier's coloured name) with its placed powers under it, then "Not yet
+	 * ranked" and the rest. Built from {@link com.projecthero.mod.hero.PowerRank#ofGuideKey}, so a new placement shows up here.
+	 */
+	public static List<IndexEntry> powersByTier() {
+		buildCategories();
+		java.util.Map<Integer, Category> powers = powerChapters(categoryEntries);
+		List<IndexEntry> out = new ArrayList<>();
+		for (com.projecthero.mod.hero.PowerRank r : com.projecthero.mod.hero.PowerRank.values()) {
+			out.add(new IndexEntry(r.badge(), 0, -1));
+			for (int ch : powers.keySet()) {
+				if (rankOf(ch) == r) {
+					out.add(new IndexEntry(chapters().get(ch).title(), 1, ch));
 				}
 			}
 		}
-		categoryOfChapter = of;
-		categoryEntries = map;
+		out.add(new IndexEntry(Component.translatable("projecthero.guide.tiers.unranked").withStyle(ChatFormatting.GRAY, ChatFormatting.BOLD), 0, -1));
+		for (int ch : powers.keySet()) {
+			if (rankOf(ch) == null) {
+				out.add(new IndexEntry(chapters().get(ch).title(), 1, ch));
+			}
+		}
+		return out;
+	}
+
+	/** How many power chapters there are, and how many of them the user has placed in a tier. */
+	public static int[] rankedCount() {
+		buildCategories();
+		int ranked = 0, total = 0;
+		for (int ch : powerChapters(categoryEntries).keySet()) {
+			total++;
+			if (rankOf(ch) != null) {
+				ranked++;
+			}
+		}
+		return new int[] { ranked, total };
+	}
+
+	/** "Melee 7-10 · Abilities 8-10 · Ultimate 15-20" for one tier. */
+	public static net.minecraft.network.chat.MutableComponent tierRanges(com.projecthero.mod.hero.PowerRank r) {
+		return Component.translatable("projecthero.guide.tiers.ranges", num(r.meleeMin), num(r.meleeMax), num(r.abilityMin), num(r.abilityMax),
+				num(r.ultimateMin), num(r.ultimateMax));
+	}
+
+	private static String num(float f) {
+		return f == (int) f ? Integer.toString((int) f) : Float.toString(f);
+	}
+
+	/**
+	 * v0.17.7 (user: "can you add the tiers to the guidebook aswell please i didnt see it"): the Power Tiers chapter -- the four
+	 * tiers, their damage, what a tier means, then every power under its tier (each a link to its chapter) and the unranked rest.
+	 */
+	private static Chapter powerTiersChapter(List<Chapter> all) {
+		java.util.Map<Integer, Category> powers = powerChapters(categoryMap(all));
+		return chapter("projecthero.guide.power_tiers", lines -> {
+			para(lines, "projecthero.guide.tiers.intro");
+			blank(lines);
+			head(lines, "projecthero.guide.tiers.the_four");
+			for (com.projecthero.mod.hero.PowerRank r : com.projecthero.mod.hero.PowerRank.values()) {
+				if (r.ordinal() > 0) {
+					blank(lines);
+				}
+				lines.add(Component.literal(" ").append(r.badge()));
+				lines.add(Component.literal("   ").append(tierRanges(r).withStyle(ChatFormatting.WHITE)));
+				lines.add(Component.literal("   ").append(Component.translatable("projecthero.guide.tiers." + r.id + ".desc")).withStyle(ChatFormatting.GRAY));
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.tiers.meaning");
+			para(lines, "projecthero.guide.tiers.meaning.damage");
+			blank(lines);
+			para(lines, "projecthero.guide.tiers.meaning.toughness");
+			blank(lines);
+			para(lines, "projecthero.guide.tiers.meaning.bosses");
+			lines.add(pageBreak());
+			head(lines, "projecthero.guide.tiers.roster");
+			para(lines, "projecthero.guide.tiers.roster.hint");
+			for (com.projecthero.mod.hero.PowerRank r : com.projecthero.mod.hero.PowerRank.values()) {
+				blank(lines);
+				int n = 0;
+				for (int ch : powers.keySet()) {
+					n += com.projecthero.mod.hero.PowerRank.ofGuideKey(titleKey(all.get(ch))) == r ? 1 : 0;
+				}
+				lines.add(Component.empty().append(r.badge()).append(Component.literal("  (" + n + ")").withStyle(ChatFormatting.DARK_GRAY)));
+				if (n == 0) {
+					lines.add(Component.literal("  ").append(Component.translatable("projecthero.guide.tiers.none"))
+							.withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
+				}
+				for (var e : powers.entrySet()) {
+					if (com.projecthero.mod.hero.PowerRank.ofGuideKey(titleKey(all.get(e.getKey()))) == r) {
+						lines.add(powerLink(all, e.getKey(), e.getValue(), r.colour));
+					}
+				}
+			}
+			blank(lines);
+			int unranked = 0;
+			for (int ch : powers.keySet()) {
+				unranked += com.projecthero.mod.hero.PowerRank.ofGuideKey(titleKey(all.get(ch))) == null ? 1 : 0;
+			}
+			lines.add(Component.translatable("projecthero.guide.tiers.unranked").withStyle(ChatFormatting.GRAY, ChatFormatting.BOLD)
+					.append(Component.literal("  (" + unranked + ")").withStyle(ChatFormatting.DARK_GRAY)));
+			para(lines, "projecthero.guide.tiers.unranked.body");
+			Category group = null;
+			for (var e : powers.entrySet()) {
+				if (com.projecthero.mod.hero.PowerRank.ofGuideKey(titleKey(all.get(e.getKey()))) != null) {
+					continue;
+				}
+				if (e.getValue() != group) {
+					group = e.getValue();
+					lines.add(Component.literal(" ").append(Component.translatable(group.nameKey())).withStyle(s -> s.withColor(0x8FA3B8).withItalic(true)));
+				}
+				lines.add(powerLink(all, e.getKey(), e.getValue(), 0x9A9AA8));
+			}
+		});
+	}
+
+	/** One clickable roster line: "  • Thor" (the Powers by Tier list shows the franchise; here it wrapped on narrow pages). */
+	private static Component powerLink(List<Chapter> all, int ch, Category category, int bulletColour) {
+		return Component.literal("  • ").withStyle(s -> s.withColor(bulletColour))
+				.append(all.get(ch).title().copy().withStyle(ChatFormatting.WHITE))
+				.withStyle(s -> s.withInsertion(LINK + ch));
 	}
 
 	private static List<IndexEntry> buildIndex() {
@@ -3055,6 +3304,9 @@ public final class HeroPackGuide {
 
 	/** A section heading line: drawn bold by {@link #head} (and the bold unit / traversal titles). */
 	public static boolean isSectionLine(Component line) {
+		if (tierOfLine(line) != null) {
+			return false; // v0.17.7: the tier line under a power's title is a banner, not a section
+		}
 		if (line.getStyle().isBold()) {
 			return true;
 		}
@@ -3361,10 +3613,11 @@ public final class HeroPackGuide {
 			report("Building chapter " + titleKey, e);
 			lines.add(pageError());
 		}
-		// v0.17.7 (user): a placed power shows its balance tier (Street / City / Planet / Cosmic) under the "Primary Power" line
+		// v0.17.7 (user): a placed power shows its balance tier (Street / City / Planet / Cosmic) under the "Primary Power" line;
+		// marked (TIER_LINE) so the book and the I menu draw it as a coloured banner
 		com.projecthero.mod.hero.PowerRank rank = com.projecthero.mod.hero.PowerRank.ofGuideKey(titleKey);
 		if (rank != null) {
-			lines.add(Math.min(1, lines.size()), rank.guideLine());
+			lines.add(Math.min(1, lines.size()), Component.empty().append(rank.guideLine()).withStyle(s -> s.withInsertion(TIER_LINE + rank.id)));
 		}
 		return new Chapter(Component.translatable(titleKey), lines);
 	}

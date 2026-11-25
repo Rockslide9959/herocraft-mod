@@ -53,6 +53,22 @@ public final class GlassPage {
 
 	public void clear() {
 		body.clear();
+		bands.clear();
+	}
+
+	/**
+	 * v0.17.7: rows drawn on a coloured ribbon (a power's tier banner) -- keyed by the row object itself, so a screen that fills
+	 * {@link #lines()} directly can mark rows as it adds them. Cleared by {@link #clear} / {@link #clearBands}.
+	 */
+	private final java.util.Map<FormattedCharSequence, Integer> bands = new java.util.IdentityHashMap<>();
+
+	/** v0.17.7: draws {@code row} (already on the page) on a ribbon of {@code rgb}. */
+	public void band(FormattedCharSequence row, int rgb) {
+		bands.put(row, rgb);
+	}
+
+	public void clearBands() {
+		bands.clear();
 	}
 
 	public List<FormattedCharSequence> lines() {
@@ -114,6 +130,13 @@ public final class GlassPage {
 		int y = top + 12 + 1 - scroll.offset();
 		for (FormattedCharSequence line : body) {
 			if (y + LINE_H > top + 12 && y < bottom) {
+				Integer band = bands.get(line);
+				if (band != null) {
+					// v0.17.7: the tier banner -- a tinted ribbon with a solid edge in the tier's colour
+					g.fill(left - 4, y - 1, right, y + LINE_H, 0xB0101218); // a dark base so the tier colour reads on any sky
+					g.fillGradient(left - 4, y - 1, right, y + LINE_H, 0x48000000 | (band & 0xFFFFFF), 0x10000000 | (band & 0xFFFFFF));
+					g.fill(left - 4, y - 1, left - 2, y + LINE_H, 0xFF000000 | band);
+				}
 				g.drawString(font, line, left, y, TEXT, false);
 			}
 			y += LINE_H;
