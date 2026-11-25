@@ -1,6 +1,5 @@
 package com.projecthero.mod.client.thor;
 
-import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.client.render.FlowingCapeLayer;
 import com.projecthero.mod.power.ThorPowers;
 import com.projecthero.mod.thorarmor.ThorArmorItems;
@@ -20,11 +19,11 @@ import net.minecraft.world.entity.EquipmentSlot;
  * v0.17.7: re-dyed in the reds of the cape painted on the new Thor skin (which was taken off the skin itself, see
  * {@code ThorArmorItem}), so this is the only cape.
  *
- * <p>It streams in the wind of Thor's flight, swings and sways on the ground and follows the crouch. On suit-up it unrolls down from the
- * collar once the helmet has formed, and rolls back up on H -- see {@link ThorSuitReveal#progress}.
+ * <p>It streams in the wind of Thor's flight, swings and sways on the ground and follows the crouch. On suit-up (v0.17.7 polish) it builds
+ * on pixel by pixel from the collar down once the helmet has formed, and its pixels vanish hem-first on H -- see
+ * {@link ThorSuitReveal#capeTexture}.
  */
 public class ThorCapeLayer extends FlowingCapeLayer {
-	private static final ResourceLocation TEXTURE = ProjectHeroMod.id("textures/entity/thor_cape.png");
 
 	public ThorCapeLayer(RenderLayerParent<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> parent) {
 		super(parent);
@@ -37,7 +36,8 @@ public class ThorCapeLayer extends FlowingCapeLayer {
 
 	@Override
 	protected ResourceLocation texture(AbstractClientPlayer player) {
-		return TEXTURE;
+		// v0.17.7 polish: on suit-up the cloth builds texel by texel from the collar down (ThorSuitReveal#capeTexture)
+		return ThorSuitReveal.capeTexture(player, net.minecraft.client.Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
 	}
 
 	@Override
@@ -47,7 +47,8 @@ public class ThorCapeLayer extends FlowingCapeLayer {
 
 	@Override
 	protected float unfurl(AbstractClientPlayer player, float partialTick) {
-		// v0.17.7: on the cape's own part of the suit clock, after the helmet
-		return ThorSuitReveal.progress(player, com.projecthero.mod.thorarmor.ThorArmor.PART_CAPE, partialTick);
+		// v0.17.7 polish: full length as soon as the cape's part of the suit clock starts -- it no longer unrolls, its texels fill in
+		// (ThorSuitReveal#capeTexture), and it is gone once they have all vanished again on H
+		return ThorSuitReveal.progress(player, com.projecthero.mod.thorarmor.ThorArmor.PART_CAPE, partialTick) > 0f ? 1f : 0f;
 	}
 }

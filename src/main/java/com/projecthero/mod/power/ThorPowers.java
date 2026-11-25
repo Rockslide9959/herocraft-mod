@@ -525,7 +525,6 @@ public final class ThorPowers {
 							player.getAbilities().setFlyingSpeed(speed);
 							player.onUpdateAbilities();
 						}
-						tickFlightTrail(player);
 						if (grace) {
 							tickHammerlessFlightGrace(player);
 						}
@@ -571,14 +570,9 @@ public final class ThorPowers {
 		player.setAttached(ModAttachments.HAMMERLESS_FLIGHT_TICKS, remaining);
 	}
 
-	private static void tickFlightTrail(ServerPlayer player) {
-		if (player.tickCount % 2 != 0 || !(player.level() instanceof ServerLevel serverLevel)) {
-			return;
-		}
-		Vec3 behind = player.position().subtract(player.getLookAngle().scale(0.6)).add(0, player.getBbHeight() / 2, 0);
-		serverLevel.sendParticles(ParticleTypes.ELECTRIC_SPARK, behind.x, behind.y, behind.z, 3, 0.2, 0.2, 0.2, 0.01);
-		serverLevel.sendParticles(ParticleTypes.CLOUD, behind.x, behind.y, behind.z, 2, 0.15, 0.15, 0.15, 0.01);
-	}
+	// v0.17.7 polish (user: "Change the flight vfx please, remove the particles, make it a very slightly trail behind him please"): the
+	// spark + cloud particles that used to puff out behind a flying Thor every other tick are gone; the client draws a faint, short
+	// streak behind him instead (client thor/ThorFlightTrail).
 
 	// ---------------- lightning strike (+ chain lightning) ----------------
 

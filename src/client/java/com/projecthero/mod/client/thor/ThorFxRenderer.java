@@ -45,6 +45,7 @@ public final class ThorFxRenderer {
 
 	public static void initialize() {
 		WorldRenderEvents.AFTER_ENTITIES.register(ThorFxRenderer::render);
+		ThorFlightTrail.initialize(); // v0.17.7 polish: the faint streak behind a flying Thor (replaces the flight particles)
 	}
 
 	private static void render(WorldRenderContext context) {

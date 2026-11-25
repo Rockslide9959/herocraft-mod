@@ -1,0 +1,106 @@
+	/** Server side: push a flying player straight down hard every tick (for the hard-landing film). */
+	private static int diveTicks;
+
+	private static void plan() {
+		Minecraft mc = Minecraft.getInstance();
+		int t = 0;
+		// ---- the suit-up (H), close front three-quarters: each piece building on pixel by pixel under the bolts, then the cape
+		at(t, () -> cam(30f, 2.7f, 1.45f, 1.0f));
+		film(t + 2, t + 72, "film_suitup");
+		at(t + 6, () -> server(mc, p -> {
+			com.projecthero.mod.power.StormEnergy.set(p, com.projecthero.mod.power.StormEnergy.MAX);
+			com.projecthero.mod.thorarmor.ThorArmor.toggle(p);
+		}));
+		t += 78;
+		at(t, () -> cam(0f, 2.6f, 1.3f, 1.0f));
+		at(t + 6, () -> shot(mc, "complete_front"));
+		at(t + 8, () -> cam(180f, 2.6f, 1.4f, 1.0f));
+		at(t + 14, () -> shot(mc, "complete_back"));
+		t += 18;
+		// ---- the removal (H), close front three-quarters: cape first, then helmet, chestplate, greaves, boots, pixel by pixel
+		at(t, () -> cam(30f, 2.7f, 1.45f, 1.0f));
+		film(t + 2, t + 40, "film_removal");
+		at(t + 6, () -> server(mc, p -> com.projecthero.mod.thorarmor.ThorArmor.toggle(p)));
+		t += 44;
+		// ---- the suit-up again from behind (the cape filling in from the collar down)
+		at(t, () -> cam(160f, 2.8f, 1.6f, 1.1f));
+		film(t + 2, t + 72, "film_suitup_back");
+		at(t + 6, () -> server(mc, p -> com.projecthero.mod.thorarmor.ThorArmor.toggle(p)));
+		t += 78;
+		// ---- HUD: the Storm Energy bar as a blue XP bar (normal first-person view, Mjolnir in hand)
+		at(t, () -> {
+			camPose = null;
+			mc.options.hideGui = false;
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, p -> {
+				hands(p, true);
+				com.projecthero.mod.power.StormEnergy.set(p, com.projecthero.mod.power.StormEnergy.MAX * 0.72f);
+			});
+		});
+		at(t + 8, () -> shot(mc, "hud_blue_xp_bar_72"));
+		at(t + 10, () -> server(mc, p -> com.projecthero.mod.power.StormEnergy.set(p, com.projecthero.mod.power.StormEnergy.MAX)));
+		at(t + 16, () -> shot(mc, "hud_blue_xp_bar_full"));
+		at(t + 18, () -> server(mc, p -> com.projecthero.mod.power.StormEnergy.set(p, com.projecthero.mod.power.StormEnergy.MAX * 0.12f)));
+		at(t + 24, () -> shot(mc, "hud_blue_xp_bar_low"));
+		t += 28;
+		// ---- flight with the trail: take off 10 up, then fly forward level, camera side-behind
+		at(t, () -> server(mc, p -> {
+			home(p);
+			com.projecthero.mod.power.StormEnergy.set(p, com.projecthero.mod.power.StormEnergy.MAX);
+			p.teleportTo(base.getX() + 0.5, base.getY() + 10, base.getZ() + 0.5);
+			com.projecthero.mod.power.ThorPowers.toggleFlight(p);
+			System.out.println("[HARNESS] flying: " + com.projecthero.mod.power.ThorPowers.isFlying(p));
+		}));
+		at(t + 1, () -> pitch = 0f);
+		at(t + 4, () -> cam(130f, 5.0f, 1.6f, 0.9f));
+		film(t + 8, t + 100, "film_fly_trail");
+		at(t + 14, () -> {
+			walk = true;
+			sprint = true;
+		});
+		at(t + 50, () -> shot(mc, "fly_trail_side_back"));
+		at(t + 56, () -> cam(90f, 5.0f, 1.0f, 0.9f));
+		at(t + 80, () -> shot(mc, "fly_trail_side"));
+		at(t + 100, () -> {
+			walk = false;
+			sprint = false;
+		});
+		t += 106;
+		// ---- a hard landing: 24 up, then driven straight down into the ground
+		at(t, () -> server(mc, p -> {
+			home(p);
+			p.teleportTo(base.getX() + 0.5, base.getY() + 24, base.getZ() + 0.5);
+			if (!com.projecthero.mod.power.ThorPowers.isFlying(p)) {
+				com.projecthero.mod.power.ThorPowers.toggleFlight(p);
+			}
+		}));
+		at(t + 1, () -> pitch = 8f);
+		at(t + 4, () -> cam(55f, 6.0f, 1.2f, 0.6f));
+		at(t + 10, () -> diveTicks = 30);
+		film(t + 8, t + 60, "film_hard_landing");
+		t += 66;
+		final int end = t;
+		at(end, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	/** Called every client tick: the dive, applied on the server thread. */
+	private static void dive(Minecraft mc) {
+		if (diveTicks <= 0) {
+			return;
+		}
+		diveTicks--;
+		server(mc, p -> {
+			if (p.onGround() && !com.projecthero.mod.power.ThorPowers.isFlying(p)) {
+				var a = com.projecthero.mod.flight.landing.HeroLanding.active(p);
+				System.out.println("[HARNESS] landed, hero landing: " + (a == null ? "none" : a.style() + " s=" + a.strength()));
+				diveTicks = 0;
+				return;
+			}
+			p.setDeltaMovement(0, -1.5, 0);
+			p.hurtMarked = true;
+		});
+	}
+

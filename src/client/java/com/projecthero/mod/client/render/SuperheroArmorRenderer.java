@@ -570,7 +570,7 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 		// v0.17.7 (user: "no i still want the suit and armour i was just saying remove thors actual skin form the suit and keep the
 		// helmet"): Thor's Armour draws the whole suit in its slots (Thor himself is cleared out of the texture, so the wearer's own
 		// face and skin show), plus its winged helmet on the chestplate's pass -- there is no helmet item, so the armour value is
-		// unchanged -- while nothing else is worn on the head. During H each piece appears whole and settles on (ThorSuitReveal).
+		// unchanged -- while nothing else is worn on the head. During H each piece builds on texel by texel (ThorSuitReveal).
 		if (getAnimatable() instanceof com.projecthero.mod.thorarmor.ThorArmorItem) {
 			applyThorPieces(slot);
 		}
@@ -583,37 +583,36 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 
 	/**
 	 * v0.17.7: Thor's Armour, per slot -- boots / greaves / chestplate (tunic + arm plates) as usual, plus the winged helmet on the
-	 * chestplate's pass while the head slot is empty. On the suit clock each piece is hidden until it arrives, then drawn a little
-	 * oversized and settled down onto the body ({@link com.projecthero.mod.client.thor.ThorSuitReveal#pieceScale}); the scales are
-	 * reset every pass because the baked bones are shared by every wearer.
+	 * chestplate's pass while the head slot is empty. On the suit clock each piece is hidden until it starts, then builds on texel by
+	 * texel ({@link com.projecthero.mod.client.thor.ThorSuitReveal#texture}, swapped in by {@link #getRenderType}). The bone scales are
+	 * still reset every pass (the baked bones are shared by every wearer, and the pre-v0.17.7-polish settle scale used them).
 	 */
 	private void applyThorPieces(EquipmentSlot slot) {
 		Player wearer = getCurrentEntity() instanceof Player p ? p : null;
 		float pt = net.minecraft.client.Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
 		boolean headFree = getCurrentEntity() instanceof net.minecraft.world.entity.LivingEntity le
 				&& le.getItemBySlot(EquipmentSlot.HEAD).isEmpty();
-		thorPiece(this.head, slot == EquipmentSlot.CHEST && headFree, wearer, com.projecthero.mod.thorarmor.ThorArmor.PART_HELMET, pt, 4f);
+		thorPiece(this.head, slot == EquipmentSlot.CHEST && headFree, wearer, com.projecthero.mod.thorarmor.ThorArmor.PART_HELMET, pt);
 		boolean chest = slot == EquipmentSlot.CHEST;
 		int chestPart = com.projecthero.mod.thorarmor.ThorArmor.PART_CHEST;
-		thorPiece(this.body, chest, wearer, chestPart, pt, -6f);
-		thorPiece(this.rightArm, chest, wearer, chestPart, pt, -4f);
-		thorPiece(this.leftArm, chest, wearer, chestPart, pt, -4f);
+		thorPiece(this.body, chest, wearer, chestPart, pt);
+		thorPiece(this.rightArm, chest, wearer, chestPart, pt);
+		thorPiece(this.leftArm, chest, wearer, chestPart, pt);
 		boolean legs = slot == EquipmentSlot.LEGS;
 		int greaves = com.projecthero.mod.thorarmor.ThorArmor.PART_GREAVES;
-		thorPiece(this.rightLeg, legs, wearer, greaves, pt, -6f);
-		thorPiece(this.leftLeg, legs, wearer, greaves, pt, -6f);
+		thorPiece(this.rightLeg, legs, wearer, greaves, pt);
+		thorPiece(this.leftLeg, legs, wearer, greaves, pt);
 		boolean feet = slot == EquipmentSlot.FEET;
 		int boots = com.projecthero.mod.thorarmor.ThorArmor.PART_BOOTS;
-		thorPiece(this.rightBoot, feet, wearer, boots, pt, -10f);
-		thorPiece(this.leftBoot, feet, wearer, boots, pt, -10f);
+		thorPiece(this.rightBoot, feet, wearer, boots, pt);
+		thorPiece(this.leftBoot, feet, wearer, boots, pt);
 	}
 
 	/**
-	 * One Thor bone: shown or not, at the part's settle scale. {@code centreDy} is the piece's centre height above its bone pivot (model
-	 * pixels), so the scale grows the piece round its own middle instead of round the shoulder / hip / neck pivot.
+	 * One Thor bone: shown in its pass once its part has started forming.
 	 */
 	private void thorPiece(@Nullable software.bernie.geckolib.cache.object.GeoBone bone, boolean inPass, @Nullable Player wearer, int part,
-			float pt, float centreDy) {
+			float pt) {
 		if (bone == null) {
 			return;
 		}
@@ -622,12 +621,8 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 			setBoneVisible(bone, false);
 			return;
 		}
-		float s = wearer == null ? 1f : com.projecthero.mod.client.thor.ThorSuitReveal.pieceScale(wearer, part, pt);
-		setBoneVisible(bone, s > 0f);
-		if (s > 0f && s != 1f) {
-			bone.updateScale(s, s, s);
-			bone.setPosY(bone.getPosY() + centreDy * (1f - s));
-		}
+		// v0.17.7 polish: the piece is drawn at its fitted size and builds on texel by texel (ThorSuitReveal#texture, getRenderType)
+		setBoneVisible(bone, wearer == null || com.projecthero.mod.client.thor.ThorSuitReveal.progress(wearer, part, pt) > 0f);
 	}
 
 	/**
@@ -707,6 +702,11 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 		// on a player, a Sentry Mode suit, or anything else wearing a stamped stack
 		if (animatable instanceof com.projecthero.mod.ironman.item.IronManArmorItem bdi) {
 			texture = com.projecthero.mod.client.ironman.IronManBattleDamage.texture(getCurrentEntity(), getCurrentStack(), bdi, texture);
+		}
+		// v0.17.7 polish: each piece of Thor's Armour builds on texel by texel on the suit clock (and comes off the same way)
+		if (getCurrentEntity() instanceof Player th && animatable instanceof com.projecthero.mod.thorarmor.ThorArmorItem
+				&& getCurrentSlot() != null) {
+			texture = com.projecthero.mod.client.thor.ThorSuitReveal.texture(th, getCurrentSlot(), texture, partialTick);
 		}
 		// v0.14.11: the Flash Suit pours out of the ring on the right fist, texel by texel behind a lightning edge
 		if (getCurrentEntity() instanceof Player fl && animatable instanceof com.projecthero.mod.flash.item.FlashSuitItem) {
