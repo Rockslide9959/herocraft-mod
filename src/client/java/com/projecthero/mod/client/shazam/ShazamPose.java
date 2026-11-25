@@ -1,5 +1,11 @@
 package com.projecthero.mod.client.shazam;
 
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import com.projecthero.mod.shazam.Shazam;
@@ -9,6 +15,7 @@ import com.projecthero.mod.shazam.ShazamMoves;
 import com.projecthero.mod.shazam.data.ShazamState;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.util.Mth;
@@ -294,6 +301,11 @@ public final class ShazamPose {
 		}
 		float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
 		boolean right = p.getMainArm() == HumanoidArm.RIGHT;
+		// sprint-flight: both fists out ahead, first, so a move below blends out of it (and wins while it plays)
+		float fly = sprintFlight(p, partial);
+		if (fly > 0.001f) {
+			flightPose(p, m, fly, partial, right);
+		}
 		float[] held = heldFor(s.hold);
 		if (held != null && heldPose(p, s, partial)) {
 			float t = p.level().getGameTime() - s.holdStart - ShazamConfig.HOLD_TICKS + partial;
@@ -321,6 +333,86 @@ public final class ShazamPose {
 		}
 		float[] base = base(m, right);
 		write(m, base, sample(c, age, base), w, right, c.aim);
+	}
+
+	// ================================================================== sprint-flight (both fists forward)
+
+	/**
+	 * User (v0.17.7): "when shazam sprint flies make it so that he puts both his hands in front of him and make it so that you see the
+	 * hands going in front of you in first person". Per player {prev, now}: 0..1, how far into the sprint-flight pose he is, moved
+	 * linearly by 1 / {@link #SPRINT_BLEND_TICKS} a tick (smoothstepped when read), so it blends in and out instead of snapping.
+	 * Client-only, keyed by UUID (no worlds or entities held); emptied when the level goes and trimmed to the players present.
+	 */
+	private static final Map<UUID, float[]> SPRINT = new HashMap<>();
+	private static final float SPRINT_BLEND_TICKS = 5f;
+
+	/** Sprint-flying right now: transformed Shazam (or Family) flying, sprinting along forward (the shared flight's FAST tier). */
+	public static boolean sprintFlying(Player p) {
+		return live(p) != null && Shazam.isFlying(p) && !p.onGround() && !p.isPassenger()
+				&& com.projecthero.mod.client.FlightPoseHelper.tier(p) == com.projecthero.mod.client.FlightPoseHelper.Tier.FAST;
+	}
+
+	/** Once a client tick (ShazamClient), for every player in the level. */
+	public static void clientTick(ClientLevel level) {
+		if (level == null) {
+			SPRINT.clear();
+			return;
+		}
+		Set<UUID> present = new HashSet<>();
+		for (Player p : level.players()) {
+			boolean on = sprintFlying(p);
+			float[] v = SPRINT.get(p.getUUID());
+			if (v == null) {
+				if (!on) {
+					continue;
+				}
+				v = new float[2];
+				SPRINT.put(p.getUUID(), v);
+			}
+			present.add(p.getUUID());
+			v[0] = v[1];
+			v[1] = Mth.clamp(v[1] + (on ? 1f : -1f) / SPRINT_BLEND_TICKS, 0f, 1f);
+		}
+		SPRINT.entrySet().removeIf(e -> !present.contains(e.getKey()) || e.getValue()[0] <= 0f && e.getValue()[1] <= 0f);
+	}
+
+	/** 0..1, eased: how far into the sprint-flight pose {@code p} is (0 when not Shazam / not sprint-flying). */
+	public static float sprintFlight(Player p, float partial) {
+		float[] v = SPRINT.get(p.getUUID());
+		if (v == null || live(p) == null) {
+			return 0f;
+		}
+		return ease(SMOOTH, Mth.lerp(partial, v[0], v[1]));
+	}
+
+	/**
+	 * Third person: the classic flying pose. The body is already laid flat along the flight by the shared flight lean
+	 * ({@code FlightPoseHelper}, which also levels the head), so in model space "straight up" (xRot -PI) is straight ahead: both arms
+	 * reach along it, a touch below the head line, angled in so the fists close up in front of the face; the legs come together
+	 * and trail straight behind (a little of the flight's scissor kept so it isn't stiff); a faint wind tremble on the arms.
+	 * Symmetric, so a left-handed player's pose is its own mirror (the main / off arm sides are still resolved from the main arm).
+	 */
+	private static void flightPose(Player p, HumanoidModel<?> m, float w, float partial, boolean right) {
+		float t = p.tickCount + partial;
+		float mainTremble = Mth.sin(t * 0.93f) * 0.012f;
+		float offTremble = Mth.sin(t * 0.81f + 1.7f) * 0.012f;
+		ModelPart main = right ? m.rightArm : m.leftArm;
+		ModelPart off = right ? m.leftArm : m.rightArm;
+		float sMain = right ? 1f : -1f;
+		// zRot +: the right arm, raised, swings in toward the middle (the left one mirrored)
+		lerpPart(main, w, -(float) Math.PI + 0.1f + mainTremble, 0f, sMain * FLIGHT_ARM_IN);
+		lerpPart(off, w, -(float) Math.PI + 0.1f + offTremble, 0f, -sMain * FLIGHT_ARM_IN);
+		lerpPart(m.rightLeg, w, m.rightLeg.xRot * 0.3f, 0f, 0.015f);
+		lerpPart(m.leftLeg, w, m.leftLeg.xRot * 0.3f, 0f, -0.015f);
+	}
+
+	/** How far the raised arms angle in (radians): the fists end up just apart in front of the face. */
+	private static final float FLIGHT_ARM_IN = 0.2f;
+
+	private static void lerpPart(ModelPart part, float w, float x, float y, float z) {
+		part.xRot = Mth.lerp(w, part.xRot, x);
+		part.yRot = Mth.lerp(w, part.yRot, y);
+		part.zRot = Mth.lerp(w, part.zRot, z);
 	}
 
 	private static boolean clipPlaying(Player p, ShazamState s, float partial) {
@@ -513,6 +605,31 @@ public final class ShazamPose {
 		pose.mulPose(Axis.YP.rotationDegrees(sg * v[5] * w));
 		pose.mulPose(Axis.XP.rotationDegrees(v[4] * w));
 		pose.mulPose(Axis.ZP.rotationDegrees(sg * v[6] * w));
+	}
+
+	/** First-person sprint-flight hand: {x (+ = out, mirrored), y, z, xDeg, yDeg (+ = turned in), zDeg}, fist forward toward the middle. */
+	private static final float[] FP_FLIGHT = { -0.22f, 0.42f, -0.5f, -12f, 14f, 0f };
+	/** How far below its place a hand starts when it rises into view (the off hand, or a hand that held an item). */
+	private static final float FP_FLIGHT_RISE = 0.75f;
+
+	/**
+	 * First person, in the hand's space before the arm is drawn: the sprint-flight hand at weight {@code w} (0..1). {@code fromBelow}:
+	 * the hand wasn't on screen before (the off hand, or a hand whose item just dipped away), so it rises from under the view
+	 * instead of moving over from vanilla's resting arm. A faint wind tremble on top.
+	 */
+	public static void firstPersonFlight(Player p, HumanoidArm arm, float partial, float w, boolean fromBelow, PoseStack pose) {
+		if (w <= 0.001f) {
+			return;
+		}
+		float sg = arm == HumanoidArm.RIGHT ? 1f : -1f;
+		float t = p.tickCount + partial;
+		float tremble = Mth.sin(t * (arm == p.getMainArm() ? 0.93f : 0.81f)) * 0.006f * w;
+		float drop = fromBelow ? (1f - w) * FP_FLIGHT_RISE : 0f;
+		float k = fromBelow ? 1f : w;
+		pose.translate(sg * FP_FLIGHT[0] * k, FP_FLIGHT[1] * k - drop + tremble, FP_FLIGHT[2] * k);
+		pose.mulPose(Axis.YP.rotationDegrees(sg * FP_FLIGHT[4] * k));
+		pose.mulPose(Axis.XP.rotationDegrees(FP_FLIGHT[3] * k - 25f * (fromBelow ? 1f - w : 0f)));
+		pose.mulPose(Axis.ZP.rotationDegrees(sg * FP_FLIGHT[5] * k));
 	}
 
 	private static float[] sampleFp(float[][] fr, float tick) {

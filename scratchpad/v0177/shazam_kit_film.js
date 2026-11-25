@@ -1,9 +1,9 @@
 // v0.17.7: Shazam kit films (MP4 + frame sheet each) and stills -> docs/screenshots/v0177/shazam_kit/
-//   node scratchpad/v0177/shazam_kit_film.js [run/shazamkit_out]
+//   node scratchpad/v0177/shazam_kit_film.js [run/shazamkit_out] [out dir]
 const fs = require('fs'), path = require('path'), { execFileSync } = require('child_process');
 const FF = 'C:/Users/ethan/AppData/Local/CapCut/Apps/9.5.0.4050/ffmpeg.exe';
 const src = path.join(process.argv[2] || 'run/shazamkit_out', 'screenshots');
-const out = 'docs/screenshots/v0177/shazam_kit';
+const out = process.argv[3] || 'docs/screenshots/v0177/shazam_kit'; // [out dir] (v0.17.7 flight films: docs/screenshots/v0177/shazam_flight)
 fs.mkdirSync(out, { recursive: true });
 for (const d of fs.readdirSync(src)) {
 	const full = path.join(src, d);
