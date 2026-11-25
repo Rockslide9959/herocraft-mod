@@ -306,6 +306,9 @@ public class ShazamKitGameTests implements FabricGameTest {
 		Zombie z = zombie(helper, 4.5, 7.0, 400);
 		z.getAttribute(Attributes.MAX_HEALTH).setBaseValue(250); // not a boss (300+)
 		z.setHealth(250f);
+		// only the stream may hurt it: no burning (daylight left by other tests, or the bolts' fire) after the release
+		z.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.FIRE_RESISTANCE, 200, 0, false, false));
+		z.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.LEATHER_HELMET));
 		look(p, z);
 		float[] h = new float[1];
 		helper.runAfterDelay(1, () -> ShazamAbilityManager.handle(p, AbilitySlot.SLOT_2, true));
