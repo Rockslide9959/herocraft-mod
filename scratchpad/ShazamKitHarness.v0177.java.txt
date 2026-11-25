@@ -144,8 +144,13 @@ public final class ShazamKitHarness implements ClientModInitializer {
 			camPose = null;
 			return;
 		}
-		Vec3 c = new Vec3(base.getX() + 0.5, base.getY(), base.getZ() + 0.5);
 		double r = Math.toRadians(camAngle);
+		if (camFollow) { // relative to the player's rendered position (the camera mixin adds it per frame)
+			camPose = new double[] { Math.sin(r) * camDist, camH, Math.cos(r) * camDist, 0, camLookH, camLookAhead, 1 };
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			return;
+		}
+		Vec3 c = new Vec3(base.getX() + 0.5, base.getY(), base.getZ() + 0.5);
 		Vec3 eye = c.add(Math.sin(r) * camDist, camH, Math.cos(r) * camDist);
 		Vec3 look = c.add(0, camLookH, camLookAhead);
 		Vec3 d = look.subtract(eye);
@@ -265,7 +270,64 @@ public final class ShazamKitHarness implements ClientModInitializer {
 		return t + len;
 	}
 
+	// ================= mode "flight": the sprint-flight pose (both fists forward), third person side + behind, first person
+	private static boolean flyFwd, flySprint, camFollow;
+
+	private static void followCam(float angle, float dist, float h, float lookH) {
+		cam3(angle, dist, h, 0f, lookH);
+		camFollow = true;
+	}
+
+	/** One flight run from the start: up 5 blocks, flying; cruise, sprint (blend in), cruise again (blend out). Returns the end tick. */
+	private static int flightRun(Minecraft mc, int t, String film, String still, boolean sword) {
+		at(t, () -> {
+			flyFwd = false;
+			flySprint = false;
+		});
+		at(t, () -> server(mc, p -> {
+			reset(p);
+			p.getInventory().clearContent();
+			if (sword) {
+				p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND_SWORD));
+			}
+			p.connection.teleport(base.getX() + 0.5, base.getY() + 5, base.getZ() + 0.5, 0f, 0f);
+			com.projecthero.mod.shazam.ShazamFlight.toggle(p);
+		}));
+		at(t + 8, () -> flyFwd = true);
+		at(t + 26, () -> flySprint = true);
+		at(t + 44, () -> shot(mc, still));
+		at(t + 56, () -> flySprint = false);
+		at(t + 80, () -> flyFwd = false);
+		film(t + 18, t + 80, film);
+		return t + 86;
+	}
+
+	private static void planFlight() {
+		Minecraft mc = Minecraft.getInstance();
+		pitch = 0f;
+		int t = 0;
+		at(t, () -> followCam(90f, 2.6f, 0.9f, 0.5f));
+		t = flightRun(mc, t, "film_flight_side", "flight_side_sprint", false);
+		at(t, () -> followCam(180f, 2.4f, 1.3f, 0.5f));
+		t = flightRun(mc, t, "film_flight_behind", "flight_behind_sprint", false);
+		at(t, () -> {
+			camFollow = false;
+			fp();
+		});
+		t = flightRun(mc, t, "film_flight_first_person", "flight_fp_sprint", false);
+		t = flightRun(mc, t, "film_flight_first_person_sword", "flight_fp_sprint_sword", true);
+		final int end = t + 6;
+		at(end, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
 	private static void plan() {
+		if (mode.equals("flight")) {
+			planFlight();
+			return;
+		}
 		Minecraft mc = Minecraft.getInstance();
 		int t = 0;
 		final int R = 1, G = 2, X = 3, Z = 4, V = 5, C = 6;
@@ -404,6 +466,11 @@ public final class ShazamKitHarness implements ClientModInitializer {
 			return;
 		}
 		face(mc);
+		if (mode.equals("flight")) {
+			mc.options.keyUp.setDown(flyFwd);
+			mc.options.keySprint.setDown(flySprint);
+			mc.player.setSprinting(flySprint && flyFwd);
+		}
 		int s = t - 140;
 		if (s == 0) {
 			plan();
@@ -460,6 +527,15 @@ public abstract class ShazamKitHarnessCameraMixin {
 	@Inject(method = "setup", at = @At("TAIL"))
 	private void projecthero$harnessCam(BlockGetter level, Entity entity, boolean detached, boolean mirrored, float partial, CallbackInfo ci) {
 		double[] c = com.projecthero.mod.client.ShazamKitHarness.camPose;
+		if (c != null && c.length == 7) { // following the player: offsets from its rendered position
+			net.minecraft.world.phys.Vec3 at = entity.position(); // the tick position (the films grab one frame a tick; the interpolated one trailed at sprint speed)
+			double ex = at.x + c[0], ey = at.y + c[1], ez = at.z + c[2];
+			double dx = at.x + c[3] - ex, dy = at.y + c[4] - ey, dz = at.z + c[5] - ez;
+			this.detached = true;
+			setPosition(ex, ey, ez);
+			setRotation((float) Math.toDegrees(Math.atan2(-dx, dz)), (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz))));
+			return;
+		}
 		if (c != null) {
 			this.detached = true;
 			setPosition(c[0], c[1], c[2]);

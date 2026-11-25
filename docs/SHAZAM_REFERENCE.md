@@ -75,6 +75,21 @@ Tackle, Achilles Stand (their ideas live on in Lightning of Zeus, Titan's Grip, 
   arms along the aim, Titan's Grip's arms overhead. Left-handed players play them mirrored.
 - **First person** (`client/mixin/ItemInHandRendererShazamMixin`): both empty hands play the move (jab / cross / hook, uppercut, cocked
   Haymaker, the hand raised to call the lightning, Wrath held out, hands overhead, the ultimate's raise and fling).
+- **Sprint-flight pose** (v0.17.7, user: "when shazam sprint flies make it so that he puts both his hands in front of him and make it
+  so that you see the hands going in front of you in first person"). Sprint-flying = `Shazam.isFlying`, airborne, and the shared
+  flight's FAST tier (`FlightPoseHelper.tier`: sprinting, moving forward). `ShazamPose.clientTick` (from `ShazamClient`, every player
+  in view) moves a per-player 0..1 blend by 1/5 a tick, smoothstepped when read (`ShazamPose.sprintFlight`): about 5 ticks in and 5
+  out, never a snap. The Shazam Family share the state, so they get it too. Visual only.
+  - Third person (`ShazamPose.flightPose`, applied first in `apply`): the body is already flat from the shared flight lean, so both
+    arms go to xRot -PI + 0.1 (straight ahead, just under the head line), angled in 0.2 rad so the fists close up in front of the face,
+    with a faint wind tremble; legs together, trailing straight back (30% of the flight scissor kept). A move clip or held pose is
+    blended on top of it afterwards, so a move always wins while it plays and fades back into the flight pose. Symmetric, so it is its
+    own mirror for left-handed players. Normal (non-sprint) flight is unchanged.
+  - First person (`ShazamPose.firstPersonFlight`): both fists up in front of the camera toward the middle of the screen
+    (`FP_FLIGHT`: in 0.22, up 0.42, forward 0.5, turned in 14 degrees), the off hand rising from below, the bare main arm moving over
+    from its rest. **A held item is put away** for it: over the first half of the blend vanilla's equip dip lowers the item out of
+    view (`@ModifyVariable` on `renderArmWithItem`'s equip progress), then both bare fists rise in its place; the reverse on the way
+    out. A move's first-person hands still win over the flight hands.
 - **Lightning** (`ShazamBoltFx`, gold-and-white): new IMPACT kind (a white-hot flash disc with gold spokes and crackle, on every punch);
   the Mercury blur is now gold and white (was red); held effects drawn every frame from the synced state -- Zeus's Wrath's two
   braiding bolts from the palms with a hot core, palm knots and a flare at the end (skipped while `BeamClashClient.hides` the owner),

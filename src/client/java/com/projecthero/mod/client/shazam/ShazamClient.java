@@ -40,6 +40,8 @@ public final class ShazamClient {
 				(payload, context) -> ShazamBoltFx.receive(payload));
 		WorldRenderEvents.AFTER_ENTITIES.register(ShazamBoltFx::render);
 		net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> ShazamBoltFx.reset());
+		// v0.17.7: the sprint-flight pose's blend in / out (both fists forward), for every player in view
+		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(client -> ShazamPose.clientTick(client.level));
 	}
 
 	/** Double-tap Space in the air while transformed: take off / drop out of flight (the server re-checks). */
