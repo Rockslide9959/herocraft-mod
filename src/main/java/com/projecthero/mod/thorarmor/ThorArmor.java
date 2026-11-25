@@ -44,30 +44,37 @@ public final class ThorArmor {
 	/** Debounce so a held / double-tapped H cannot machine-gun lightning. */
 	private static final int TOGGLE_COOLDOWN_TICKS = 20;
 
-	// ---------------- v0.14.4: the suit-up; v0.17.7: helmet + cape under a lightning storm ----------------
+	// ---------------- v0.14.4: the piece-by-piece suit-up; v0.17.7: under a lightning storm ----------------
 	// Every piece is worn from the first tick (so the protection is instant and nothing can be interrupted half-way); what
-	// arrives is the look. v0.17.7 (user: "remove the skin from it so players can see their skin underneath and keep the helmet",
-	// "make lightning call down on you", then "just make the suit build itself onto the player like it does right now"): the
-	// armour no longer covers the body at all -- what shows is the winged helmet and the red cape. On H, visual-only lightning
-	// bolts call down round the wearer again and again while the helmet sweeps up over the head behind its crackling edge and
-	// then the cape unrolls down from the collar (client ThorSuitReveal / ThorCapeLayer); a clink as each locks on, and a last
+	// arrives piece by piece is the look. v0.17.7 (user: "make lightning call down on you", "no i still want the suit and armour
+	// i was just saying remove thors actual skin form the suit and keep the helmet"): on H, visual-only lightning bolts call down
+	// round the wearer again and again while the suit locks on one piece at a time -- boots, greaves, the chestplate and arm
+	// plates, the winged helmet -- each piece appearing whole as a bolt lands and settling onto the body (client ThorSuitReveal,
+	// SuperheroArmorRenderer), with a clink as it locks; then the cape unrolls down from the collar (ThorCapeLayer) and a last
 	// big bolt and a flash finish it. Suit-down plays it backwards, cape first, and only then removes the pieces.
 
-	/** The visual parts of the suit-up: the helmet, then the cape. */
-	public static final int PART_HELMET = 0;
-	public static final int PART_CAPE = 1;
+	/** The visual parts of the suit-up, in build order. */
+	public static final int PART_BOOTS = 0;
+	public static final int PART_GREAVES = 1;
+	/** The chestplate: the tunic and the arm plates / bracers. */
+	public static final int PART_CHEST = 2;
+	/** The winged helmet (drawn with the chestplate, there is no helmet item). */
+	public static final int PART_HELMET = 3;
+	public static final int PART_CAPE = 4;
 	/** How long the whole suit-up takes. */
-	public static final int SUIT_UP_TICKS = 52;
+	public static final int SUIT_UP_TICKS = 60;
 	/** How long the reverse takes before the pieces are actually removed. */
-	public static final int SUIT_DOWN_TICKS = 18;
-	/** Per part (HELMET, CAPE): when its build starts and ends, in ticks from the suit-up's start. */
-	private static final int[][] UP_WINDOWS = { { 6, 26 }, { 22, 44 } };
-	/** Per part (HELMET, CAPE): when it comes off, in ticks from the suit-down's start (the cape goes first). */
-	private static final int[][] DOWN_WINDOWS = { { 4, 16 }, { 0, 12 } };
+	public static final int SUIT_DOWN_TICKS = 26;
+	/** Per part (BOOTS, GREAVES, CHEST, HELMET, CAPE): when its build starts and ends, in ticks from the suit-up's start. */
+	private static final int[][] UP_WINDOWS = { { 6, 12 }, { 14, 20 }, { 22, 30 }, { 32, 38 }, { 38, 52 } };
+	/** Per part: when it comes off, in ticks from the suit-down's start -- the build backwards, the cape first. */
+	private static final int[][] DOWN_WINDOWS = { { 21, 25 }, { 17, 21 }, { 12, 17 }, { 8, 12 }, { 0, 8 } };
 	/** The visual-only lightning bolts called down round the wearer during the build (ticks from the start). */
-	private static final int[] BOLT_TICKS = { 6, 12, 18, 24, 30, 36 };
-	/** The last, big bolt straight onto the wearer once both parts are on. */
-	public static final int FINAL_BOLT_TICK = 46;
+	private static final int[] BOLT_TICKS = { 6, 10, 14, 18, 22, 26, 32, 36, 42, 48 };
+	/** The last, big bolt straight onto the wearer once everything is on. */
+	public static final int FINAL_BOLT_TICK = 54;
+	/** The heights (blocks above the feet) each part locks on at, for its clink. */
+	private static final double[] PART_HEIGHT = { 0.15, 0.7, 1.25, 1.75, 1.3 };
 
 	/** When {@code part} starts building, in ticks after the suit-up began. */
 	public static int partStart(int part) {
@@ -105,9 +112,14 @@ public final class ThorArmor {
 		return 1.0f;
 	}
 
-	/** The part a worn piece's look belongs to: the chestplate carries the cape, the rest count with the helmet. */
+	/** The part a worn piece's look belongs to (the chestplate's own look, without its helmet and cape). */
 	private static int partOf(EquipmentSlot slot) {
-		return slot == EquipmentSlot.CHEST ? PART_CAPE : PART_HELMET;
+		return switch (slot) {
+			case FEET -> PART_BOOTS;
+			case LEGS -> PART_GREAVES;
+			case HEAD -> PART_HELMET;
+			default -> PART_CHEST;
+		};
 	}
 
 	/** When {@code slot}'s part starts forming, in ticks after the suit-up began. */
@@ -195,8 +207,6 @@ public final class ThorArmor {
 					SoundSource.PLAYERS, 0.6f, 1.9f);
 			level.playSound(null, player.getX(), player.getY() + 1.4, player.getZ(), SoundEvents.FIRE_EXTINGUISH,
 					SoundSource.PLAYERS, 0.5f, 1.6f);
-			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() + 1.0, player.getZ(), 30,
-					0.4, 0.8, 0.4, 0.2);
 			player.displayClientMessage(Component.translatable("message.projecthero.thor_armor.dismissed")
 					.withStyle(ChatFormatting.AQUA), true);
 			return;
@@ -218,8 +228,6 @@ public final class ThorArmor {
 			bolt.setVisualOnly(true); // pure spectacle: no fire, no damage, no mob conversion
 			level.addFreshEntity(bolt);
 		}
-		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() + 1.0, player.getZ(), 60,
-				0.5, 1.0, 0.5, 0.3);
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BEACON_ACTIVATE,
 				SoundSource.PLAYERS, 0.9f, 1.5f);
 
@@ -323,17 +331,25 @@ public final class ThorArmor {
 				player.serverLevel().playSound(null, player.getX(), player.getY() + 1.0, player.getZ(), SoundEvents.LIGHTNING_BOLT_IMPACT,
 						SoundSource.PLAYERS, 0.18f + 0.25f * rise, 1.4f + 0.6f * rise);
 			}
-			if (elapsed == partEnd(PART_HELMET)) {
-				pieceArrives(player, 1.75);
-			} else if (elapsed == partEnd(PART_CAPE)) {
-				pieceArrives(player, 1.3);
-			} else if (elapsed == FINAL_BOLT_TICK) {
+			// each piece locks on with a clink (the cape too, once it has unrolled)
+			for (int part = PART_BOOTS; part <= PART_CAPE; part++) {
+				if (elapsed == partEnd(part)) {
+					pieceArrives(player, PART_HEIGHT[part]);
+				}
+			}
+			if (elapsed == FINAL_BOLT_TICK) {
 				finalBolt(player);
 			}
 			if (elapsed >= SUIT_UP_TICKS || elapsed < 0) {
 				ThorVisuals.suit(player, ThorFx.SUIT_NONE);
 			}
 			return;
+		}
+		// v0.17.7: coming off, piece by piece -- a crackle and an unclasping clink as each one lets go
+		for (int part = PART_BOOTS; part < PART_CAPE; part++) {
+			if (elapsed == partScatterStart(part)) {
+				pieceLeaves(player, PART_HEIGHT[part]);
+			}
 		}
 		if (elapsed >= SUIT_DOWN_TICKS || elapsed < 0) {
 			strip(player);
@@ -351,11 +367,18 @@ public final class ThorArmor {
 		return fx.suitDir() == ThorFx.SUIT_DOWN && player.level().getGameTime() - fx.suitStart() < SUIT_DOWN_TICKS;
 	}
 
-	/** v0.17.7: a part locks on (the helmet on the head, the cape at the shoulders): sparks there and a metallic clink. */
+	/** v0.17.7: a piece comes off: a crackle and a higher, unclasping clink at its height. */
+	private static void pieceLeaves(ServerPlayer player, double height) {
+		ServerLevel level = player.serverLevel();
+		double y = player.getY() + height;
+		level.playSound(null, player.getX(), y, player.getZ(), SoundEvents.CHAIN_BREAK, SoundSource.PLAYERS, 0.8f, 1.5f);
+		level.playSound(null, player.getX(), y, player.getZ(), SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 0.3f, 1.9f);
+	}
+
+	/** v0.17.7: a piece locks on (boots, greaves, chestplate, helmet; the cape at the shoulders): a metallic clink at its height. */
 	private static void pieceArrives(ServerPlayer player, double height) {
 		ServerLevel level = player.serverLevel();
 		double y = player.getY() + height;
-		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), y, player.getZ(), 26, 0.35, 0.3, 0.35, 0.25);
 		level.playSound(null, player.getX(), y, player.getZ(), SoundEvents.CHAIN_PLACE, SoundSource.PLAYERS, 1.0f, 1.3f);
 		level.playSound(null, player.getX(), y, player.getZ(), SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.25f, 1.9f);
 		level.playSound(null, player.getX(), y, player.getZ(), SoundEvents.ARMOR_EQUIP_NETHERITE.value(), SoundSource.PLAYERS, 0.9f,
@@ -372,7 +395,6 @@ public final class ThorArmor {
 			bolt.setVisualOnly(true);
 			level.addFreshEntity(bolt);
 		}
-		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() + 1.0, player.getZ(), 14, 0.6, 0.8, 0.6, 0.2);
 	}
 
 	/** v0.17.7: the finish -- a big bolt straight onto the wearer, a flash and a layered thunderclap. */
@@ -385,7 +407,6 @@ public final class ThorArmor {
 			level.addFreshEntity(bolt);
 		}
 		level.sendParticles(ParticleTypes.FLASH, player.getX(), player.getY() + 1.2, player.getZ(), 2, 0.1, 0.2, 0.1, 0.0);
-		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() + 1.0, player.getZ(), 70, 0.7, 1.0, 0.7, 0.4);
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS,
 				1.2f, 0.8f);
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.TRIDENT_THUNDER.value(), SoundSource.PLAYERS, 1.0f,

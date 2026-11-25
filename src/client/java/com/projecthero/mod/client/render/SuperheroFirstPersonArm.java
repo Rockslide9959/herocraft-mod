@@ -154,6 +154,13 @@ public final class SuperheroFirstPersonArm {
 					texture = com.projecthero.mod.client.moonknight.MoonKnightSuitSwap.texture(ProjectHeroMod.id(from.suitTexture()), texture,
 							com.projecthero.mod.client.moonknight.MoonKnightReveal.swapProgress(local, partial));
 				}
+			} else if (chestItem instanceof com.projecthero.mod.thorarmor.ThorArmorItem) {
+				// v0.17.7: the armoured sleeve (shoulder plate, arm strap, bracer) appears with the chestplate on the suit clock; Thor's
+				// own hand is cleared out of the texture, so the player's hand shows through under it
+				if (com.projecthero.mod.client.thor.ThorSuitReveal.progress(local, com.projecthero.mod.thorarmor.ThorArmor.PART_CHEST,
+						partial) <= 0f) {
+					return;
+				}
 			} else if (chestItem instanceof com.projecthero.mod.flash.item.FlashSuitItem) {
 				texture = com.projecthero.mod.client.flash.FlashSuitReveal.texture(local, texture, partial);
 			}
