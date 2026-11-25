@@ -154,8 +154,6 @@ public final class SuperheroFirstPersonArm {
 					texture = com.projecthero.mod.client.moonknight.MoonKnightSuitSwap.texture(ProjectHeroMod.id(from.suitTexture()), texture,
 							com.projecthero.mod.client.moonknight.MoonKnightReveal.swapProgress(local, partial));
 				}
-			} else if (chestItem instanceof com.projecthero.mod.thorarmor.ThorArmorItem) {
-				texture = com.projecthero.mod.client.thor.ThorSuitReveal.texture(local, net.minecraft.world.entity.EquipmentSlot.CHEST, texture, partial);
 			} else if (chestItem instanceof com.projecthero.mod.flash.item.FlashSuitItem) {
 				texture = com.projecthero.mod.client.flash.FlashSuitReveal.texture(local, texture, partial);
 			}

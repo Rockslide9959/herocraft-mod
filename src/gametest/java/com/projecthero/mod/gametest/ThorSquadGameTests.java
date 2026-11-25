@@ -183,19 +183,23 @@ public class ThorSquadGameTests implements FabricGameTest {
 				"every piece is worn (and protecting) from the first tick");
 		ThorFx fx = thor.getAttachedOrElse(ModAttachments.THOR_FX, ThorFx.EMPTY);
 		helper.assertTrue(fx.suitDir() == ThorFx.SUIT_UP, "the suit clock is published for every viewer");
+		// v0.17.7: the look is the helmet and the cape -- lightning first, then the helmet, then the cape
 		int up = ThorFx.SUIT_UP;
-		helper.assertTrue(ThorArmor.pieceProgress(up, EquipmentSlot.FEET, 6) > 0f
-				&& ThorArmor.pieceProgress(up, EquipmentSlot.LEGS, 6) == 0f
-				&& ThorArmor.pieceProgress(up, EquipmentSlot.CHEST, 6) == 0f, "boots first");
-		helper.assertTrue(ThorArmor.pieceProgress(up, EquipmentSlot.FEET, 16) == 1f
-				&& ThorArmor.pieceProgress(up, EquipmentSlot.LEGS, 16) > 0f
-				&& ThorArmor.pieceProgress(up, EquipmentSlot.CHEST, 16) == 0f, "then the greaves");
-		helper.assertTrue(ThorArmor.pieceProgress(up, EquipmentSlot.CHEST, 28) > 0f
-				&& ThorArmor.pieceProgress(up, EquipmentSlot.CHEST, 28) < 1f, "the chestplate last");
-		helper.assertTrue(ThorArmor.pieceProgress(up, EquipmentSlot.CHEST, ThorArmor.SUIT_UP_TICKS) == 1f, "all on at the end");
+		int helmet = ThorArmor.PART_HELMET, cape = ThorArmor.PART_CAPE;
+		helper.assertTrue(ThorArmor.partProgress(up, helmet, 4) == 0f && ThorArmor.partProgress(up, cape, 4) == 0f,
+				"nothing is on under the first bolts");
+		float midHelmet = (ThorArmor.partStart(helmet) + ThorArmor.partEnd(helmet)) / 2f;
+		helper.assertTrue(ThorArmor.partProgress(up, helmet, midHelmet) > 0f && ThorArmor.partProgress(up, helmet, midHelmet) < 1f
+				&& ThorArmor.partProgress(up, cape, midHelmet) == 0f, "the helmet builds first");
+		helper.assertTrue(ThorArmor.partProgress(up, helmet, ThorArmor.partEnd(helmet)) == 1f
+				&& ThorArmor.partProgress(up, cape, ThorArmor.partEnd(cape) - 1) < 1f, "then the cape");
+		helper.assertTrue(ThorArmor.partEnd(cape) < ThorArmor.FINAL_BOLT_TICK && ThorArmor.FINAL_BOLT_TICK < ThorArmor.SUIT_UP_TICKS,
+				"the last bolt lands once both are on, before the suit-up ends");
+		helper.assertTrue(ThorArmor.partProgress(up, cape, ThorArmor.SUIT_UP_TICKS) == 1f, "all on at the end");
 		int down = ThorFx.SUIT_DOWN;
-		helper.assertTrue(ThorArmor.pieceProgress(down, EquipmentSlot.CHEST, 5) < 1f
-				&& ThorArmor.pieceProgress(down, EquipmentSlot.FEET, 5) == 1f, "it comes off chest first");
+		helper.assertTrue(ThorArmor.partProgress(down, cape, 2) < 1f && ThorArmor.partProgress(down, helmet, 2) == 1f,
+				"it comes apart cape first");
+		helper.assertTrue(ThorArmor.partProgress(down, helmet, ThorArmor.SUIT_DOWN_TICKS) == 0f, "and is gone when the pieces go");
 		helper.succeed();
 	}
 }

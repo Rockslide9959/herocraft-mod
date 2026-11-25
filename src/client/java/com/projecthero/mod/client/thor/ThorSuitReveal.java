@@ -10,44 +10,38 @@ import com.projecthero.mod.power.ThorVisuals;
 import com.projecthero.mod.thorarmor.ThorArmor;
 
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * v0.14.4: Thor's Armour materialises piece by piece -- boots, then greaves, then the chestplate and cape -- each one
- * sweeping up the body from a bright, crackling blue-white edge ({@link ArmorSweepReveal} restricted to that piece's
- * bones), and dissolves chest-first on the way off. Read off the synced suit clock ({@link ThorFx#suitDir()} /
- * {@link ThorFx#suitStart()}) with {@link ThorArmor#pieceProgress}, so every viewer sees the same thing.
+ * v0.14.4: Thor's Armour materialises on the suit clock, each part sweeping on behind a bright, crackling blue-white edge
+ * ({@link ArmorSweepReveal}), and comes off the same way in reverse. v0.17.7 (user: "remove the skin from it so players can see
+ * their skin underneath and keep the helmet", then "just make the suit build itself onto the player like it does right now"): the
+ * look is only the winged helmet and the red cape now -- the helmet sweeps up over the head, then the cape unrolls down from the
+ * collar ({@link ThorCapeLayer}), while the server calls lightning down round the wearer. Read off the synced suit clock
+ * ({@link ThorFx#suitDir()} / {@link ThorFx#suitStart()}) with {@link ThorArmor#partProgress}, so every viewer sees the same thing.
  */
 public final class ThorSuitReveal {
 	private static final int EDGE = 0xFFE8F6FF;
 	private static final int TRAIL = 0xFF6FB8FF;
-	private static final ArmorSweepReveal.Sweep FEET = new ArmorSweepReveal.Sweep("thor_feet",
-			Set.of("armorRightBoot", "armorLeftBoot"), true, EDGE, TRAIL);
-	private static final ArmorSweepReveal.Sweep LEGS = new ArmorSweepReveal.Sweep("thor_legs",
-			Set.of("armorRightLeg", "armorLeftLeg"), true, EDGE, TRAIL);
-	private static final ArmorSweepReveal.Sweep CHEST = new ArmorSweepReveal.Sweep("thor_chest",
-			Set.of("armorBody", "armorRightArm", "armorLeftArm"), true, EDGE, TRAIL);
+	private static final ArmorSweepReveal.Sweep HELMET = new ArmorSweepReveal.Sweep("thor_helmet", Set.of("armorHead"), true, EDGE,
+			TRAIL);
 
 	private ThorSuitReveal() {
 	}
 
-	/** How much of the piece in {@code slot} is showing on {@code player} right now (0..1). */
-	public static float progress(Player player, EquipmentSlot slot, float partialTick) {
+	/** How much of {@code part} ({@link ThorArmor#PART_HELMET} / {@link ThorArmor#PART_CAPE}) is showing right now (0..1). */
+	public static float progress(Player player, int part, float partialTick) {
 		ThorFx fx = ThorVisuals.fx(player);
 		if (fx.suitDir() == ThorFx.SUIT_NONE) {
 			return 1.0f;
 		}
 		float elapsed = player.level().getGameTime() - fx.suitStart() + partialTick;
-		return ThorArmor.pieceProgress(fx.suitDir(), slot, elapsed);
+		return ThorArmor.partProgress(fx.suitDir(), part, elapsed);
 	}
 
-	/** The texture to draw the piece in {@code slot} with right now (the plain one outside a transition). */
-	public static ResourceLocation texture(Player player, EquipmentSlot slot, ResourceLocation base, float partialTick) {
-		if (slot == null) {
-			return base;
-		}
-		float p = progress(player, slot, partialTick);
+	/** The armour texture (the helmet) to draw right now -- the plain one outside a transition. */
+	public static ResourceLocation helmetTexture(Player player, ResourceLocation base, float partialTick) {
+		float p = progress(player, ThorArmor.PART_HELMET, partialTick);
 		if (p >= 1.0f) {
 			return base;
 		}
@@ -55,11 +49,6 @@ public final class ThorSuitReveal {
 		if (def == null) {
 			return base;
 		}
-		ArmorSweepReveal.Sweep sweep = switch (slot) {
-			case FEET -> FEET;
-			case LEGS -> LEGS;
-			default -> CHEST;
-		};
-		return ArmorSweepReveal.texture(def.geometry(), base, p, sweep);
+		return ArmorSweepReveal.texture(def.geometry(), base, p, HELMET);
 	}
 }

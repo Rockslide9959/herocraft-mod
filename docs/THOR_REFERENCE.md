@@ -195,16 +195,22 @@ and only on change (the per-tick channel calls are free on the wire).
 ### Thor's Armour suit-up -- `thorarmor/ThorArmor`, client `thor/ThorSuitReveal`
 - H equips all three pieces on the first tick (the protection is instant and nothing can be interrupted), and starts
   the `SUIT_UP` clock *before* equipping so no viewer sees a frame of the full set.
-- The look is piece by piece over `SUIT_UP_TICKS` (36): boots 0-12, greaves 10-24, chestplate+cape 22-36
-  (`ThorArmor.pieceProgress`). Each piece sweeps up the body (`ArmorSweepReveal` now takes a `Sweep`: bone filter,
-  bottom-up, edge + trail colours; per-piece frames are cached per bone set) with a white-hot edge row and an
-  electric-blue trail row. The boots get the vanilla visual bolt; the greaves and chest get a sparks+flash+sound burst
-  server-side (`pieceArrives`) and a client bolt from the sky (`ThorFxRenderer.suitBolts`).
-- H again starts `SUIT_DOWN` (14 ticks, chest -> greaves -> boots dissolve); `ThorArmor.tick` strips the pieces when it
+- v0.17.7 look: only the **winged helmet** and the **red cape**; the wearer's own skin shows. `textures/armor/thor.png` keeps
+  only the helmet texels of the PlanetMinecraft "Thor | Avengers" skin (https://www.planetminecraft.com/skin/thor-avengers-6321094/,
+  built by `scratchpad/v0177/make_thor_skin.js`, original download beside it). `SuperheroArmorRenderer.applyBoneVisibilityBySlot`
+  shows only `armorHead`, on the chestplate's pass, and only while the HEAD slot is empty; greaves/boots draw nothing and
+  `PlayerRendererHandMixin` skips the first-person sleeve. Stats unchanged (chest+legs+boots = 15). Cape: `ThorCapeLayer`
+  (shared `FlowingCapeLayer`), `textures/entity/thor_cape.png` in the skin's cape reds.
+- Timeline (`ThorArmor.partProgress`, parts `PART_HELMET` / `PART_CAPE`): `SUIT_UP_TICKS` 52 -- helmet 6-26 (`ArmorSweepReveal`
+  sweep over `armorHead`), cape 22-44 (unrolls from the collar via `unfurl`). Visual-only vanilla bolts round the wearer at
+  ticks 6/12/18/24/30/36 (plus the opening bolt at 0), a rising crackle every 3 ticks, a clink (`pieceArrives`) as each part
+  locks on, and the final bolt + flash + layered thunder at `FINAL_BOLT_TICK` 46. The client also draws a sky bolt at each
+  part's start (`ThorFxRenderer.suitBolts` via `arrivalTick`).
+- H again starts `SUIT_DOWN` (18 ticks: cape 0-12, helmet 4-16, the build reversed); `ThorArmor.tick` strips the pieces when it
   ends and clears the clock 20 ticks later (clearing at once could flash the suit back on for a frame).
 - Toggle debounce: `SUIT_UP_TICKS + 4` after summoning, 20 after dismissing. Death / the once-a-second audit still
   strip instantly.
-- Hooked in `SuperheroArmorRenderer#getRenderType` by `getCurrentSlot()`.
+- Hooked in `SuperheroArmorRenderer#getRenderType` (`ThorSuitReveal.helmetTexture`).
 
 ### Move animations -- client `thor/ThorPose`
 Hooked as its own `HumanoidModelMixin` TAIL injection declared **after** the flight pose, so a move made mid-flight
