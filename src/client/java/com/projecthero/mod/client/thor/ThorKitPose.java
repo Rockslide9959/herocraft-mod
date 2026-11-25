@@ -111,8 +111,8 @@ public final class ThorKitPose {
 	private static final Clip GROUND_POUND = clip(21f, 1f, 6f,
 			k(0, SMOOTH, -2.9f, 0.1f, 0.25f, -2.9f, 0.1f, 0.25f, 0f, -0.22f, 0f, 0.1f, 0f, -0.35f, 0),
 			k(5, SMOOTH, -3.0f, 0.1f, 0.2f, -3.0f, 0.1f, 0.2f, 0f, -0.25f, 0f, 0.1f, 0f, -0.4f, 0),
-			k(7, SNAP, -0.45f, 0.25f, 0f, -0.45f, 0.25f, 0f, 0f, 0.7f, -0.6f, 0.6f, 0.8f, 0.4f, 0),
-			k(14, SMOOTH, -0.5f, 0.25f, 0f, -0.5f, 0.25f, 0f, 0f, 0.65f, -0.55f, 0.55f, 0.75f, 0.35f, 0));
+			k(7, SNAP, -0.45f, 0.25f, 0f, -0.45f, 0.25f, 0f, 0f, 0.45f, -0.6f, 0.6f, 0.75f, 0.4f, 0),
+			k(14, SMOOTH, -0.5f, 0.25f, 0f, -0.5f, 0.25f, 0f, 0f, 0.42f, -0.55f, 0.55f, 0.7f, 0.35f, 0));
 	/** A leap's take-off (Thunder Leap, Meteor Dive's launch): crouch, spring with the arms, then fists / weapon raised to slam. */
 	private static final Clip LEAP = held(60f, 0f, 4f,
 			k(0, SMOOTH, 0.7f, 0f, 0.15f, 0.7f, 0f, 0.15f, 0f, 0.4f, 0f, 0f, 0.7f, 0.2f, 1),
@@ -120,8 +120,8 @@ public final class ThorKitPose {
 			k(10, SMOOTH, -2.95f, 0.05f, 0.15f, -2.85f, 0.05f, 0.2f, 0f, 0.1f, -0.85f, -0.25f, 0f, 0.45f, 1));
 	/** The landing slam: everything driven into the ground, one knee down, held, then up. */
 	private static final Clip LEAP_SLAM = clip(20f, 0f, 8f,
-			k(0, SNAP, -0.35f, 0.2f, 0f, -0.35f, 0.2f, 0f, 0f, 0.75f, -0.9f, 0.7f, 0.9f, 0.3f, 1),
-			k(9, SMOOTH, -0.4f, 0.2f, 0f, -0.4f, 0.2f, 0f, 0f, 0.7f, -0.85f, 0.65f, 0.85f, 0.25f, 1));
+			k(0, SNAP, -0.35f, 0.2f, 0f, -0.35f, 0.2f, 0f, 0f, 0.48f, -0.9f, 0.7f, 0.85f, 0.3f, 1),
+			k(9, SMOOTH, -0.4f, 0.2f, 0f, -0.4f, 0.2f, 0f, 0f, 0.45f, -0.85f, 0.65f, 0.8f, 0.25f, 1));
 	/** Lightning Incarnate's closing explosion: curled tight, then spread-eagled as he bursts. */
 	private static final Clip INCARNATE_BURST = clip(22f, 0f, 8f,
 			k(0, SMOOTH, -1.3f, 1.0f, 0f, -1.3f, 1.0f, 0f, 0f, 0.35f, 0f, 0f, 0.8f, 0.35f, 0),
@@ -188,8 +188,8 @@ public final class ThorKitPose {
 			k(10, SMOOTH, -3.15f, 0.1f, 0.05f, -3.15f, 0.35f, 0f, 0f, -0.4f, -0.7f, 0.2f, 0f, -0.1f, 1));
 	/** Executioner's Drop landing: the chop into the ground with the whole body, crouched over it. */
 	private static final Clip EXECUTIONER_SLAM = clip(21f, 0f, 8f,
-			k(0, SNAP, -0.5f, 0.2f, 0f, -0.5f, 0.45f, 0f, 0f, 0.8f, -0.9f, 0.8f, 0.9f, 0.35f, 1),
-			k(10, SMOOTH, -0.55f, 0.2f, 0f, -0.55f, 0.45f, 0f, 0f, 0.75f, -0.85f, 0.75f, 0.85f, 0.3f, 1));
+			k(0, SNAP, -0.5f, 0.2f, 0f, -0.5f, 0.45f, 0f, 0f, 0.5f, -0.9f, 0.8f, 0.85f, 0.35f, 1),
+			k(10, SMOOTH, -0.55f, 0.2f, 0f, -0.55f, 0.45f, 0f, 0f, 0.48f, -0.85f, 0.75f, 0.8f, 0.3f, 1));
 	/** Bifrost Dash: a lean into the rainbow, the axe trailing low. */
 	private static final Clip BIFROST_DASH = clip(9f, 0f, 4f,
 			k(0, SNAP, 0.55f, 0f, 0.3f, 0.45f, 0f, 0.3f, 0f, 0.5f, -0.5f, 0.5f, 0f, -0.2f, 1),
@@ -451,7 +451,7 @@ public final class ThorKitPose {
 			m.leftLeg.y += 0.2f * crouch;
 		}
 		// the lean bends from the hips (HipBend keeps the bottom of the torso on the legs)
-		float lean = v[LEAN] + Mth.clamp(v[CROUCH], 0f, 1f) * 0.5f;
+		float lean = v[LEAN] + Mth.clamp(v[CROUCH], 0f, 1f) * 0.25f;
 		com.projecthero.mod.client.HipBend.pitch(m, 1f, lean);
 		// the twist carries the shoulders round with it
 		float twist = v[TWIST] * mir;
