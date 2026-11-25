@@ -44,49 +44,80 @@ public final class ThorArmor {
 	/** Debounce so a held / double-tapped H cannot machine-gun lightning. */
 	private static final int TOGGLE_COOLDOWN_TICKS = 20;
 
-	// ---------------- v0.14.4: the piece-by-piece suit-up ----------------
-	// Every piece is worn from the first tick (so the protection is instant and nothing can be interrupted half-way);
-	// what arrives piece by piece is the look: boots, then greaves, then the chestplate and cape, each sweeping up the
-	// body from a bright crackling edge (client ThorSuitReveal) as its own lightning flash lands. Suit-down plays it
-	// backwards, chest first, and the pieces are only removed once the dissolve has finished.
+	// ---------------- v0.14.4: the suit-up; v0.17.7: helmet + cape under a lightning storm ----------------
+	// Every piece is worn from the first tick (so the protection is instant and nothing can be interrupted half-way); what
+	// arrives is the look. v0.17.7 (user: "remove the skin from it so players can see their skin underneath and keep the helmet",
+	// "make lightning call down on you", then "just make the suit build itself onto the player like it does right now"): the
+	// armour no longer covers the body at all -- what shows is the winged helmet and the red cape. On H, visual-only lightning
+	// bolts call down round the wearer again and again while the helmet sweeps up over the head behind its crackling edge and
+	// then the cape unrolls down from the collar (client ThorSuitReveal / ThorCapeLayer); a clink as each locks on, and a last
+	// big bolt and a flash finish it. Suit-down plays it backwards, cape first, and only then removes the pieces.
 
+	/** The visual parts of the suit-up: the helmet, then the cape. */
+	public static final int PART_HELMET = 0;
+	public static final int PART_CAPE = 1;
 	/** How long the whole suit-up takes. */
-	public static final int SUIT_UP_TICKS = 36;
-	/** How long the reverse dissolve takes before the pieces are actually removed. */
-	public static final int SUIT_DOWN_TICKS = 14;
-	/** Per piece (FEET, LEGS, CHEST): when its reveal starts and ends, in ticks from the suit-up's start. */
-	private static final int[][] UP_WINDOWS = { { 0, 12 }, { 10, 24 }, { 22, SUIT_UP_TICKS } };
-	/** Per piece (FEET, LEGS, CHEST): when its dissolve starts and ends, in ticks from the suit-down's start. */
-	private static final int[][] DOWN_WINDOWS = { { 6, SUIT_DOWN_TICKS }, { 3, 11 }, { 0, 8 } };
+	public static final int SUIT_UP_TICKS = 52;
+	/** How long the reverse takes before the pieces are actually removed. */
+	public static final int SUIT_DOWN_TICKS = 18;
+	/** Per part (HELMET, CAPE): when its build starts and ends, in ticks from the suit-up's start. */
+	private static final int[][] UP_WINDOWS = { { 6, 26 }, { 22, 44 } };
+	/** Per part (HELMET, CAPE): when it comes off, in ticks from the suit-down's start (the cape goes first). */
+	private static final int[][] DOWN_WINDOWS = { { 4, 16 }, { 0, 12 } };
+	/** The visual-only lightning bolts called down round the wearer during the build (ticks from the start). */
+	private static final int[] BOLT_TICKS = { 6, 12, 18, 24, 30, 36 };
+	/** The last, big bolt straight onto the wearer once both parts are on. */
+	public static final int FINAL_BOLT_TICK = 46;
 
-	private static int pieceIndex(EquipmentSlot slot) {
-		return switch (slot) {
-			case FEET -> 0;
-			case LEGS -> 1;
-			default -> 2;
-		};
+	/** When {@code part} starts building, in ticks after the suit-up began. */
+	public static int partStart(int part) {
+		return UP_WINDOWS[part][0];
 	}
 
-	/** When {@code slot}'s piece starts forming, in ticks after the suit-up began. */
-	public static int arrivalTick(EquipmentSlot slot) {
-		return UP_WINDOWS[pieceIndex(slot)][0];
+	/** When {@code part} has finished building (locks on), in ticks after the suit-up began. */
+	public static int partEnd(int part) {
+		return UP_WINDOWS[part][1];
+	}
+
+	/** When {@code part} starts coming off after H, in ticks after the suit-down began. */
+	public static int partScatterStart(int part) {
+		return DOWN_WINDOWS[part][0];
+	}
+
+	/** How long {@code part} takes to come off. */
+	public static int partScatterTicks(int part) {
+		return DOWN_WINDOWS[part][1] - DOWN_WINDOWS[part][0];
 	}
 
 	/**
-	 * How much of {@code slot}'s piece is showing (0..1), {@code elapsed} ticks into the suit clock {@code dir}
-	 * ({@code ThorFx.SUIT_*}). Outside a transition every piece is fully shown. Shared by the client reveal and the
-	 * gametests, so both agree on the timeline.
+	 * How much of {@code part} is showing (0..1), {@code elapsed} ticks into the suit clock {@code dir} ({@code ThorFx.SUIT_*}).
+	 * Outside a transition it is fully shown. Shared by the client and the gametests, so both agree on the timeline.
 	 */
-	public static float pieceProgress(int dir, EquipmentSlot slot, float elapsed) {
+	public static float partProgress(int dir, int part, float elapsed) {
 		if (dir == com.projecthero.mod.power.ThorFx.SUIT_UP) {
-			int[] w = UP_WINDOWS[pieceIndex(slot)];
+			int[] w = UP_WINDOWS[part];
 			return clamp((elapsed - w[0]) / (float) (w[1] - w[0]));
 		}
 		if (dir == com.projecthero.mod.power.ThorFx.SUIT_DOWN) {
-			int[] w = DOWN_WINDOWS[pieceIndex(slot)];
+			int[] w = DOWN_WINDOWS[part];
 			return 1.0f - clamp((elapsed - w[0]) / (float) (w[1] - w[0]));
 		}
 		return 1.0f;
+	}
+
+	/** The part a worn piece's look belongs to: the chestplate carries the cape, the rest count with the helmet. */
+	private static int partOf(EquipmentSlot slot) {
+		return slot == EquipmentSlot.CHEST ? PART_CAPE : PART_HELMET;
+	}
+
+	/** When {@code slot}'s part starts forming, in ticks after the suit-up began. */
+	public static int arrivalTick(EquipmentSlot slot) {
+		return partStart(partOf(slot));
+	}
+
+	/** {@link #partProgress} for the part {@code slot}'s piece belongs to (kept for older callers). */
+	public static float pieceProgress(int dir, EquipmentSlot slot, float elapsed) {
+		return partProgress(dir, partOf(slot), elapsed);
 	}
 
 	private static float clamp(float v) {
@@ -159,6 +190,11 @@ public final class ThorArmor {
 			ServerLevel level = player.serverLevel();
 			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BEACON_DEACTIVATE,
 					SoundSource.PLAYERS, 0.8f, 1.4f);
+			// v0.17.7: a crackle as it comes apart
+			level.playSound(null, player.getX(), player.getY() + 1.4, player.getZ(), SoundEvents.LIGHTNING_BOLT_IMPACT,
+					SoundSource.PLAYERS, 0.6f, 1.9f);
+			level.playSound(null, player.getX(), player.getY() + 1.4, player.getZ(), SoundEvents.FIRE_EXTINGUISH,
+					SoundSource.PLAYERS, 0.5f, 1.6f);
 			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() + 1.0, player.getZ(), 30,
 					0.4, 0.8, 0.4, 0.2);
 			player.displayClientMessage(Component.translatable("message.projecthero.thor_armor.dismissed")
@@ -276,10 +312,23 @@ public final class ThorArmor {
 		}
 		long elapsed = player.level().getGameTime() - fx.suitStart();
 		if (fx.suitDir() == ThorFx.SUIT_UP) {
-			if (elapsed == arrivalTick(EquipmentSlot.LEGS)) {
-				pieceArrives(player, 0.75);
-			} else if (elapsed == arrivalTick(EquipmentSlot.CHEST)) {
-				pieceArrives(player, 1.35);
+			for (int b : BOLT_TICKS) {
+				if (elapsed == b) {
+					boltNear(player, 0.7 + player.getRandom().nextDouble() * 1.1);
+				}
+			}
+			// a rising crackle under the build
+			if (elapsed >= 6 && elapsed < FINAL_BOLT_TICK && elapsed % 3 == 0) {
+				float rise = (elapsed - 6) / (float) (FINAL_BOLT_TICK - 6);
+				player.serverLevel().playSound(null, player.getX(), player.getY() + 1.0, player.getZ(), SoundEvents.LIGHTNING_BOLT_IMPACT,
+						SoundSource.PLAYERS, 0.18f + 0.25f * rise, 1.4f + 0.6f * rise);
+			}
+			if (elapsed == partEnd(PART_HELMET)) {
+				pieceArrives(player, 1.75);
+			} else if (elapsed == partEnd(PART_CAPE)) {
+				pieceArrives(player, 1.3);
+			} else if (elapsed == FINAL_BOLT_TICK) {
+				finalBolt(player);
 			}
 			if (elapsed >= SUIT_UP_TICKS || elapsed < 0) {
 				ThorVisuals.suit(player, ThorFx.SUIT_NONE);
@@ -302,15 +351,46 @@ public final class ThorArmor {
 		return fx.suitDir() == ThorFx.SUIT_DOWN && player.level().getGameTime() - fx.suitStart() < SUIT_DOWN_TICKS;
 	}
 
-	/** A later piece lands: a crack of lightning at its height (the client draws the bolt from the sky). */
+	/** v0.17.7: a part locks on (the helmet on the head, the cape at the shoulders): sparks there and a metallic clink. */
 	private static void pieceArrives(ServerPlayer player, double height) {
 		ServerLevel level = player.serverLevel();
 		double y = player.getY() + height;
 		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), y, player.getZ(), 26, 0.35, 0.3, 0.35, 0.25);
-		level.sendParticles(ParticleTypes.FLASH, player.getX(), y, player.getZ(), 1, 0.0, 0.0, 0.0, 0.0);
-		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.LIGHTNING_BOLT_IMPACT,
-				SoundSource.PLAYERS, 0.7f, 1.5f + (float) height * 0.2f);
-		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ARMOR_EQUIP_NETHERITE.value(),
-				SoundSource.PLAYERS, 0.9f, 0.9f + (float) height * 0.1f);
+		level.playSound(null, player.getX(), y, player.getZ(), SoundEvents.CHAIN_PLACE, SoundSource.PLAYERS, 1.0f, 1.3f);
+		level.playSound(null, player.getX(), y, player.getZ(), SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.25f, 1.9f);
+		level.playSound(null, player.getX(), y, player.getZ(), SoundEvents.ARMOR_EQUIP_NETHERITE.value(), SoundSource.PLAYERS, 0.9f,
+				0.9f + (float) height * 0.1f);
+	}
+
+	/** v0.17.7: one of the build's bolts, {@code radius} blocks from the wearer -- visual only (no fire, no damage). */
+	private static void boltNear(ServerPlayer player, double radius) {
+		ServerLevel level = player.serverLevel();
+		double a = player.getRandom().nextDouble() * Math.PI * 2.0;
+		LightningBolt bolt = EntityType.LIGHTNING_BOLT.create(level);
+		if (bolt != null) {
+			bolt.moveTo(player.getX() + Math.cos(a) * radius, player.getY(), player.getZ() + Math.sin(a) * radius);
+			bolt.setVisualOnly(true);
+			level.addFreshEntity(bolt);
+		}
+		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() + 1.0, player.getZ(), 14, 0.6, 0.8, 0.6, 0.2);
+	}
+
+	/** v0.17.7: the finish -- a big bolt straight onto the wearer, a flash and a layered thunderclap. */
+	private static void finalBolt(ServerPlayer player) {
+		ServerLevel level = player.serverLevel();
+		LightningBolt bolt = EntityType.LIGHTNING_BOLT.create(level);
+		if (bolt != null) {
+			bolt.moveTo(player.getX(), player.getY(), player.getZ());
+			bolt.setVisualOnly(true);
+			level.addFreshEntity(bolt);
+		}
+		level.sendParticles(ParticleTypes.FLASH, player.getX(), player.getY() + 1.2, player.getZ(), 2, 0.1, 0.2, 0.1, 0.0);
+		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() + 1.0, player.getZ(), 70, 0.7, 1.0, 0.7, 0.4);
+		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS,
+				1.2f, 0.8f);
+		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.TRIDENT_THUNDER.value(), SoundSource.PLAYERS, 1.0f,
+				1.0f);
+		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 0.8f,
+				1.6f);
 	}
 }
