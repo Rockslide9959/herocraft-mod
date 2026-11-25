@@ -13,6 +13,19 @@ placed power's "Primary Power" line, so the Guidebook and the I menu both show i
 | Cosmic | 21-28 | 22-30 | 45-60 | light purple |
 
 **Placed so far (user, 2026-11-23):** Street = Super Soldier, Punisher, Black Panther, Power Armour. Planet = Shazam (user: "hes A tier", v0.17.7). Cosmic = Thor (user, v0.17.7 Thor revamp).
+
+## In the Guidebook (v0.17.7 remake)
+
+- **Power Tiers chapter**: its own home tile (second, after Getting Started) and category (`Category.TIERS`). The chapter is the
+  last in the flat list (`HeroPackGuide.powerTiersChapterIndex()`, so no earlier index moves). It lists the four tiers with ranges
+  and blurbs, what a tier means, then every power under its tier as a link line (style insertion `HeroPackGuide.LINK + index`) and
+  the rest under "Not yet ranked", grouped by franchise. Built from `PowerRank.ofGuideKey`, so a new `case` shows up by itself.
+- **Powers by Tier**: a home tile opening every power in one list grouped by tier (`HeroPackGuide.powersByTier()`).
+- **Tier pills** on every placed power in the chapter lists and search results; a **tier filter** (All / Street / City / Planet /
+  Cosmic / Unranked, with counts) on every power list.
+- **Tier banner**: `chapter()` marks the tier line with the insertion `HeroPackGuide.TIER_LINE + id`; the book draws it as a coloured
+  ribbon under the title (click it for the Power Tiers chapter) and the I menu as a coloured ribbon (`GlassPage.band`).
+- Test: `GuidebookStabilityGameTests.everyPlacedPowerIsListedUnderItsTier`.
 Every other power is unplaced (no badge) until the user assigns it. Don't place powers yourself.
 
 ## Rules used for the pass

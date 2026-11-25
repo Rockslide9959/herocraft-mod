@@ -31,7 +31,7 @@ import net.minecraft.world.entity.player.Player;
  *   Combo  [Meter ===----]  2/4                        dual-wield combo (Twin Gods), the Twin Thunder recharge
  *   Charge [Hairline =====---]  60%                    Thunder Fist charge (Unarmed, Shift+R held)
  *   Storm  [Hairline ========-]  84%                   Storm Energy
- *   R Call Weapon  G Lightning Strike  ...             the boxes' move names, wrapped
+ *   R Call Weapon  G Lightning Strike  ...             the boxes' move names, wrapped (only while Left-Alt is held)
  *   | R| G| Z| X| C| V|
  * </pre>
  * Drawn while the player holds Mjolnir / a worthy Stormbreaker or is bound to a hammer. Hold Left-Alt for the full move list.
@@ -87,7 +87,8 @@ public final class ThorHud {
 			s.slot(i, VanillaHud.keyLabel(slot), true, shift, frac(shown, left), VanillaHud.seconds(left), frac(other, otherLeft), channel);
 		}
 
-		// the boxes' move names, narrow and wrapped
+		// the boxes' move names, narrow and wrapped -- v0.17.7 (user): only while Left-Alt is held, like every other HUD
+		if (net.minecraft.client.gui.screens.Screen.hasAltDown() || MoveListOverlay.held()) {
 		MutableComponent names = Component.empty();
 		for (int i = 0; i < VanillaHud.ORDER.length; i++) {
 			AbilitySlot slot = VanillaHud.ORDER[i];
@@ -98,6 +99,7 @@ public final class ThorHud {
 					.append(Component.translatable("projecthero.thor.ability." + ThorKit.moveId(st, slot, shift)).withStyle(ChatFormatting.GRAY));
 		}
 		s.wrapped(names, VanillaHud.WHITE);
+		}
 
 		float ratio = Math.max(0.0f, Math.min(1.0f, StormEnergy.get(player) / StormEnergy.MAX));
 		s.meter(Component.translatable("hud.projecthero.vanilla.thor.storm"), ratio, ratio < 0.2f ? COLOR_ENERGY_LOW : COLOR_ENERGY,
