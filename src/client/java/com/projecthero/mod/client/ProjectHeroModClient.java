@@ -271,6 +271,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.spider.SpiderMaskAnim::hud); // v0.16.2: the mask passing over the eyes
 		com.projecthero.mod.client.thor.ThorLightningArcRenderer.initialize();
 		com.projecthero.mod.client.thor.ThorFxRenderer.initialize(); // v0.14.4: shockwave rings, the Wrath charge, suit-up bolts
+		com.projecthero.mod.client.thor.ThorKitFxRenderer.initialize(); // v0.17.7: the Cosmic revamp's moves, beams, ultimates
 		com.projecthero.mod.client.thor.ThorCapeClient.initialize(); // v0.14.16: Thor's Armour's crimson cape
 		com.projecthero.mod.client.firearm.BulletHoleRenderer.initialize();
 		com.projecthero.mod.client.firearm.GunTracers.initialize(); // v0.15.16: tracers + impact flashes

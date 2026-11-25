@@ -134,6 +134,8 @@ public final class ServerStateReset {
 		com.projecthero.mod.worldgen.GraveyardTracker.clearSessionState();
 		com.projecthero.mod.power.ThorTwinThunder.clearSessionState(); // v0.16.1: queued Twin Thunder Strikes
 		com.projecthero.mod.power.ThunderField.clearSessionState(); // v0.16.1: Thunder Field throws + live fields
+		com.projecthero.mod.power.ThorSequences.clearSessionState(); // v0.17.7: Thor's timed moves / ultimates
+		com.projecthero.mod.power.ThorSunder.clearSessionState(); // v0.17.7: Sundered victims
 		com.projecthero.mod.spider.SpiderWebs.clearSessionState();
 		com.projecthero.mod.spider.SpiderCombat.clearSessionState();
 		com.projecthero.mod.spider.web.WebStructures.clearSessionState(); // v0.16.1: the web structure registry

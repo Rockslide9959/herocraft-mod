@@ -15,6 +15,8 @@ public final class ThorConfig {
 			.balance("twinThunder")
 			.balance("thunderField")
 			.introduce(1, "v0.16.1 Thor storm buff, dual-wield combo, Twin Thunder Strike, Thunder Field")
+			.reset(2, "v0.17.7 Thor Cosmic revamp", "twinThunder.cooldownTicks", "twinThunder.damage", "twinThunder.ringDamage",
+					"thunderField.pulseTicks", "thunderField.pulseDamage", "thunderField.cooldownTicks")
 			.build();
 
 	private static ThorConfig instance = new ThorConfig();
@@ -40,13 +42,13 @@ public final class ThorConfig {
 	}
 
 	public static final class TwinThunder {
-		public int cooldownTicks = 400;
+		public int cooldownTicks = 300; // v0.17.7: 400 -> 300
 		public double radius = 6.0;
-		public double damage = 20.0;
+		public double damage = 30.0; // v0.17.7 (Cosmic): 20 -> 30
 		/** The ring of lightning that follows the slam. */
 		public double ringRadius = 6.5;
 		public double ringSplash = 2.0;
-		public double ringDamage = 8.0;
+		public double ringDamage = 22.0; // v0.17.7 (Cosmic): 8 -> 22
 		public int ringBolts = 8;
 		public double knockUp = 0.7;
 		public double knockback = 0.9;
@@ -57,8 +59,8 @@ public final class ThorConfig {
 		public double range = 24.0;
 		public double radius = 5.0;
 		public int durationTicks = 80;
-		public int pulseTicks = 10;
-		public double pulseDamage = 4.0;
+		public int pulseTicks = 20; // v0.17.7: 10 -> 20 (4 pulses of 22)
+		public double pulseDamage = 22.0; // v0.17.7 (Cosmic): 4 -> 22
 		/** Slowness amplifier (0 = Slowness I) while standing in the field. */
 		public int slowAmplifier = 1;
 	}

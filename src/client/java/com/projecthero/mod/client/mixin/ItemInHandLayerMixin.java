@@ -64,7 +64,9 @@ public abstract class ItemInHandLayerMixin {
 			float grip = Math.max(com.projecthero.mod.client.thor.ThorPose.hammerGrip(wielder),
 					com.projecthero.mod.client.thor.WeaponComboPose.weaponGrip(wielder));
 			if (grip > 0.001f) {
-				poseStack.mulPose(Axis.XP.rotationDegrees(-90.0f * grip));
+				// v0.17.7 (user): Stormbreaker is held like a greataxe, a third of the way up the haft -- the re-grip only tilts
+				// the head forward of the fist (not laid flat along the arm), so the long haft never runs back through him
+				poseStack.mulPose(Axis.XP.rotationDegrees(-90.0f * grip * com.projecthero.mod.client.thor.ThorKitPose.AXE_GRIP));
 			}
 			return;
 		}

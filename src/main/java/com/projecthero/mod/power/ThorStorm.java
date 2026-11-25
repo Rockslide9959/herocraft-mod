@@ -63,7 +63,8 @@ public final class ThorStorm {
 
 	/** Is {@code player} storm-charged right now? Server truth (the client reads {@link ThorFx#stormPct}). */
 	public static boolean isCharged(Player player) {
-		return thunderingAt(player.level(), player.blockPosition()) && isThor(player);
+		// v0.17.7: his own Storm Call (V) is a local thunderstorm -- it charges him too, anywhere
+		return (thunderingAt(player.level(), player.blockPosition()) || ThorPowers.isStormCallActive(player)) && isThor(player);
 	}
 
 	/** The damage multiplier for {@code player}'s hits: 1.3 while storm-charged, else 1. */
@@ -82,10 +83,25 @@ public final class ThorStorm {
 	public static float enter(LivingEntity victim, DamageSource source, float amount) {
 		ArrayDeque<Object> frames = FRAMES.get();
 		Entity attacker = source.getEntity();
-		boolean scale = amount > 0.0f && !SUPPRESS.get() && attacker instanceof ServerPlayer thor && attacker != victim
-				&& !frames.contains(victim) && isCharged(thor);
+		float mult = 1.0f;
+		if (amount > 0.0f && !SUPPRESS.get() && !frames.contains(victim)) {
+			if (attacker instanceof ServerPlayer thor && attacker != victim && isCharged(thor)) {
+				mult *= multiplier(thor);
+			}
+			mult *= ThorSunder.multiplier(victim); // v0.17.7: Bifrost Hurl's Sunder (+20% from everything)
+		}
+		boolean scale = mult != 1.0f;
 		frames.push(scale ? victim : UNSCALED);
-		return scale ? amount * multiplier((Player) attacker) : amount;
+		if (!scale) {
+			return amount;
+		}
+		float scaled = amount * mult;
+		// v0.17.7 (Cosmic tier): no single Thor hit goes over 60, whatever stacks on it (a hit already over -- some other
+		// system's -- is never lowered by this)
+		if (attacker instanceof ServerPlayer thor && attacker != victim && isThor(thor)) {
+			scaled = Math.min(scaled, Math.max(amount, ThorKit.MAX_HIT));
+		}
+		return scaled;
 	}
 
 	/** {@code LivingEntity#hurt} RETURN (server). */

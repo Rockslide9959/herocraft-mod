@@ -91,8 +91,8 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 	/** How long the hammer stays embedded in what it struck before turning for home. */
 	private static final int IMPACT_TICKS = 5;
 	private static final double RETURN_CATCH_DISTANCE = 1.1;
-	/** v0.13.6: raised 11 -> 18. */
-	private static final float DAMAGE = 18.0f;
+	/** v0.13.6: raised 11 -> 18. v0.17.7 (Cosmic tier): 18 -> 22, the bottom of the ability range. */
+	private static final float DAMAGE = 22.0f;
 	/** The return trip hits hard too, but not as hard as a committed throw. */
 	private static final float RETURN_DAMAGE = 6.0f;
 
@@ -211,6 +211,21 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 
 	/** Entities already struck during the current return flight -- see {@link #onHitEntity}. */
 	private final Set<UUID> hitDuringReturn = new HashSet<>();
+
+	/**
+	 * v0.17.7 Whirlwind Throw ({@code ThorMjolnirKit}): the outbound throw's damage per hit and how many more living
+	 * things it may tear through before it stops (0 = the ordinary throw, which stops on the first). Server only, not saved.
+	 */
+	private float throwDamage = DAMAGE;
+	private int pierceLeft = 0;
+	private final Set<UUID> piercedOutbound = new HashSet<>();
+
+	/** v0.17.7: a piercing throw -- {@code damage} on each of up to {@code pierce} targets before it turns for home. */
+	public void setSpecialThrow(float damage, int pierce) {
+		this.throwDamage = damage;
+		this.pierceLeft = Math.max(0, pierce);
+		this.piercedOutbound.clear();
+	}
 
 	/** Decaying client-side correction toward the last server position. See {@link #lerpTo}. */
 	private Vec3 correction = Vec3.ZERO;
@@ -878,6 +893,10 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 			// v0.14.4: nor the owner's squad (or their pets) -- it flies straight past them instead of stopping dead
 			return false;
 		}
+		// v0.17.7: a piercing Whirlwind Throw strikes each thing once on the way out
+		if (getState() == State.THROWN && piercedOutbound.contains(target.getUUID())) {
+			return false;
+		}
 		// One hit per entity per return trip: without this the hammer, which is travelling toward the
 		// player and can pass straight through a mob, re-hits it every tick it overlaps.
 		return getState() != State.RETURNING || !hitDuringReturn.contains(target.getUUID());
@@ -901,7 +920,7 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 
 		if (!level().isClientSide()) {
 			boolean returning = state == State.RETURNING;
-			float damage = returning ? RETURN_DAMAGE : DAMAGE;
+			float damage = returning ? RETURN_DAMAGE : throwDamage;
 			var damageSource = level().damageSources().trident(this, owner == null ? this : owner);
 			if (target.hurt(damageSource, damage)) {
 				if (target instanceof LivingEntity living) {
@@ -915,6 +934,14 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 		}
 
 		if (state == State.THROWN) {
+			// v0.17.7: a Whirlwind Throw tears on through the next target until its pierces run out
+			if (pierceLeft > 0 && target instanceof net.minecraft.world.entity.LivingEntity) {
+				piercedOutbound.add(target.getUUID());
+				pierceLeft--;
+				if (pierceLeft > 0) {
+					return;
+				}
+			}
 			// A landed hit sends it home rather than letting it sail on.
 			beginImpact();
 		}

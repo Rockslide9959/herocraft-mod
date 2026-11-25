@@ -82,7 +82,9 @@ public final class Bifrost {
 	/** A worthy player with Stormbreaker in either hand -- the only person whose Bifrost requests are honoured. */
 	public static boolean canUse(Player player) {
 		return player.isAlive() && !player.isSpectator() && Worthiness.isWorthy(player)
-				&& (player.getMainHandItem().is(ModItems.STORMBREAKER) || player.getOffhandItem().is(ModItems.STORMBREAKER));
+				&& (player.getMainHandItem().is(ModItems.STORMBREAKER) || player.getOffhandItem().is(ModItems.STORMBREAKER))
+				// v0.17.7 (Thor revamp): Twin Gods (Mjolnir in the other hand) trade Bifrost travel for damage
+				&& !com.projecthero.mod.power.WeaponCombo.isDualWielding(player);
 	}
 
 	/**

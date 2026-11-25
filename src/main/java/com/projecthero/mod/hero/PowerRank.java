@@ -60,6 +60,7 @@ public enum PowerRank {
 		return switch (chapterKey) {
 			case "projecthero.guide.super_soldier", "projecthero.guide.punisher", "projecthero.guide.black_panther",
 					"projecthero.guide.power_armour" -> STREET;
+			case "projecthero.guide.thor" -> COSMIC; // v0.17.7 (user): Thor is Cosmic
 			default -> null;
 		};
 	}

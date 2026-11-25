@@ -64,14 +64,16 @@ public final class WeaponCombo {
 	public static final float FINISHER_BONUS = 0.5f;
 
 	public static final double MJOLNIR_SHOCK_RADIUS = 3.0;
-	public static final float MJOLNIR_SHOCK_DAMAGE = 4.0f;
+	public static final float MJOLNIR_SHOCK_DAMAGE = 22.0f; // v0.17.7 (Cosmic): 4 -> 22
 	public static final double MJOLNIR_SHOCK_KNOCKBACK = 0.8;
 	public static final double MJOLNIR_SHOCK_LIFT = 0.25;
 
 	public static final double STORM_CLEAVE_RADIUS = 4.5;
 	/** cos(75 degrees): the cleave reaches 75 degrees either side of where the wielder faces. */
 	public static final double STORM_CLEAVE_MIN_DOT = 0.2588;
-	public static final float STORM_CLEAVE_DAMAGE = 6.0f;
+	public static final float STORM_CLEAVE_DAMAGE = 22.0f; // v0.17.7 (Cosmic): 6 -> 22
+	/** v0.17.7 (Cosmic): the finisher's whole hit stays inside the melee range (28; x the storm buff when charged). */
+	public static final float FINISHER_MAX = 28.0f;
 	public static final double STORM_CLEAVE_KNOCKBACK = 0.6;
 
 	/** Swing animation lengths in ticks (the client pose tables end here too). */
@@ -104,6 +106,7 @@ public final class WeaponCombo {
 		ThorConfig.load();
 		ThorTwinThunder.initialize();
 		ThunderField.initialize();
+		ThorKit.initialize(); // v0.17.7: the Cosmic revamp's sequences, Sunder, God of Thunder's chain
 		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, base, taken, blocked) -> {
 			Ctx c = CTX.get();
 			if (c != null && entity == c.target && !blocked && base > 0.0f && source.getEntity() == c.player
@@ -239,7 +242,8 @@ public final class WeaponCombo {
 		if (target.isAlive()) {
 			DamageSource source = player.damageSources().playerAttack(player);
 			// v0.16.1: c.damage already carries the storm buff, so the re-hurt must not add it again
-			ThorStorm.unscaled(() -> target.hurt(source, c.damage * (1.0f + FINISHER_BONUS)));
+			float total = Math.min(c.damage * (1.0f + FINISHER_BONUS), Math.max(c.damage, FINISHER_MAX * ThorStorm.multiplier(player)));
+			ThorStorm.unscaled(() -> target.hurt(source, total));
 		}
 		Vec3 at = target.position().add(0, target.getBbHeight() * 0.5, 0);
 		if (c.weapon == WeaponComboState.WEAPON_MJOLNIR) {

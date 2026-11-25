@@ -92,6 +92,17 @@ public final class ThorTwinThunder {
 	}
 
 	/** Is a Twin Thunder Strike queued or playing for {@code player}? For tests / HUD. */
+	/**
+	 * v0.17.7: Twin Gods' Z -- the strike on demand, starting at once (no combo hop to wait for). The caller has already paid
+	 * its cooldown and Storm Energy ({@code ThorTwinKit#twinThunderStrike}).
+	 */
+	public static void queueNow(ServerPlayer player) {
+		if (!WeaponCombo.isDualWielding(player) || PENDING.containsKey(player.getUUID())) {
+			return;
+		}
+		PENDING.put(player.getUUID(), new Pending(player.level().getGameTime() + 1, null));
+	}
+
 	public static boolean isActive(ServerPlayer player) {
 		return PENDING.containsKey(player.getUUID());
 	}

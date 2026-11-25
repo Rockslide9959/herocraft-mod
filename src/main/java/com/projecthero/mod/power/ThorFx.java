@@ -43,10 +43,76 @@ public record ThorFx(int anim, long animStart, double x, double y, double z, int
 	/** v0.16.1 Thunder Field: the weapon hurled down at the aimed ground (Shift + G). Point = where it was aimed. */
 	public static final int ANIM_FIELD_THROW = 9;
 
+	// ---- v0.17.7 Cosmic revamp ({@code ThorKit}); the point is the move's target / origin as noted ----
+	/** Unarmed Thunder Fist released (point = the punch's end). */
+	public static final int ANIM_THUNDER_FIST = 10;
+	/** Unarmed Lightning Palm (point = where the bolt lands). */
+	public static final int ANIM_LIGHTNING_PALM = 11;
+	/** Unarmed Asgardian Grapple: the grab, the lift, the hurl (point = the victim at the grab). */
+	public static final int ANIM_GRAPPLE = 12;
+	/** Unarmed Storm Rush: four punches. */
+	public static final int ANIM_STORM_RUSH = 13;
+	/** Unarmed Static Burst (point = his feet). */
+	public static final int ANIM_STATIC_BURST = 14;
+	/** Unarmed Ground Pound (point = the impact). */
+	public static final int ANIM_GROUND_POUND = 15;
+	/** Thunder Leap / Executioner's Drop / Meteor Dive take-off (point = where he left). */
+	public static final int ANIM_LEAP = 16;
+	/** The landing slam of a leap or dive (point = the impact). */
+	public static final int ANIM_LEAP_SLAM = 17;
+	/** Mjolnir Whirlwind Throw: spun by the strap, then hurled. */
+	public static final int ANIM_WHIRLWIND = 18;
+	/** Storm Dash (point = where it began). */
+	public static final int ANIM_STORM_DASH = 19;
+	/** Meteor Dive take-off (point = where he left). */
+	public static final int ANIM_METEOR_DIVE = 20;
+	/** Stormbreaker Bifrost Hurl. */
+	public static final int ANIM_BIFROST_HURL = 22;
+	/** Stormbreaker Storm Cleave (point = the target). */
+	public static final int ANIM_STORM_CLEAVE = 23;
+	/** Stormbreaker Bifrost Step (point = where he left; he is where it lands). */
+	public static final int ANIM_BIFROST_STEP = 24;
+	/** Stormbreaker Rending Arc. */
+	public static final int ANIM_RENDING_ARC = 25;
+	/** Stormbreaker Executioner's Drop take-off (point = where he left). */
+	public static final int ANIM_EXECUTIONER = 26;
+	/** Stormbreaker Executioner's Drop landing (point = the impact). */
+	public static final int ANIM_EXECUTIONER_SLAM = 27;
+	/** Stormbreaker Bifrost Dash (point = where it began). */
+	public static final int ANIM_BIFROST_DASH = 28;
+	/** Twin Throw (point = where the two weapons meet). */
+	public static final int ANIM_TWIN_THROW = 29;
+	/** Thunderstruck Cleave (point = where the wave ends). */
+	public static final int ANIM_THUNDERSTRUCK = 30;
+	/** Crossfire (point = the target). */
+	public static final int ANIM_CROSSFIRE = 31;
+	/** Lightning Incarnate's closing explosion (point = his feet). */
+	public static final int ANIM_INCARNATE_BURST = 32;
+	/** Wrath of the Storm (point = the giant bolt's target). */
+	public static final int ANIM_WRATH_STORM = 33;
+	/** Bifrost Judgement (point = the impaled target). */
+	public static final int ANIM_JUDGEMENT = 34;
+	/** Ragnarok (point = the centre). */
+	public static final int ANIM_RAGNAROK = 35;
+	/** God of Thunder (Shift+V): the roar as the eyes light. */
+	public static final int ANIM_GOD_OF_THUNDER = 36;
+	/** Storm Anchor (both weapons hurled down; point = the aim). */
+	public static final int ANIM_STORM_ANCHOR = 37;
+	/** God of Thunder's chain bolt from the struck foe to the next (point = the second foe). */
+	public static final int ANIM_GOD_CHAIN = 38;
+
 	/** Lightning Beam is being channelled. */
 	public static final int CH_BEAM = 1;
-	/** God of Thunder's Wrath is charging (since {@link #chargeStart}). */
+	/** God of Thunder's Wrath is charging (since {@link #chargeStart}). (v0.17.7: retired with the hold-Z ultimate.) */
 	public static final int CH_WRATH = 2;
+	/** v0.17.7: Thunder Fist is charging (since {@link #chargeStart}). */
+	public static final int CH_FIST = 4;
+	/** v0.17.7: Lightning Incarnate -- he is lightning. */
+	public static final int CH_INCARNATE = 8;
+	/** v0.17.7: God of Thunder -- glowing eyes. */
+	public static final int CH_GOD = 16;
+	/** v0.17.7: Storm Sprint -- the electric run. */
+	public static final int CH_SPRINT = 32;
 
 	public static final int SUIT_NONE = 0;
 	public static final int SUIT_UP = 1;
@@ -99,7 +165,7 @@ public record ThorFx(int anim, long animStart, double x, double y, double z, int
 
 	public ThorFx withChannel(int channel, boolean on, long start) {
 		int ch = on ? channels | channel : channels & ~channel;
-		long charge = channel == CH_WRATH && on ? start : chargeStart;
+		long charge = (channel == CH_WRATH || channel == CH_FIST) && on ? start : chargeStart;
 		return new ThorFx(anim, animStart, x, y, z, ch, charge, suitDir, suitStart, stormPct, fieldX, fieldY, fieldZ,
 				fieldStart, fieldEnd, fieldRadius);
 	}

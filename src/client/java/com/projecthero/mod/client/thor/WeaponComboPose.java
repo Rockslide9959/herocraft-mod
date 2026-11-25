@@ -359,6 +359,10 @@ public final class WeaponComboPose {
 	 * the Twin Thunder Strike holds them off too.
 	 */
 	public static float firstPersonWeight(Player player, float partial) {
+		float kit = ThorKitPose.firstPersonWeight(player, partial); // v0.17.7: a Cosmic-revamp move owns the hands
+		if (kit > 0.001f) {
+			return kit;
+		}
 		float twin = twinTick(player, partial);
 		if (twin >= 0f) {
 			return Mth.clamp((ThorTwinFrames.END - twin) / 3f, 0f, 1f);
@@ -388,6 +392,10 @@ public final class WeaponComboPose {
 	 * hand's too), and the Twin Thunder Strike raises both and slams them down.
 	 */
 	public static void firstPerson(Player player, HumanoidArm arm, boolean mainHand, float partial, PoseStack pose) {
+		if (ThorKitPose.firstPersonWeight(player, partial) > 0.001f) { // v0.17.7: the Cosmic-revamp moves
+			ThorKitPose.firstPerson(player, mainHand, arm, partial, pose);
+			return;
+		}
 		float twin = twinTick(player, partial);
 		float[][] fr;
 		float tick;

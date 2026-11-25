@@ -149,12 +149,20 @@ public final class ThorPose {
 			hArm.xRot = -HALF_PI + m.head.xRot + tremble;
 			hArm.yRot = -0.1f * s + m.head.yRot;
 			hArm.zRot = 0f;
-			fArm.xRot = -HALF_PI + m.head.xRot + 0.14f - tremble;
-			fArm.yRot = m.head.yRot + 0.62f * s;
+			// v0.17.7: Twin Beam -- both weapons levelled side by side; otherwise the free hand grips the wrist
+			boolean twin = com.projecthero.mod.power.ThorState.of(player) == com.projecthero.mod.power.ThorState.TWIN;
+			fArm.xRot = -HALF_PI + m.head.xRot + (twin ? 0f : 0.14f) - tremble;
+			fArm.yRot = m.head.yRot + (twin ? 0.1f : 0.62f) * s;
 			fArm.zRot = 0f;
 			m.rightLeg.xRot = m.rightLeg.xRot * 0.3f - 0.32f * s;
 			m.leftLeg.xRot = m.leftLeg.xRot * 0.3f + 0.3f * s;
 			store(player, 1f, 1f);
+			return;
+		}
+		// v0.17.7 Cosmic revamp: the new moves' clips (and the Thunder Fist charge)
+		float[] kit = ThorKitPose.apply(player, m, fx);
+		if (kit != null) {
+			store(player, kit[0], kit[1]);
 			return;
 		}
 		if (fx.anim() != ThorFx.ANIM_NONE) {

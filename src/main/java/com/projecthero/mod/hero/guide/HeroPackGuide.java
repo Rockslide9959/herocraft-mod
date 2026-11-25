@@ -1009,16 +1009,38 @@ public final class HeroPackGuide {
 						.append(Component.translatable("projecthero.guide.thor.perk." + perk).withStyle(ChatFormatting.GRAY)));
 			}
 			blank(lines);
-			head(lines, "projecthero.guide.thor.controls");
-			for (String[] slot : new String[][]{
-					{"R", "call_mjolnir"}, {"G", "lightning_strike"}, {"Shift+G", "thunder_field"}, // v0.16.1: Thunder Field
-					{"X", "lightning_beam"},
-					{"Z", "god_of_thunders_wrath"}, {"V", "hammer_volley"}, {"Shift+V", "thunderclap"},
-					{"C", "chain_lightning"}, {"N", "weapon_select"}, // v0.15.3: N = the weapon selector
-			}) {
-				lines.add(Component.literal(" " + slot[0] + "  ").withStyle(ChatFormatting.GOLD)
-						.append(Component.translatable("projecthero.thor.ability." + slot[1]).withStyle(ChatFormatting.WHITE)));
-				para(lines, "projecthero.guide.thor.ability." + slot[1]);
+			// v0.17.7 Cosmic revamp: the controls in four weapon states (the key table is ThorKit.moveId, the same the HUD shows)
+			head(lines, "projecthero.guide.thor.states");
+			para(lines, "projecthero.guide.thor.states.intro");
+			blank(lines);
+			head(lines, "projecthero.guide.thor.shared");
+			para(lines, "projecthero.guide.thor.shared.r");
+			for (String[] shared : new String[][]{ {"V", "storm_call"}, {"Shift+V", "god_of_thunder"}, {"N", "weapon_select"} }) {
+				lines.add(Component.literal(" " + shared[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.thor.ability." + shared[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, shared[1].equals("weapon_select") ? "projecthero.guide.thor.ability.weapon_select"
+						: "projecthero.guide.thor.move." + shared[1]);
+			}
+			com.projecthero.mod.hero.AbilitySlot[] keyOrder = {
+					com.projecthero.mod.hero.AbilitySlot.SLOT_1, com.projecthero.mod.hero.AbilitySlot.SLOT_2,
+					com.projecthero.mod.hero.AbilitySlot.SLOT_6, com.projecthero.mod.hero.AbilitySlot.SLOT_4,
+					com.projecthero.mod.hero.AbilitySlot.SLOT_3 };
+			for (com.projecthero.mod.power.ThorState st : com.projecthero.mod.power.ThorState.values()) {
+				blank(lines);
+				head(lines, "projecthero.guide.thor.state." + st.id);
+				para(lines, "projecthero.guide.thor.state." + st.id + ".body");
+				for (com.projecthero.mod.hero.AbilitySlot slot : keyOrder) {
+					for (boolean shift : new boolean[]{ false, true }) {
+						if (slot == com.projecthero.mod.hero.AbilitySlot.SLOT_1 && !shift) {
+							continue; // R is the same everywhere (above)
+						}
+						String id = com.projecthero.mod.power.ThorKit.moveId(st, slot, shift);
+						String key = (shift ? "Shift+" : "") + slot.defaultKey();
+						lines.add(Component.literal(" " + key + "  ").withStyle(ChatFormatting.GOLD)
+								.append(Component.translatable("projecthero.thor.ability." + id).withStyle(ChatFormatting.WHITE)));
+						para(lines, "projecthero.guide.thor.move." + id);
+					}
+				}
 			}
 			blank(lines);
 			head(lines, "projecthero.guide.thor.flight");

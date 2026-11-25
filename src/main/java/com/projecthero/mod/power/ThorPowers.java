@@ -62,7 +62,7 @@ public final class ThorPowers {
 	public static final int LIGHTNING_RANGE = 30;
 	public static final int LIGHTNING_COOLDOWN_TICKS = 50; // 2.5s
 	/** v0.6.22: raised 10 -> 13. v0.13.4: raised again, 13 -> 22. */
-	private static final float LIGHTNING_STRIKE_DAMAGE = 22.0f;
+	private static final float LIGHTNING_STRIKE_DAMAGE = ThorKit.STRIKE_DAMAGE; // v0.17.7 (Cosmic): 22 -> 26
 	/** v0.7.5: Lightning Strike soft aim assist. If the raw crosshair ray doesn't land on an entity,
 	 * the strike snaps onto the living entity closest to the look vector within this half-angle (and
 	 * within {@link #LIGHTNING_RANGE}, with line of sight) so a near-miss lands on the target instead
@@ -82,11 +82,11 @@ public final class ThorPowers {
 
 	// ---------------- chain lightning (standalone ability, key C) ----------------
 	/** v0.6.22: a forward cone AoE -- every mob within this reach and the cone half-angle is hit. */
-	private static final double CHAIN_LIGHTNING_CONE_RANGE = 122.0;
+	private static final double CHAIN_LIGHTNING_CONE_RANGE = 32.0; // v0.17.7: 122 -> 32 (a cone, not the horizon)
 	/** Cone half-angle: a mob whose direction from the caster is within this of the look vector is in. */
 	private static final double CHAIN_LIGHTNING_CONE_DEGREES = 40.0;
 	/** v0.13.4: raised 8 -> 18. */
-	private static final float CHAIN_LIGHTNING_DAMAGE = 18.0f;
+	private static final float CHAIN_LIGHTNING_DAMAGE = ThorKit.CHAIN_DAMAGE; // v0.17.7 (Cosmic): 18 -> 24
 	private static final int CHAIN_LIGHTNING_COOLDOWN_TICKS = 160; // 8s
 
 	// ---------------- god of thunder's wrath (ultimate, key Z) ----------------
@@ -118,7 +118,7 @@ public final class ThorPowers {
 	/** v0.6.22: 5 -> 7 blocks, and it now deals damage as well as knocking back. */
 	private static final double THUNDERCLAP_RADIUS = 7.0;
 	/** v0.13.4: raised 10 -> 22. */
-	private static final float THUNDERCLAP_DAMAGE = 22.0f;
+	private static final float THUNDERCLAP_DAMAGE = ThorKit.CLAP_DAMAGE; // v0.17.7 (Cosmic): 22 -> 26
 
 	// ---------------- storm call ----------------
 	// Radius is centered on and follows the player (rather than staying fixed at the cast location)
@@ -128,7 +128,7 @@ public final class ThorPowers {
 	private static final double STORM_CALL_RADIUS = 12.0;
 	private static final int STORM_CALL_STRIKE_INTERVAL_TICKS = 50;
 	/** v0.14.4: Storm Call's bolts are Thor's own now (see {@link #tickStormCall}): damage and splash per bolt. */
-	private static final float STORM_CALL_STRIKE_DAMAGE = 8.0f;
+	private static final float STORM_CALL_STRIKE_DAMAGE = 22.0f; // v0.17.7 (Cosmic): 8 -> 22
 	private static final double STORM_CALL_SPLASH_RADIUS = 3.0;
 
 	// ---------------- flight ----------------
@@ -280,41 +280,6 @@ public final class ThorPowers {
 		level.playSound(null, x, y, z, SoundEvents.MACE_SMASH_AIR, SoundSource.PLAYERS, 0.35f, 0.9f);
 		level.playSound(null, x, y, z, SoundEvents.WIND_CHARGE_THROW, SoundSource.PLAYERS, 0.45f, 0.8f);
 		level.playSound(null, x, y, z, SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 0.15f, 1.7f);
-	}
-
-	// ---------------- hammer volley (v0.13.4, key V) ----------------
-
-	private static final int HAMMER_VOLLEY_DURATION_TICKS = 12 * 20;
-	private static final int HAMMER_VOLLEY_COOLDOWN_TICKS = 32 * 20;
-
-	/**
-	 * Sends Mjolnir out of the player's hand to autonomously strike nearby enemies for
-	 * {@link #HAMMER_VOLLEY_DURATION_TICKS} (see {@link MjolnirEntity#startVolley} for the actual
-	 * targeting/flight behaviour) -- or until the player calls it back early with {@link #callHammer}.
-	 * Requires the hammer specifically in the main hand, like {@link #throwMjolnir}, since it has to
-	 * physically leave the hand for the volley to read as "the hammer flew off."
-	 */
-	public static void hammerVolley(ServerPlayer player) {
-		if (!Worthiness.isWorthy(player)) {
-			return;
-		}
-		ItemStack stack = player.getMainHandItem();
-		if (!stack.is(ModItems.MJOLNIR)) {
-			return;
-		}
-		if (!consumeCooldown(player, ThorAbility.HAMMER_VOLLEY, HAMMER_VOLLEY_COOLDOWN_TICKS)) {
-			return;
-		}
-
-		ItemStack sent = stack.copy();
-		player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
-
-		MjolnirEntity entity = new MjolnirEntity(player.level(), player);
-		entity.setItem(sent);
-		entity.startVolley(player, HAMMER_VOLLEY_DURATION_TICKS);
-		player.level().addFreshEntity(entity);
-		playThrowSound(player);
-		ThorVisuals.anim(player, ThorFx.ANIM_VOLLEY);
 	}
 
 	// ---------------- call hammer ----------------
@@ -474,6 +439,11 @@ public final class ThorPowers {
 		setFlying(player, true);
 	}
 
+	/** v0.17.7: ends Thor flight (a leap, a dive or an ultimate takes over the motion). */
+	public static void landFlight(ServerPlayer player) {
+		setFlying(player, false);
+	}
+
 	private static void setFlying(ServerPlayer player, boolean flying) {
 		player.setAttached(ModAttachments.FLYING, flying);
 
@@ -496,8 +466,9 @@ public final class ThorPowers {
 		player.getAbilities().flying = flying;
 		// v0.9.2: fly at the shared hero-flight speed so Thor keeps pace with Turbo Flight / the
 		// experimental Flight power instead of drifting along at the plain creative-mode rate.
+		// v0.17.7: per weapon state -- Mjolnir fastest, Twin Gods medium, Stormbreaker slow
 		player.getAbilities().setFlyingSpeed(flying
-				? THOR_FLYING_SPEED
+				? ThorKit.flyingSpeed(player)
 				: com.projecthero.mod.hero.power.HeroFlight.VANILLA_FLYING_SPEED);
 		player.onUpdateAbilities();
 		player.resetFallDistance();
@@ -517,6 +488,7 @@ public final class ThorPowers {
 		WorthinessEnforcer.serverTick(player);
 		ThorPassives.serverTick(player);
 		ThorStorm.tick(player); // v0.16.1: the thunderstorm buff's synced flag + sparks
+		ThorKit.tick(player); // v0.17.7: melee per weapon state, God of Thunder / Storm Sprint / Lightning Incarnate
 
 		if (isFlying(player)) {
 			if (player.getAbilities().instabuild) {
@@ -548,6 +520,11 @@ public final class ThorPowers {
 						setFlying(player, false);
 					} else {
 						player.getAbilities().flying = true;
+						float speed = ThorKit.flyingSpeed(player); // v0.17.7: follows a weapon swap mid-flight
+						if (player.getAbilities().getFlyingSpeed() != speed) {
+							player.getAbilities().setFlyingSpeed(speed);
+							player.onUpdateAbilities();
+						}
 						tickFlightTrail(player);
 						if (grace) {
 							tickHammerlessFlightGrace(player);
@@ -558,7 +535,6 @@ public final class ThorPowers {
 		}
 
 		tickLaser(player);
-		tickWrathCharge(player);
 		tickStormCall(player);
 
 		if (!isFlying(player)) {
@@ -612,14 +588,10 @@ public final class ThorPowers {
 		}
 		// Check readiness without consuming yet -- an insufficient-energy cast shouldn't start the
 		// cooldown (mirrors the pre-refactor behavior, where addCooldown only ran after a real cast).
-		if (!cooldowns(player).isReady(ThorAbility.LIGHTNING_STRIKE, player.level().getGameTime())) {
+		// v0.17.7: cooldown / cost through ThorKit (state multipliers)
+		if (!ThorKit.begin(player, ThorAbility.LIGHTNING_STRIKE, ThorKit.STRIKE_CD, ThorKit.STRIKE_COST)) {
 			return;
 		}
-		if (!StormEnergy.has(player, StormEnergy.LIGHTNING_COST)) {
-			player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.projecthero.no_storm_energy"), true);
-			return;
-		}
-		triggerCooldown(player, ThorAbility.LIGHTNING_STRIKE, LIGHTNING_COOLDOWN_TICKS);
 
 		HitResult hit = ProjectileUtil.getHitResultOnViewVector(
 				player, target -> aimable(player, target), LIGHTNING_RANGE);
@@ -653,9 +625,9 @@ public final class ThorPowers {
 				strikeEntity(serverLevel, player, livingPrimary, LIGHTNING_STRIKE_DAMAGE);
 				chainLightning(serverLevel, player, livingPrimary, LIGHTNING_STRIKE_DAMAGE, struck);
 			}
+			serverLevel.playSound(null, pos.x, pos.y, pos.z, SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 0.8f, 1.1f);
+			ThorTwinThunder.shake(serverLevel, pos, 0.5f, 6, 16.0);
 		}
-
-		StormEnergy.spend(player, StormEnergy.LIGHTNING_COST);
 	}
 
 	/**
@@ -675,7 +647,7 @@ public final class ThorPowers {
 				&& (!(target instanceof LivingEntity) || ThorTargets.canAffect(player, target));
 	}
 
-	private static LivingEntity findAimAssistTarget(ServerPlayer player, double range, double angleDegrees) {
+	static LivingEntity findAimAssistTarget(ServerPlayer player, double range, double angleDegrees) {
 		Vec3 eye = player.getEyePosition();
 		Vec3 look = player.getLookAngle();
 		double bestDot = Math.cos(Math.toRadians(angleDegrees));
@@ -698,7 +670,7 @@ public final class ThorPowers {
 	}
 
 	private static void chainLightning(ServerLevel level, ServerPlayer player, LivingEntity from, float incomingDamage, Set<Entity> struck) {
-		float jumpDamage = incomingDamage * CHAIN_DAMAGE_FALLOFF;
+		float jumpDamage = ThorKit.STRIKE_CHAIN_DAMAGE; // v0.17.7 (Cosmic): a flat 22 (was half the strike)
 		List<LivingEntity> candidates = new ArrayList<>(level.getEntitiesOfClass(LivingEntity.class,
 				from.getBoundingBox().inflate(CHAIN_RANGE),
 				e -> !struck.contains(e) && ThorTargets.isHostile(player, e))); // v0.14.20: jumps only to threats (rule 2)
@@ -732,9 +704,8 @@ public final class ThorPowers {
 		if (!ThorTargets.canAffect(player, target)) {
 			return;
 		}
-		DamageSource source = ThorTargets.lightning(level, player);
-		igniteIfAnimal(target);
-		if (target.hurt(source, damage)) {
+		// v0.17.7: through ThorKit.hit -- the state rules (Mjolnir's stun, Stormbreaker's armour cut), the cap
+		if (ThorKit.hit(player, target, damage, ThorKit.Kind.LIGHTNING)) {
 			target.knockback(0.3, player.getX() - target.getX(), player.getZ() - target.getZ());
 			level.playSound(null, target.getX(), target.getY(), target.getZ(), SoundEvents.TRIDENT_THUNDER, SoundSource.PLAYERS, hitSoundVolume, 1.4f);
 		}
@@ -762,7 +733,7 @@ public final class ThorPowers {
 		if (!Worthiness.isWorthy(player) || !isHoldingThorWeapon(player)) {
 			return;
 		}
-		if (!consumeCooldown(player, ThorAbility.CHAIN_LIGHTNING, CHAIN_LIGHTNING_COOLDOWN_TICKS)) {
+		if (!ThorKit.begin(player, ThorAbility.CHAIN_LIGHTNING, ThorKit.CHAIN_CD, ThorKit.CHAIN_COST)) {
 			return;
 		}
 		if (!(player.level() instanceof ServerLevel serverLevel)) {
@@ -829,178 +800,12 @@ public final class ThorPowers {
 	// ---------------- god of thunder's wrath (ultimate, key Z) ----------------
 
 	/**
-	 * v0.6.22 ultimate. Thor calls down a single colossal bolt on the exact point he is looking at
-	 * (out to {@link #GOD_OF_THUNDER_RANGE} blocks): {@link #GOD_OF_THUNDER_DAMAGE} to everything
-	 * within {@link #GOD_OF_THUNDER_RADIUS} of the impact, a real (non-visual) {@link LightningBolt}
-	 * for the spectacle, a 60-second cooldown, and it drains 150 Storm Energy -- it is meant to be a
-	 * fight-ender you can only reach for once.
-	 *
-	 * <p>v0.6.23: this is no longer an instant cast. The player must <b>hold Z for 5 seconds</b> to
-	 * charge it ({@link #setWrathCharging} / {@link #tickWrathCharge}); this method is the payload the
-	 * charge fires when it completes.
-	 */
-	public static void godOfThundersWrath(ServerPlayer player) {
-		if (!Worthiness.isWorthy(player) || !isHoldingThorWeapon(player)) {
-			return;
-		}
-		if (!cooldowns(player).isReady(ThorAbility.GOD_OF_THUNDER, player.level().getGameTime())) {
-			return;
-		}
-		if (!StormEnergy.has(player, StormEnergy.GOD_OF_THUNDER_MIN)) {
-			player.displayClientMessage(
-					net.minecraft.network.chat.Component.translatable("message.projecthero.no_storm_energy"), true);
-			return;
-		}
-		if (!(player.level() instanceof ServerLevel serverLevel)) {
-			return;
-		}
-		triggerCooldown(player, ThorAbility.GOD_OF_THUNDER, GOD_OF_THUNDER_COOLDOWN_TICKS);
-		StormEnergy.spend(player, StormEnergy.GOD_OF_THUNDER_COST);
-
-		HitResult hit = ProjectileUtil.getHitResultOnViewVector(
-				player, target -> aimable(player, target), GOD_OF_THUNDER_RANGE);
-		Vec3 pos;
-		if (hit instanceof EntityHitResult entityHit) {
-			pos = entityHit.getEntity().position();
-		} else {
-			// v0.13.3: same soft aim assist Lightning Strike uses (tighter cone -- see the constant's
-			// javadoc) so a near-miss on a distant enemy still lands the ultimate on them instead of
-			// the bare ground/air point.
-			LivingEntity assisted = findAimAssistTarget(player, GOD_OF_THUNDER_RANGE, GOD_OF_THUNDER_AIM_ASSIST_DEGREES);
-			if (assisted != null) {
-				pos = assisted.position();
-			} else if (hit != null && hit.getType() != HitResult.Type.MISS) {
-				pos = hit.getLocation();
-			} else {
-				pos = player.getEyePosition().add(player.getLookAngle().scale(GOD_OF_THUNDER_RANGE));
-			}
-		}
-
-		spawnWrathBolt(serverLevel, player, pos);
-		// v0.13.4: a barrage of extra bolts on jittered points inside the radius, so the ultimate reads
-		// as a storm crashing down rather than one lone strike -- damage is still the single AABB sweep
-		// below, these are purely the spectacle.
-		for (int i = 0; i < GOD_OF_THUNDER_EXTRA_BOLTS; i++) {
-			double jx = pos.x + (serverLevel.random.nextDouble() - 0.5) * GOD_OF_THUNDER_RADIUS * 1.6;
-			double jz = pos.z + (serverLevel.random.nextDouble() - 0.5) * GOD_OF_THUNDER_RADIUS * 1.6;
-			spawnWrathBolt(serverLevel, player, new Vec3(jx, pos.y, jz));
-		}
-
-		ThorVisuals.anim(player, ThorFx.ANIM_WRATH, pos);
-		DamageSource source = ThorTargets.lightning(serverLevel, player);
-		for (LivingEntity target : wrathTargets(serverLevel, player, pos)) {
-			igniteIfAnimal(target);
-			// v0.10.11: a one-shot ultimate must land its full hit even if the boss is mid-i-frame from
-			// a melee swing -- clear the window for non-players first.
-			if (!(target instanceof net.minecraft.world.entity.player.Player)) {
-				target.invulnerableTime = 0;
-			}
-			target.hurt(source, GOD_OF_THUNDER_DAMAGE);
-		}
-
-		serverLevel.sendParticles(ParticleTypes.EXPLOSION_EMITTER, pos.x, pos.y, pos.z, 1, 0, 0, 0, 0);
-		serverLevel.sendParticles(ParticleTypes.ELECTRIC_SPARK, pos.x, pos.y + 1.0, pos.z, 120,
-				GOD_OF_THUNDER_RADIUS, 2.0, GOD_OF_THUNDER_RADIUS, 0.3);
-		serverLevel.sendParticles(ParticleTypes.FLASH, pos.x, pos.y + 1.0, pos.z, 4, 0.1, 0.1, 0.1, 0.0);
-		serverLevel.playSound(null, pos.x, pos.y, pos.z, SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 4.0f, 0.6f);
-		serverLevel.playSound(null, pos.x, pos.y, pos.z, SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 4.0f, 0.7f);
-	}
-
-	/**
 	 * Everything the ultimate's blast at {@code pos} lands on: within {@link #GOD_OF_THUNDER_RADIUS} (box distance,
 	 * with the same two-block grace it always had), minus the caster, their squad and anything else
 	 * {@link ThorTargets#canAffect} spares. Public for the squad-safety gametests.
 	 */
 	public static List<LivingEntity> wrathTargets(ServerLevel level, ServerPlayer player, Vec3 pos) {
 		return ThorTargets.inRadius(level, player, pos, Math.sqrt(GOD_OF_THUNDER_RADIUS * GOD_OF_THUNDER_RADIUS + 4.0));
-	}
-
-	/** A single visual-only bolt at {@code pos} -- damage for the ultimate is always the one AABB sweep
-	 * in {@link #godOfThundersWrath}, this is purely the spectacle, so any number of these can be spawned
-	 * without touching how much damage actually lands. */
-	private static void spawnWrathBolt(ServerLevel serverLevel, ServerPlayer player, Vec3 pos) {
-		LightningBolt bolt = EntityType.LIGHTNING_BOLT.create(serverLevel);
-		if (bolt != null) {
-			bolt.moveTo(pos.x, pos.y, pos.z);
-			bolt.setVisualOnly(true);
-			bolt.setCause(player);
-			serverLevel.addFreshEntity(bolt);
-		}
-	}
-
-	/**
-	 * Start / stop charging God of Thunder's Wrath (the Z key press / release edge). The ultimate can
-	 * never be cast instantly -- the player must hold Z for {@link #WRATH_CHARGE_TICKS} (5 s), during
-	 * which the HUD shows a buildup bar. Releasing early cancels the charge harmlessly (no cooldown,
-	 * no energy spent -- those only happen when {@link #godOfThundersWrath} actually fires).
-	 */
-	public static void setWrathCharging(ServerPlayer player, boolean charging) {
-		int current = player.getAttachedOrElse(ModAttachments.THOR_WRATH_CHARGE, 0);
-		if (!charging) {
-			if (current > 0) {
-				player.setAttached(ModAttachments.THOR_WRATH_CHARGE, 0);
-				if (player.level() instanceof ServerLevel sl) {
-					sl.playSound(null, player.blockPosition(), SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 0.5f, 1.4f);
-				}
-			}
-			return;
-		}
-		if (current > 0) {
-			return; // already charging
-		}
-		if (!Worthiness.isWorthy(player) || !isHoldingThorWeapon(player)) {
-			return;
-		}
-		if (!cooldowns(player).isReady(ThorAbility.GOD_OF_THUNDER, player.level().getGameTime())) {
-			int remain = cooldowns(player).remainingTicks(ThorAbility.GOD_OF_THUNDER, player.level().getGameTime());
-			player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
-					"message.projecthero.ability.on_cooldown",
-					net.minecraft.network.chat.Component.translatable("projecthero.thor.ability.god_of_thunders_wrath"),
-					String.format(java.util.Locale.ROOT, "%.1f", remain / 20.0f)), true);
-			return;
-		}
-		if (!StormEnergy.has(player, StormEnergy.GOD_OF_THUNDER_MIN)) {
-			player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
-					"message.projecthero.no_storm_energy"), true);
-			return;
-		}
-		player.setAttached(ModAttachments.THOR_WRATH_CHARGE, 1);
-		if (player.level() instanceof ServerLevel sl) {
-			sl.playSound(null, player.blockPosition(), SoundEvents.CONDUIT_ACTIVATE,
-					SoundSource.PLAYERS, 0.8f, 0.7f);
-		}
-	}
-
-	/** Advances an in-progress Wrath charge; fires {@link #godOfThundersWrath} at 5 s. */
-	private static void tickWrathCharge(ServerPlayer player) {
-		int c = player.getAttachedOrElse(ModAttachments.THOR_WRATH_CHARGE, 0);
-		// v0.14.4: every viewer sees the charge (the pose + the storm gathering on the hammer); the counter itself is
-		// only synced to the caster's own HUD
-		ThorVisuals.channel(player, ThorFx.CH_WRATH, c > 0);
-		if (c <= 0) {
-			return;
-		}
-		if (!Worthiness.isWorthy(player) || !isHoldingThorWeapon(player)
-				|| !StormEnergy.has(player, StormEnergy.GOD_OF_THUNDER_MIN)) {
-			player.setAttached(ModAttachments.THOR_WRATH_CHARGE, 0);
-			return;
-		}
-		c++;
-		if (player.level() instanceof ServerLevel sl) {
-			double a = Math.min(1.0, c / (double) WRATH_CHARGE_TICKS);
-			sl.sendParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() + 1.0, player.getZ(),
-					(int) (2 + a * 12), 0.7, 1.0, 0.7, 0.25);
-			if (c % 8 == 0) {
-				sl.playSound(null, player.blockPosition(), SoundEvents.BEACON_AMBIENT,
-						SoundSource.PLAYERS, 0.5f, 0.5f + (float) a);
-			}
-		}
-		if (c >= WRATH_CHARGE_TICKS) {
-			player.setAttached(ModAttachments.THOR_WRATH_CHARGE, 0);
-			godOfThundersWrath(player);
-		} else {
-			player.setAttached(ModAttachments.THOR_WRATH_CHARGE, c);
-		}
 	}
 
 	// ---------------- crackling lightning arcs (v0.13.4: replaces the old particle-line arcs) ----------------
@@ -1021,7 +826,7 @@ public final class ThorPowers {
 	 * client derives that point itself, the same formula {@link #tickLaser} used to use for its particle
 	 * beam's start); {@code toEntity == null} means the raw {@code toPoint}.
 	 */
-	private static void sendLightningArc(ServerPlayer caster, int slot, Entity fromEntity, Entity toEntity,
+	static void sendLightningArc(ServerPlayer caster, int slot, Entity fromEntity, Entity toEntity,
 			Vec3 toPoint, int holdTicks, int fadeTicks) {
 		Vec3 p = toEntity != null ? toEntity.position() : toPoint;
 		ThorLightningArcPayload payload = new ThorLightningArcPayload(caster.getId(), slot,
@@ -1051,12 +856,13 @@ public final class ThorPowers {
 		if (!Worthiness.isWorthy(player) || !isHoldingThorWeapon(player)) {
 			return;
 		}
-		if (!StormEnergy.has(player, StormEnergy.LASER_DRAIN_PER_SECOND / 20.0f)) {
+		if (!StormEnergy.has(player, beamDrain(player) / 20.0f)) {
 			player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.projecthero.no_storm_energy"), true);
 			return;
 		}
 
 		player.setAttached(ModAttachments.LASER_ACTIVE, true);
+		player.setAttached(ModAttachments.THOR_WRATH_CHARGE, 0); // (v0.17.7: reused as the beam's tick clock)
 	}
 
 	private static void tickLaser(ServerPlayer player) {
@@ -1066,19 +872,22 @@ public final class ThorPowers {
 		}
 		if (com.projecthero.mod.beamclash.BeamClash.locked(player)) {
 			// v0.17.5: locked in a clash -- no drain, damage or timer
-			com.projecthero.mod.beamclash.BeamClash.report(player, player.getEyePosition(), player.getLookAngle(), LASER_RANGE, 1.4f, 0x9FD8FF);
+			com.projecthero.mod.beamclash.BeamClash.report(player, player.getEyePosition(), player.getLookAngle(), LASER_RANGE, beamWidth(player), beamColour(player));
 			return;
 		}
 		if (!Worthiness.isWorthy(player) || !isHoldingThorWeapon(player)
-				|| !StormEnergy.has(player, StormEnergy.LASER_DRAIN_PER_SECOND / 20.0f)) {
+				|| !StormEnergy.has(player, beamDrain(player) / 20.0f)) {
 			player.setAttached(ModAttachments.LASER_ACTIVE, false);
 			ThorVisuals.channel(player, ThorFx.CH_BEAM, false);
 			return;
 		}
 		ThorVisuals.channel(player, ThorFx.CH_BEAM, true);
 
-		StormEnergy.spend(player, StormEnergy.LASER_DRAIN_PER_SECOND / 20.0f);
-		com.projecthero.mod.beamclash.BeamClash.report(player, player.getEyePosition(), player.getLookAngle(), LASER_RANGE, 1.4f, 0x9FD8FF); // v0.17.3
+		StormEnergy.spend(player, beamDrain(player) / 20.0f);
+		com.projecthero.mod.beamclash.BeamClash.report(player, player.getEyePosition(), player.getLookAngle(), LASER_RANGE, beamWidth(player), beamColour(player)); // v0.17.3
+		int clock = player.getAttachedOrElse(ModAttachments.THOR_WRATH_CHARGE, 0) + 1;
+		player.setAttached(ModAttachments.THOR_WRATH_CHARGE, clock);
+		boolean damageTick = clock % ThorKit.BEAM_INTERVAL == 1; // v0.17.7: a hit every 1/4 s (the first on the press)
 
 		if (!(player.level() instanceof ServerLevel serverLevel)) {
 			return;
@@ -1095,9 +904,12 @@ public final class ThorPowers {
 		if (hit instanceof EntityHitResult entityHit) {
 			hitEntity = entityHit.getEntity();
 			end = hitEntity.position().add(0, hitEntity.getBbHeight() / 2, 0);
-			if (hitEntity instanceof LivingEntity living && ThorTargets.canAffect(player, living)) {
-				igniteIfAnimal(living);
-				living.hurt(ThorTargets.lightning(serverLevel, player), LASER_DAMAGE_PER_TICK);
+			if (damageTick && hitEntity instanceof LivingEntity living && ThorTargets.canAffect(player, living)) {
+				ThorKit.hit(player, living, beamDamage(player), ThorKit.Kind.LIGHTNING, true, true);
+				serverLevel.sendParticles(ParticleTypes.ELECTRIC_SPARK, end.x, end.y, end.z, 10, 0.2, 0.2, 0.2, 0.2);
+				if (ThorState.of(player) != ThorState.MJOLNIR) {
+					ThorKit.prism(serverLevel, end, 8, 0.25, 0.25);
+				}
 			}
 		} else if (hit != null) {
 			end = hit.getLocation();
@@ -1111,6 +923,46 @@ public final class ThorPowers {
 			serverLevel.playSound(null, player.getX(), player.getY(), player.getZ(),
 					SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 0.5f, 1.6f);
 		}
+		if (player.tickCount % 10 == 0 && ThorState.of(player) != ThorState.MJOLNIR) {
+			serverLevel.playSound(null, player.getX(), player.getY(), player.getZ(),
+					SoundEvents.BEACON_AMBIENT, SoundSource.PLAYERS, 0.9f, 1.6f); // the Bifrost's hum
+		}
+	}
+
+	/** v0.17.7: the held beam per state -- Lightning Beam 22, Bifrost Beam 26 (narrow), Twin Beam 28 -- every 1/4 s. */
+	public static float beamDamage(Player player) {
+		return switch (ThorState.of(player)) {
+			case STORMBREAKER -> ThorKit.BEAM_STORMBREAKER;
+			case TWIN -> ThorKit.BEAM_TWIN;
+			default -> ThorKit.BEAM_MJOLNIR;
+		};
+	}
+
+	/** Storm Energy a second (Twin's own x2 on top). */
+	public static float beamDrain(Player player) {
+		ThorState st = ThorState.of(player);
+		float base = switch (st) {
+			case STORMBREAKER -> ThorKit.BEAM_DRAIN_STORMBREAKER;
+			case TWIN -> ThorKit.BEAM_DRAIN_TWIN;
+			default -> ThorKit.BEAM_DRAIN_MJOLNIR;
+		};
+		return st.cost(base);
+	}
+
+	private static float beamWidth(Player player) {
+		return switch (ThorState.of(player)) {
+			case STORMBREAKER -> 0.9f;
+			case TWIN -> 1.8f;
+			default -> 1.4f;
+		};
+	}
+
+	private static int beamColour(Player player) {
+		return switch (ThorState.of(player)) {
+			case STORMBREAKER -> 0xFF7BE8;
+			case TWIN -> 0xD8B8FF;
+			default -> 0x9FD8FF;
+		};
 	}
 
 	// ---------------- thunderclap shockwave ----------------
@@ -1119,15 +971,9 @@ public final class ThorPowers {
 		if (!Worthiness.isWorthy(player) || !isHoldingThorWeapon(player)) {
 			return;
 		}
-		if (!StormEnergy.has(player, StormEnergy.THUNDERCLAP_COST)) {
-			player.displayClientMessage(
-					net.minecraft.network.chat.Component.translatable("message.projecthero.no_storm_energy"), true);
+		if (!ThorKit.begin(player, ThorAbility.THUNDERCLAP, ThorKit.CLAP_CD, ThorKit.CLAP_COST)) {
 			return;
 		}
-		if (!consumeCooldown(player, ThorAbility.THUNDERCLAP, THUNDERCLAP_COOLDOWN_TICKS)) {
-			return;
-		}
-		StormEnergy.spend(player, StormEnergy.THUNDERCLAP_COST);
 
 		ThorVisuals.anim(player, ThorFx.ANIM_THUNDERCLAP);
 		if (player.level() instanceof ServerLevel serverLevel) {
@@ -1139,10 +985,10 @@ public final class ThorPowers {
 				double dz = target.getZ() - player.getZ();
 				double dist = Math.max(0.1, Math.sqrt(dx * dx + dz * dz));
 				double strength = 1.4 * (1.0 - Math.min(1.0, dist / THUNDERCLAP_RADIUS)) + 0.4;
-				igniteIfAnimal(target);
-				target.hurt(clap, THUNDERCLAP_DAMAGE);
-				target.knockback(strength, -dx / dist, -dz / dist);
-				target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 30, 5));
+				if (ThorKit.hit(player, target, THUNDERCLAP_DAMAGE, ThorKit.Kind.LIGHTNING)) {
+					ThorKit.knock(target, player.position(), strength, 0.3);
+					target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 30, 5));
+				}
 			}
 
 			serverLevel.sendParticles(ParticleTypes.EXPLOSION, player.getX(), player.getY() + 0.1, player.getZ(), 1, 0, 0, 0, 0);
@@ -1150,22 +996,31 @@ public final class ThorPowers {
 					40, THUNDERCLAP_RADIUS / 2, 0.1, THUNDERCLAP_RADIUS / 2, 0.05);
 			serverLevel.playSound(null, player.getX(), player.getY(), player.getZ(),
 					SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 0.7f, 1.6f);
+			serverLevel.playSound(null, player.getX(), player.getY(), player.getZ(),
+					SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 0.9f, 1.2f);
+			serverLevel.playSound(null, player.getX(), player.getY(), player.getZ(),
+					SoundEvents.MACE_SMASH_GROUND_HEAVY, SoundSource.PLAYERS, 1.0f, 0.8f);
+			ThorKit.sparkRing(serverLevel, player.position(), THUNDERCLAP_RADIUS * 0.8, 48);
+			ThorTwinThunder.shake(serverLevel, player.position(), 0.9f, 10, 20.0);
 		}
 	}
 
 	// ---------------- storm call ----------------
 
+	/**
+	 * v0.17.7: V in every state -- a local thunderstorm round him for 18 s (27 s with Mjolnir) that charges him (Storm-Charged
+	 * +30%, {@link ThorStorm#isCharged}) and drops a 22-damage bolt on a nearby enemy every 2.5 s.
+	 */
 	public static void stormCall(ServerPlayer player) {
-		if (!Worthiness.isWorthy(player) || !isHoldingThorWeapon(player)) {
-			return;
-		}
-		if (!consumeCooldown(player, ThorAbility.STORM_CALL, STORM_CALL_COOLDOWN_TICKS)) {
+		if (!ThorKit.begin(player, ThorAbility.STORM_CALL, ThorKit.STORM_CALL_CD, ThorKit.STORM_CALL_COST)) {
 			return;
 		}
 
 		long tick = player.level().getGameTime();
 		StormCallState state = player.getAttachedOrCreate(ModAttachments.STORM_CALL_STATE);
-		state.activeUntilTick = tick + STORM_CALL_DURATION_TICKS;
+		int duration = ThorState.of(player) == ThorState.MJOLNIR
+				? Math.round(STORM_CALL_DURATION_TICKS * ThorKit.MJOLNIR_STORM_MUL) : STORM_CALL_DURATION_TICKS;
+		state.activeUntilTick = tick + duration;
 		state.nextStrikeTick = tick + 20;
 		player.setAttached(ModAttachments.STORM_CALL_STATE, state);
 		ThorVisuals.anim(player, ThorFx.ANIM_STORM);
@@ -1175,6 +1030,9 @@ public final class ThorPowers {
 					SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 1.0f, 0.8f);
 			serverLevel.sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY() + 2, player.getZ(),
 					60, STORM_CALL_RADIUS / 2, 1.0, STORM_CALL_RADIUS / 2, 0.05);
+			serverLevel.playSound(null, player.getX(), player.getY(), player.getZ(),
+					SoundEvents.WEATHER_RAIN_ABOVE, SoundSource.PLAYERS, 1.0f, 0.8f);
+			spawnVisualBolt(serverLevel, player, player.position());
 		}
 	}
 
@@ -1190,16 +1048,23 @@ public final class ThorPowers {
 		// v0.13.5: every other continuous Thor effect (Laser, Wrath charge) already stops the instant
 		// worthiness is lost -- Storm Call was the one exception, which is exactly what let it keep
 		// calling down lightning after Thor was stripped via a command or a replaced Primary power.
-		if (!Worthiness.isWorthy(player)) {
+		if (!Worthiness.isWorthy(player) || !ThorState.hasKit(player)) {
 			player.setAttached(ModAttachments.STORM_CALL_STATE, new StormCallState());
 			return;
 		}
 		StormCallState state = player.getAttachedOrCreate(ModAttachments.STORM_CALL_STATE);
 		long tick = player.level().getGameTime();
 
-		if (tick % 10 == 0) {
-			serverLevel.sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY() + 3, player.getZ(),
-					3, STORM_CALL_RADIUS / 2, 0.2, STORM_CALL_RADIUS / 2, 0.02);
+		if (tick % 4 == 0) {
+			// v0.17.7: the storm over him -- dark cloud, falling rain, the odd rumble
+			serverLevel.sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY() + 5, player.getZ(),
+					4, STORM_CALL_RADIUS / 2, 0.3, STORM_CALL_RADIUS / 2, 0.01);
+			serverLevel.sendParticles(ParticleTypes.FALLING_WATER, player.getX(), player.getY() + 4.5, player.getZ(),
+					12, STORM_CALL_RADIUS / 2, 0.2, STORM_CALL_RADIUS / 2, 0.0);
+		}
+		if (tick % 60 == 0) {
+			serverLevel.playSound(null, player.getX(), player.getY() + 6, player.getZ(), SoundEvents.LIGHTNING_BOLT_THUNDER,
+					SoundSource.WEATHER, 0.5f, 0.6f + serverLevel.random.nextFloat() * 0.3f);
 		}
 
 		if (tick >= state.nextStrikeTick) {

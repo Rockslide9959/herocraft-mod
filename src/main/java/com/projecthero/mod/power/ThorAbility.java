@@ -22,5 +22,19 @@ public enum ThorAbility {
 	/** v0.16.1: "Twin Thunder Strike" -- the Mjolnir + Stormbreaker dual-wield combo's finisher. */
 	TWIN_THUNDER,
 	/** v0.16.1: "Thunder Field" -- Shift + G. */
-	THUNDER_FIELD
+	THUNDER_FIELD,
+
+	// ---- v0.17.7 Cosmic revamp ({@link ThorKit}): one cooldown per move; the state that owns it is the prefix ----
+	U_THUNDER_FIST, U_LIGHTNING_PALM, U_GRAPPLE, U_STORM_RUSH, U_STATIC_BURST, U_GROUND_POUND, U_STORM_SPRINT, U_THUNDER_LEAP,
+	M_WHIRLWIND, M_STORM_DASH, M_METEOR_DIVE,
+	S_BIFROST_HURL, S_STORM_CLEAVE, S_BIFROST_STEP, S_RENDING_ARC, S_EXECUTIONER, S_BIFROST_DASH,
+	T_TWIN_THROW, T_THUNDERSTRUCK, T_STORM_ANCHOR, T_CROSSFIRE,
+	/** The one ultimate cooldown every state shares (Shift+Z). */
+	ULTIMATE,
+	/** Shift+V God of Thunder's cooldown. */
+	GOD_OF_THUNDER_BUFF,
+	/** Not cooldowns: "ready at" = when the timed state ends (God of Thunder, Storm Sprint, Lightning Incarnate). */
+	GOD_ACTIVE, SPRINT_ACTIVE, INCARNATE_ACTIVE,
+	/** Internal throttle: God of Thunder's chain bolt fires at most once per {@link ThorKit#GOD_CHAIN_GAP} ticks. */
+	GOD_CHAIN
 }

@@ -170,6 +170,8 @@
 		"BlackPantherFlipMixin",
 		"ItemInHandRendererBlackPantherMixin",
 		"ItemInHandRendererSuperSoldierMixin",
+		"ItemInHandRendererThorMixin",
+		"ItemInHandLayerThorHideMixin",
 		"SuperSoldierBodyMixin",
 		"BeamClashInputMixin",
 		"BeamClashKeyMixin",

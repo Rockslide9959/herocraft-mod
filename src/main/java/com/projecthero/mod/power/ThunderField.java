@@ -58,7 +58,7 @@ public final class ThunderField {
 	/** "Standing in it": this far above / below the field's centre. */
 	private static final double FIELD_HEIGHT = 2.0;
 
-	private record Throw(UUID weapon, UUID owner, ResourceKey<Level> dim, Vec3 aim, long start) {
+	private record Throw(UUID weapon, UUID owner, ResourceKey<Level> dim, Vec3 aim, long start, double radius, boolean makesField) {
 	}
 
 	private static final class Field {
@@ -92,7 +92,16 @@ public final class ThunderField {
 	// ---------------- the throw ----------------
 
 	/** Shift + G. */
+	/** The v0.16.1 entry point: Mjolnir's Thunder Field (Shift+G) on its v0.17.7 cooldown and cost. */
 	public static void cast(ServerPlayer player) {
+		cast(player, ThorAbility.THUNDER_FIELD, ThorKit.FIELD_CD, ThorKit.FIELD_COST, 1.0, false);
+	}
+
+	/**
+	 * v0.17.7: the throw-and-field with its cooldown / cost / size: Mjolnir's Thunder Field (x1), and Twin Gods' Storm Anchor
+	 * ({@code both}: the off-hand weapon is hurled down beside it, and the field is {@code radiusMul} 2 = twice as big).
+	 */
+	public static void cast(ServerPlayer player, ThorAbility ability, int cooldownTicks, float cost, double radiusMul, boolean both) {
 		if (!Worthiness.isWorthy(player)) {
 			return;
 		}
@@ -105,7 +114,7 @@ public final class ThunderField {
 		}
 		long now = player.level().getGameTime();
 		var cds = player.getAttachedOrCreate(ModAttachments.COOLDOWNS);
-		if (!cds.isReady(ThorAbility.THUNDER_FIELD, now)) {
+		if (!cds.isReady(ability, now)) {
 			return;
 		}
 		ThorConfig.ThunderFieldCfg cfg = ThorConfig.get().thunderField;
@@ -114,6 +123,24 @@ public final class ThunderField {
 			player.displayClientMessage(Component.translatable("projecthero.thor.thunder_field.no_ground"), true);
 			return;
 		}
+		if (!ThorKit.begin(player, ability, cooldownTicks, cost)) {
+			return;
+		}
+		double radius = cfg.radius * radiusMul;
+		if (both) {
+			InteractionHand other = hand == InteractionHand.MAIN_HAND ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND;
+			if (WeaponCombo.weaponOf(player.getItemInHand(other)) != WeaponComboState.WEAPON_NONE) {
+				Vec3 side = new Vec3(-player.getLookAngle().z, 0, player.getLookAngle().x);
+				side = side.lengthSqr() < 1e-6 ? new Vec3(1, 0, 0) : side.normalize();
+				hurl(player, other, aim.add(side.scale(1.4)), radius, false);
+			}
+		}
+		hurl(player, hand, aim, radius, true);
+		ThorVisuals.anim(player, both ? ThorFx.ANIM_STORM_ANCHOR : ThorFx.ANIM_FIELD_THROW, aim);
+	}
+
+	private static void hurl(ServerPlayer player, InteractionHand hand, Vec3 aim, double radius, boolean makesField) {
+		long now = player.level().getGameTime();
 		ItemStack stack = player.getItemInHand(hand);
 		ItemStack thrown = stack.copy();
 		Entity weapon;
@@ -135,9 +162,7 @@ public final class ThunderField {
 		}
 		player.setItemInHand(hand, ItemStack.EMPTY);
 		player.level().addFreshEntity(weapon);
-		ThorPowers.triggerCooldown(player, ThorAbility.THUNDER_FIELD, cfg.cooldownTicks);
 		ThorPowers.grantThrowFlightGrace(player);
-		ThorVisuals.anim(player, ThorFx.ANIM_FIELD_THROW, aim);
 		Level level = player.level();
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), ProjectHeroSounds.MJOLNIR_THROW,
 				SoundSource.PLAYERS, 0.5f, 0.9f);
@@ -145,7 +170,7 @@ public final class ThunderField {
 				SoundSource.PLAYERS, 0.45f, 0.7f);
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.LIGHTNING_BOLT_THUNDER,
 				SoundSource.PLAYERS, 0.2f, 1.5f);
-		THROWS.add(new Throw(weapon.getUUID(), player.getUUID(), level.dimension(), aim, now));
+		THROWS.add(new Throw(weapon.getUUID(), player.getUUID(), level.dimension(), aim, now, radius, makesField));
 	}
 
 	/** The ground point Thor is aiming at within {@code range} blocks, or null if there is none. */
@@ -170,9 +195,13 @@ public final class ThunderField {
 
 	/** Forms a field of {@code owner}'s at {@code center} now (the landing; public for tests). */
 	public static void spawnField(ServerPlayer owner, ServerLevel level, Vec3 center) {
+		spawnField(owner, level, center, ThorConfig.get().thunderField.radius);
+	}
+
+	public static void spawnField(ServerPlayer owner, ServerLevel level, Vec3 center, double radius) {
 		ThorConfig.ThunderFieldCfg cfg = ThorConfig.get().thunderField;
-		FIELDS.add(new Field(owner.getUUID(), level.dimension(), center, level.getGameTime(), cfg.durationTicks, cfg.radius));
-		ThorVisuals.field(owner, center, cfg.durationTicks, (float) cfg.radius);
+		FIELDS.add(new Field(owner.getUUID(), level.dimension(), center, level.getGameTime(), cfg.durationTicks, radius));
+		ThorVisuals.field(owner, center, cfg.durationTicks, (float) radius);
 		ThorTwinThunder.visualBolt(level, owner, center);
 		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, center.x, center.y + 0.3, center.z, 50, cfg.radius * 0.4, 0.15,
 				cfg.radius * 0.4, 0.25);
@@ -279,7 +308,9 @@ public final class ThunderField {
 			} else if (weapon instanceof StormbreakerEntity s && !s.isRemoved() && !s.isResting()) {
 				s.pinAt(center.add(0, 0.05, 0), cfg.durationTicks);
 			}
-			spawnField(owner, level, center);
+			if (th.makesField()) {
+				spawnField(owner, level, center, th.radius());
+			}
 		}
 	}
 

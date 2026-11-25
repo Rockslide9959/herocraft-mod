@@ -69,7 +69,7 @@ import net.minecraft.world.phys.Vec3;
  * the ground), and a ghost a recall has already superseded deletes itself on its next tick.
  */
 public class StormbreakerEntity extends ThrowableItemProjectile {
-	public static final float DAMAGE = 20.0f;
+	public static final float DAMAGE = 24.0f; // v0.17.7 (Cosmic tier): 20 -> 24
 	public static final int MAX_PIERCE = 4;
 	public static final double MAX_RANGE = 40.0;
 	public static final double THROW_SPEED = 2.4;
@@ -117,6 +117,17 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 	private double returnSpeed = RETURN_SPEED_MIN;
 	/** Everything struck on this outbound flight -- one hit each. Not saved: a reload simply allows a fresh hit. */
 	private final Set<UUID> struck = new HashSet<>();
+	/** v0.17.7 Bifrost Hurl ({@code ThorStormbreakerKit}): per-pierce damage, pierces, and whether each hit Sunders. Not saved. */
+	private float throwDamage = DAMAGE;
+	private int maxPierce = MAX_PIERCE;
+	private boolean sunders;
+
+	/** v0.17.7: a special throw -- {@code damage} per pierce, {@code pierce} pierces, each victim Sundered if asked. */
+	public void setSpecialThrow(float damage, int pierce, boolean sunder) {
+		this.throwDamage = damage;
+		this.maxPierce = Math.max(1, pierce);
+		this.sunders = sunder;
+	}
 
 	public StormbreakerEntity(EntityType<? extends StormbreakerEntity> type, Level level) {
 		super(type, level);
@@ -547,7 +558,10 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 		}
 		Player owner = resolveOwner();
 		var source = level().damageSources().trident(this, owner == null ? this : owner);
-		if (target.hurt(source, DAMAGE)) {
+		if (target.hurt(source, throwDamage)) {
+			if (sunders && target instanceof LivingEntity sundered) {
+				com.projecthero.mod.power.ThorSunder.apply(sundered); // v0.17.7 Bifrost Hurl
+			}
 			if (target instanceof LivingEntity living) {
 				Vec3 push = this.getDeltaMovement().normalize();
 				living.knockback(0.6, -push.x, -push.z);
@@ -559,7 +573,7 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 			callLightning(serverLevel, owner, target.position());
 		}
 		pierced++;
-		if (pierced >= MAX_PIERCE) {
+		if (pierced >= maxPierce) {
 			beginReturn();
 		}
 	}

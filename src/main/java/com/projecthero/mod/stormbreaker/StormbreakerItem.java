@@ -177,17 +177,10 @@ public class StormbreakerItem extends Item {
 			return InteractionResultHolder.fail(stack);
 		}
 
-		if (player.isShiftKeyDown()) {
-			// v0.14.20: Sneak + right-click opens the Bifrost screen. The one exception: sneak-clicking a block within
-			// arm's reach with something in the off hand is left to vanilla, so a block can still be sneak-placed
-			// from the off hand while holding the axe.
-			if (!player.getOffhandItem().isEmpty() && Bifrost.targetsBlockInReach(player)) {
-				return InteractionResultHolder.pass(stack);
-			}
-			if (player instanceof ServerPlayer serverPlayer) {
-				Bifrost.sendScreen(serverPlayer, true);
-			}
-			return InteractionResultHolder.success(stack);
+		// v0.17.7 (Thor revamp): the Bifrost screen moved to Shift+X (Bifrost Travel, ThorStormbreakerKit); sneak-clicking a
+		// block within reach with something in the off hand is still left to vanilla, so a block can be sneak-placed
+		if (player.isShiftKeyDown() && !player.getOffhandItem().isEmpty() && Bifrost.targetsBlockInReach(player)) {
+			return InteractionResultHolder.pass(stack);
 		}
 
 		if (level.isClientSide()) {

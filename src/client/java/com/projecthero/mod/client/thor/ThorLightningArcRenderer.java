@@ -59,6 +59,16 @@ public final class ThorLightningArcRenderer {
 			if (alpha <= 0.0f) {
 				continue;
 			}
+			if (arc.slot == BEAM_SLOT) {
+				// v0.17.7: a beam locked out of sight by a clash is not drawn (CLAUDE.md beam rule); Stormbreaker's beam is the
+				// rainbow one (ThorKitFxRenderer), not this bolt
+				net.minecraft.world.entity.Entity caster = client.level.getEntity(arc.casterId);
+				if (caster != null && (com.projecthero.mod.client.beamclash.BeamClashClient.hides(caster)
+						|| (caster instanceof net.minecraft.world.entity.player.Player cp
+								&& com.projecthero.mod.power.ThorState.of(cp) == com.projecthero.mod.power.ThorState.STORMBREAKER))) {
+					continue;
+				}
+			}
 			Vec3 from = ThorLightningArcClient.fromPoint(arc, partial).subtract(cam);
 			Vec3 to = ThorLightningArcClient.targetPoint(arc, partial).subtract(cam);
 			// A stable per-segment offset so a multi-hop chain's strands don't all crackle in lockstep.
