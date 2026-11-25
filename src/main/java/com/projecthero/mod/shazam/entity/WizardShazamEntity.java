@@ -82,7 +82,7 @@ public class WizardShazamEntity extends PathfinderMob {
 			if (life % 40 == 0) {
 				server.sendParticles(ParticleTypes.ELECTRIC_SPARK, getX(), getY() + 1.0, getZ(), 2, 0.3, 0.6, 0.3, 0.02);
 			}
-			if (life >= ShazamConfig.WIZARD_LIFETIME || (life > 200 && !server.isThundering() && !summoned)) {
+			if (fades() && (life >= ShazamConfig.WIZARD_LIFETIME || (life > 200 && !server.isThundering() && !summoned))) {
 				ShazamWizards.fade(this);
 			}
 		} else if (tickCount < 40 && random.nextInt(tickCount < 15 ? 1 : 3) == 0) {
@@ -102,5 +102,21 @@ public class WizardShazamEntity extends PathfinderMob {
 
 	public int life() {
 		return life;
+	}
+
+	/** v0.17.7: false for the Wizard on his throne in the Rock of Eternity ({@code journey.ThroneWizardEntity}), who never fades. */
+	protected boolean fades() {
+		return true;
+	}
+
+	/** v0.17.7: one from a spawn egg (creative) stays like a summoned one, storm or not. */
+	@Override
+	public net.minecraft.world.entity.SpawnGroupData finalizeSpawn(net.minecraft.world.level.ServerLevelAccessor level,
+			net.minecraft.world.DifficultyInstance difficulty, net.minecraft.world.entity.MobSpawnType spawnType,
+			net.minecraft.world.entity.SpawnGroupData data) {
+		if (spawnType == net.minecraft.world.entity.MobSpawnType.SPAWN_EGG) {
+			summoned = true;
+		}
+		return super.finalizeSpawn(level, difficulty, spawnType, data);
 	}
 }

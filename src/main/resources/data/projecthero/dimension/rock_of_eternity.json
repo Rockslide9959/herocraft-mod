@@ -1,0 +1,13 @@
+{
+  "type": "projecthero:rock_of_eternity",
+  "generator": {
+    "type": "minecraft:flat",
+    "settings": {
+      "biome": "projecthero:rock_of_eternity",
+      "layers": [],
+      "lakes": false,
+      "features": false,
+      "structure_overrides": []
+    }
+  }
+}

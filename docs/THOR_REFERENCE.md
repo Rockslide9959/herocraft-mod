@@ -135,6 +135,9 @@ powers -> the lift cutscene binds Mjolnir** (Thor becomes the one Primary power 
   villager 40 (`ThorAcquireCureMixin` on the vanilla trigger). Roughly a raid + a boss + a hideout + a dungeon + villagers.
 - Shown: the Guidebook line + bar, and `ValorHud` under the crosshair when looking at a resting Mjolnir as an outsider
   ("Valor 43%" over a thin gold Meter; full: what the hammer still wants).
+- v0.17.7: full Valor with no powers is also what makes a player **worthy for Shazam** (the Wizard chooses the pure of heart):
+  illusions of a subway stairway start to appear (`com.projecthero.mod.shazam.journey`, see FATE_SHAZAM_DESIGN.md). Neither path spends Valor;
+  whichever power they take first makes them powered, which closes the other.
 
 ### Mjolnir's Crater -- `worldgen/MjolnirCraterPiece`, `CraterAmbience`, `CraterGuard`, client `CraterCloudRenderer`
 - The existing `projecthero:mjolnir_crater` structure (same id, same structure set: random_spread spacing 100 chunks,

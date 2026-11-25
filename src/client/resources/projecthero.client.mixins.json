@@ -232,6 +232,8 @@
 		"MiraculousSequenceCameraMixin",
 		"GalactusCinematicCameraMixin",
 		"GalactusCinematicGuiMixin",
+		"ShazamJourneyCameraMixin",
+		"ShazamJourneyGuiMixin",
 		"OmnitrixSequenceCameraMixin",
 		"OmnitrixSequenceFovMixin",
 		"MoonKnightTruncheonSpinMixin",

@@ -347,6 +347,96 @@ a hard landing, a scorch, a shock ring and a thunder crack.
 **Possible boss later:** **Black Adam**. He says "Shazam" too: when he's below half health, typing "Shazam" near him strikes
 *him* with lightning and turns him back into a mortal for 5 s. That's the classic trick.
 
+### v0.17.7: how players get Shazam -- the journey (`com.projecthero.mod.shazam.journey`)
+
+User: "change the way he gets his powers to make it so that once a player becomes worthy they can randomly see illusions of
+the train stairway, approaching it transports them to the subway and then they can hop onto the train, the train then takes
+them to the cave with the wizard shazam and then approaching him he will tell you to say his name and then the player
+transforms for the first time, i want there to be cutscenes for this stuff too". The storm-visit Wizard is gone
+(`ShazamWizards.tickLevel` is no longer registered); his judgement stays for operators (`/projecthero power tune shazam
+wizard`, the creative `wizard_shazam_spawn_egg`). Client in `client/shazam/journey` (+ `ThroneWizardModel/Renderer`,
+`ShazamJourneyCameraMixin`, `ShazamJourneyGuiMixin`). Lang: `scratchpad/v0177/shazam_journey_lang.json` (`lang_add.js`, key by
+key). Film: `docs/screenshots/v0177/shazam_journey/shazam_journey_full.mp4` (harness `scratchpad/ShazamJourneyHarness.v0177.java.txt`,
+encoder `scratchpad/v0177/shazam_journey_film.js`).
+
+**Worthy** (`ShazamIllusions.worthy`): full Valor (`thoracquire.Valor`) and no power at all (`HeroTiers.hasAnyPower`, not
+Shazam, not Shazam Family). Being chosen spends no Valor; once Shazam they are powered, so Thor is out (and vice versa).
+
+**The illusions** (`ShazamIllusions`): every 60 s (`ROLL_EVERY`) a worthy player on foot in the Overworld rolls 4%, 8% at
+night, +4% in a City chunk (`chanceOverride` for tests). A hit places a stairway 7-12 blocks ahead within 34 degrees of their
+look, on open ground with a clear 3 x 5 footprint and a clear line of sight, descending away from them; then a 5-minute
+cooldown (`COOLDOWN`). It's only sent to that player (`JourneyPayloads.Illusion`) and drawn client-side (`IllusionRenderer`):
+eight stone steps down between white-tiled walls to a landing and a dark doorway (no depth test, so it reads as a hole in
+the ground, deeper = darker), green iron railings and two globe lamps, a shimmering gold arch with an old green "SUBWAY /
+Eternity Line" sign. It fades in, wavers, flickers out now and then, whispers (soul-escape sounds, one faint horn), sparkles.
+It fades after 30 s or 32 blocks away. Walking within 2 blocks of its top step starts the journey. The player's position when
+it appeared is the return point (`ShazamJourney.RETURN`, saved).
+
+**The realm** (`EternityRealm`): `projecthero:rock_of_eternity`, a void datapack dimension (no sky light, ceiling, fixed
+night, ash, cave mood), one build per journey slot 1000 blocks apart along Z, built once in 3-column slices over a few
+seconds (marker: bedrock 8 under the stop point) and reused. Layout along +X from the stop point O (`JourneyGeometry`):
+- **Fawcett Central** (x -24..24): brown wainscot, grimy white quartz tiles, a cyan mosaic band, oxidised copper columns, a
+  yellow platform edge, ceiling redstone lamps (two flicker while you're on the platform, `flicker`), benches, the timetable
+  ("Next train arriving now / Last train never"), FAWCETT CENTRAL across the track, MIND THE GAP, and the stairs you "came
+  down" at the east end (you land at their foot).
+- the west tunnel (to -105) the train comes from; the east tunnel: tiled subway tunnel with a froglight every 5 blocks on
+  both walls (the streaks) to x 125, then glyph-carved blackstone and crying obsidian with glowstone runes, turning to raw
+  rock by 175, a widening rough rock bore to the cave at 256.
+- **the Rock of Eternity** (an 80 x 44 roughened dome, 28 high, centred on x 296): paved floor, the end of the line with a
+  buffer stop, a red carpet to a three-step gold-edged dais and a blackstone throne crowned in gold, the Seven Deadly Sins
+  (Pride, Envy, Greed, Wrath, Lust, Gluttony, Sloth) on plinths with glowing eyes, braziers and name signs, a ring of
+  glowing runes round the walls, a great lightning-bolt rune behind the throne, and lightning arcing under the dome
+  (`ShazamFx.arc` every 1.5-4.5 s with quiet thunder).
+- Fallback: with no dimension (the GameTest server) the same build goes into the overworld sky at x 1,200,000, y 200.
+- Nothing in it can be broken, placed or used; no damage to anyone in a journey or in the realm; falling below the build puts
+  you back on the floor. The route is held loaded and entity-ticking (`hold`, a ticket every two chunks).
+
+**The stages** (`ShazamJourney`, server-authoritative; scenes and beats in `JourneyScene`):
+1. DESCENT (74 ticks): held at the stairs; the camera leaves your eyes, rises over the entrance and sinks down the stairwell;
+   the screen goes black (34-50); a gust, a distant horn (the goat horn "call", pitched down), a second horn and a rumble.
+   At 62 (once the station stands) you're taken to the platform.
+2. TRAIN (152): fade in at the foot of the stairs; the camera watches the tunnel as the headlights come, the horn at the
+   tunnel mouth, the wind as it bursts out, screeching brakes, the air brakes sigh, the doors open. The train only spawns
+   once its tunnel chunk is entity-ticking (the scene waits for it).
+3. WAITING: "The doors are open. Step aboard the train." Walk into any of the six doorways, or right-click the train.
+4. RIDE (262): seated in the front car (re-seated if you try to get off); the door chime and doors closing, away at 20,
+   full speed (30 blocks/s) by 60, braking from 200, stopped in the cave at 250. Shots: inside the car looking back at you,
+   first person out of the far windows as the lamps streak by, glyphs out of the window (gold glyphs drift over the screen,
+   enchanting sounds), a white lightning flash at 150 (thunder, shake, tiles crumbling off the walls), a camera in the rock
+   tunnel as the train roars past it, then the cave as it brakes in ("The Rock of Eternity" caption).
+5. CAVE: you step off beside the front car facing the throne; walking within 7 blocks of the Wizard (or right-clicking him).
+6. MEETING (206): you're placed before the dais; he rises from the throne (40 ticks, stepping forward) and speaks:
+   "I have waited a long time for a champion..." / "<name>. You are worthy. Your heart is pure." / "Say my name, so that my
+   power may flow through you!" Wide shot, close on his face, over his shoulder.
+7. PROMPT: `SayShazamScreen` -- a big gold SHAZAM! button (Enter / Space too), a wrapped hint that typing Shazam in chat works
+   too. Esc leaves a HUD hint; right-clicking the Wizard reopens it. The word in chat is swallowed like the real word.
+8. TRANSFORM (150): "SHAZAM!" fills the screen; at 14 the power (`Shazam.grant`: the one Primary) and the first
+   transformation (`Shazam.speak`: the colossal bolt, the suit, "SHAZAM!"), two more bolts and a burst, a white flash and big
+   shake; an orbit round the new champion; his last words ("It is done. My power is yours, champion." / "Speak my name and the
+   lightning will answer. Speak it again to return. Now go."); white at 118, home at 134.
+9. HOME: back at the return point, turned back (`Shazam.forceUntransform`), a flash and sparks there, the white fades over 2 s,
+   and a line telling them to type Shazam.
+
+**Safety:** a journey is a static map of player UUIDs (`ServerStateReset` -> `ShazamJourney.clearSessionState`, which also
+clears the illusions and pending builds). Disconnect: the journey ends (train and Wizard go), the saved return point stays;
+`check` (every 10 ticks, any player with no journey) sends anyone with a return point home and anyone in the realm without one
+to world spawn. Death ends it and clears the return point on respawn. Taken out of the realm some other way (a command): the
+journey ends quietly. Client: every scene times out by itself (the descent's black at most 10 s past its end, the prompt
+without a server refresh every 5 s), movement keys are held during scenes, everything clears on disconnect.
+
+**Wizard on the throne** (`ThroneWizardEntity`, id `wizard_shazam_throne`): the same player-model Wizard in the project's own
+detailed skin (`textures/entity/shazam/wizard_shazam.png` + parts, from `scratchpad/shazam/gen_wizard_textures.js`), seated
+and rising (`ThroneWizardModel`); never fades (`WizardShazamEntity.fades()`), no physics, not saved.
+
+**The train** (`SubwayTrainEntity`, id `subway_train`, renderer `SubwayTrainRenderer`, atlas from
+`scratchpad/v0177/gen_shazam_journey_assets.js`): two 16-block stainless cars with a red Shazam stripe, tinted windows, three
+pairs of sliding doors a side, roof boxes, skirt and bogies, a bellows gangway, headlights with beams, red tail markers, an
+amber "ROCK OF ETERNITY" destination sign, and a lit interior (benches, poles, grab rails, adverts, light strips). Its
+position is scripted from synced mode / start / origin on both sides (`lerpTo` ignored), so a passenger rides smoothly.
+
+**Tests:** `ShazamJourneyV0177GameTests` (worthiness, the forced illusion, walking to it -> the platform, boarding -> the
+cave, the chat answer -> power + transform -> home turned back, the button answer, logout safety).
+
 ---
 
 ## Build split

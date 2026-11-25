@@ -1,0 +1,394 @@
+// v0.17.7 Shazam acquisition harness: films the WHOLE journey in one continuous run, one frame per client tick.
+// To use: copy to src/client/java/com/projecthero/mod/client/ShazamJourneyHarness.java, add
+// "com.projecthero.mod.client.ShazamJourneyHarness" to fabric.mod.json client entrypoints, write run/shazam_journey.flag = <out dir>,
+// run node scratchpad/low_graphics_options.js run/options.txt, then ./gradlew runClient. Remove both from src before committing.
+// The run: a fresh world, a flat spot on plains at dusk, full Valor, the illusion forced ahead -> walk to it (W held) -> the
+// descent -> the platform and the train arriving -> walk into a doorway -> the ride -> step off, sprint up the aisle to the
+// throne -> the meeting -> the "Say SHAZAM!" prompt (pressed after 3 s) -> the transformation -> home.
+// Frames: film_journey_NNNN.png (+ marks.txt "name frame") -> node scratchpad/v0177/shazam_journey_film.js <out dir>
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.io.FileWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.function.Consumer;
+
+import org.lwjgl.glfw.GLFW;
+
+import com.projecthero.mod.client.shazam.journey.SayShazamScreen;
+import com.projecthero.mod.shazam.journey.ShazamIllusions;
+import com.projecthero.mod.shazam.journey.ShazamJourney;
+import com.projecthero.mod.shazam.journey.SubwayTrainEntity;
+import com.projecthero.mod.shazam.journey.ThroneWizardEntity;
+import com.projecthero.mod.thoracquire.Valor;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped). Kept as scratchpad/ShazamJourneyHarness.v0177.java.txt. */
+public final class ShazamJourneyHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static File out;
+	private static FileWriter marks;
+	private static int frame;
+	private static boolean filming;
+	private static volatile boolean ready;
+	private static volatile int cx, cz;
+	private static String phase = "setup";
+	private static int phaseTicks;
+	private static int endTicks = -1;
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("shazam_journey.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			out = new File(Files.readString(flag).trim());
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		try {
+			marks = new FileWriter(new File(out, "marks.txt"));
+		} catch (Exception e) {
+			marks = null;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(ShazamJourneyHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(1_200_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] watchdog");
+			Runtime.getRuntime().halt(3);
+		}, "journey-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static ServerPlayer sp(Minecraft mc) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		return srv == null || srv.getPlayerList().getPlayers().isEmpty() ? null : srv.getPlayerList().getPlayers().get(0);
+	}
+
+	private static void mark(String name) {
+		System.out.println("[HARNESS] mark " + name + " " + frame);
+		try {
+			if (marks != null) {
+				marks.write(name + " " + frame + "\n");
+				marks.flush();
+			}
+		} catch (Exception ignored) {
+		}
+	}
+
+	private static void shot(Minecraft mc) {
+		mc.getToasts().clear();
+		Screenshot.grab(out, String.format("film_journey_%04d.png", frame), mc.getMainRenderTarget(), m -> {
+		});
+		frame++;
+	}
+
+	private static int[] findSpot(ServerLevel lvl, int x0, int z0) {
+		var gen = lvl.getChunkSource().getGenerator();
+		var rs = lvl.getChunkSource().randomState();
+		for (int dz = 0; dz < 3000; dz += 48) {
+			for (int x = x0; x < x0 + 400; x += 16) {
+				int z = z0 + dz;
+				int s = gen.getFirstOccupiedHeight(x, z, Heightmap.Types.WORLD_SURFACE_WG, lvl, rs);
+				if (s != gen.getFirstOccupiedHeight(x, z, Heightmap.Types.OCEAN_FLOOR_WG, lvl, rs) || s < 64) {
+					continue;
+				}
+				var biome = gen.getBiomeSource().getNoiseBiome(x >> 2, s >> 2, z >> 2, rs.sampler());
+				if (!(biome.is(net.minecraft.world.level.biome.Biomes.PLAINS) || biome.is(net.minecraft.world.level.biome.Biomes.MEADOW)
+						|| biome.is(net.minecraft.world.level.biome.Biomes.SUNFLOWER_PLAINS))) {
+					continue;
+				}
+				int min = s, max = s;
+				for (int[] o : new int[][] { { -10, -6 }, { 10, -6 }, { -10, 20 }, { 10, 20 }, { 0, 10 }, { 0, 20 }, { 6, 6 }, { -6, 6 } }) {
+					int y = gen.getFirstOccupiedHeight(x + o[0], z + o[1], Heightmap.Types.OCEAN_FLOOR_WG, lvl, rs);
+					min = Math.min(min, y);
+					max = Math.max(max, y);
+				}
+				if (max - min <= 1) {
+					return new int[] { x, z };
+				}
+			}
+		}
+		return new int[] { x0, z0 };
+	}
+
+	private static void clearTrees(ServerLevel level, int x, int y, int z, int r) {
+		for (BlockPos q : BlockPos.betweenClosed(x - r, y - 3, z - r, x + r, y + 26, z + r + 14)) {
+			var s = level.getBlockState(q);
+			if (s.is(net.minecraft.tags.BlockTags.LEAVES) || s.is(net.minecraft.tags.BlockTags.LOGS) || s.is(Blocks.TALL_GRASS) || s.is(Blocks.SHORT_GRASS)
+					|| s.is(net.minecraft.tags.BlockTags.FLOWERS)) {
+				level.setBlock(q, Blocks.AIR.defaultBlockState(), 2);
+			}
+		}
+	}
+
+	private static float yawTo(Vec3 from, Vec3 to) {
+		return (float) Math.toDegrees(Math.atan2(-(to.x - from.x), to.z - from.z));
+	}
+
+	private static void walk(Minecraft mc, Vec3 target, boolean sprint) {
+		if (mc.player == null) {
+			return;
+		}
+		float yaw = yawTo(mc.player.position(), target);
+		mc.player.setYRot(yaw);
+		mc.player.setYHeadRot(yaw);
+		mc.player.setXRot(4f);
+		mc.options.keyUp.setDown(true);
+		mc.options.keySprint.setDown(sprint);
+		if (sprint) {
+			mc.player.setSprinting(true);
+		}
+	}
+
+	private static void stop(Minecraft mc) {
+		mc.options.keyUp.setDown(false);
+		mc.options.keySprint.setDown(false);
+		if (mc.player != null) {
+			mc.player.setSprinting(false);
+		}
+	}
+
+	private static void go(String p) {
+		phase = p;
+		phaseTicks = 0;
+		mark(p);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.getWindow().setWindowed(960, 540);
+				mc.execute(ShazamJourneyHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 30) {
+			mc.options.fov().set(75);
+			mc.options.tutorialStep = net.minecraft.client.tutorial.TutorialSteps.NONE;
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			mc.options.renderDistance().set(8);
+			mc.options.framerateLimit().set(60);
+			mc.options.entityDistanceScaling().set(2.0);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			if (mc.getSingleplayerServer() != null) {
+				mc.getSingleplayerServer().getPlayerList().setViewDistance(8);
+			}
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(12600L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.setWeatherParameters(24000, 0, false, false);
+				p.setGameMode(GameType.SURVIVAL);
+				int[] s = findSpot(level, p.blockPosition().getX() + 60, p.blockPosition().getZ());
+				cx = s[0];
+				cz = s[1];
+				p.connection.teleport(cx + 0.5, 150, cz + 0.5, 0f, 0f);
+			});
+		}
+		if (t == 110) {
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, cx, cz);
+				clearTrees(level, cx, y, cz, 12);
+				y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, cx, cz);
+				p.connection.teleport(cx + 0.5, y, cz + 0.5, 0f, 4f);
+				Valor.set(p, Valor.MAX);
+				p.getInventory().clearContent();
+				// warm the realm up front so the film never waits on a build (the journey builds it too)
+				var realm = com.projecthero.mod.shazam.journey.EternityRealm.level(p.server);
+				com.projecthero.mod.shazam.journey.EternityRealm.buildNow(realm, 0);
+				ready = true;
+			});
+		}
+		if (!ready || t < 200) {
+			return;
+		}
+		phaseTicks++;
+		ServerPlayer sp = sp(mc);
+		ShazamJourney.Stage stage = sp == null ? null : ShazamJourney.stage(sp);
+		switch (phase) {
+			case "setup" -> {
+				if (phaseTicks == 1) {
+					mc.player.setYRot(0f);
+					mc.player.setXRot(4f);
+				}
+				if (phaseTicks == 20) {
+					filming = true;
+					go("illusion");
+					server(mc, p -> {
+						var l = ShazamIllusions.forceAppear(p);
+						System.out.println("[HARNESS] illusion " + (l == null ? "NONE" : l.pos()));
+					});
+				}
+			}
+			case "illusion" -> {
+				if (phaseTicks >= 50) {
+					go("walk_to_it");
+				}
+			}
+			case "walk_to_it" -> {
+				var l = sp == null ? null : ShazamIllusions.live(sp);
+				if (l != null) {
+					walk(mc, l.pos().add(Vec3.directionFromRotation(0, l.yaw()).scale(0.6)), false);
+				}
+				if (stage == ShazamJourney.Stage.DESCENT) {
+					stop(mc);
+					go("descent");
+				}
+				if (phaseTicks > 300) {
+					System.out.println("[HARNESS] never reached the illusion");
+					go("done");
+				}
+			}
+			case "descent" -> {
+				if (stage == ShazamJourney.Stage.TRAIN) {
+					go("train_arrives");
+				}
+			}
+			case "train_arrives" -> {
+				if (stage == ShazamJourney.Stage.WAITING) {
+					go("board");
+				}
+			}
+			case "board" -> {
+				SubwayTrainEntity train = sp == null ? null : ShazamJourney.train(sp);
+				if (phaseTicks > 12 && train != null) {
+					// the front car's rear door, just across from the stairs
+					Vec3 door = new Vec3(train.getX() + 8.5 + 5.0, mc.player.getY(), train.getZ() + 0.9);
+					walk(mc, door, false);
+				}
+				if (stage == ShazamJourney.Stage.RIDE) {
+					stop(mc);
+					go("ride");
+				}
+			}
+			case "ride" -> {
+				if (stage == ShazamJourney.Stage.CAVE) {
+					go("cave");
+				}
+			}
+			case "cave" -> {
+				ThroneWizardEntity w = sp == null ? null : ShazamJourney.wizard(sp);
+				if (phaseTicks > 16 && w != null) {
+					Vec3 me = mc.player.position();
+					// straight on past the buffer stop first, then up the aisle to the throne
+					Vec3 target = me.x < w.getX() - 24 ? new Vec3(w.getX() - 22, me.y, me.z) : w.position();
+					walk(mc, target, phaseTicks > 30);
+				}
+				if (stage == ShazamJourney.Stage.MEETING) {
+					stop(mc);
+					go("meeting");
+				}
+			}
+			case "meeting" -> {
+				if (stage == ShazamJourney.Stage.PROMPT) {
+					go("prompt");
+				}
+			}
+			case "prompt" -> {
+				if (phaseTicks == 60 && mc.screen instanceof SayShazamScreen s) {
+					s.keyPressed(GLFW.GLFW_KEY_ENTER, 0, 0);
+					mark("said_shazam");
+				}
+				if (phaseTicks == 80 && stage == ShazamJourney.Stage.PROMPT) {
+					server(mc, ShazamJourney::answer); // the screen wasn't up: answer anyway
+				}
+				if (stage == ShazamJourney.Stage.TRANSFORM) {
+					go("transform");
+				}
+			}
+			case "transform" -> {
+				if (stage == null && phaseTicks > 20) {
+					go("home");
+				}
+			}
+			case "home" -> {
+				if (phaseTicks == 45) {
+					mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+				}
+				if (phaseTicks >= 80) {
+					mc.options.setCameraType(CameraType.FIRST_PERSON);
+					go("done");
+				}
+			}
+			case "done" -> {
+				filming = false;
+				if (endTicks < 0) {
+					endTicks = 0;
+					System.out.println("[HARNESS] done frames=" + frame);
+				}
+				if (++endTicks > 40) {
+					Runtime.getRuntime().halt(0);
+				}
+			}
+			default -> {
+			}
+		}
+		if (filming) {
+			shot(mc);
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		LevelSettings settings = new LevelSettings("JOURNEY_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false, Difficulty.PEACEFUL, true,
+				rules, WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(5175L, true, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.NORMAL).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

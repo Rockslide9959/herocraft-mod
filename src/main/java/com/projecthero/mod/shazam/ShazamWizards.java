@@ -22,6 +22,10 @@ import net.minecraft.world.phys.Vec3;
  * existing {@link Worthiness} -- the worthy and a Hero of the Village always are): no villager or iron golem killed in the last three
  * days, and no villager nearby who dislikes you. Worthy: he says your name and grants the power (it replaces your Primary). Unworthy:
  * he fades in a lightning flash and won't come back to you for 5 days. Random serums never give it.
+ *
+ * <p><b>v0.17.7:</b> the storm visits are gone ({@link #tickLevel} is no longer registered): players now earn the power through
+ * the journey ({@code journey.ShazamJourney}: worthy -> illusions of a subway stairway -> the train -> the Rock of Eternity).
+ * This Wizard and his judgement remain for operators only ({@code /projecthero power tune shazam wizard}, the creative spawn egg).
  */
 public final class ShazamWizards {
 	private ShazamWizards() {
