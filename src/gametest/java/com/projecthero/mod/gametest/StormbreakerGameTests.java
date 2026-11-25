@@ -319,12 +319,13 @@ public class StormbreakerGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE, batch = BIFROST_BATCH, timeoutTicks = 40)
 	public void sneakRightClickOpensTheBifrostMenuWithoutMovingOrThrowing(GameTestHelper helper) {
+		// v0.17.7 Thor revamp: the Bifrost menu moved to Shift+X (Bifrost Travel); Shift + right-click now throws like a plain one
 		ServerPlayer p = player(helper, new Vec3(1.5, 2, 1.5), true);
 		Vec3 start = p.position();
 		p.lookAt(EntityAnchorArgument.Anchor.EYES, helper.absoluteVec(new Vec3(1.5, 2.0, 5.5)));
 		p.setShiftKeyDown(true);
-		InteractionResult result = p.getMainHandItem().use(helper.getLevel(), p, InteractionHand.MAIN_HAND).getResult();
-		helper.assertTrue(result.consumesAction(), "Sneak + right-click opens the Bifrost menu, got " + result);
+		com.projecthero.mod.hero.AbilityRouter.handleInput(p, 3, true);
+		com.projecthero.mod.hero.AbilityRouter.handleInput(p, 3, false);
 		helper.assertTrue(p.position().distanceToSqr(start) < 1.0E-6, "opening the menu moves nobody");
 		helper.assertTrue(p.getMainHandItem().is(ModItems.STORMBREAKER) && axes(helper, p).isEmpty(), "and throws nothing");
 		helper.assertTrue(Bifrost.cooldownRemaining(p) == 0, "and spends no cooldown");
