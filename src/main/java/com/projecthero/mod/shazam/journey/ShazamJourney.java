@@ -430,7 +430,7 @@ public final class ShazamJourney {
 		if (beat(s, t, JourneyScene.DESCENT_HORN)) {
 			notify(p, horn(), 0.35f, 0.6f);
 		}
-		if (beat(s, t, 42)) {
+		if (beat(s, t, JourneyScene.DESCENT_HORN_DARK)) {
 			notify(p, horn(), 0.6f, 0.58f);
 			notify(p, SoundEvents.MINECART_RIDING, 0.4f, 0.5f);
 		}

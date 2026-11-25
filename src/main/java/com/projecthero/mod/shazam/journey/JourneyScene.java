@@ -40,7 +40,10 @@ public enum JourneyScene {
 
 	// ---- DESCENT
 	public static final int DESCENT_HORN = 22;
-	public static final int DESCENT_BLACK = 50;
+	/** v2: the light dims gradually from 20 and is gone here (no hard cut). */
+	public static final int DESCENT_BLACK = 58;
+	/** The distant horn and the rumble, in the beat of darkness before the platform. */
+	public static final int DESCENT_HORN_DARK = 55;
 	/** The player is taken to the subway here (or as soon as the station is built after it). */
 	public static final int DESCENT_GO = 62;
 

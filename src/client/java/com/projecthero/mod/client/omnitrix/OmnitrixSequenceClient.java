@@ -64,6 +64,11 @@ public final class OmnitrixSequenceClient {
 		ClientTickEvents.END_CLIENT_TICK.register(OmnitrixSequenceClient::tick);
 		WorldRenderEvents.AFTER_ENTITIES.register(OmnitrixSequenceClient::renderWorld);
 		WorldRenderEvents.LAST.register(OmnitrixSequenceClient::renderLast);
+		// no first-person hands while the show's camera has the view
+		com.projecthero.mod.client.cutscene.CutsceneHands.register(() -> {
+			Minecraft mc = Minecraft.getInstance();
+			return mc.player != null && camera(mc.player, 0f) != null;
+		});
 	}
 
 	public static void clear() {

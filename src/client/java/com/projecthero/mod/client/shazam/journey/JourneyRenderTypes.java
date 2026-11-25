@@ -19,8 +19,9 @@ import net.minecraft.resources.ResourceLocation;
  * rectangle is drawn with no colour, depth test ALWAYS and the depth range pinned to the far plane, so inside the opening the
  * depth buffer is pushed back to "infinitely far". The stairwell drawn next (ordinary depth-tested translucent quads) then
  * shows only through that opening, and its steps hide each other properly.</li>
- * <li>{@link #ghost} -- textured, translucent, unlit (it glows faintly), double-sided, depth-tested: the railings, arch and
- * sign standing on the ground.</li>
+ * <li>{@link #ghost} -- textured, translucent, unlit (full bright), double-sided, depth-tested: the illusion's glowing lamp
+ * globes (v2: the stone, iron and sign are ordinary lit {@code entityTranslucent} geometry at full opacity).</li>
+ * <li>{@link #GLOW} -- additive soft light: halos, the glimmer below, the gold edge shimmer, the motes.</li>
  * </ul>
  * The subclass only exists to reach the protected render-state shards.
  */
@@ -41,6 +42,25 @@ public final class JourneyRenderTypes extends RenderType {
 				RenderSystem.colorMask(true, true, true, true);
 				RenderSystem.depthFunc(GL11.GL_LEQUAL);
 				NO_CULL.clearRenderState();
+				POSITION_COLOR_SHADER.clearRenderState();
+			});
+
+	/**
+	 * Soft additive light (position + colour, no texture): the lamp halos, the glimmer deep in the stairwell, the gold shimmer
+	 * at the illusion's edges and its motes. Depth-tested, never writes depth, double-sided.
+	 */
+	public static final RenderType GLOW = new JourneyRenderTypes("projecthero_illusion_glow", DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.QUADS,
+			4096, false, false, () -> {
+				POSITION_COLOR_SHADER.setupRenderState();
+				LIGHTNING_TRANSPARENCY.setupRenderState();
+				NO_CULL.setupRenderState();
+				COLOR_WRITE.setupRenderState();
+				LEQUAL_DEPTH_TEST.setupRenderState();
+			}, () -> {
+				LEQUAL_DEPTH_TEST.clearRenderState();
+				COLOR_WRITE.clearRenderState();
+				NO_CULL.clearRenderState();
+				LIGHTNING_TRANSPARENCY.clearRenderState();
 				POSITION_COLOR_SHADER.clearRenderState();
 			});
 

@@ -8,9 +8,56 @@ const { execFileSync } = require('child_process');
 const FF = 'C:/Users/ethan/AppData/Local/CapCut/Apps/9.5.0.4050/ffmpeg.exe';
 const root = process.cwd();
 const shots = process.argv[2];
+const sheet = path.join(root, 'scratchpad', 'contact_sheet.js');
+
+// v2 illusion (harness mode "film"/"stills"): node shazam_journey_film.js <frames dir> illusion_v2 [<before stills dir>]
+//   -> docs/screenshots/v0177/shazam_journey/illusion_v2/: illusion_v2_film.mp4 (materialise, walk up, descent, platform),
+//   illusion_v2_film_sheet.png, the descent close-up sheet, the after_*/before_* stills, hands_* stills, a before/after sheet
+if (process.argv[3] === 'illusion_v2') {
+	const out = path.join(root, 'docs', 'screenshots', 'v0177', 'shazam_journey', 'illusion_v2');
+	fs.mkdirSync(out, { recursive: true });
+	const frames = fs.readdirSync(shots).filter(f => /^film_journey_\d+\.png$/.test(f)).sort();
+	if (frames.length) {
+		const tmp = path.join(shots, '_seq');
+		fs.rmSync(tmp, { recursive: true, force: true });
+		fs.mkdirSync(tmp);
+		// (the first two frames can still hold the previous scene's sky while the time change syncs: skip them)
+		frames.slice(2).forEach((f, i) => fs.copyFileSync(path.join(shots, f), path.join(tmp, String(i).padStart(5, '0') + '.png')));
+		const mp4 = path.join(out, 'illusion_v2_film.mp4');
+		execFileSync(FF, ['-y', '-loglevel', 'error', '-framerate', '20', '-i', path.join(tmp, '%05d.png'), '-vf', 'scale=960:-2', '-c:v', 'h264_mf', '-b:v', '3000k',
+			'-pix_fmt', 'yuv420p', mp4]);
+		fs.rmSync(tmp, { recursive: true, force: true });
+		console.log('film', frames.length, 'frames,', (frames.length / 20).toFixed(1), 's ->', mp4);
+		const pick = [];
+		for (let i = 0; i < 16; i++) pick.push(path.join(shots, frames[Math.min(frames.length - 1, Math.round(i * (frames.length - 1) / 15))]));
+		execFileSync('node', [sheet, path.join(out, 'illusion_v2_film_sheet.png'), '4', '0.35', ...pick]);
+		// the materialise and the descent, frame by frame (every 3rd / every 6th tick)
+		const marks = {};
+		let mf = path.join(shots, 'marks.txt');
+		if (!fs.existsSync(mf)) mf = path.join(shots, '..', 'marks.txt');
+		if (fs.existsSync(mf)) for (const line of fs.readFileSync(mf, 'utf8').split(/\r?\n/)) { const [k, v] = line.trim().split(/\s+/); if (k) marks[k] = +v; }
+		const run = (from, n, step) => Array.from({ length: n }, (_, i) => path.join(shots, frames[Math.min(frames.length - 1, from + i * step)]));
+		if (marks.illusion !== undefined) execFileSync('node', [sheet, path.join(out, 'illusion_v2_materialise_sheet.png'), '4', '0.35', ...run(marks.illusion + 2, 12, 3)]);
+		if (marks.descent !== undefined) execFileSync('node', [sheet, path.join(out, 'illusion_v2_descent_sheet.png'), '4', '0.35', ...run(marks.descent, 16, 6)]);
+	}
+	const stills = fs.readdirSync(shots).filter(f => /^(after|before|hands)_.*\.png$/.test(f));
+	for (const f of stills) fs.copyFileSync(path.join(shots, f), path.join(out, f));
+	const beforeDir = process.argv[4];
+	if (beforeDir && fs.existsSync(beforeDir)) {
+		for (const f of fs.readdirSync(beforeDir).filter(f => /^before_.*\.png$/.test(f))) fs.copyFileSync(path.join(beforeDir, f), path.join(out, f));
+	}
+	const names = ['day_5blocks', 'day_close_down_stairs', 'day_side', 'night_5blocks', 'night_close_down_stairs', 'night_side'];
+	const pairs = [];
+	for (const n of names) for (const p of ['before', 'after']) { const f = path.join(out, p + '_' + n + '.png'); if (fs.existsSync(f)) pairs.push(f); }
+	if (pairs.length) execFileSync('node', [sheet, path.join(out, 'before_after_sheet.png'), '2', '0.4', ...pairs]);
+	const hands = fs.readdirSync(out).filter(f => /^hands_.*\.png$/.test(f)).map(f => path.join(out, f));
+	if (hands.length) execFileSync('node', [sheet, path.join(out, 'hands_sheet.png'), '2', '0.4', ...hands]);
+	console.log('stills', stills.length, '->', out);
+	process.exit(0);
+}
+
 const out = path.join(root, 'docs', 'screenshots', 'v0177', 'shazam_journey');
 fs.mkdirSync(out, { recursive: true });
-const sheet = path.join(root, 'scratchpad', 'contact_sheet.js');
 
 const frames = fs.readdirSync(shots).filter(f => /^film_journey_\d+\.png$/.test(f)).sort();
 if (!frames.length) throw new Error('no frames in ' + shots);

@@ -55,6 +55,7 @@ public final class GalactusCinematicClient {
 		ClientTickEvents.END_CLIENT_TICK.register(GalactusCinematicClient::tick);
 		HudRenderCallback.EVENT.register(GalactusCinematicClient::hud);
 		net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.AFTER_TRANSLUCENT.register(GalactusCinematicClient::world);
+		com.projecthero.mod.client.cutscene.CutsceneHands.register(GalactusCinematicClient::active); // no first-person hands in the cinematics
 	}
 
 	private static final net.minecraft.resources.ResourceLocation GLOW = net.minecraft.resources.ResourceLocation.withDefaultNamespace("textures/particle/glow.png");
