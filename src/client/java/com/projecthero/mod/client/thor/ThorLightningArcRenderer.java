@@ -60,8 +60,8 @@ public final class ThorLightningArcRenderer {
 				continue;
 			}
 			if (arc.slot == BEAM_SLOT) {
-				// v0.17.7: a beam locked out of sight by a clash is not drawn (CLAUDE.md beam rule); Stormbreaker's beam is the
-				// rainbow one (ThorKitFxRenderer), not this bolt
+				// v0.17.7: a beam locked out of sight by a clash is not drawn (CLAUDE.md beam rule); Stormbreaker's beam is its own
+				// golden-white lightning beam (ThorKitFxRenderer.stormbreakerBeam), not this bolt
 				net.minecraft.world.entity.Entity caster = client.level.getEntity(arc.casterId);
 				if (caster != null && (com.projecthero.mod.client.beamclash.BeamClashClient.hides(caster)
 						|| (caster instanceof net.minecraft.world.entity.player.Player cp

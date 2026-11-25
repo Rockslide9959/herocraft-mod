@@ -18,7 +18,7 @@ import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * v0.17.7 Thor Cosmic revamp: while Twin Throw / Bifrost Judgement / Ragnarok fly a spectral copy of a weapon
+ * v0.17.7 Thor Cosmic revamp: while Twin Throw / Stormbreaker's Judgement / Ragnarok fly a spectral copy of a weapon
  * ({@code ThorFxRenderer}), the real one in his hand is not drawn, so the weapon reads as having left it.
  */
 @Mixin(ItemInHandLayer.class)

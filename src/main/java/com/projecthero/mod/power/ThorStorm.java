@@ -88,7 +88,7 @@ public final class ThorStorm {
 			if (attacker instanceof ServerPlayer thor && attacker != victim && isCharged(thor)) {
 				mult *= multiplier(thor);
 			}
-			mult *= ThorSunder.multiplier(victim); // v0.17.7: Bifrost Hurl's Sunder (+20% from everything)
+			mult *= ThorSunder.multiplier(victim); // v0.17.7: Storm Hurl's Sunder (+20% from everything)
 		}
 		boolean scale = mult != 1.0f;
 		frames.push(scale ? victim : UNSCALED);

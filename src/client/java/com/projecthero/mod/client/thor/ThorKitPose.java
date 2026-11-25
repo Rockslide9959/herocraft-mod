@@ -158,7 +158,7 @@ public final class ThorKitPose {
 
 	// ================================================================== Stormbreaker
 
-	/** Bifrost Hurl: the axe drawn back high, the other hand sighting, then hurled overarm along the aim. */
+	/** Storm Hurl: the axe drawn back high, the other hand sighting, then hurled overarm along the aim. */
 	private static final Clip BIFROST_HURL = new Clip(19f, 1f, 6f, 1, false, new Key[] {
 			k(0, SMOOTH, -1.05f, -0.2f, 0.45f, -1.2f, 0.25f, 0f, 0.65f, -0.15f, 0.3f, -0.25f, 0.15f, -0.05f, 1),
 			k(5, SMOOTH, -1.25f, -0.25f, 0.5f, -1.3f, 0.25f, 0f, 0.75f, -0.2f, 0.35f, -0.3f, 0.2f, -0.05f, 1),
@@ -170,7 +170,7 @@ public final class ThorKitPose {
 			k(5.5f, SMOOTH, -3.1f, 0.15f, 0.08f, -3.1f, 0.35f, 0f, 0f, -0.3f, 0f, 0.12f, 0f, -0.35f, 1),
 			k(7.2f, SNAP, -0.7f, 0.2f, 0f, -0.7f, 0.45f, 0f, 0f, 0.55f, -0.6f, 0.5f, 0.4f, 0.2f, 1),
 			k(12, SMOOTH, -0.75f, 0.2f, 0f, -0.75f, 0.45f, 0f, 0f, 0.5f, -0.55f, 0.45f, 0.35f, 0.15f, 1));
-	/** Bifrost Step's arrival: low, axe trailing, then one flat cleave across the front. */
+	/** Thunder Step's arrival: low, axe trailing, then one flat cleave across the front. */
 	private static final Clip BIFROST_STEP = clip(15f, 0f, 6f,
 			k(0, SMOOTH, 0.5f, -0.6f, 0.5f, -0.6f, 0f, 0.6f, 0.75f, 0.25f, -0.3f, 0.3f, 0.5f, 0.1f, 1),
 			k(2.5f, SNAP, -1.5f, 1.25f, 0.2f, -0.4f, 0f, 0.8f, -0.85f, 0.2f, -0.45f, 0.4f, 0.3f, 0.05f, 1),
@@ -190,7 +190,7 @@ public final class ThorKitPose {
 	private static final Clip EXECUTIONER_SLAM = clip(21f, 0f, 8f,
 			k(0, SNAP, -0.5f, 0.2f, 0f, -0.5f, 0.45f, 0f, 0f, 0.5f, -0.9f, 0.8f, 0.85f, 0.35f, 1),
 			k(10, SMOOTH, -0.55f, 0.2f, 0f, -0.55f, 0.45f, 0f, 0f, 0.48f, -0.85f, 0.75f, 0.8f, 0.3f, 1));
-	/** Bifrost Dash: a lean into the rainbow, the axe trailing low. */
+	/** Lightning Dash: a lean into the lightning, the axe trailing low. */
 	private static final Clip BIFROST_DASH = clip(9f, 0f, 4f,
 			k(0, SNAP, 0.55f, 0f, 0.3f, 0.45f, 0f, 0.3f, 0f, 0.5f, -0.5f, 0.5f, 0f, -0.2f, 1),
 			k(5, SMOOTH, 0.5f, 0f, 0.3f, 0.4f, 0f, 0.3f, 0f, 0.45f, -0.45f, 0.45f, 0f, -0.2f, 1));
@@ -231,7 +231,7 @@ public final class ThorKitPose {
 			k(WF, SNAP, -0.95f, 0.15f, 0f, -1.4f, 0.45f, 0f, -0.3f, 0.45f, -0.4f, 0.4f, 0f, 0.35f, 1),
 			k(WF + 10, SMOOTH, -0.9f, 0.15f, 0f, -1.35f, 0.45f, 0f, -0.25f, 0.4f, -0.35f, 0.35f, 0f, 0.3f, 1));
 	private static final int JT = ThorUltimates.JUDGE_THROW, JB = ThorUltimates.JUDGE_BURST;
-	/** Bifrost Judgement: the axe drawn far back, hurled, the empty hand held out at the impaled foe, then a fist as it lands. */
+	/** Stormbreaker's Judgement: the axe drawn far back, hurled, the empty hand held out at the impaled foe, then a fist as it lands. */
 	private static final Clip JUDGEMENT = clip(ThorUltimates.JUDGE_END, 1f, 8f,
 			k(0, SMOOTH, -2.8f, -0.1f, 0.35f, -1.4f, 0.2f, 0f, 0.65f, -0.25f, 0.35f, -0.3f, 0.2f, -0.1f, 1),
 			k(JT - 1, SMOOTH, -2.95f, -0.15f, 0.4f, -1.45f, 0.2f, 0f, 0.75f, -0.3f, 0.4f, -0.35f, 0.25f, -0.1f, 1),
@@ -611,7 +611,7 @@ public final class ThorKitPose {
 		return fr[fr.length - 1];
 	}
 
-	/** Twin Throw / Bifrost Judgement / Ragnarok throw a spectral copy of the weapon: the held one is hidden while it flies. */
+	/** Twin Throw / Stormbreaker's Judgement / Ragnarok throw a spectral copy of the weapon: the held one is hidden while it flies. */
 	public static boolean hidesHeld(Player p, boolean mjolnir) {
 		ThorFx fx = p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.THOR_FX, null);
 		if (fx == null) {

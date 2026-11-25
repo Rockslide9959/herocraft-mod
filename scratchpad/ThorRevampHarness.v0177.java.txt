@@ -348,10 +348,72 @@ public final class ThorRevampHarness implements ClientModInitializer {
 		});
 	}
 
+	/**
+	 * mode "lightning" (v0.17.7, no rainbow on Stormbreaker): re-films state_stormbreaker (+ Storm Hurl), state_twin, Stormbreaker's
+	 * Judgement, Ragnarok and one Bifrost Travel (the only rainbow left), every name suffixed _lightning.
+	 */
+	private static void planLightning() {
+		Minecraft mc = Minecraft.getInstance();
+		final Item MJ = ModItems.MJOLNIR, SB = ModItems.STORMBREAKER;
+		int t = 0;
+		final int R = 1, G = 2, X = 3, Z = 4, C = 6;
+		at(t, () -> cam3(62f, 8.0f, 2.8f, 4.0f, 1.3f));
+		int s2 = t;
+		t = move(mc, t, SB, null, G, false, 0, 34, "stormbreaker_storm_cleave_lightning");
+		t = move(mc, t, SB, null, C, false, 0, 32, "stormbreaker_rending_arc_lightning");
+		t = move(mc, t, SB, null, G, true, 0, 32, "stormbreaker_thunder_step_lightning");
+		t = move(mc, t, SB, null, X, false, 0, 26, "stormbreaker_lightning_dash_lightning");
+		t = move(mc, t, SB, null, Z, false, 0, 60, "stormbreaker_executioners_drop_lightning");
+		t = move(mc, t, SB, null, C, true, 30, 44, "stormbreaker_beam_lightning");
+		t = move(mc, t, SB, null, R, true, 0, 44, "stormbreaker_storm_hurl_lightning");
+		film(s2 + 4, t - 2, "film_state_stormbreaker_lightning");
+		at(t, () -> cam3(62f, 8.0f, 2.8f, 4.0f, 1.3f));
+		int s3 = t;
+		t = move(mc, t, MJ, SB, G, false, 0, 40, "twin_thunderstruck_cleave_lightning");
+		t = move(mc, t, MJ, SB, C, false, 0, 30, "twin_crossfire_lightning");
+		t = move(mc, t, MJ, SB, C, true, 30, 44, "twin_beam_lightning");
+		t = move(mc, t, MJ, SB, Z, false, 0, 44, "twin_thunder_strike_lightning");
+		t = move(mc, t, MJ, SB, R, true, 0, 40, "twin_throw_lightning");
+		t = move(mc, t, MJ, SB, G, true, 0, 60, "twin_storm_anchor_lightning");
+		film(s3 + 4, t - 2, "film_state_twin_lightning");
+		int u2 = t;
+		at(t, () -> cam3(55f, 11.0f, 4.0f, 4.0f, 1.8f));
+		t = move(mc, t, SB, null, Z, true, 0, 70, "ult_judgement_throw_lightning");
+		at(u2 + 6 + 26, () -> shot(mc, "ult_judgement_impaled_lightning"));
+		at(u2 + 6 + 40, () -> shot(mc, "ult_judgement_burst_lightning"));
+		film(u2 + 4, t - 2, "film_ult_stormbreakers_judgement_lightning");
+		int u3 = t;
+		at(t, () -> cam3(55f, 14.0f, 5.5f, 6.0f, 3.0f));
+		t = move(mc, t, MJ, SB, Z, true, 0, 110, "ult_ragnarok_rise_lightning");
+		at(u3 + 6 + 40, () -> shot(mc, "ult_ragnarok_rain_lightning"));
+		at(u3 + 6 + 73, () -> shot(mc, "ult_ragnarok_impact_lightning"));
+		film(u3 + 4, t - 2, "film_ult_ragnarok_lightning");
+		// Bifrost Travel: the rainbow column at both ends (the travel itself goes through Bifrost.travelTo, as the screen's Open button does)
+		int b0 = t;
+		at(t, () -> cam3(70f, 16.0f, 5.0f, 6.0f, 4.0f));
+		at(t, () -> server(mc, p -> reset(p, SB, null)));
+		at(t + 12, () -> server(mc, p -> {
+			com.projecthero.mod.stormbreaker.Bifrost.resetCooldownForTests(p);
+			System.out.println("[HARNESS] bifrost " + com.projecthero.mod.stormbreaker.Bifrost.travelTo(p, base.getX(), base.getY(), base.getZ() + 12));
+		}));
+		at(t + 30, () -> shot(mc, "bifrost_travel_lightning"));
+		t += 80;
+		film(b0 + 4, t - 2, "film_bifrost_travel_lightning");
+		final int end = t + 4;
+		at(end, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
 	private static void plan() {
 		Minecraft mc = Minecraft.getInstance();
 		if (mode.equals("axe")) {
 			planAxe();
+			return;
+		}
+		if (mode.equals("lightning")) {
+			planLightning();
 			return;
 		}
 		final Item MJ = ModItems.MJOLNIR, SB = ModItems.STORMBREAKER;

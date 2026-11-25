@@ -78,7 +78,7 @@ buff (+30%) and Sunder (+20%) are capped at 60 in the hurt hook. Bosses keep the
 | Thrown Mjolnir / Stormbreaker | 18 / 20 | 22 / 24 |
 | Lightning Strike / chain | 22 / 11 | 26 / 22 |
 | Chain Lightning | 18 | 24 |
-| Lightning Beam | 8 every tick | 22 every 5 ticks (Bifrost Beam 26, Twin Beam 28) |
+| Lightning Beam | 8 every tick | 22 every 5 ticks (Stormbreaker Beam 26, Twin Beam 28) |
 | Thunderclap | 22 | 26 |
 | Thunder Field pulse | 4 every 10 ticks | 22 every 20 |
 | Twin Thunder slam / ring | 20 / 8 | 30 / 22 |

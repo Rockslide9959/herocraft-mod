@@ -24,17 +24,17 @@ import net.minecraft.world.phys.Vec3;
  *   <li>Unarmed -- Lightning Incarnate ({@link ThorUnarmedKit}): 10 s as living lightning, then a 60 explosion within 10.</li>
  *   <li>Mjolnir -- Wrath of the Storm: he rises, hammer raised; bolts rain on every enemy near him (45 each), then one giant
  *   bolt (60) on the aimed spot.</li>
- *   <li>Stormbreaker -- Bifrost Judgement: Stormbreaker hurled and impaling the target (60), pinned while the Bifrost gathers,
- *   then the rainbow bridge crashes down on it (45 within 7).</li>
+ *   <li>Stormbreaker -- Stormbreaker's Judgement (id bifrost_judgement): Stormbreaker hurled and impaling the target (60) in a
+ *   lightning strike, pinned while the storm gathers on the axe, then a storm column crashes down on it (45 within 7).</li>
  *   <li>Both -- Ragnarok: he rises between the two weapons, bolts rain (45 each), then Stormbreaker is hurled down onto the
- *   centre (60) in a burst of lightning and rainbow.</li>
+ *   centre (60) in a burst of lightning.</li>
  * </ul>
  */
 public final class ThorUltimates {
 	// Wrath of the Storm
 	public static final int WRATH_RAIN_START = 12, WRATH_RAIN_END = 62, WRATH_FINAL = 72, WRATH_END = 90;
 	public static final double WRATH_RAIN_RADIUS = 18.0, WRATH_FINAL_RADIUS = 7.0;
-	// Bifrost Judgement
+	// Stormbreaker's Judgement
 	public static final int JUDGE_THROW = 8, JUDGE_IMPALE = 16, JUDGE_BURST = 38, JUDGE_END = 54;
 	public static final double JUDGE_BURST_RADIUS = 7.0;
 	// Ragnarok
@@ -162,7 +162,7 @@ public final class ThorUltimates {
 		});
 	}
 
-	// ---------------------------------------------------------------- Stormbreaker: Bifrost Judgement
+	// ---------------------------------------------------------------- Stormbreaker: Stormbreaker's Judgement
 
 	private static void bifrostJudgement(ServerPlayer p) {
 		ServerLevel level = p.serverLevel();
@@ -172,7 +172,7 @@ public final class ThorUltimates {
 		int aimedId = aimed == null ? -1 : aimed.getId();
 		boolean boss = aimed != null && TitanCombat.isBoss(aimed);
 		ThorKit.sound(level, p.position(), SoundEvents.BEACON_POWER_SELECT, 1.2f, 1.4f);
-		ThorKit.sound(level, p.position(), SoundEvents.AMETHYST_BLOCK_RESONATE, 1.2f, 0.6f);
+		ThorKit.sound(level, p.position(), SoundEvents.TRIDENT_THUNDER, 1.0f, 0.6f);
 		Vec3[] pin = { point };
 		ThorSequences.start(p, new Ult() {
 			@Override
@@ -180,7 +180,7 @@ public final class ThorUltimates {
 				ServerLevel lv = pl.serverLevel();
 				Entity e = aimedId < 0 ? null : lv.getEntity(aimedId);
 				if (t < JUDGE_THROW) {
-					ThorKit.prism(lv, pl.position().add(0, 2.4, 0), 4, 0.4, 0.4);
+					ThorKit.storm(lv, pl.position().add(0, 2.4, 0), 4, 0.4, 0.4);
 				}
 				if (t == JUDGE_THROW) {
 					ThorKit.sound(lv, pl.position(), SoundEvents.TRIDENT_THROW, 1.2f, 0.6f);
@@ -193,24 +193,24 @@ public final class ThorUltimates {
 					}
 					Vec3 c = pin[0];
 					ThorTwinThunder.visualBolt(lv, pl, c);
-					ThorKit.prism(lv, c.add(0, 1, 0), 60, 0.8, 1.0);
+					ThorKit.storm(lv, c.add(0, 1, 0), 60, 0.8, 1.0);
 					lv.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y + 1, c.z, 50, 0.5, 0.8, 0.5, 0.4);
 					ThorKit.sound(lv, c, SoundEvents.TRIDENT_HIT, 1.5f, 0.5f);
 					ThorKit.sound(lv, c, SoundEvents.MACE_SMASH_GROUND_HEAVY, 1.2f, 0.6f);
 					ThorTwinThunder.shake(lv, c, 1.2f, 12, 30.0);
 				}
 				if (t > JUDGE_IMPALE && t < JUDGE_BURST) {
-					// pinned in place while the Bifrost gathers above it
+					// pinned in place while the storm gathers on the axe
 					if (e instanceof LivingEntity v && v.isAlive() && !boss) {
 						v.teleportTo(pin[0].x, pin[0].y, pin[0].z);
 						v.setDeltaMovement(Vec3.ZERO);
 						v.hurtMarked = true;
 						v.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 10, 9, false, false, false));
 					}
-					ThorKit.prism(lv, pin[0].add(0, 1 + (t - JUDGE_IMPALE) * 0.3, 0), 6, 0.6 + (t - JUDGE_IMPALE) * 0.08, 0.4);
+					ThorKit.storm(lv, pin[0].add(0, 1 + (t - JUDGE_IMPALE) * 0.3, 0), 6, 0.6 + (t - JUDGE_IMPALE) * 0.08, 0.4);
 					if (t == JUDGE_BURST - 6) {
-						ThorStormbreakerKit.bifrostColumn(lv, pin[0]);
-						ThorKit.sound(lv, pin[0], SoundEvents.BEACON_ACTIVATE, 2.0f, 0.8f);
+						ThorStormbreakerKit.stormColumn(lv, pl, pin[0]);
+						ThorKit.sound(lv, pin[0], SoundEvents.LIGHTNING_BOLT_THUNDER, 2.0f, 0.8f);
 					}
 				}
 				if (t == JUDGE_BURST) {
@@ -220,12 +220,12 @@ public final class ThorUltimates {
 							ThorKit.knock(v, c, 1.5, 0.9);
 						}
 					}
-					ThorKit.prism(lv, c.add(0, 1, 0), 240, JUDGE_BURST_RADIUS * 0.6, 2.0);
+					ThorKit.storm(lv, c.add(0, 1, 0), 240, JUDGE_BURST_RADIUS * 0.6, 2.0);
 					lv.sendParticles(ParticleTypes.FLASH, c.x, c.y + 1, c.z, 3, 0.2, 0.2, 0.2, 0);
 					lv.sendParticles(ParticleTypes.EXPLOSION_EMITTER, c.x, c.y + 0.5, c.z, 1, 0, 0, 0, 0);
 					ThorUnarmedKit.debris(lv, c, JUDGE_BURST_RADIUS);
 					ThorKit.sound(lv, c, SoundEvents.GENERIC_EXPLODE, 1.6f, 0.7f);
-					ThorKit.sound(lv, c, SoundEvents.AMETHYST_BLOCK_BREAK, 2.0f, 0.5f);
+					ThorKit.sound(lv, c, SoundEvents.LIGHTNING_BOLT_IMPACT, 2.0f, 0.5f);
 					ThorKit.sound(lv, c, SoundEvents.WARDEN_SONIC_BOOM, 0.9f, 1.2f);
 					ThorTwinThunder.shake(lv, c, 2.2f, 24, 44.0);
 				}
@@ -261,7 +261,7 @@ public final class ThorUltimates {
 				Vec3 c = pl.position();
 				if (t < RAG_RISE_END) {
 					lv.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y + 1, c.z, 8, 0.5, 0.8, 0.5, 0.2);
-					ThorKit.prism(lv, c.add(0, 1, 0), 4, 0.6, 0.8);
+					ThorKit.storm(lv, c.add(0, 1, 0), 4, 0.6, 0.8);
 					if (t == 10) {
 						ThorTwinThunder.visualBolt(lv, pl, c.add(0, 2.0, 0));
 					}
@@ -270,7 +270,7 @@ public final class ThorUltimates {
 						rainBolt(pl, c0, RAG_RAIN_RADIUS, ThorKit.RAGNAROK_RAIN, last, t);
 					}
 					if (t % 6 == 0) {
-						ThorKit.prismLine(lv, c, c0.add((lv.random.nextDouble() - 0.5) * 6, 0.5, (lv.random.nextDouble() - 0.5) * 6), 0.8);
+						ThorKit.stormLine(lv, c, c0.add((lv.random.nextDouble() - 0.5) * 6, 0.5, (lv.random.nextDouble() - 0.5) * 6), 0.8);
 					}
 					if (t % 10 == 0) {
 						ThorKit.sound(lv, c0, SoundEvents.LIGHTNING_BOLT_THUNDER, 1.4f, 0.6f + lv.random.nextFloat() * 0.3f);
@@ -291,8 +291,8 @@ public final class ThorUltimates {
 						double a = Math.PI * 2 * i / 10;
 						ThorTwinThunder.visualBolt(lv, pl, ThorTwinThunder.groundAt(lv, c0.add(Math.cos(a) * 5, 0, Math.sin(a) * 5)));
 					}
-					ThorStormbreakerKit.bifrostColumn(lv, c0);
-					ThorKit.prism(lv, c0.add(0, 1, 0), 300, RAG_FINAL_RADIUS * 0.6, 2.0);
+					ThorStormbreakerKit.stormColumn(lv, pl, c0);
+					ThorKit.storm(lv, c0.add(0, 1, 0), 300, RAG_FINAL_RADIUS * 0.6, 2.0);
 					lv.sendParticles(ParticleTypes.EXPLOSION_EMITTER, c0.x, c0.y + 0.5, c0.z, 2, 1, 0.2, 1, 0);
 					lv.sendParticles(ParticleTypes.ELECTRIC_SPARK, c0.x, c0.y + 1, c0.z, 260, 5, 2, 5, 0.7);
 					lv.sendParticles(ParticleTypes.FLASH, c0.x, c0.y + 1, c0.z, 4, 0.3, 0.3, 0.3, 0);
@@ -300,7 +300,7 @@ public final class ThorUltimates {
 					ThorKit.sound(lv, c0, SoundEvents.LIGHTNING_BOLT_IMPACT, 4.0f, 0.5f);
 					ThorKit.sound(lv, c0, SoundEvents.GENERIC_EXPLODE, 2.0f, 0.55f);
 					ThorKit.sound(lv, c0, SoundEvents.WARDEN_SONIC_BOOM, 1.0f, 0.9f);
-					ThorKit.sound(lv, c0, SoundEvents.AMETHYST_BLOCK_RESONATE, 2.0f, 0.5f);
+					ThorKit.sound(lv, c0, SoundEvents.TRIDENT_THUNDER, 2.0f, 0.5f);
 					ThorTwinThunder.shake(lv, c0, 2.8f, 30, 56.0);
 				}
 				return t < RAG_END;

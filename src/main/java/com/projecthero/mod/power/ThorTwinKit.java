@@ -14,8 +14,8 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.17.7 Cosmic revamp, <b>Both: Twin Gods</b> -- Mjolnir in one hand, Stormbreaker in the other; lightning and the Bifrost's
- * rainbow intertwined. The highest damage, medium flight, but every move costs double Storm Energy and there is no Bifrost
+ * v0.17.7 Cosmic revamp, <b>Both: Twin Gods</b> -- Mjolnir in one hand, Stormbreaker in the other; the hammer's white-blue
+ * lightning and the axe's golden-white lightning intertwined (no rainbow). The highest damage, medium flight, but every move costs double Storm Energy and there is no Bifrost
  * travel. Storm Dash / Meteor Dive are {@link ThorMjolnirKit}'s; the swing is the 4-hit dual combo + Twin Thunder.
  */
 public final class ThorTwinKit {
@@ -57,12 +57,12 @@ public final class ThorTwinKit {
 					}
 				}
 				ThorTwinThunder.visualBolt(lv, pl, ThorTwinThunder.groundAt(lv, c));
-				ThorKit.prism(lv, c, 70, 1.6, 1.2);
+				ThorKit.storm(lv, c, 70, 1.6, 1.2);
 				lv.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, 80, 1.2, 1.0, 1.2, 0.5);
 				lv.sendParticles(ParticleTypes.EXPLOSION, c.x, c.y, c.z, 2, 0.4, 0.4, 0.4, 0);
 				lv.sendParticles(ParticleTypes.FLASH, c.x, c.y, c.z, 1, 0, 0, 0, 0);
 				ThorKit.sound(lv, c, SoundEvents.LIGHTNING_BOLT_IMPACT, 1.4f, 0.8f);
-				ThorKit.sound(lv, c, SoundEvents.AMETHYST_BLOCK_RESONATE, 1.4f, 0.8f);
+				ThorKit.sound(lv, c, SoundEvents.TRIDENT_THUNDER, 1.2f, 0.8f);
 				ThorKit.sound(lv, c, SoundEvents.ANVIL_LAND, 0.4f, 0.5f);
 				ThorTwinThunder.shake(lv, c, 1.1f, 12, 24.0);
 				return false;
@@ -113,7 +113,7 @@ public final class ThorTwinKit {
 				Vec3 at = front.add(side.scale(halfWidth * i / 4.0)).add(0, 1.0 - Math.abs(i) * 0.08, 0);
 				lv.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, 2, 0.1, 0.2, 0.1, 0.05);
 			}
-			ThorKit.prism(lv, front.add(0, 1, 0), 6, halfWidth * 0.6, 0.3);
+			ThorKit.storm(lv, front.add(0, 1, 0), 6, halfWidth * 0.6, 0.3);
 			return t < CLEAVE_SLASH + CLEAVE_WAVE_TICKS;
 		});
 	}
@@ -142,19 +142,19 @@ public final class ThorTwinKit {
 			Vec3 c = e != null ? e.position().add(0, e.getBbHeight() * 0.5, 0) : at;
 			if (t >= 2 && t <= CROSSFIRE_HIT + 4) {
 				ThorPowers.sendLightningArc(pl, 90, null, e, c, 2, 5);
-				ThorKit.prismLine(lv, pl.getEyePosition().add(0, -0.4, 0), c, 1.0);
+				ThorKit.stormLine(lv, pl.getEyePosition().add(0, -0.4, 0), c, 1.0);
 			}
 			if (t == CROSSFIRE_HIT) {
 				if (e instanceof LivingEntity v) {
 					ThorKit.hit(pl, v, ThorKit.CROSSFIRE_DAMAGE, Kind.LIGHTNING);
-					ThorKit.hit(pl, v, ThorKit.CROSSFIRE_DAMAGE, Kind.PHYSICAL); // the Bifrost beam
+					ThorKit.hit(pl, v, ThorKit.CROSSFIRE_DAMAGE, Kind.PHYSICAL); // the axe's lightning beam
 					ThorKit.knock(v, pl.position(), 1.0, 0.3);
 				}
-				ThorKit.prism(lv, c, 40, 0.6, 0.6);
+				ThorKit.storm(lv, c, 40, 0.6, 0.6);
 				lv.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, 40, 0.4, 0.4, 0.4, 0.4);
 				lv.sendParticles(ParticleTypes.FLASH, c.x, c.y, c.z, 1, 0, 0, 0, 0);
 				ThorKit.sound(lv, c, SoundEvents.LIGHTNING_BOLT_IMPACT, 1.0f, 1.2f);
-				ThorKit.sound(lv, c, SoundEvents.AMETHYST_BLOCK_RESONATE, 1.2f, 1.4f);
+				ThorKit.sound(lv, c, SoundEvents.TRIDENT_THUNDER, 1.0f, 1.4f);
 				ThorTwinThunder.shake(lv, c, 0.6f, 8, 14.0);
 			}
 			return t < CROSSFIRE_HIT + 4;

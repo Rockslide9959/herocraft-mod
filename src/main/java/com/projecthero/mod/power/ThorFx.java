@@ -66,11 +66,11 @@ public record ThorFx(int anim, long animStart, double x, double y, double z, int
 	public static final int ANIM_STORM_DASH = 19;
 	/** Meteor Dive take-off (point = where he left). */
 	public static final int ANIM_METEOR_DIVE = 20;
-	/** Stormbreaker Bifrost Hurl. */
+	/** Stormbreaker Storm Hurl. */
 	public static final int ANIM_BIFROST_HURL = 22;
 	/** Stormbreaker Storm Cleave (point = the target). */
 	public static final int ANIM_STORM_CLEAVE = 23;
-	/** Stormbreaker Bifrost Step (point = where he left; he is where it lands). */
+	/** Stormbreaker Thunder Step (point = where he left; he is where it lands). */
 	public static final int ANIM_BIFROST_STEP = 24;
 	/** Stormbreaker Rending Arc. */
 	public static final int ANIM_RENDING_ARC = 25;
@@ -78,7 +78,7 @@ public record ThorFx(int anim, long animStart, double x, double y, double z, int
 	public static final int ANIM_EXECUTIONER = 26;
 	/** Stormbreaker Executioner's Drop landing (point = the impact). */
 	public static final int ANIM_EXECUTIONER_SLAM = 27;
-	/** Stormbreaker Bifrost Dash (point = where it began). */
+	/** Stormbreaker Lightning Dash (point = where it began). */
 	public static final int ANIM_BIFROST_DASH = 28;
 	/** Twin Throw (point = where the two weapons meet). */
 	public static final int ANIM_TWIN_THROW = 29;
@@ -90,7 +90,7 @@ public record ThorFx(int anim, long animStart, double x, double y, double z, int
 	public static final int ANIM_INCARNATE_BURST = 32;
 	/** Wrath of the Storm (point = the giant bolt's target). */
 	public static final int ANIM_WRATH_STORM = 33;
-	/** Bifrost Judgement (point = the impaled target). */
+	/** Stormbreaker's Judgement (point = the impaled target). */
 	public static final int ANIM_JUDGEMENT = 34;
 	/** Ragnarok (point = the centre). */
 	public static final int ANIM_RAGNAROK = 35;

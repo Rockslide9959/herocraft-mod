@@ -41,15 +41,15 @@ Thor's +11; anything else in the main hand keeps its own damage. Flight speed fo
 | Key | Unarmed | Mjolnir | Stormbreaker | Both |
 |---|---|---|---|---|
 | R | Call Weapon | Call Weapon | Call Weapon | Call Weapon |
-| Shift+R | Thunder Fist, hold up to 1.5 s: 24-30 / 8 s / 15 | Whirlwind Throw: 10-tick spin, pierces 6 x 24 / 10 s / 15 | Bifrost Hurl: pierces 4 x 28 + Sunder / 10 s / 15 | Twin Throw: 28 within 4 / 12 s / 20 |
+| Shift+R | Thunder Fist, hold up to 1.5 s: 24-30 / 8 s / 15 | Whirlwind Throw: 10-tick spin, pierces 6 x 24 / 10 s / 15 | Storm Hurl: pierces 4 x 28 + Sunder / 10 s / 15 | Twin Throw: 28 within 4 / 12 s / 20 |
 | G | Lightning Palm 22 (12 blocks) / 4 s / 12 | Lightning Strike 26, chain 2 x 22 / 3.5 s / 18 | Storm Cleave 30 / 6 s / 15 | Thunderstruck Cleave: wave 13 blocks, 28 / 9 s / 18 |
-| Shift+G | Asgardian Grapple 24 / 12 s / 18 | Thunder Field 22 a second x4 / 15 s / 25 | Bifrost Step: blink 20, cleave 26 / 10 s / 20 | Storm Anchor: field radius 10 / 20 s / 25 |
+| Shift+G | Asgardian Grapple 24 / 12 s / 18 | Thunder Field 22 a second x4 / 15 s / 25 | Thunder Step: blink 20, cleave 26 / 10 s / 20 | Storm Anchor: field radius 10 / 20 s / 25 |
 | C | Storm Rush 4 x 22 / 10 s / 20 | Chain Lightning cone 24 (32 blocks, was 122) / 8 s / 20 | Rending Arc 180 deg r6.5, 24 / 8 s / 18 | Crossfire 24 + 24 / 9 s / 20 |
-| Shift+C | Static Burst 22 within 5 / 9 s / 18 | Lightning Beam 22 every 5 ticks, 8/s | Bifrost Beam 26 every 5 ticks, 10/s | Twin Beam 28 every 5 ticks, 12/s (24 with x2) |
+| Shift+C | Static Burst 22 within 5 / 9 s / 18 | Lightning Beam 22 every 5 ticks, 8/s | Stormbreaker Beam 26 every 5 ticks, 10/s | Twin Beam 28 every 5 ticks, 12/s (24 with x2) |
 | Z | Ground Pound 26 within 5 / 10 s / 20 | Thunderclap 26 within 7 / 6 s / 15 | Executioner's Drop 28 within 4.5, x1.5 under 30% max 30 / 10 s / 20 | Twin Thunder Strike 30 + ring 22 / 15 s / 20 |
-| X | Storm Sprint 4 s +60% speed / 8 s / 10 | Storm Dash 9 blocks, trail 22 / 5 s / 10 | Bifrost Dash blink 10 / 4 s / 8 | Storm Dash |
+| X | Storm Sprint 4 s +60% speed / 8 s / 10 | Storm Dash 9 blocks, trail 22 / 5 s / 10 | Lightning Dash blink 10 / 4 s / 8 | Storm Dash |
 | Shift+X | Thunder Leap 28 within 5 / 12 s / 20 | Meteor Dive 28 within 5.5 / 12 s / 25 | Bifrost Travel (the waypoint screen; moved off Shift + right-click) | Meteor Dive |
-| Shift+Z | Lightning Incarnate | Wrath of the Storm | Bifrost Judgement | Ragnarok |
+| Shift+Z | Lightning Incarnate | Wrath of the Storm | Stormbreaker's Judgement | Ragnarok |
 | V | Storm Call: 18 s storm (27 s Mjolnir), Storm-Charged +30%, a 22 bolt every 2.5 s / 60 s / 30 | same | same | same |
 | Shift+V | God of Thunder: 15 s, glowing eyes, every hit chains 22 to the nearest enemy (once per 8 ticks), +0.5 knockback resistance / 45 s / 40 | same | same | same |
 
@@ -58,10 +58,11 @@ because swapping weapons must never chain four ultimates back to back, and it is
 - Lightning Incarnate: 200 ticks as lightning (+45% speed, knockback resistance, aura 22 a second within 3.5), then 60 within 10.
 - Wrath of the Storm: hover 3.5 up; t12-62 a bolt every 3 ticks on a random enemy within 18 (45, each foe at most once per 10
   ticks); t72 the giant bolt on the aimed spot, 60 within ~7.3 (`ThorPowers.wrathTargets`).
-- Bifrost Judgement: t8 the spectral axe flies, t16 impales the aimed foe (60), pinned (non-bosses) while the Bifrost gathers, a
-  real Bifrost column crashes at t32, t38 45 within 7.
+- Stormbreaker's Judgement: t8 the spectral axe flies, t16 impales the aimed foe in a lightning strike (60), pinned (non-bosses)
+  while the storm gathers on the axe, a storm column (`ThorStormbreakerKit.stormColumn`: a bolt plus three round it) crashes at
+  t32, t38 45 within 7.
 - Ragnarok: rise 6 up; t20-60 bolts rain within 14 of the aimed centre (45); t62 the spectral Stormbreaker hurled down; t70 60
-  within 8, bolts round the centre, a Bifrost column.
+  within 8, bolts round the centre, a storm column.
 
 Gone: Hammer Volley (as its own key), the hold-Z God of Thunder's Wrath, the old X beam (now Shift+C). Retuned to Cosmic: thrown
 Mjolnir 18 -> 22, thrown Stormbreaker 20 -> 24, combo finisher area hits 4 / 6 -> 22 (the finisher hit itself capped at 28),
@@ -86,18 +87,46 @@ Twin Thunder 20 / ring 8 -> 30 / 22, Thunder Field 4 every 10 ticks -> 22 every 
   `ItemInHandRendererThorMixin` (vanilla swing held off while a move owns the hands).
 - **Stormbreaker grip** (v0.17.7 user): held like a greataxe a third of the way up the haft; a move's re-grip only takes
   `ThorKitPose.AXE_GRIP` of the -90 degree turn, so the head stands up out of the fist and the haft never runs back through him.
-- **Spectral weapons**: Twin Throw, Bifrost Judgement and Ragnarok fly item-model copies (`ThorKitFxRenderer`, drawn last in their
+- **Spectral weapons**: Twin Throw, Stormbreaker's Judgement and Ragnarok fly item-model copies (`ThorKitFxRenderer`, drawn last in their
   own pass); `ItemInHandLayerThorHideMixin` hides the real one in hand while its copy flies.
 - **Effects per state**: Unarmed -- fist charge ball + arcs up the arm, punch shock discs facing the blow, Static Burst's shell of
   rings and bolts, Incarnate's cage of arcs + ground strikes; Mjolnir -- the whirling strap ring, the dash's burnt bolt trail, the
   meteor streak + falling-star flare, shockwaves with ground lightning and cracks, the Wrath vortex and its colossal bolt; Stormbreaker
-  -- rainbow streaks (`rainbowBeam`: seven strands spiralling round a white core), rainbow rings / walls, prismatic shards, the
-  rainbow sweep arcs, the gathering rainbow column over the impaled foe; Twin -- the crossing spectral throw (lightning and rainbow
-  trails), the lightning flowing hammer to axe and the rainbow crescent wave, the rainbow beam wound with a lightning helix,
-  Ragnarok's storm-and-rainbow wheel. God of Thunder: two glowing eye orbs + sparks. Beams skip `BeamClashClient.hides` (and the
-  arc renderer now does too); Stormbreaker's beam is drawn rainbow instead of the bolt.
-- **Sound**: vanilla layers per move (thunder, trident thunder / riptide, wind charge burst, beacon, amethyst for the Bifrost, mace
+  -- heavier golden-white lightning (see "No rainbow on Stormbreaker" below); Twin -- the crossing spectral throw (two lightning
+  trails), the lightning flowing hammer to axe and the lightning crescent wave, the Stormbreaker Beam wound with a white-blue
+  lightning helix, Ragnarok's wheel of storm rings. God of Thunder: two glowing eye orbs + sparks. Beams skip
+  `BeamClashClient.hides` (and the arc renderer now does too); Stormbreaker's beam is its own golden-white lightning beam
+  (`ThorKitFxRenderer.stormbreakerBeam`) instead of the plain bolt.
+- **Sound**: vanilla layers per move (thunder, trident thunder / riptide, wind charge burst, beacon, mace
   smash, warden sonic boom only on the three biggest blasts). Screen shake through `TitanShakePayload` (`ThorTwinThunder.shake`).
+
+### No rainbow on Stormbreaker (v0.17.7, user: "remove the rainbow vfx for stormbreakers powers please, only make the rainbow show up for the actual teleporting with the bifrost please, just use the lightning vfx")
+- **The rainbow is only Bifrost Travel's** (Shift+X with Stormbreaker alone, the waypoint screen): `Bifrost.travelTo` and its
+  `BifrostEntities.Beam` column (`BifrostBeamRenderer`, its own seven colours). Nothing else spawns that entity any more.
+- **Renamed** (display names only; ids, lang keys, `ThorAbility` / `ThorFx` constants unchanged): Bifrost Hurl -> **Storm Hurl**,
+  Bifrost Step -> **Thunder Step**, Bifrost Beam -> **Stormbreaker Beam**, Bifrost Dash -> **Lightning Dash**, Bifrost Judgement ->
+  **Stormbreaker's Judgement**. Bifrost Travel keeps its name.
+- **Palette**: server `ThorKit.storm` (electric sparks + a third as much white dust) and `ThorKit.stormLine` (a crackling
+  spark streak) replace `prism` / `prismLine` / `RAINBOW`; `ThorKit.STORM` is white / pale blue only, because tinted dust
+  (gold, mid blue) gets shaded per particle by vanilla and read as pastel confetti in the first film. Client
+  `ThorKitFxRenderer`: `SB_GOLD` 0xFFE08A / `SB_WHITE` 0xFFF8E6 on top of `ThorDraw`'s blues; helpers `axeBolt` (blue halo,
+  golden-white glow, white core), `stormRing`, `stormWall`, `lightningStreak`, `stormBeam`, `sparkBurst` (axe-edge sparks),
+  `arcSweep` (blue-to-gold cleaving bands under a jagged bolt edge). Beam-clash colour (`ThorPowers.beamColour`): Stormbreaker
+  0xFFF1C2 golden-white, Twin 0xDDEEFF white-blue (were pink / lilac).
+- **Per move**: Storm Hurl -- sparks on the raised axe, a crackling wake behind the flying axe, Sunder leaves a crackle on the
+  foe; Storm Cleave -- the sky bolt onto the blade, axe sparks, a storm shock ring; Thunder Step / Lightning Dash -- a heavy
+  lightning streak from where he left to where he lands, a bolt-flash (sky bolt + flare + radial arcs + FLASH particle) at both
+  ends, storm rings on the ground (Step adds the cleaving arc trail); Rending Arc -- the 180 degree cleaving arc trail with a
+  jagged lightning edge (the 25 busy rainbow dust lines are now crackle lines); Stormbreaker Beam -- a golden-white core with two
+  jagged bolts along it; Executioner's Drop -- a golden-white bolt trail in the air, storm ring + axe sparks + radial bolts on the
+  slam; Stormbreaker's Judgement -- a lightning streak behind the spectral axe, then storm rings climbing it and 1-5 bolts
+  reaching down onto it as the storm gathers, the storm column, a storm ring / wall and radial bolts on the burst. Twin Throw --
+  the axe's golden-white bolt trail beside the hammer's; Thunderstruck Cleave -- a crescent of blue-to-golden lightning bands under
+  a crackling edge; Storm Anchor -- sparks + arcs from the hands; Crossfire -- Mjolnir's bolt and the axe's lightning beam; Twin
+  Beam -- the Stormbreaker Beam (wider) wound with the lightning helix; Ragnarok -- a storm halo, a wheel of storm rings, a
+  lightning streak behind the hurled axe, the storm column, storm ring / wall.
+- **Sound**: the amethyst chimes and the beam's beacon hum (the Bifrost's sounds) became trident thunder / lightning impacts.
+- Films: `docs/screenshots/v0177/thor_revamp/*_lightning.mp4` (+ frame sheets) beside the old rainbow ones.
 
 ### HUD -- `client/gui/ThorHud`
 State badge first in the tags (Unarmed / Mjolnir / Stormbreaker / Twin Gods), then Storm-Charged, God of Thunder, Lightning
