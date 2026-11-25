@@ -58,6 +58,7 @@ public final class VaultClearing {
 		Component title = Component.translatable("projecthero.vault.cleared.title").withStyle(s -> s.withColor(0x5FE8E8).withBold(true));
 		Component sub = Component.translatable("projecthero.vault.cleared.sub").withStyle(ChatFormatting.GRAY);
 		for (ServerPlayer p : playersNear(level, anchor, 64)) {
+			com.projecthero.mod.thoracquire.Valor.add(p, com.projecthero.mod.thoracquire.Valor.Source.CLEARED); // v0.17.7
 			p.connection.send(new ClientboundSetTitlesAnimationPacket(10, 70, 20));
 			p.connection.send(new ClientboundSetTitleTextPacket(title));
 			p.connection.send(new ClientboundSetSubtitleTextPacket(sub));

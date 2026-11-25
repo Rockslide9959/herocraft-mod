@@ -126,16 +126,18 @@ public class PrimaryPowerGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.17.7: full Valor (not Hero of the Village) is what makes a lifter Thor; the bind itself replaces every other power. */
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void heroOfTheVillageAscendsAndConsumesTheEffect(GameTestHelper helper) {
+	public void fullValorAscendsAndReplacesOtherPowers(GameTestHelper helper) {
 		ServerPlayer player = survivalPlayer(helper);
 		TonyStark.grant(player);
-		helper.assertFalse(Worthiness.wouldAscend(player), "without the effect there is no ascension");
 		player.addEffect(new MobEffectInstance(MobEffects.HERO_OF_THE_VILLAGE, 1200, 0));
-		helper.assertTrue(Worthiness.wouldAscend(player), "an unworthy Hero of the Village would ascend");
+		helper.assertFalse(Worthiness.wouldAscend(player), "Hero of the Village alone no longer makes an ascension");
+		com.projecthero.mod.thoracquire.Valor.set(player, com.projecthero.mod.thoracquire.Valor.MAX);
+		helper.assertTrue(Worthiness.wouldAscend(player), "full Valor would ascend");
 		Worthiness.ascend(player, new net.minecraft.world.item.ItemStack(com.projecthero.mod.item.ModItems.MJOLNIR));
 		helper.assertTrue(Worthiness.isWorthy(player), "the player becomes Thor");
-		helper.assertFalse(player.hasEffect(MobEffects.HERO_OF_THE_VILLAGE), "the effect is consumed");
+		helper.assertTrue(player.hasEffect(MobEffects.HERO_OF_THE_VILLAGE), "Hero of the Village is no longer used up");
 		helper.assertFalse(TonyStark.hasPower(player), "becoming Thor naturally replaces every other power");
 		helper.assertTrue(com.projecthero.mod.power.ThorPassives.hasPowerOfThor(player), "and Thor is held");
 		helper.assertTrue(com.projecthero.mod.hero.HeroTiers.heroCount(player) == 1, "Thor is the only hero power");
@@ -144,15 +146,16 @@ public class PrimaryPowerGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void aHeroOfTheVillageDoesNotAscendOnSomeoneElsesHammer(GameTestHelper helper) {
+	public void nobodyAscendsOnSomeoneElsesHammer(GameTestHelper helper) {
 		ServerPlayer player = survivalPlayer(helper);
-		player.addEffect(new MobEffectInstance(MobEffects.HERO_OF_THE_VILLAGE, 1200, 0));
+		com.projecthero.mod.thoracquire.Valor.set(player, com.projecthero.mod.thoracquire.Valor.MAX);
 		net.minecraft.world.item.ItemStack owned = new net.minecraft.world.item.ItemStack(com.projecthero.mod.item.ModItems.MJOLNIR);
 		owned.set(com.projecthero.mod.item.ModDataComponents.BOUND_OWNER, java.util.UUID.randomUUID());
 		helper.assertFalse(Worthiness.wouldAscend(player, owned), "a hammer bound to another player never turns its lifter into Thor");
-		helper.assertTrue(Worthiness.canLift(player), "but a Hero of the Village may still lift it");
+		player.addEffect(new MobEffectInstance(MobEffects.HERO_OF_THE_VILLAGE, 1200, 0));
+		helper.assertFalse(Worthiness.canLift(player), "and since v0.17.7 a Hero of the Village cannot carry it either");
 		net.minecraft.world.item.ItemStack free = new net.minecraft.world.item.ItemStack(com.projecthero.mod.item.ModItems.MJOLNIR);
-		helper.assertTrue(Worthiness.wouldAscend(player, free), "a free hammer still ascends the lifter");
+		helper.assertTrue(Worthiness.wouldAscend(player, free), "a free hammer still ascends a lifter with full Valor");
 		helper.succeed();
 	}
 

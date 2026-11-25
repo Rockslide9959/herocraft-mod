@@ -13,7 +13,6 @@ import com.projecthero.mod.squad.SquadManager;
 import com.projecthero.mod.stormbreaker.Bifrost;
 import com.projecthero.mod.stormbreaker.BifrostWaypoints;
 import com.projecthero.mod.stormbreaker.StormbreakerEntity;
-import com.projecthero.mod.stormbreaker.StormbreakerForge;
 import com.projecthero.mod.worthiness.Worthiness;
 
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
@@ -39,8 +38,7 @@ import net.minecraft.world.level.entity.EntityTypeTest;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.14.19 Stormbreaker: the recipe, the item's stats, forging in Nether lava (through the testable
- * {@link StormbreakerForge#tickForging} rule -- building a Nether in a gametest isn't practical), the Thor-weapon gate,
+ * v0.14.19 Stormbreaker: the recipe (v0.17.7: the head, no handle), the item's stats, the Thor-weapon gate,
  * the returning throw and the Bifrost (v0.14.20: menu, waypoints, squad carry, 60 s cooldown). The throw and Bifrost tests each run in their own batch so a flying axe can
  * never meet another suite's mobs or players.
  */
@@ -89,7 +87,7 @@ public class StormbreakerGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void unforgedStormbreakerRecipeExists(GameTestHelper helper) {
 		var holder = helper.getLevel().getRecipeManager().byKey(ProjectHeroMod.id("unforged_stormbreaker"));
-		helper.assertTrue(holder.isPresent(), "a recipe for the Unforged Stormbreaker");
+		helper.assertTrue(holder.isPresent(), "a recipe for the Stormbreaker Head");
 		ItemStack result = holder.get().value().getResultItem(helper.getLevel().registryAccess());
 		helper.assertTrue(result.is(ModItems.UNFORGED_STORMBREAKER), "it makes the Unforged Stormbreaker, got " + result);
 		var ingredients = holder.get().value().getIngredients();
@@ -105,8 +103,9 @@ public class StormbreakerGameTests implements FabricGameTest {
 				rods++;
 			}
 		}
-		helper.assertTrue(netherite == 4 && stars == 1 && rods == 2,
-				"4 netherite + a nether star + 2 blaze rods, got " + netherite + "/" + stars + "/" + rods);
+		// v0.17.7: the head is crafted without a handle -- the blaze rods are gone
+		helper.assertTrue(netherite == 4 && stars == 1 && rods == 0,
+				"4 netherite + a nether star and no blaze rods, got " + netherite + "/" + stars + "/" + rods);
 		helper.succeed();
 	}
 
@@ -136,59 +135,7 @@ public class StormbreakerGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	private static ItemEntity looseUnforged(GameTestHelper helper) {
-		Vec3 at = helper.absoluteVec(new Vec3(3.5, 2.0, 3.5));
-		ItemEntity item = new ItemEntity(helper.getLevel(), at.x, at.y, at.z, new ItemStack(ModItems.UNFORGED_STORMBREAKER));
-		helper.assertTrue(item instanceof StormbreakerForge.Forgeable, "ItemEntityMixin gives item entities forging progress");
-		return item;
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void netherLavaForgesStormbreakerAfterTenSeconds(GameTestHelper helper) {
-		ItemEntity item = looseUnforged(helper);
-		for (int i = 1; i < StormbreakerForge.FORGE_TICKS; i++) {
-			helper.assertFalse(StormbreakerForge.tickForging(item, true, true), "not done yet at tick " + i);
-		}
-		helper.assertTrue(item.getItem().is(ModItems.UNFORGED_STORMBREAKER), "still unforged one tick short of 10 s");
-		helper.assertTrue(StormbreakerForge.tickForging(item, true, true), "forged on tick 200");
-		helper.assertTrue(item.getItem().is(ModItems.STORMBREAKER), "the item entity now holds Stormbreaker");
-		helper.assertTrue(item.getItem().getCount() == 1, "exactly one axe");
-		helper.assertTrue(item.getDeltaMovement().y > 0.5, "it is thrown up out of the lava");
-		helper.assertFalse(StormbreakerForge.tickForging(item, true, true), "a forged axe is not forged again");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void lavaOutsideTheNetherNeverForgesIt(GameTestHelper helper) {
-		ItemEntity item = looseUnforged(helper);
-		for (int i = 0; i < StormbreakerForge.FORGE_TICKS * 3; i++) {
-			helper.assertFalse(StormbreakerForge.tickForging(item, true, false), "overworld lava never forges it");
-		}
-		helper.assertTrue(item.getItem().is(ModItems.UNFORGED_STORMBREAKER), "still unforged after 30 s of overworld lava");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void pullingItOutOfTheLavaLosesTheHeat(GameTestHelper helper) {
-		ItemEntity item = looseUnforged(helper);
-		StormbreakerForge.Forgeable forge = (StormbreakerForge.Forgeable) item;
-		for (int i = 0; i < 150; i++) {
-			StormbreakerForge.tickForging(item, true, true);
-		}
-		// a brief bob out of the lava keeps the heat...
-		for (int i = 0; i < StormbreakerForge.OUT_OF_LAVA_GRACE; i++) {
-			StormbreakerForge.tickForging(item, false, true);
-		}
-		helper.assertTrue(forge.projecthero$forgeTicks() == 150, "a bob at the surface keeps the progress");
-		// ...a real pull-out loses it
-		StormbreakerForge.tickForging(item, false, true);
-		helper.assertTrue(forge.projecthero$forgeTicks() == 0, "out of the lava too long: progress resets");
-		for (int i = 0; i < 150; i++) {
-			StormbreakerForge.tickForging(item, true, true);
-		}
-		helper.assertTrue(item.getItem().is(ModItems.UNFORGED_STORMBREAKER), "it has to start the 10 s over");
-		helper.succeed();
-	}
+	// v0.17.7: the Nether-lava forging is gone (the Star Forge replaced it) -- see ThorAcquireV0177GameTests
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void stormbreakerCountsAsThorsWeaponOnlyInAWorthyHand(GameTestHelper helper) {

@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "GLG",
+    "BNB",
+    "BFB"
+  ],
+  "key": {
+    "G": {
+      "item": "minecraft:gilded_blackstone"
+    },
+    "L": {
+      "item": "minecraft:lightning_rod"
+    },
+    "B": {
+      "item": "minecraft:polished_blackstone_bricks"
+    },
+    "N": {
+      "item": "minecraft:netherite_ingot"
+    },
+    "F": {
+      "item": "minecraft:blast_furnace"
+    }
+  },
+  "result": {
+    "id": "projecthero:star_forge",
+    "count": 1
+  }
+}

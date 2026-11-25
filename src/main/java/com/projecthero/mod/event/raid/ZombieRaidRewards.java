@@ -158,6 +158,7 @@ public final class ZombieRaidRewards {
 		BlockPos chestPos = placeChest(level, raid);
 
 		for (ServerPlayer player : winners) {
+			com.projecthero.mod.thoracquire.Valor.add(player, com.projecthero.mod.thoracquire.Valor.Source.ZOMBIE_RAID); // v0.17.7
 			GraveboundState state = GraveboundCurse.state(player).copy();
 			state.raidsCompleted++;
 			boolean firstClear = !state.heartOfTheGraveGranted;

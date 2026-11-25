@@ -361,6 +361,7 @@ public class HulkGameTests implements FabricGameTest {
 		ServerPlayer p = hulk(helper);
 		p.getAbilities().instabuild = false;
 		p.addEffect(new net.minecraft.world.effect.MobEffectInstance(MobEffects.HERO_OF_THE_VILLAGE, 600, 0));
+		com.projecthero.mod.thoracquire.Valor.set(p, com.projecthero.mod.thoracquire.Valor.MAX); // v0.17.7: even with full Valor
 		helper.assertFalse(com.projecthero.mod.worthiness.Worthiness.canLift(p), "the Hulk cannot lift Mjolnir, even a Hero of the Village");
 		helper.assertFalse(com.projecthero.mod.worthiness.Worthiness.wouldAscend(p), "and never becomes Thor by lifting it");
 

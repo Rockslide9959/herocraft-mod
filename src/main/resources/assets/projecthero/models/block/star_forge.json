@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "projecthero:block/star_forge_top",
+    "side": "projecthero:block/star_forge_side",
+    "bottom": "projecthero:block/star_forge_bottom"
+  }
+}

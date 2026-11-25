@@ -1035,22 +1035,15 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 			return net.minecraft.world.InteractionResult.PASS;
 		}
 		if (Worthiness.canLift(player)) {
-			// A Hero of the Village lifting it for the first time becomes Thor -- but only once there is
-			// actually room in their inventory, so a full pack never burns the effect for nothing.
-			if (Worthiness.wouldAscend(player, this.getItem()) && player instanceof net.minecraft.server.level.ServerPlayer sp) {
-				// v0.16.1: projectheroUniquePowers -- someone else is Thor: it will not budge, the effect is kept
-				if (com.projecthero.mod.hero.UniquePowers.refuse(sp, "thor")) {
-					return net.minecraft.world.InteractionResult.SUCCESS;
-				}
-				if (!player.getMainHandItem().isEmpty() && player.getInventory().getFreeSlot() < 0) {
-					return net.minecraft.world.InteractionResult.SUCCESS;
-				}
-				Worthiness.ascend(sp, this.getItem());
-			}
 			if (giveTo(player, false)) {
 				level().playSound(null, player.blockPosition(), SoundEvents.ITEM_PICKUP, SoundSource.PLAYERS, 1.0f, 1.2f);
 				this.discard();
 			}
+			return net.minecraft.world.InteractionResult.SUCCESS;
+		}
+		// v0.17.7: an outsider -- Valor, the storm and the Trial of Asgard decide (Hero of the Village no longer opens it)
+		if (player instanceof net.minecraft.server.level.ServerPlayer sp && !com.projecthero.mod.hulk.Hulk.isHulk(sp)) {
+			com.projecthero.mod.thoracquire.MjolnirLift.tryLift(sp, this);
 			return net.minecraft.world.InteractionResult.SUCCESS;
 		}
 		WorthinessEnforcer.playRejectionFeedback(player, this.position());

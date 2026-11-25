@@ -1,0 +1,10 @@
+﻿andy_bone_arm.mp4 - Andy, Bone and flesh: right arm regrowing with the vanilla skeleton arm bone (slow speed, 10 fps)
+andy_bone_arm.png - contact sheet of the arm regrowth
+andy_bone_head.mp4 - Andy, Bone and flesh: head regrowing from the vanilla skeleton skull
+andy_bone_head.png - contact sheet of the head regrowth
+andy_bone_leg.mp4 - Andy, Bone and flesh: left leg regrowing with the vanilla skeleton leg bone
+andy_bone_leg.png - contact sheet of the leg regrowth
+andy_bone_body.mp4 - Andy, Bone and flesh: body regrowing over the vanilla skeleton ribcage (bonus)
+andy_bone_body.png - contact sheet of the body regrowth
+titan_corpse_dissolve.mp4 - Attack Titan corpse kneeling and dissolving down to a giant vanilla skeleton, plus a severed arm chunk (vanilla arm bone) on the left (corpse time shortened to 420 ticks for the film, every 3rd tick)
+titan_corpse_dissolve.png - contact sheet of the corpse dissolve

@@ -96,6 +96,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.ironman.HulkbusterLanding.clearSessionState(); // v0.16.7 (user): the Hulkbuster landing
 		com.projecthero.mod.ironman.IronManFallLanding.clearSessionState(); // v0.16.7 (user): the fall landing, every suit
 		CraterAmbience.clearSessionState();
+		com.projecthero.mod.thoracquire.ThorAcquire.clearSessionState(); // v0.17.7: running lifts and Trials of Asgard (player UUIDs), test overrides
 		com.projecthero.mod.kryptonian.KryptoniteStrikes.clearSessionState(); // v0.17.2 kryptonite tools
 		TempBlocks.clearSessionState();
 		com.projecthero.mod.hero.power.p09.CryoIce.clearSessionState(); // v0.16.5: Cryokinesis ice (melted on SERVER_STOPPING)

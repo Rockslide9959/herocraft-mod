@@ -93,6 +93,7 @@ public final class SupervillainRaidRewards {
 		// Champion of the Village -- a stronger, time-limited Hero of the Village. Re-applied fresh (not
 		// stacked) so it cannot be farmed into a permanent max discount.
 		for (ServerPlayer player : raid.participants().onlineEligible(level)) {
+			com.projecthero.mod.thoracquire.Valor.add(player, com.projecthero.mod.thoracquire.Valor.Source.SUPERVILLAIN_RAID); // v0.17.7
 			player.removeEffect(MobEffects.HERO_OF_THE_VILLAGE);
 			player.addEffect(new MobEffectInstance(MobEffects.HERO_OF_THE_VILLAGE,
 					cfg.championOfTheVillageTicks, 2, false, false, true));
