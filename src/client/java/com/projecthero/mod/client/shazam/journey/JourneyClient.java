@@ -27,7 +27,6 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance;
 import net.minecraft.client.resources.sounds.SoundInstance;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
@@ -83,6 +82,8 @@ public final class JourneyClient {
 		ClientTickEvents.END_CLIENT_TICK.register(JourneyClient::tick);
 		HudRenderCallback.EVENT.register(JourneyClient::hud);
 		WorldRenderEvents.AFTER_TRANSLUCENT.register(JourneyClient::world);
+		// no first-person hands in any journey scene, the descent through to home (the ride's window shot included)
+		com.projecthero.mod.client.cutscene.CutsceneHands.register(() -> scene != null);
 		ClientEntityEvents.ENTITY_LOAD.register((entity, level) -> {
 			if (entity instanceof SubwayTrainEntity train) {
 				Minecraft.getInstance().getSoundManager().play(new TrainSound(train));
@@ -234,18 +235,9 @@ public final class JourneyClient {
 				hornPlayed = true;
 				mc.level.playLocalSound(a.x, a.y - 2.0, a.z, SoundEvents.GOAT_HORN_SOUND_VARIANTS.get(5).value(), SoundSource.AMBIENT, 0.12f, 0.55f, false);
 			}
-			if (now % 3 == 0) {
-				Vec3 f = Vec3.directionFromRotation(0, illusionYaw);
-				Vec3 r = new Vec3(-f.z, 0, f.x);
-				double along = mc.level.random.nextDouble() * 4.5, across = (mc.level.random.nextDouble() - 0.5) * 3.0;
-				Vec3 at = a.add(f.scale(along)).add(r.scale(across)).add(0, 0.1, 0);
-				mc.level.addParticle(ParticleTypes.ENCHANT, at.x, at.y + 1.2, at.z, -f.x * 0.4, -0.6, -f.z * 0.4);
-				if (mc.level.random.nextInt(4) == 0) {
-					mc.level.addParticle(ParticleTypes.END_ROD, at.x, at.y, at.z, 0, 0.02, 0);
-				}
-			}
+			// (the golden motes are drawn by IllusionRenderer: slow, few, and only where they belong)
 		}
-		if (illusionFadeAt >= 0 && now - illusionFadeAt > 20 && scene != JourneyScene.DESCENT) {
+		if (illusionFadeAt >= 0 && now - illusionFadeAt > ILLUSION_FADE + 2 && scene != JourneyScene.DESCENT) {
 			illusion = false;
 			illusionFadeAt = -1;
 		}
@@ -294,19 +286,31 @@ public final class JourneyClient {
 		}
 		float pt = ctx.tickCounter().getGameTimeDeltaPartialTick(false);
 		long now = mc.level.getGameTime();
-		float age = (now - illusionStart) + pt;
-		float alpha = Mth.clamp(age / 25f, 0f, 1f);
-		float solid = 0f;
+		float age = Math.max(0f, (now - illusionStart) + pt);
+		// it materialises out of a gold shimmer (the shimmer first, then the stone and iron, with a few flickers)
+		float solid = IllusionRenderer.materialise(age);
+		float shimmer = Mth.clamp(age / 6f, 0f, 1f) * (0.14f + 0.6f * (1f - solid));
 		if (scene == JourneyScene.DESCENT) {
 			float t = time(pt);
-			alpha = 1f;
-			solid = Mth.clamp(t / 20f, 0f, 1f);
-			age = t + 600;
+			solid = Math.max(solid, Mth.clamp(t / 8f, 0f, 1f));
+			shimmer = Math.max(0.14f, shimmer) * (1f - Mth.clamp((t - 24f) / 24f, 0f, 1f)); // it settles as the light goes
 		} else if (illusionFadeAt >= 0) {
-			alpha *= Mth.clamp(1f - ((now - illusionFadeAt) + pt) / 15f, 0f, 1f);
+			// a soft fade: the stone thins away, the shimmer swells a little and goes with it
+			float f = Mth.clamp(((now - illusionFadeAt) + pt) / ILLUSION_FADE, 0f, 1f);
+			float sf = f * f * (3 - 2 * f);
+			solid *= 1f - sf;
+			shimmer = (shimmer + 0.35f * Mth.sin(f * Mth.PI)) * (1f - sf);
 		}
-		IllusionRenderer.draw(ctx.matrixStack(), mc.renderBuffers().bufferSource(), ctx.camera().getPosition(), illusionPos, illusionYaw, alpha, age, solid);
+		net.minecraft.core.BlockPos at = net.minecraft.core.BlockPos.containing(illusionPos.x, illusionPos.y + 0.2, illusionPos.z);
+		int packed = net.minecraft.client.renderer.LevelRenderer.getLightColor(mc.level, at);
+		float night = Mth.clamp((1f - mc.level.getSkyDarken(pt)) / 0.75f, 0f, 1f);
+		IllusionRenderer.Lighting lit = new IllusionRenderer.Lighting(net.minecraft.client.renderer.LightTexture.sky(packed),
+				net.minecraft.client.renderer.LightTexture.block(packed), night);
+		IllusionRenderer.draw(ctx.matrixStack(), mc.renderBuffers().bufferSource(), ctx.camera(), illusionPos, illusionYaw, solid, shimmer, age, lit);
 	}
+
+	/** Ticks the illusion takes to fade away. */
+	private static final float ILLUSION_FADE = 30f;
 
 	// ---------------------------------------------------------------- the camera
 
@@ -317,6 +321,23 @@ public final class JourneyClient {
 
 	private static Vec3 o(double x, double y, double z) {
 		return anchor.add(x + 0.5, y, z + 0.5);
+	}
+
+	// the descent's shot (ticks): up behind the lamps, then the glide down over the stairs; the light starts to go at DESCENT_DIM
+	// and is gone at JourneyScene.DESCENT_BLACK; the platform scene holds the dark a moment, then fades in
+	static final int DESCENT_RISE = 26;
+	static final int DESCENT_SINK_END = 62;
+	static final int DESCENT_DIM = 20;
+	static final int TRAIN_DARK_HOLD = 8;
+	static final int TRAIN_FADE_IN = 30;
+
+	/** The colour to cover the "Loading terrain" screen with while a journey crosses worlds under a fade (0: leave it). */
+	public static int loadingCover() {
+		Minecraft mc = Minecraft.getInstance();
+		if (scene == JourneyScene.HOME || scene == JourneyScene.TRANSFORM || (mc.level != null && mc.level.getGameTime() - homeAt < 60)) {
+			return 0xFFFFFFFF;
+		}
+		return scene != null ? 0xFF000000 : 0;
 	}
 
 	private static double ease(double k) {
@@ -339,15 +360,25 @@ public final class JourneyClient {
 				Vec3 up = new Vec3(0, 1, 0);
 				Vec3 eye = player.getEyePosition(pt);
 				Vec3 a = anchor;
-				Vec3 over = a.add(f.scale(-1.3)).add(up.scale(2.4));
-				if (t < 30) {
-					double k = ease(t / 30.0);
+				// v2: one continuous glide -- from your eyes up behind the lamps, then forward and down over the opening, a faint
+				// step-bob as it goes, looking ever deeper down the stairs into the doorway while the light goes (fade())
+				// your own eyes going down: no body in the shot (it stood right under the camera), no hands (CutsceneHands)
+				pov = true;
+				// low enough to pass under the sign, which frames the top of the shot
+				Vec3 over = a.add(f.scale(-1.3)).add(up.scale(1.9));
+				Vec3 deep = a.add(f.scale(0.9)).add(up.scale(0.45));
+				Vec3 lookStairs = a.add(f.scale(2.6)).add(up.scale(-2.2));
+				Vec3 lookDoor = a.add(f.scale(IllusionRenderer.LANDING + 2.0)).add(up.scale(-3.1));
+				if (t < DESCENT_RISE) {
+					double k = ease(t / DESCENT_RISE);
 					cam = eye.lerp(over, k);
-					look = a.add(up.scale(0.6)).lerp(a.add(f.scale(3.5)).add(up.scale(-2.6)), k);
+					look = a.add(up.scale(0.6)).lerp(lookStairs, k);
 				} else {
-					double k = ease((t - 30) / 44.0);
-					cam = over.lerp(a.add(f.scale(1.6)).add(up.scale(0.2)), k);
-					look = a.add(f.scale(3.5)).add(up.scale(-2.6)).lerp(a.add(f.scale(6.5)).add(up.scale(-4.2)), k);
+					double raw = Mth.clamp((t - DESCENT_RISE) / (double) (DESCENT_SINK_END - DESCENT_RISE), 0.0, 1.0);
+					double k = raw * raw * (3 - 2 * raw);
+					double bob = 0.03 * Math.sin(raw * Math.PI * 8) * Math.sin(raw * Math.PI);
+					cam = over.lerp(deep, k).add(up.scale(bob));
+					look = lookStairs.lerp(lookDoor, k);
 				}
 			}
 			case TRAIN -> {
@@ -592,8 +623,16 @@ public final class JourneyClient {
 		float a = 0f;
 		int rgb = 0x000000;
 		switch (scene) {
-			case DESCENT -> a = Mth.clamp((t - 34) / (JourneyScene.DESCENT_BLACK - 34f), 0f, 1f);
-			case TRAIN -> a = Mth.clamp(1f - t / 22f, 0f, 1f);
+			case DESCENT -> {
+				// the light dims gradually as the camera sinks, easing into full black (then a beat of darkness and the horn)
+				float k = Mth.clamp((t - DESCENT_DIM) / (float) (JourneyScene.DESCENT_BLACK - DESCENT_DIM), 0f, 1f);
+				a = (float) Math.pow(k * k * (3 - 2 * k), 1.4);
+			}
+			case TRAIN -> {
+				// a short hold in the dark, then a slow ease up into the platform
+				float k = Mth.clamp((t - TRAIN_DARK_HOLD) / (float) TRAIN_FADE_IN, 0f, 1f);
+				a = 1f - k * k * (3 - 2 * k);
+			}
 			case RIDE -> {
 				if (t >= JourneyGeometry.RIDE_FLASH && t < JourneyGeometry.RIDE_FLASH + 12) {
 					a = 1f - (t - JourneyGeometry.RIDE_FLASH) / 12f;

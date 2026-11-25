@@ -58,6 +58,15 @@ public final class ThorAcquireClient {
 		BlockEntityRenderers.register(ThorAcquire.STAR_FORGE_BE, StarForgeRenderer::new);
 		WorldRenderEvents.AFTER_ENTITIES.register(CraterCloudRenderer::render);
 		WorldRenderEvents.AFTER_ENTITIES.register(MjolnirLiftClient::render);
+		// no first-person hands during the lift cutscene (the arm is posed skyward on the body, not the vanilla hand)
+		com.projecthero.mod.client.cutscene.CutsceneHands.register(() -> {
+			Minecraft mc = Minecraft.getInstance();
+			if (mc.player == null) {
+				return false;
+			}
+			float t = MjolnirLiftClient.elapsed(mc.player, 0f);
+			return t >= 0f && t <= com.projecthero.mod.thoracquire.MjolnirLift.DURATION;
+		});
 		HudRenderCallback.EVENT.register(ValorHud::render);
 		HudRenderCallback.EVENT.register(MjolnirLiftClient::hud);
 		ClientTickEvents.END_CLIENT_TICK.register(ThorAcquireClient::tick);

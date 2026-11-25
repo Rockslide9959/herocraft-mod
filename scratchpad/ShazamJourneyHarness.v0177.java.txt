@@ -57,6 +57,68 @@ public final class ShazamJourneyHarness implements ClientModInitializer {
 	private static String phase = "setup";
 	private static int phaseTicks;
 	private static int endTicks = -1;
+	// v2 illusion modes (flag line 2): "journey" (the original whole-journey film), "stills" (the illusion by day and night from
+	// 5 blocks, up close and from the side; flag line 3 = file prefix, e.g. before/after), "film" (it materialises, the walk up,
+	// the descent, the platform fade-in; then the rest of the journey unfilmed with first-person hand stills on the way)
+	private static String mode = "journey";
+	private static String prefix = "after";
+	private static int still;
+	private static volatile int gy;
+
+	private static Vec3 entrance() {
+		return new Vec3(cx + 0.5, gy, cz + 6.5);
+	}
+
+	private static void grab(Minecraft mc, String name) {
+		mc.getToasts().clear();
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] still " + name);
+	}
+
+	/** Puts the player at {@code at} looking with yaw/pitch, and the illusion at the entrance at {@code time} (fresh: it materialises). */
+	private static void stage(Minecraft mc, long time, Vec3 at, float yaw, float pitch) {
+		server(mc, p -> {
+			p.serverLevel().setDayTime(time);
+			p.connection.teleport(at.x, at.y, at.z, yaw, pitch);
+			ShazamIllusions.showAt(p, entrance(), 0f);
+		});
+		mc.player.setYRot(yaw);
+		mc.player.setXRot(pitch);
+	}
+
+	private static void tickStills(Minecraft mc) {
+		// {time, x off, z off from the entrance, yaw, pitch, name}
+		Object[][] shots = { { 4000L, 0.0, -5.0, 0f, 16f, "day_5blocks" }, { 4000L, 0.0, -1.55, 0f, 50f, "day_close_down_stairs" },
+				{ 4000L, 2.75, 2.2, 65f, 45f, "day_side" }, { 18000L, 0.0, -5.0, 0f, 16f, "night_5blocks" },
+				{ 18000L, 0.0, -1.55, 0f, 50f, "night_close_down_stairs" }, { 18000L, 2.75, 2.2, 65f, 45f, "night_side" } };
+		if (still >= shots.length) {
+			if (mode.equals("both")) {
+				mode = "film"; // then the film, in the same world
+				server(mc, ShazamIllusions::dismiss);
+				go("setup");
+				return;
+			}
+			go("done");
+			return;
+		}
+		Object[] s = shots[still];
+		if (phaseTicks == 1) {
+			Vec3 e = entrance();
+			stage(mc, (Long) s[0], new Vec3(e.x + (Double) s[1], gy, e.z + (Double) s[2]), (Float) s[3], (Float) s[4]);
+		}
+		if (phaseTicks > 2 && phaseTicks < 70) {
+			mc.player.setYRot((Float) s[3]);
+			mc.player.setXRot((Float) s[4]);
+		}
+		if (phaseTicks == 70) {
+			grab(mc, prefix + "_" + s[5]);
+		}
+		if (phaseTicks >= 74) {
+			still++;
+			phaseTicks = 0;
+		}
+	}
 
 	@Override
 	public void onInitializeClient() {
@@ -65,7 +127,10 @@ public final class ShazamJourneyHarness implements ClientModInitializer {
 			return;
 		}
 		try {
-			out = new File(Files.readString(flag).trim());
+			String[] lines = Files.readString(flag).trim().split("\\R");
+			out = new File(lines[0].trim());
+			mode = lines.length > 1 ? lines[1].trim() : "journey";
+			prefix = lines.length > 2 ? lines[2].trim() : "after";
 		} catch (Exception e) {
 			out = new File(".");
 		}
@@ -244,6 +309,19 @@ public final class ShazamJourneyHarness implements ClientModInitializer {
 				int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, cx, cz);
 				clearTrees(level, cx, y, cz, 12);
 				y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, cx, cz);
+				if (!mode.equals("journey")) {
+					// a flat lawn for the illusion: grass at y-1, air above
+					for (int dx = -9; dx <= 9; dx++) {
+						for (int dz = -12; dz <= 16; dz++) {
+							level.setBlock(new BlockPos(cx + dx, y - 1, cz + dz), Blocks.GRASS_BLOCK.defaultBlockState(), 2);
+							level.setBlock(new BlockPos(cx + dx, y - 2, cz + dz), Blocks.DIRT.defaultBlockState(), 2);
+							for (int h = 0; h < 6; h++) {
+								level.setBlock(new BlockPos(cx + dx, y + h, cz + dz), Blocks.AIR.defaultBlockState(), 2);
+							}
+						}
+					}
+				}
+				gy = y;
 				p.connection.teleport(cx + 0.5, y, cz + 0.5, 0f, 4f);
 				Valor.set(p, Valor.MAX);
 				p.getInventory().clearContent();
@@ -265,7 +343,21 @@ public final class ShazamJourneyHarness implements ClientModInitializer {
 					mc.player.setYRot(0f);
 					mc.player.setXRot(4f);
 				}
-				if (phaseTicks == 20) {
+				if (phaseTicks == 20 && (mode.equals("stills") || mode.equals("both"))) {
+					go("stills");
+				} else if (phaseTicks == 2 && mode.equals("film")) {
+					Vec3 e = entrance();
+					server(mc, p -> {
+						p.serverLevel().setDayTime(11200L);
+						p.connection.teleport(e.x, gy, e.z - 9.0, 0f, 12f);
+					});
+				} else if (phaseTicks == 50 && mode.equals("film")) {
+					filming = true;
+					go("illusion");
+					mc.player.setYRot(0f);
+					mc.player.setXRot(12f);
+					server(mc, p -> ShazamIllusions.showAt(p, entrance(), 0f));
+				} else if (phaseTicks == 20) {
 					filming = true;
 					go("illusion");
 					server(mc, p -> {
@@ -274,8 +366,9 @@ public final class ShazamJourneyHarness implements ClientModInitializer {
 					});
 				}
 			}
+			case "stills" -> tickStills(mc);
 			case "illusion" -> {
-				if (phaseTicks >= 50) {
+				if (phaseTicks >= (mode.equals("film") ? 60 : 50)) {
 					go("walk_to_it");
 				}
 			}
@@ -294,11 +387,18 @@ public final class ShazamJourneyHarness implements ClientModInitializer {
 				}
 			}
 			case "descent" -> {
+				if (mode.equals("film") && phaseTicks == 30) {
+					grab(mc, "hands_descent_first_person");
+				}
 				if (stage == ShazamJourney.Stage.TRAIN) {
 					go("train_arrives");
 				}
 			}
 			case "train_arrives" -> {
+				if (mode.equals("film") && phaseTicks == 80) {
+					filming = false; // the film ends on the platform; the rest runs on for the hand stills
+					mark("film_end");
+				}
 				if (stage == ShazamJourney.Stage.WAITING) {
 					go("board");
 				}
@@ -316,6 +416,12 @@ public final class ShazamJourneyHarness implements ClientModInitializer {
 				}
 			}
 			case "ride" -> {
+				if (mode.equals("film") && phaseTicks == 40) {
+					grab(mc, "hands_ride");
+				}
+				if (mode.equals("film") && phaseTicks == 95) {
+					grab(mc, "hands_ride_window_pov");
+				}
 				if (stage == ShazamJourney.Stage.CAVE) {
 					go("cave");
 				}
@@ -356,6 +462,16 @@ public final class ShazamJourneyHarness implements ClientModInitializer {
 				}
 			}
 			case "home" -> {
+				if (mode.equals("film")) {
+					if (phaseTicks == 70) {
+						mc.player.setXRot(10f);
+						grab(mc, "hands_back_after_journey");
+					}
+					if (phaseTicks >= 76) {
+						go("done");
+					}
+					break;
+				}
 				if (phaseTicks == 45) {
 					mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
 				}

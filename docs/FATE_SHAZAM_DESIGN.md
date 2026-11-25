@@ -357,7 +357,9 @@ transforms for the first time, i want there to be cutscenes for this stuff too".
 wizard`, the creative `wizard_shazam_spawn_egg`). Client in `client/shazam/journey` (+ `ThroneWizardModel/Renderer`,
 `ShazamJourneyCameraMixin`, `ShazamJourneyGuiMixin`). Lang: `scratchpad/v0177/shazam_journey_lang.json` (`lang_add.js`, key by
 key). Film: `docs/screenshots/v0177/shazam_journey/shazam_journey_full.mp4` (harness `scratchpad/ShazamJourneyHarness.v0177.java.txt`,
-encoder `scratchpad/v0177/shazam_journey_film.js`).
+encoder `scratchpad/v0177/shazam_journey_film.js`). Illusion v2: `docs/screenshots/v0177/shazam_journey/illusion_v2/`
+(before/after stills by day and night, `illusion_v2_film.mp4` + sheets, `hands_*` stills; harness flag line 2 `both`, line 3
+the still prefix; encoder `... <frames> illusion_v2 <before stills dir>`).
 
 **Worthy** (`ShazamIllusions.worthy`): full Valor (`thoracquire.Valor`) and no power at all (`HeroTiers.hasAnyPower`, not
 Shazam, not Shazam Family). Being chosen spends no Valor; once Shazam they are powered, so Thor is out (and vice versa).
@@ -365,10 +367,27 @@ Shazam, not Shazam Family). Being chosen spends no Valor; once Shazam they are p
 **The illusions** (`ShazamIllusions`): every 60 s (`ROLL_EVERY`) a worthy player on foot in the Overworld rolls 4%, 8% at
 night, +4% in a City chunk (`chanceOverride` for tests). A hit places a stairway 7-12 blocks ahead within 34 degrees of their
 look, on open ground with a clear 3 x 5 footprint and a clear line of sight, descending away from them; then a 5-minute
-cooldown (`COOLDOWN`). It's only sent to that player (`JourneyPayloads.Illusion`) and drawn client-side (`IllusionRenderer`):
-eight stone steps down between white-tiled walls to a landing and a dark doorway (no depth test, so it reads as a hole in
-the ground, deeper = darker), green iron railings and two globe lamps, a shimmering gold arch with an old green "SUBWAY /
-Eternity Line" sign. It fades in, wavers, flickers out now and then, whispers (soul-escape sounds, one faint horn), sparkles.
+cooldown (`COOLDOWN`). It's only sent to that player (`JourneyPayloads.Illusion`) and drawn client-side (`IllusionRenderer`).
+
+*Illusion v2* (user: "it look like a green lantern construct, also the abrupt change into the grey colour from the green and
+then the darkness, make it look better"): a real, solid, old city subway entrance, only subtly otherworldly. Everything is
+textured geometry at full opacity, lit by the world (the spot's sky light plus the lamps' own warm block light), so it sits in
+daylight and glows at night:
+- a stone-brick kerb with smooth-stone coping round three sides and a flush stone threshold at the entrance (grass meets stone);
+- black-green wrought-iron railings on the kerb: balusters with spear finials, three posts a side with ball finials;
+- two cast-iron lamp posts at the entrance (foot, plinth, shaft, collar) with warm full-bright globes and a soft halo (stronger at night);
+- a crossbar between them with a dark-green enamel sign, cream border and cream "SUBWAY", and a small cream "Eternity Line"
+  plate hung under it on two chains;
+- below ground, through the depth "hole" (`JourneyRenderTypes.HOLE`): eight worn steps (smooth-stone treads with a darker worn
+  path, slab-side risers), white subway tiles with a green tile band, a landing, a polished-deepslate door frame and a 3.6-block
+  corridor. Colour and lightmap both fall off per vertex with depth (daylight, shadowed tiles, dark) and into the corridor to
+  pure black, so there's no hard black rectangle; a faint warm glimmer breathes at the far end (the station far below).
+- otherworldly touches (`JourneyRenderTypes.GLOW`, additive): a faint gold shimmer rippling up off the kerb's outer edges, and
+  fourteen slow golden motes drifting up out of the stairwell. No arch, no vanilla particles.
+- **Materialises** over ~1.6 s (`IllusionRenderer.materialise`): the gold shimmer first, then the stone and iron ease in with
+  a few flickers; once there it holds steady (no more wavering). **Fades out** over 1.5 s: the stone thins away as the shimmer
+  swells briefly and goes. It still whispers (soul-escape sounds, one faint horn).
+
 It fades after 30 s or 32 blocks away. Walking within 2 blocks of its top step starts the journey. The player's position when
 it appeared is the return point (`ShazamJourney.RETURN`, saved).
 
@@ -392,10 +411,14 @@ seconds (marker: bedrock 8 under the stop point) and reused. Layout along +X fro
   you back on the floor. The route is held loaded and entity-ticking (`hold`, a ticket every two chunks).
 
 **The stages** (`ShazamJourney`, server-authoritative; scenes and beats in `JourneyScene`):
-1. DESCENT (74 ticks): held at the stairs; the camera leaves your eyes, rises over the entrance and sinks down the stairwell;
-   the screen goes black (34-50); a gust, a distant horn (the goat horn "call", pitched down), a second horn and a rumble.
-   At 62 (once the station stands) you're taken to the platform.
-2. TRAIN (152): fade in at the foot of the stairs; the camera watches the tunnel as the headlights come, the horn at the
+1. DESCENT (74 ticks): held at the stairs. v2 timing (one continuous, eased move, no hard cuts): 0-26 the camera rises
+   from your eyes to behind the lamps, looking down the stairs; 26-62 it glides forward and down over the opening with a
+   faint step-bob, looking ever deeper into the doorway. The light dims gradually from 20 (a smoothstep curve) to full black
+   at 58 (`DESCENT_BLACK`); the illusion's shimmer settles as it does. Sounds: soul whisper at 0, a gust at 8, a faint
+   distant horn at 22, then in the beat of darkness the second horn and the rumble at 55 (`DESCENT_HORN_DARK`). At 62
+   (once the station stands) you're taken to the platform; the "Loading terrain" screen is drawn black while a journey
+   scene plays (`ShazamJourneyLoadingMixin`, white for the trip home), so there's no grey flash.
+2. TRAIN (152): the dark holds 8 more ticks, then eases up into the platform over 30 (smoothstep); the camera watches the tunnel as the headlights come, the horn at the
    tunnel mouth, the wind as it bursts out, screeching brakes, the air brakes sigh, the doors open. The train only spawns
    once its tunnel chunk is entity-ticking (the scene waits for it).
 3. WAITING: "The doors are open. Step aboard the train." Walk into any of the six doorways, or right-click the train.
@@ -422,7 +445,10 @@ clears the illusions and pending builds). Disconnect: the journey ends (train an
 `check` (every 10 ticks, any player with no journey) sends anyone with a return point home and anyone in the realm without one
 to world spawn. Death ends it and clears the return point on respawn. Taken out of the realm some other way (a command): the
 journey ends quietly. Client: every scene times out by itself (the descent's black at most 10 s past its end, the prompt
-without a server refresh every 5 s), movement keys are held during scenes, everything clears on disconnect.
+without a server refresh every 5 s), movement keys are held during scenes, everything clears on disconnect. No first-person
+hands or held items during any journey scene (user: "during the cutscenes I can see my hands"): the shared
+`client/cutscene/CutsceneHands` registry + `CutsceneHandsMixin` (HEAD cancel of `GameRenderer#renderItemInHand`); also
+registered by the Mjolnir lift, the Galactus cinematics and the Omnitrix show sequences.
 
 **Wizard on the throne** (`ThroneWizardEntity`, id `wizard_shazam_throne`): the same player-model Wizard in the project's own
 detailed skin (`textures/entity/shazam/wizard_shazam.png` + parts, from `scratchpad/shazam/gen_wizard_textures.js`), seated
