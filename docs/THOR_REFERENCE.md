@@ -11,6 +11,124 @@ Z God of Thunder's Wrath (hold 5 s), V Hammer Volley, Shift+V Thunderclap, C Cha
 selector (v0.15.3), double-tap Jump flight.
 Storm Call (`ThorPowers.stormCall`) is still in the code but not on any key since v0.6.22. There is no Thor Parry.
 
+## v0.17.7: how players get Thor and Stormbreaker -- `com.projecthero.mod.thoracquire`
+
+Registration in `ThorAcquire`, per-player data in `ThorAcquireAttachments` (kept out of `ModAttachments`), client in
+`client/thoracquire`. Guidebook: the Thor chapter's "Becoming Thor" steps, Valor (with the reader's own Valor, a live line
+fed by `HeroPackGuide.thorValorLive` / `refreshThor`), Mjolnir's Crater, the Trial of Asgard, and the Stormbreaker parts
+`recipe / forge / channel / branch / finish`. Lang: `scratchpad/v0177/lang_thor_acquire.js` (langset, key by key).
+
+The path: **earn Valor without powers -> find the crater -> wait for a thunderstorm -> win the Trial of Asgard without
+powers -> the lift cutscene binds Mjolnir** (Thor becomes the one Primary power through the same `Worthiness.ascend` ->
+`ThorPowers.bindOnAscend` as before). Hero of the Village no longer opens Mjolnir: it gives Valor.
+
+### Valor -- `Valor`, `ThorAcquireAttachments.VALOR` (persistent, copyOnDeath, synced to the owner)
+- 0..1000; Mjolnir only answers full Valor. **Earned only while unpowered** (`HeroTiers.hasAnyPower`, user rule): a powered
+  player keeps what they have and gets a quiet, 10-minute rate-limited hint instead.
+- Sources: Hero of the Village gained 150 (`ThorAcquireEffectMixin` on `LivingEntity.onEffectAdded` -- a vanilla raid win,
+  a crime stopped, the Supervillain Raid's Champion effect; a refresh is not a new deed); Supervillain Raid won +150
+  (`SupervillainRaidRewards.grantVictory`); Zombie Raid won 150 (`ZombieRaidRewards.grantCompletion`); a world/raid boss
+  (c:bosses or 150+ max health) dying with a player's kill credit 200 to every player within 48; a hideout/dungeon
+  mini-boss (`HideoutBoss`, Ankhatep, the Tomb Sentinel, Warden Kross, the Riot Captain) 75 likewise; a first clear of a
+  hideout / the Ancient Temple / a Vault Dungeon 100 (`*Clearing`); a saved villager 15 (killing a hostile that targets a
+  villager or hit one in the last 10 s, the villager alive within 16; once per 30 s, `VALOR_SAVE_READY`); a cured zombie
+  villager 40 (`ThorAcquireCureMixin` on the vanilla trigger). Roughly a raid + a boss + a hideout + a dungeon + villagers.
+- Shown: the Guidebook line + bar, and `ValorHud` under the crosshair when looking at a resting Mjolnir as an outsider
+  ("Valor 43%" over a thin gold Meter; full: what the hammer still wants).
+
+### Mjolnir's Crater -- `worldgen/MjolnirCraterPiece`, `CraterAmbience`, `CraterGuard`, client `CraterCloudRenderer`
+- The existing `projecthero:mjolnir_crater` structure (same id, same structure set: random_spread spacing 100 chunks,
+  separation 40, frequency 0.5, the old biome tag) -- **rare, not one per world**: about one per 1,600 x 1,600 blocks before
+  the biome filter. Multiplayer servers get several; the unique-powers gamerule still limits Thor to one holder.
+- New look (new chunks only): a 17-block scorched bowl -- blackstone / basalt / coal core with a few magma cracks, six
+  zig-zag lightning scars of cracked deepslate tiles and basalt running out over the rim, a broken lip and thrown debris --
+  and a cracked stone plinth (3x3 cracked stone bricks + outward stairs on polished blackstone bricks, a chiseled pillar
+  block) with the hammer standing on top. Shapes come from position hashes, so the four chunk quarters always meet.
+  `buildForTest` / `buildOnTerrain` build one by hand.
+- The hammer is still placed once per crater by `CraterAmbience` (deferred out of the chunk-load callback); the visual
+  ambient strikes still play. **Old worlds:** craters generated before keep their old bowl and their hammers work exactly as
+  before (adopted on load); free hammers anywhere follow the same lift rules.
+- Protection while the hammer is in it (`CraterGuard`, from `CraterAmbience.activeCraters` -- loaded, unclaimed craters):
+  no breaking or placing (blocks/buckets) within 11 blocks horizontally, 9 below / 16 above the hammer spot (creative may),
+  explosions skip those blocks (`ThorAcquireExplosionMixin` on `Explosion.finalizeExplosion`).
+- Storm cloud: `CraterCloudPayload` (craters + trial centres within 384 blocks, every 2 s, every 0.5 s during a trial).
+  The client draws a slowly turning knot of ~36 billboarded vanilla smoke sprites tinted slate grey, 24 blocks above the
+  hammer, lit from inside every 3-7 s by a silent flicker with a short bolt licking down; during a trial it grows, darkens,
+  churns, flickers every second with bolts to the ground and a pulsing ring on the plinth.
+
+### The lift gate -- `MjolnirLift` (from `MjolnirEntity.interact` for anyone who can't already lift it)
+1. bound to someone else: never budges (the Hero-of-the-Village "carry another's hammer" exception is gone);
+2. unique-powers refusal as before;
+3. Valor not full: "You are not worthy. Valor: 43%", heavy clunk (anvil + netherite), smoke, a small screen shake (1 s
+   throttle, `LIFT_FEEDBACK_READY`);
+4. not thundering where it stands (`Storms.isStorming`: `isThundering` + a sky; deserts count, the Nether / End never storm):
+   "The storm has not answered. Come back in a thunderstorm.";
+5. trial won (`TRIAL_PASSED`): the lift; otherwise the Trial of Asgard.
+- Walk-over pickup never ascends any more (`ItemEntityMixin`), and `WorthinessEnforcer` only exempts a player mid-lift.
+
+### The lift cutscene -- `MjolnirLift.begin`, synced clock `MJOLNIR_LIFT`, client `MjolnirLiftClient` + `ThorAcquireLiftPoseMixin`
+- 76 ticks, the player held in place: the hammer goes into the main hand and the arm rises straight up (0-18), arcs gather
+  on the head with rumbling thunder; tick 26 a lightning column (visual bolts every 5 ticks, a thick sky-to-hammer bolt and
+  a cylinder of light client-side) strikes, white screen flash, shake; tick 46 a burst (flash, end rods, fireworks, totem +
+  beacon sounds, an expanding ring), the bind (`Worthiness.ascend`), and Thor's Armour forms (`ThorArmor.toggle`).
+
+### The Trial of Asgard -- `TrialOfAsgard`, boss `entity/StormwardenBoss`, summon `entity/StormSpiritEntity`
+- Starts when a full-Valor player tries to lift in a storm: refused (attempt kept) while they have any power; refused if they
+  already lost in this storm (`TRIAL_FAILED_STORM` vs `Storms.current`, a saved storm counter that ticks up each time the
+  overworld starts thundering); one trial per hammer. Intro 30 ticks: title, pillars strike the plinth (0/14/28), then the
+  Stormwarden forms 4 blocks from the hammer toward the challenger (a 40-tick "form" clip, untouchable).
+- Lost on: death, more than 48 blocks from the crater, logging out, the storm ending, or gaining a power -> the guardian
+  dissipates, the hammer stays, the storm is recorded. Won (the guardian dies): `TRIAL_PASSED` saved; 50 ticks later, if it is
+  still storming and the hammer is within 48, the lift plays; otherwise the next storm lets them lift it without fighting.
+- Running trials: a static map of player UUID -> centre/dimension/boss UUID (no worlds or entities), cleared by
+  `ServerStateReset`; a trial guardian whose trial is gone (server restart) dissipates. A spawn-egg Stormwarden is free.
+- **The Stormwarden** (original): a 3.6-block Asgardian construct -- dark Uru plate, gold trim, horned crested helm with a
+  lightning visor slit, a storm core in the chest, a rune tabard, a great rune-carved maul -- custom GeckoLib body
+  (`scratchpad/v0177/gen_stormwarden.js`: geo, 256x80 texture + glowmask, 11 clips). 420 HP, 12 armour / 4 toughness,
+  knockback-immune, fire-immune, 9 melee. Tuned for a well-geared unpowered player (diamond/netherite, potions): a few minutes.
+  Shared `BossThreat` table (switches targets), boss bar (blue, "Unbound" purple in phase 2), leashed 28 blocks to the crater.
+  **Only unpowered players' hits count** (`countsAgainst`, checked in `hurt` and `actuallyHurt`); lightning never hurts it.
+  - Skyfall: maul to the sky, crackling rings mark 3 spots (the target's feet + 2 near) for 25 ticks, then lightning:
+    9 within 2 blocks.
+  - Storm Charge (6-18 blocks): a 16-tick crouch with a spark line along the path, a 16-tick charge at 1.0 b/t (12 +
+    thrown), an 18-tick stagger where it takes +25%.
+  - Thunder Slam (within 7): both hands overhead 24 ticks while a ring marks the reach, then a shockwave rolls out to 8 blocks
+    -- 10 to anyone on the ground as it passes (jump it).
+  - Storm Spirits: arms spread 20 ticks, then 2 wisps (4 HP, one hit) that circle and dart (5 on contact, 20 s life).
+  - Phase 2 at half health: a 40-tick surge (untouchable, lightning pours in), then Unbound: speed 0.31, cooldowns -30%,
+    damage +15%, 5 Skyfall bolts, a double slam, 4 spirits.
+- Mock-player gotcha (tests): a GameTest mock player's `isCreative()` is always true, so the boss uses
+  `getAbilities().instabuild` for "creative".
+
+### Stormbreaker, forged in a dying star -- `forge/StarForge`, `StarForgeBlock(Entity)`, `LivingBranch`, client `StarForgeRenderer`
+- The **Stormbreaker Head** is the old `unforged_stormbreaker` item (same id, so old ones in inventories are heads already),
+  renamed and re-drawn without a haft; recipe `NSN / N N` (4 netherite + a nether star, no blaze rods). A forged head carries
+  custom data `StormbreakerForged` (glints, "Forged Stormbreaker Head").
+- **Star Forge** block (`GLG / BNB / BFB`: gilded blackstone, lightning rod, polished blackstone bricks, netherite ingot,
+  blast furnace; pickaxe, diamond tier). Works only inside a ring of 8 blackstone (any blackstone) on its level; anything
+  done to an incomplete one answers "x placed, y missing" and marks the gaps with red dust.
+- Channel: a worthy Thor holds right-click on the forge with Mjolnir (the client repeats the use every 4 ticks; each is a
+  ping; > 8 ticks without one, walking > 4.5 away, putting the hammer away or breaking the ring breaks it and resets).
+  200 ticks. Burns him 3 (in-fire) every 10 ticks -- survivable at full Thor health. Sparks, flame, lava, the core swelling
+  white-hot, a bolt from his hammer into the head (renderer), a roar that builds (fire, blaze, anvil, beacon), a growing
+  screen shake. Done: a strike, the head is forged. (The Lightning Beam key is not wired to it: the combat keys are being
+  rewritten.)
+- **Living Branch**: lightning (natural, or any visual-only Thor bolt -- `ThorAcquireLightningMixin`, a bolt's first tick)
+  near jungle logs/leaves: 10% the tree drops one (glint, green motes, chime). Also 1 in 12 in jungle temple chests and 15%
+  from Ankhatep's first defeat.
+- Finish: the branch into the forged head's forge -> 70 ticks: green haft-light knits (0-22), lightning strikes the forge,
+  Stormbreaker rises out of it in a pillar of light spinning to a stop, a burst, and the normal Stormbreaker item drops (it
+  becomes the usual resting axe). The Nether-lava forging (`StormbreakerForge`) is removed.
+
+### Tests -- `ThorAcquireV0177GameTests` (batches `thor_acquire_storm_on/off/crater_v0177`)
+Valor from every source + capped + save/load + copyOnDeath; powered gets none; refused unworthy / no storm; a trial winner
+lifts and binds; full Valor in a storm starts the trial (no bind); winning lifts the hammer; a loss blocks the rest of the
+storm, the next storm allows a retry; powered refused and keeps the attempt; gaining a power mid-trial fails it; the
+threat table (and powered hits do nothing); the crater (plinth, hammer, protection on/off); the forge ring; the 10 s
+channel; letting go breaks it; the branch finishes Stormbreaker; old Unforged Stormbreakers are heads; a struck jungle tree
+(forced chance, and a real bolt) drops a branch. Updated: `PrimaryPowerGameTests` (full Valor, not Hero of the Village),
+`HulkGameTests`, `StormbreakerGameTests` (head recipe; lava tests removed).
+
 ## v0.16.1: storm buff, dual-wield combo, Twin Thunder Strike, Thunder Field
 
 Config `config/projecthero_thor.json` (`power/ThorConfig`, versioned, sections `storm` / `dualCombo` / `twinThunder` /

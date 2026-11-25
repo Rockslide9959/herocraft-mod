@@ -182,4 +182,21 @@ function tagAdd(file, id) {
 }
 tagAdd('minecraft/tags/block/mineable/pickaxe.json', 'projecthero:star_forge');
 tagAdd('minecraft/tags/block/needs_diamond_tool.json', 'projecthero:star_forge');
+// ---------------- the storm cloud puff (client CraterCloudRenderer): a soft, lumpy white blob, tinted per vertex
+{
+	const N = 32;
+	const t = img(N, N);
+	const blobs = [[16, 17, 11], [10, 14, 7], [22, 13, 8], [15, 10, 7], [21, 21, 6], [9, 20, 6]];
+	for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+		let a = 0;
+		for (const [bx, by, r] of blobs) {
+			const d = Math.hypot(x - bx, y - by) / r;
+			a = Math.max(a, d < 1 ? 1 - d * d : 0);
+		}
+		a = Math.min(1, a * 1.5) * (0.85 + rnd() * 0.15);
+		const v = Math.round(255 * (0.75 + 0.25 * (1 - y / N))); // lighter on top
+		if (a > 0.02) t.set(x, y, [v, v, v], Math.round(a * 255));
+	}
+	t.save(path.join(A, 'textures/misc/storm_puff.png'));
+}
 console.log('thor acquisition assets written');

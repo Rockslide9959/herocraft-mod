@@ -83,6 +83,17 @@ public class MjolnirCraterPiece extends StructurePiece {
 		return new BlockPos(cx, plinthTop(surfaceY) + 1, cz);
 	}
 
+	/**
+	 * Builds a whole crater round ({@code cx}, {@code cz}) following the real terrain (the screenshot harness; an op tool later).
+	 * Returns the hammer spot above the plinth.
+	 */
+	public static BlockPos buildOnTerrain(WorldGenLevel level, int cx, int cz) {
+		int surface = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, cx, cz) - 1;
+		BoundingBox all = new BoundingBox(cx - RADIUS - 4, surface - 24, cz - RADIUS - 4, cx + RADIUS + 4, surface + 24, cz + RADIUS + 4);
+		carve(level, all, cx, cz, (x, z) -> level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1);
+		return new BlockPos(cx, plinthTop(surface) + 1, cz);
+	}
+
 	/** Y of the plinth's top block for a crater whose centre column surface is {@code surfaceY}. */
 	public static int plinthTop(int surfaceY) {
 		return surfaceY - (MAX_DEPTH + 1) + 2;
@@ -96,6 +107,7 @@ public class MjolnirCraterPiece extends StructurePiece {
 
 	private static void carve(WorldGenLevel level, BoundingBox chunkBox, int cx, int cz, IntBinaryOperator surface) {
 		BlockPos.MutableBlockPos cur = new BlockPos.MutableBlockPos();
+		int centerSurface = surface.applyAsInt(cx, cz); // read before the centre column is dug
 		double[] scar = new double[SCARS];
 		for (int i = 0; i < SCARS; i++) {
 			scar[i] = (i + hash(i, 0, cx, cz, 91) * 0.7) * Math.PI * 2 / SCARS;
@@ -113,33 +125,35 @@ public class MjolnirCraterPiece extends StructurePiece {
 				boolean onScar = onScar(dx, dz, raw, scar);
 				int sy = surface.applyAsInt(x, z);
 				if (dist <= RADIUS) {
+					// the bowl is cut to ONE level (the centre column's surface), so it stays a bowl on a slope: higher ground is cut
+					// away into a scorched wall, lower ground is built up to the floor
 					double bowl = 1.0 - (dist / RADIUS) * (dist / RADIUS);
 					int depth = 1 + (int) Math.round(bowl * MAX_DEPTH);
-					for (int y = sy; y > sy - depth; y--) {
-						set(level, cur.set(x, y, z), Blocks.AIR.defaultBlockState());
-					}
-					// clear plants / snow that would float over the bowl
-					for (int y = sy + 1; y <= sy + 2; y++) {
+					int floorY = centerSurface - depth;
+					for (int y = Math.max(sy, centerSurface) + 2; y > floorY; y--) {
 						cur.set(x, y, z);
-						BlockState above = level.getBlockState(cur);
-						if (!above.isAir() && (above.canBeReplaced() || above.is(net.minecraft.tags.BlockTags.FLOWERS))) {
+						BlockState here = level.getBlockState(cur);
+						if (y <= sy || here.canBeReplaced() || here.is(net.minecraft.tags.BlockTags.FLOWERS) || here.is(net.minecraft.tags.BlockTags.LEAVES)) {
 							set(level, cur, Blocks.AIR.defaultBlockState());
 						}
 					}
+					for (int y = sy + 1; y < floorY; y++) {
+						set(level, cur.set(x, y, z), Blocks.TUFF.defaultBlockState());
+					}
 					BlockState floor = onScar ? scarMaterial(x, z, cx, cz) : floorMaterial(x, z, cx, cz, dist);
-					set(level, cur.set(x, sy - depth, z), floor);
+					set(level, cur.set(x, floorY, z), floor);
 					// the struck ground goes deep: one more scorched layer under the core
 					if (dist < 4.0) {
-						set(level, cur.set(x, sy - depth - 1, z), hash(x, z, cx, cz, 5) < 0.5 ? Blocks.BLACKSTONE.defaultBlockState()
+						set(level, cur.set(x, floorY - 1, z), hash(x, z, cx, cz, 5) < 0.5 ? Blocks.BLACKSTONE.defaultBlockState()
 								: Blocks.BASALT.defaultBlockState());
 					}
-					// the broken lip
-					if (dist > RADIUS - 1.4 && hash(x, z, cx, cz, 2) < 0.6) {
-						set(level, cur.set(x, sy - depth + 1, z), rimMaterial(x, z, cx, cz));
+					// the broken lip: a sparse ring of debris on the rim
+					if (dist > RADIUS - 1.0 && hash(x, z, cx, cz, 2) < 0.3) {
+						set(level, cur.set(x, floorY + 1, z), rimMaterial(x, z, cx, cz));
 					}
 				} else if (dist <= RADIUS + 1.6) {
 					// thrown-out debris heaped just outside the rim
-					if (hash(x, z, cx, cz, 3) < 0.55) {
+					if (hash(x, z, cx, cz, 3) < 0.2) {
 						set(level, cur.set(x, sy + 1, z), rimMaterial(x, z, cx, cz));
 					}
 					scorchSurface(level, cur, x, sy, z, cx, cz, onScar);
@@ -151,7 +165,7 @@ public class MjolnirCraterPiece extends StructurePiece {
 				}
 			}
 		}
-		buildPlinth(level, chunkBox, cx, surface.applyAsInt(cx, cz), cz);
+		buildPlinth(level, chunkBox, cx, centerSurface, cz);
 	}
 
 	private static boolean onScar(int dx, int dz, double raw, double[] scar) {

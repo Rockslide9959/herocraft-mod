@@ -29,10 +29,8 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class CraterCloudRenderer {
 	public static final int ALT = 24;
-	private static final ResourceLocation[] PUFFS = {
-			ResourceLocation.withDefaultNamespace("textures/particle/big_smoke_2.png"),
-			ResourceLocation.withDefaultNamespace("textures/particle/big_smoke_5.png"),
-			ResourceLocation.withDefaultNamespace("textures/particle/big_smoke_8.png") };
+	/** A soft lumpy puff of our own (scratchpad/v0177/gen_thor_acquire_assets.js); vanilla particle sprites live in the atlas. */
+	private static final ResourceLocation[] PUFFS = { com.projecthero.mod.ProjectHeroMod.id("textures/misc/storm_puff.png") };
 
 	private CraterCloudRenderer() {
 	}

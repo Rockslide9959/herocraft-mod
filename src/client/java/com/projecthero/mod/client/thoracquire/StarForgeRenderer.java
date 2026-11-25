@@ -64,10 +64,10 @@ public class StarForgeRenderer implements BlockEntityRenderer<StarForgeBlockEnti
 		if (be.channelling() || forged) {
 			pose.pushPose();
 			pose.translate(0.5, 1.15, 0.5);
-			float s = 0.18f + heat * 0.32f + 0.03f * (float) Math.sin(time * 0.8);
+			float s = 0.12f + heat * 0.18f + 0.02f * (float) Math.sin(time * 0.8);
 			TurboDraw.box(glow, pose.last(), s * 0.45f, s * 0.45f, s * 0.45f, 0xFFFFFF, 0.95f);
-			TurboDraw.box(glow, pose.last(), s, s, s, be.channelling() ? 0xFFC060 : ThorDraw.GLOW, 0.4f + heat * 0.3f);
-			TurboDraw.box(glow, pose.last(), s * 1.8f, s * 1.8f, s * 1.8f, be.channelling() ? 0xFF7020 : ThorDraw.HALO, 0.14f + heat * 0.1f);
+			TurboDraw.box(glow, pose.last(), s, s, s, be.channelling() ? 0xFFC060 : ThorDraw.GLOW, 0.35f + heat * 0.25f);
+			TurboDraw.box(glow, pose.last(), s * 1.5f, s * 1.5f, s * 1.5f, be.channelling() ? 0xFF7020 : ThorDraw.HALO, 0.08f + heat * 0.06f);
 			pose.popPose();
 		}
 
@@ -90,10 +90,17 @@ public class StarForgeRenderer implements BlockEntityRenderer<StarForgeBlockEnti
 				pose.translate(-base.x, -base.y, -base.z);
 				Vec3 headAt = Vec3.atLowerCornerOf(be.getBlockPos()).add(0.5, 1.25, 0.5).subtract(cam);
 				Vec3 eye = p.getEyePosition(partial);
-				Vec3 hand = eye.add(p.getViewVector(partial).scale(0.8)).add(0, -0.45, 0).subtract(cam);
+				Vec3 look = p.getViewVector(partial);
+				Vec3 right = look.cross(new Vec3(0, 1, 0));
+				right = right.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : right.normalize();
+				boolean own = p == mc.player && mc.options.getCameraType().isFirstPerson();
+				// from the hammer head: in your own first-person view it starts out past the held hammer, low right, so it never
+				// fills the screen
+				Vec3 hand = (own ? eye.add(look.scale(1.4)).add(right.scale(0.45)).add(0, -0.45, 0)
+						: eye.add(look.scale(0.8)).add(right.scale(0.35)).add(0, -0.45, 0)).subtract(cam);
 				double seed = Math.floor(time / 2.0) * 4.1;
-				ThorDraw.bolt(glow, pose.last(), ThorDraw.jagged(hand, headAt, 9, 0.25, seed), 0.9f + heat * 0.6f, 1.0f);
-				ThorDraw.bolt(glow, pose.last(), ThorDraw.jagged(hand, headAt, 7, 0.4, seed + 3), 0.45f, 0.7f);
+				ThorDraw.bolt(glow, pose.last(), ThorDraw.jagged(hand, headAt, 9, 0.25, seed), (own ? 0.45f : 0.9f) + heat * 0.5f, 1.0f);
+				ThorDraw.bolt(glow, pose.last(), ThorDraw.jagged(hand, headAt, 7, 0.4, seed + 3), own ? 0.25f : 0.45f, 0.7f);
 				pose.popPose();
 			}
 		}

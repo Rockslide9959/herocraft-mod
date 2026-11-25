@@ -1,0 +1,626 @@
+// v0.17.7 Thor acquisition harness. To use: copy to src/client/java/com/projecthero/mod/client/ThorAcquireHarness.java, add
+// "com.projecthero.mod.client.ThorAcquireHarness" to fabric.mod.json client entrypoints, write run/thor.flag = <out dir>,
+// run node scratchpad/low_graphics_options.js run/options.txt, then ./gradlew runClient. Remove both from src before committing.
+// Builds Mjolnir's Crater on real terrain and shoots it from far and close, the "not worthy" refusal with the Valor bar, the
+// Guidebook pages, then films the Trial of Asgard start, the Stormwarden's attacks, the win-to-lift, the forge multiblock,
+// the channel and Stormbreaker's finish. Frames: film_<name>_NNN.png -> node scratchpad/v0177/thor_acquire_films_v0177.js
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import com.projecthero.mod.entity.MjolnirEntity;
+import com.projecthero.mod.hero.guide.HeroPackGuide;
+import com.projecthero.mod.item.ModItems;
+import com.projecthero.mod.thoracquire.MjolnirLift;
+import com.projecthero.mod.thoracquire.Storms;
+import com.projecthero.mod.thoracquire.ThorAcquire;
+import com.projecthero.mod.thoracquire.TrialOfAsgard;
+import com.projecthero.mod.thoracquire.Valor;
+import com.projecthero.mod.thoracquire.entity.StormwardenBoss;
+import com.projecthero.mod.thoracquire.forge.StarForge;
+import com.projecthero.mod.thoracquire.forge.StarForgeBlockEntity;
+import com.projecthero.mod.worldgen.CraterAmbience;
+import com.projecthero.mod.worldgen.MjolnirCraterPiece;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.monster.Husk;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped). Kept as scratchpad/ThorAcquireHarness.v0177.java.txt. */
+public final class ThorAcquireHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks, planTick;
+	private static final List<Runnable> PLAN = new ArrayList<>();
+	private static File out;
+	private static volatile BlockPos spot; // the hammer spot
+	private static volatile int cx, cz, ground;
+	/** The plan pauses while a slow server step (finding the spot, building) runs. */
+	private static volatile boolean waiting;
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("thor.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			out = new File(Files.readString(flag).trim());
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(ThorAcquireHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(900_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] watchdog");
+			Runtime.getRuntime().halt(3);
+		}, "thor-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		mc.getToasts().clear();
+		if (name.endsWith("_000")) {
+			System.out.println("[HARNESS] camera " + mc.options.getCameraType() + " yaw " + (mc.player != null ? mc.player.getYRot() : 0));
+		}
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	static void at(int ticks, Runnable r) {
+		while (PLAN.size() < ticks) {
+			PLAN.add(() -> {
+			});
+		}
+		Runnable prev = PLAN.get(ticks - 1);
+		PLAN.set(ticks - 1, () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	static float[] yawPitch(Vec3 cam, Vec3 at) {
+		Vec3 d = at.subtract(cam);
+		float yaw = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+		float pitch = (float) -Math.toDegrees(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)));
+		return new float[] { yaw, pitch };
+	}
+
+	/** Creative flying camera at {@code cam} looking at {@code at}. */
+	static void look(Minecraft mc, Vec3 cam, Vec3 at, boolean gui) {
+		mc.options.hideGui = !gui;
+		mc.options.setCameraType(CameraType.FIRST_PERSON);
+		float[] yp = yawPitch(cam, at);
+		server(mc, p -> {
+			p.setGameMode(GameType.CREATIVE);
+			p.getAbilities().mayfly = true;
+			p.getAbilities().flying = true;
+			p.onUpdateAbilities();
+			p.connection.teleport(cam.x, cam.y - 1.62, cam.z, yp[0], yp[1]);
+		});
+	}
+
+	/** Stands the player on the ground at {@code xz} (y from the heightmap). */
+	static Vec3 groundAt(ServerPlayer p, Vec3 xz) {
+		int y = p.serverLevel().getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(xz.x), (int) Math.floor(xz.z));
+		return new Vec3(xz.x, y, xz.z);
+	}
+
+	/** A survival player standing at {@code feet} facing {@code at}. */
+	static void stand(ServerPlayer p, Vec3 feet, Vec3 at) {
+		feet = groundAt(p, feet);
+		float[] yp = yawPitch(feet.add(0, 1.62, 0), at);
+		p.setGameMode(GameType.SURVIVAL);
+		p.getAbilities().flying = false;
+		p.getAbilities().mayfly = false;
+		p.onUpdateAbilities();
+		p.connection.teleport(feet.x, feet.y, feet.z, yp[0], yp[1]);
+	}
+
+	static Vec3 c(double dx, double dy, double dz) {
+		return new Vec3(cx + 0.5 + dx, ground + dy, cz + 0.5 + dz);
+	}
+
+	static MjolnirEntity hammer(ServerPlayer p) {
+		var l = p.serverLevel().getEntitiesOfClass(MjolnirEntity.class, p.getBoundingBox().inflate(80),
+				m -> m.getState() == MjolnirEntity.State.RESTING);
+		return l.isEmpty() ? null : l.get(0);
+	}
+
+	static StormwardenBoss boss(ServerPlayer p) {
+		var l = p.serverLevel().getEntitiesOfClass(StormwardenBoss.class, p.getBoundingBox().inflate(80));
+		return l.isEmpty() ? null : l.get(0);
+	}
+
+	static void film(Minecraft mc, int start, String name, int frames, int every) {
+		film(mc, start, name, frames, every, null);
+	}
+
+	/** Frames every {@code every} ticks; {@code cam} (if set) is forced on every frame. */
+	static void film(Minecraft mc, int start, String name, int frames, int every, CameraType cam) {
+		for (int i = 0; i < frames; i++) {
+			final int n = i;
+			if (cam != null) {
+				at(Math.max(1, start + i * every - 1), () -> mc.options.setCameraType(cam));
+			}
+			at(start + i * every, () -> shot(mc, String.format("film_%s_%03d", name, n)));
+		}
+	}
+
+	private static int[] findSpot(ServerLevel lvl, int x0, int z0) {
+		var gen = lvl.getChunkSource().getGenerator();
+		var rs = lvl.getChunkSource().randomState();
+		for (int dz = 0; dz < 3000; dz += 48) {
+			for (int x = x0; x < x0 + 400; x += 16) {
+				int z = z0 + dz;
+				int s = gen.getFirstOccupiedHeight(x, z, Heightmap.Types.WORLD_SURFACE_WG, lvl, rs);
+				if (s != gen.getFirstOccupiedHeight(x, z, Heightmap.Types.OCEAN_FLOOR_WG, lvl, rs) || s < 64) {
+					continue;
+				}
+				var biome = gen.getBiomeSource().getNoiseBiome(x >> 2, s >> 2, z >> 2, rs.sampler());
+				if (!(biome.is(net.minecraft.world.level.biome.Biomes.PLAINS) || biome.is(net.minecraft.world.level.biome.Biomes.MEADOW)
+						|| biome.is(net.minecraft.world.level.biome.Biomes.SAVANNA) || biome.is(net.minecraft.world.level.biome.Biomes.SUNFLOWER_PLAINS))) {
+					continue;
+				}
+				int min = s, max = s;
+				for (int[] o : new int[][] { { -14, -14 }, { 14, -14 }, { -14, 14 }, { 14, 14 }, { 0, 14 }, { 14, 0 }, { -14, 0 }, { 0, -14 }, { 7, 7 }, { -7, -7 }, { 7, -7 }, { -7, 7 } }) {
+					int y = gen.getFirstOccupiedHeight(x + o[0], z + o[1], Heightmap.Types.OCEAN_FLOOR_WG, lvl, rs);
+					min = Math.min(min, y);
+					max = Math.max(max, y);
+				}
+				if (max - min <= 1) {
+					return new int[] { x, z };
+				}
+			}
+		}
+		return new int[] { x0, z0 };
+	}
+
+	private static void clearTrees(ServerLevel level, int x, int y, int z, int r) {
+		for (BlockPos q : BlockPos.betweenClosed(x - r, y - 3, z - r, x + r, y + 26, z + r)) {
+			var s = level.getBlockState(q);
+			if (s.is(net.minecraft.tags.BlockTags.LEAVES) || s.is(net.minecraft.tags.BlockTags.LOGS) || s.is(Blocks.BAMBOO)
+					|| s.is(Blocks.TALL_GRASS) || s.is(Blocks.SHORT_GRASS)) {
+				level.setBlock(q, Blocks.AIR.defaultBlockState(), 2);
+			}
+		}
+	}
+
+	private static void buildPlan(Minecraft mc) {
+		int k = 1;
+		// ---- the crater
+		at(k, () -> waiting = true);
+		at(k, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			int[] s = findSpot(level, p.blockPosition().getX() + 100, p.blockPosition().getZ());
+			cx = s[0];
+			cz = s[1];
+			p.connection.teleport(cx + 0.5, 140, cz + 30.5, 180f, 40f);
+			waiting = false;
+		}));
+		k += 80;
+		at(k, () -> waiting = true);
+		at(k, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, cx, cz);
+			clearTrees(level, cx, ground, cz, 24);
+			// harness only: level a clean meadow round the spot so the crater reads clearly on camera
+			for (int x = cx - 22; x <= cx + 22; x++) {
+				for (int z = cz - 22; z <= cz + 22; z++) {
+					for (int y = ground - 12; y <= ground + 16; y++) {
+						BlockPos q = new BlockPos(x, y, z);
+						if (y >= ground) {
+							level.setBlock(q, Blocks.AIR.defaultBlockState(), 2);
+						} else if (y == ground - 1) {
+							level.setBlock(q, Blocks.GRASS_BLOCK.defaultBlockState(), 2);
+						} else if (y >= ground - 4) {
+							level.setBlock(q, Blocks.DIRT.defaultBlockState(), 2);
+						} else if (level.getBlockState(q).isAir() || !level.getFluidState(q).isEmpty()) {
+							level.setBlock(q, Blocks.STONE.defaultBlockState(), 2);
+						}
+					}
+				}
+			}
+			ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, cx, cz);
+			spot = MjolnirCraterPiece.buildOnTerrain(level, cx, cz);
+			CraterAmbience.placeHammerForTest(level, spot);
+			System.out.println("[HARNESS] crater at " + spot + " ground " + ground);
+			waiting = false;
+		}));
+		k += 70; // the cloud payload arrives every 2 s
+		at(k, () -> look(mc, c(52, 26, 44), c(0, 10, 0), false));
+		k += 70;
+		at(k, () -> shot(mc, "01_crater_far"));
+		at(k + 2, () -> look(mc, c(30, 16, 26), c(0, 12, 0), false));
+		k += 50;
+		at(k, () -> shot(mc, "02_crater_mid_cloud"));
+		at(k + 2, () -> look(mc, c(8.5, 4.5, 7.5), c(0, -2.5, 0), false));
+		k += 50;
+		at(k, () -> shot(mc, "03_crater_close"));
+		at(k + 23, () -> shot(mc, "03b_crater_close"));
+		at(k + 25, () -> look(mc, c(3.2, 0.4, 2.6), c(0, -2.2, 0), false));
+		k += 60;
+		at(k, () -> shot(mc, "04_plinth_hammer"));
+		k += 4;
+		// ---- the refusal: 43% Valor
+		at(k, () -> server(mc, p -> {
+			mc.options.hideGui = false;
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			Valor.set(p, 430);
+			stand(p, Vec3.atBottomCenterOf(spot).add(0, -2, 2.4), Vec3.atBottomCenterOf(spot).add(0, 0.35, 0));
+		}));
+		at(k + 30, () -> server(mc, p -> {
+			MjolnirEntity m = hammer(p);
+			if (m != null) {
+				MjolnirLift.tryLift(p, m);
+			}
+		}));
+		at(k + 36, () -> shot(mc, "05_not_worthy_valor_bar"));
+		// full Valor, no storm
+		at(k + 40, () -> server(mc, p -> {
+			Valor.set(p, Valor.MAX);
+			p.setAttached(com.projecthero.mod.thoracquire.ThorAcquireAttachments.LIFT_FEEDBACK_READY, 0L);
+			MjolnirEntity m = hammer(p);
+			if (m != null) {
+				MjolnirLift.tryLift(p, m);
+			}
+		}));
+		at(k + 46, () -> shot(mc, "06_storm_has_not_answered"));
+		k += 50;
+		// ---- the Guidebook (Valor 43% on the page)
+		at(k, () -> server(mc, p -> Valor.set(p, 430)));
+		at(k + 6, () -> openGuide(mc, "Becoming Thor"));
+		at(k + 26, () -> shot(mc, "07_guide_progression"));
+		at(k + 28, () -> openGuide(mc, "The Trial of Asgard"));
+		at(k + 48, () -> shot(mc, "08_guide_trial"));
+		at(k + 50, () -> openGuide(mc, "Stormbreaker"));
+		at(k + 70, () -> shot(mc, "09_guide_stormbreaker"));
+		at(k + 72, () -> mc.setScreen(null));
+		k += 80;
+		// ---- film: the trial starts (a storm; third person behind the challenger)
+		at(k, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			level.setWeatherParameters(0, 60000, true, false); // rain, no thunder darkness (the storm itself is forced)
+			Storms.forced = true;
+			Valor.set(p, Valor.MAX);
+			p.getAbilities().invulnerable = true;
+			p.onUpdateAbilities();
+			mc.options.hideGui = true;
+		}));
+		at(k + 2, () -> look(mc, c(7.5, 5.0, 8.5), Vec3.atBottomCenterOf(spot).add(2.4, 2.2, 2.8), false));
+		k += 60; // the rain sets in
+		at(k, () -> server(mc, p -> {
+			MjolnirEntity m = hammer(p);
+			if (m != null) {
+				System.out.println("[HARNESS] trial: " + TrialOfAsgard.tryStart(p, m));
+			}
+		}));
+		film(mc, k, "trial_start", 82, 1);
+		k += 90;
+		// ---- film: the Stormwarden's attacks on a dummy (creative camera off to the side)
+		at(k, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			StormwardenBoss b = boss(p);
+			Husk dummy = EntityType.HUSK.create(level);
+			Vec3 d = Vec3.atBottomCenterOf(spot).add(-6, -2, 6);
+			dummy.moveTo(d.x, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(d.x), (int) Math.floor(d.z)), d.z, 0f, 0f);
+			dummy.setNoAi(true);
+			dummy.setInvulnerable(true);
+			dummy.setCustomName(Component.literal("Challenger"));
+			level.addFreshEntity(dummy);
+			if (b != null) {
+				b.setTarget(dummy);
+			}
+		}));
+		at(k + 1, () -> look(mc, c(11, 5, 12), Vec3.atBottomCenterOf(spot).add(-2, 0.5, 3), false));
+		k += 20;
+		int[] moves = { 0 };
+		String[] names = { "skyfall", "charge", "slam", "spirits", "surge", "slam_double" };
+		int[] lens = { 44, 58, 48, 44, 46, 62 };
+		for (int i = 0; i < names.length; i++) {
+			final int idx = i;
+			at(k, () -> server(mc, p -> {
+				StormwardenBoss b = boss(p);
+				if (b == null) {
+					return;
+				}
+				var dummies = p.serverLevel().getEntitiesOfClass(Husk.class, b.getBoundingBox().inflate(40));
+				if (!dummies.isEmpty()) {
+					b.setTarget(dummies.get(0));
+					// keep the dummy at a fair distance for the charge
+					if (idx == 1) {
+						b.moveTo(spot.getX() + 6.5, b.getY(), spot.getZ() - 3.5, b.getYRot(), 0f);
+					}
+					if (idx == 2 || idx == 5) {
+						b.moveTo(dummies.get(0).getX() + 3, b.getY(), dummies.get(0).getZ() - 2, b.getYRot(), 0f);
+					}
+				}
+				Vec3 bp = b.position();
+				// the camera stands on the far side of the boss from the plinth, above the ground, so the crater is behind it
+				Vec3 toC = Vec3.atBottomCenterOf(spot).subtract(bp).multiply(1, 0, 1);
+				toC = toC.lengthSqr() < 0.5 ? new Vec3(-0.7, 0, -0.7) : toC.normalize();
+				Vec3 side = new Vec3(-toC.z, 0, toC.x);
+				Vec3 camXZ = bp.subtract(toC.scale(5.5)).add(side.scale(2.0));
+				double gy = groundAt(p, camXZ).y;
+				Vec3 cam = new Vec3(camXZ.x, Math.max(bp.y + 3.2, gy + 2.6), camXZ.z);
+				float[] yp = yawPitch(cam, bp.add(toC.scale(1.5)).add(0, 1.6, 0));
+				p.connection.teleport(cam.x, cam.y - 1.62, cam.z, yp[0], yp[1]);
+				switch (idx) {
+					case 0 -> b.startSkyfall();
+					case 1 -> b.startCharge();
+					case 2 -> b.startSlam();
+					case 3 -> b.startSpirits();
+					case 4 -> {
+						b.setHealth((float) (b.getMaxHealth() * 0.49));
+						b.startSurge(p.serverLevel());
+					}
+					default -> b.startSlam();
+				}
+			}));
+			for (int j = 0; j < lens[i] / 2; j++) {
+				final int n = moves[0] * 100 + j;
+				at(k + j * 2, () -> shot(mc, String.format("film_attacks_%03d", n)));
+			}
+			k += lens[i] + 4;
+			moves[0]++;
+		}
+		// ---- film: the win, then the lift (behind the hero for the fall, in front for the lift)
+		at(k, () -> server(mc, p -> {
+			for (var h : p.serverLevel().getEntitiesOfClass(Husk.class, p.getBoundingBox().inflate(80))) {
+				h.discard();
+			}
+			for (var s : p.serverLevel().getEntitiesOfClass(com.projecthero.mod.thoracquire.entity.StormSpiritEntity.class, p.getBoundingBox().inflate(80))) {
+				s.discard();
+			}
+			StormwardenBoss b = boss(p);
+			if (b != null) {
+				b.moveTo(spot.getX() + 0.5, b.getY(), spot.getZ() + 4.5, 180f, 0f);
+				b.setTarget(null);
+			}
+			stand(p, Vec3.atBottomCenterOf(spot).add(0, -2, 8.5), Vec3.atBottomCenterOf(spot).add(0, 1.5, 0));
+		}));
+		at(k + 2, () -> {
+			mc.options.hideGui = true;
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+		});
+		at(k + 12, () -> server(mc, p -> {
+			StormwardenBoss b = boss(p);
+			if (b != null) {
+				b.kill();
+			}
+		}));
+		film(mc, k + 10, "win_lift", 40, 1, CameraType.THIRD_PERSON_BACK);
+		// the lift starts LIFT_DELAY after the kill: turn the camera round to face the hero
+		at(k + 12 + TrialOfAsgard.LIFT_DELAY - 4, () -> mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT));
+		for (int i = 0; i < 100; i++) {
+			final int n = 40 + i;
+			at(k + 12 + TrialOfAsgard.LIFT_DELAY - 4 + i, () -> {
+				mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+				shot(mc, String.format("film_win_lift_%03d", n));
+			});
+		}
+		k += 12 + TrialOfAsgard.LIFT_DELAY + 110;
+		// ---- the Star Forge: incomplete ring (hint), then complete
+		final BlockPos[] forge = new BlockPos[1];
+		at(k, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			level.setWeatherParameters(24000, 0, false, false);
+			Storms.forced = null;
+			int fx = cx + 22, fz = cz + 2;
+			int fy = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, fx, fz);
+			clearTrees(level, fx, fy, fz, 8);
+			fy = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, fx, fz);
+			for (BlockPos q : BlockPos.betweenClosed(fx - 4, fy - 1, fz - 4, fx + 4, fy - 1, fz + 4)) {
+				level.setBlockAndUpdate(q, Blocks.SMOOTH_STONE.defaultBlockState());
+			}
+			for (BlockPos q : BlockPos.betweenClosed(fx - 4, fy, fz - 4, fx + 4, fy + 4, fz + 4)) {
+				level.setBlockAndUpdate(q, Blocks.AIR.defaultBlockState());
+			}
+			forge[0] = new BlockPos(fx, fy, fz);
+			level.setBlockAndUpdate(forge[0], ThorAcquire.STAR_FORGE.defaultBlockState());
+			int n = 0;
+			for (int dx = -1; dx <= 1; dx++) {
+				for (int dz = -1; dz <= 1; dz++) {
+					if ((dx != 0 || dz != 0) && n++ < 5) {
+						level.setBlockAndUpdate(forge[0].offset(dx, 0, dz), (dx + dz) % 2 == 0 ? Blocks.GILDED_BLACKSTONE.defaultBlockState()
+								: Blocks.POLISHED_BLACKSTONE_BRICKS.defaultBlockState());
+					}
+				}
+			}
+			for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, p.getBoundingBox().inflate(60), m -> m instanceof net.minecraft.world.entity.monster.Enemy)) {
+				m.discard();
+			}
+			p.getInventory().clearContent();
+			p.getAbilities().invulnerable = false;
+			p.onUpdateAbilities();
+			p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 20 * 120, 2, false, false));
+			p.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 20 * 120, 3, false, false));
+		}));
+		at(k + 4, () -> server(mc, p -> {
+			mc.options.hideGui = false;
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			stand(p, Vec3.atBottomCenterOf(forge[0]).add(0, 0, 2.6), Vec3.atCenterOf(forge[0]));
+		}));
+		at(k + 24, () -> server(mc, p -> {
+			p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModItems.UNFORGED_STORMBREAKER));
+			StarForge.use(p.serverLevel(), forge[0], (StarForgeBlockEntity) p.serverLevel().getBlockEntity(forge[0]), p, p.getMainHandItem());
+		}));
+		at(k + 28, () -> shot(mc, "10_forge_ring_incomplete"));
+		at(k + 32, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			for (BlockPos m : StarForge.missingRing(level, forge[0])) {
+				level.setBlockAndUpdate(m, Blocks.POLISHED_BLACKSTONE_BRICKS.defaultBlockState());
+			}
+		}));
+		at(k + 36, () -> look(mc, Vec3.atCenterOf(forge[0]).add(3.6, 2.6, 3.6), Vec3.atCenterOf(forge[0]), false));
+		at(k + 60, () -> shot(mc, "11_forge_multiblock"));
+		k += 66;
+		// ---- film: the channel (the hero is Thor now, Mjolnir in hand)
+		at(k, () -> server(mc, p -> {
+			mc.options.hideGui = true;
+			p.getInventory().clearContent();
+			ItemStack head = new ItemStack(ModItems.UNFORGED_STORMBREAKER);
+			StarForgeBlockEntity be = (StarForgeBlockEntity) p.serverLevel().getBlockEntity(forge[0]);
+			StarForge.use(p.serverLevel(), forge[0], be, p, head);
+			ItemStack mj = new ItemStack(ModItems.MJOLNIR);
+			p.setItemInHand(InteractionHand.MAIN_HAND, mj);
+			com.projecthero.mod.worthiness.Worthiness.setScore(p, com.projecthero.mod.worthiness.Worthiness.TEST_WORTHY_SCORE);
+			stand(p, Vec3.atBottomCenterOf(forge[0]).add(0.4, 0, 2.3), Vec3.atCenterOf(forge[0]).add(0, 0.4, 0));
+		}));
+		at(k + 2, () -> mc.options.setCameraType(CameraType.THIRD_PERSON_BACK));
+		k += 12;
+		for (int i = 0; i <= StarForge.CHANNEL_TICKS + 8; i += 4) {
+			at(k + i, () -> server(mc, p -> {
+				StarForgeBlockEntity be = (StarForgeBlockEntity) p.serverLevel().getBlockEntity(forge[0]);
+				p.swing(InteractionHand.MAIN_HAND);
+				StarForge.ping(p.serverLevel(), forge[0], be, p);
+			}));
+		}
+		film(mc, k, "channel", 110, 2, CameraType.FIRST_PERSON);
+		k += StarForge.CHANNEL_TICKS + 30;
+		// ---- film: the Living Branch finishes Stormbreaker
+		at(k, () -> server(mc, p -> {
+			StarForgeBlockEntity be = (StarForgeBlockEntity) p.serverLevel().getBlockEntity(forge[0]);
+			if (!StarForge.isForged(be.head())) {
+				StarForge.insertForTest(be, StarForge.forgedHead());
+			}
+			stand(p, Vec3.atBottomCenterOf(forge[0]).add(0.6, 0, 3.6), Vec3.atCenterOf(forge[0]).add(0, 1.2, 0));
+		}));
+		at(k + 10, () -> server(mc, p -> {
+			StarForgeBlockEntity be = (StarForgeBlockEntity) p.serverLevel().getBlockEntity(forge[0]);
+			StarForge.use(p.serverLevel(), forge[0], be, p, new ItemStack(ThorAcquire.LIVING_BRANCH));
+		}));
+		film(mc, k + 8, "finish", 90, 1, CameraType.FIRST_PERSON);
+		k += 110;
+		at(k, () -> System.out.println("[HARNESS] done"));
+	}
+
+	private static void openGuide(Minecraft mc, String heading) {
+		try {
+			var screen = new com.projecthero.mod.client.gui.HeroPackGuideScreen();
+			mc.setScreen(screen);
+			int ch = HeroPackGuide.chapters().indexOf(HeroPackGuide.thorChapter());
+			var lines = HeroPackGuide.chapterAt(ch).lines();
+			int line = 0;
+			for (int i = 0; i < lines.size(); i++) {
+				if (lines.get(i).getString().trim().equals(heading)) {
+					line = i;
+					break;
+				}
+			}
+			var m = com.projecthero.mod.client.gui.HeroPackGuideScreen.class.getDeclaredMethod("openChapter", int.class, int.class);
+			m.setAccessible(true);
+			m.invoke(screen, ch, line);
+		} catch (Throwable e) {
+			System.out.println("[HARNESS] guide error " + e);
+		}
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.getWindow().setWindowed(960, 540);
+				mc.execute(ThorAcquireHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 30) {
+			mc.options.fov().set(75);
+			mc.options.tutorialStep = net.minecraft.client.tutorial.TutorialSteps.NONE;
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			mc.options.renderDistance().set(10);
+			mc.options.entityDistanceScaling().set(2.0);
+			if (mc.getSingleplayerServer() != null) {
+				mc.getSingleplayerServer().getPlayerList().setViewDistance(10);
+			}
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(5000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.setWeatherParameters(24000, 0, false, false);
+				p.setGameMode(GameType.CREATIVE);
+				p.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 20 * 60 * 30, 0, false, false));
+			});
+			buildPlan(mc);
+		}
+		if (t < 50) {
+			return;
+		}
+		if (waiting) {
+			return;
+		}
+		if (planTick < PLAN.size()) {
+			PLAN.get(planTick++).run();
+		} else if (!PLAN.isEmpty()) {
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		LevelSettings settings = new LevelSettings("THOR_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.NORMAL, true,
+				rules, WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(5175L, true, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.NORMAL).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

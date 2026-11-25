@@ -116,8 +116,8 @@ public class StormwardenBoss extends Monster implements GeoEntity {
 
 	private static final EntityDataAccessor<Byte> DATA_MOVE = SynchedEntityData.defineId(StormwardenBoss.class, EntityDataSerializers.BYTE);
 	private static final EntityDataAccessor<Byte> DATA_PHASE = SynchedEntityData.defineId(StormwardenBoss.class, EntityDataSerializers.BYTE);
-	private static final DustParticleOptions MARK = new DustParticleOptions(new Vector3f(0.55f, 0.8f, 1f), 1.4f);
-	private static final DustParticleOptions MARK_HOT = new DustParticleOptions(new Vector3f(0.95f, 0.98f, 1f), 1.8f);
+	private static final DustParticleOptions MARK = new DustParticleOptions(new Vector3f(0.55f, 0.8f, 1f), 1.0f);
+	private static final DustParticleOptions MARK_HOT = new DustParticleOptions(new Vector3f(0.95f, 0.98f, 1f), 1.25f);
 
 	private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 	private final BossThreat threat = new BossThreat(this).range(48).holdWhile(() -> this.move() != MOVE_NONE);
