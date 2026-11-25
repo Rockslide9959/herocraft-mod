@@ -1,0 +1,553 @@
+// TEMP-HARNESS copy (v0.17.7 Mjolnir / Stormbreaker models). To use: put ThorWeaponsHarness.java back in src/client/java/com/projecthero/mod/client/,
+// add "com.projecthero.mod.client.ThorWeaponsHarness" to the client entrypoints in src/main/resources/fabric.mod.json, put the two mixins below in
+// src/client/java/com/projecthero/mod/client/mixin/ and list them in projecthero.client.mixins.json, write run/thorweapons.flag = "<out dir>|<before|after>",
+// node scratchpad/low_graphics_options.js run/options.txt, ./gradlew runClient; then copy the stills to docs/screenshots/v0177/thor_weapons/{before,after}
+// and run node scratchpad/thor_weapons_sheets_v0177.js. Remove it all again afterwards.
+
+// ===== ThorWeaponsHarness.java =====
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.item.ModItems;
+import com.projecthero.mod.power.WeaponComboState;
+import com.projecthero.mod.worthiness.Worthiness;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.decoration.ItemFrame;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+import org.lwjgl.glfw.GLFW;
+
+/**
+ * TEMP-HARNESS (not shipped, v0.17.7 Mjolnir / Stormbreaker model rebuild): stills of both weapons held (first person,
+ * third person front / side / 3-4, each hand, dual wield), the GUI (inventory + hotbar), on the ground, in item frames,
+ * thrown, Stormbreaker pinned by Thunder Field, a couple of combo swings, plus films (camera orbiting the held weapon,
+ * a Stormbreaker throw). Enabled by run/thorweapons.flag = "<out dir>|<before|after>"; the fixed camera is
+ * ThorWeaponsHarnessCameraMixin, the per-frame film grab ThorWeaponsHarnessFrameMixin.
+ */
+public final class ThorWeaponsHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks, t0 = -1;
+	private static File out;
+	private static String mode = "after";
+	private static final Map<Integer, List<Runnable>> AT = new HashMap<>();
+	private static volatile long lastProgress = System.currentTimeMillis();
+	public static volatile Vec3 camOffset;
+	public static volatile Vec3 camLook = new Vec3(0, 1.1, 0);
+	private static float pitch;
+	private static String filmName;
+	private static int filmFrame;
+	private static int tickFilmEnd = -1;
+	private static String tickFilmName;
+	private static int tickFilmFrame;
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("thorweapons.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			String[] parts = Files.readString(flag).trim().split("\\|");
+			out = new File(parts[0]);
+			if (parts.length > 1) {
+				mode = parts[1];
+			}
+		} catch (Exception e) {
+			out = new File("thorweapons_out");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(ThorWeaponsHarness::tick);
+		Thread wd = new Thread(() -> {
+			long start = System.currentTimeMillis();
+			while (true) {
+				try {
+					Thread.sleep(5000);
+				} catch (InterruptedException e) {
+					return;
+				}
+				if (System.currentTimeMillis() - lastProgress > 150_000L || System.currentTimeMillis() - start > 900_000L) {
+					System.out.println("[HARNESS] WATCHDOG: halting");
+					Runtime.getRuntime().halt(3);
+				}
+			}
+		}, "thorweapons-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	public static boolean active() {
+		return t0 >= 0;
+	}
+
+	/** Called at the head of every runTick (ThorWeaponsHarnessFrameMixin): grabs the last frame while a film runs. */
+	public static void onFrame() {
+		if (filmName == null) {
+			return;
+		}
+		Minecraft mc = Minecraft.getInstance();
+		shot(mc, filmName + String.format("/f%03d", filmFrame++));
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		new File(out, "screenshots/" + name + ".png").getParentFile().mkdirs();
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), c -> {
+		});
+		lastProgress = System.currentTimeMillis();
+	}
+
+	private static ServerPlayer sp(Minecraft mc) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		return srv == null || srv.getPlayerList().getPlayers().isEmpty() ? null : srv.getPlayerList().getPlayers().get(0);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				ServerPlayer p = sp(mc);
+				if (p != null) {
+					try {
+						fn.accept(p);
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.computeIfAbsent(t, k -> new ArrayList<>()).add(r);
+	}
+
+	private static void view(Minecraft mc, String v) {
+		mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+		switch (v) {
+			case "front" -> { camOffset = new Vec3(0.35, 1.3, 2.7); camLook = new Vec3(0, 1.05, 0); }
+			case "side" -> { camOffset = new Vec3(-3.0, 1.2, 0.35); camLook = new Vec3(0, 1.1, 0.35); }
+			case "lside" -> { camOffset = new Vec3(3.0, 1.2, 0.35); camLook = new Vec3(0, 1.1, 0.35); }
+			case "q" -> { camOffset = new Vec3(-1.9, 1.5, 2.5); camLook = new Vec3(0, 1.1, 0.2); }
+			case "back" -> { camOffset = new Vec3(-1.4, 1.7, -2.4); camLook = new Vec3(0, 1.1, 0.4); }
+			case "cq" -> { camOffset = new Vec3(-1.1, 1.25, 1.5); camLook = new Vec3(-0.2, 0.95, 0.2); }
+			case "g" -> { camOffset = new Vec3(0.0, 1.7, 0.6); camLook = new Vec3(0, 0.1, 2.3); }
+			case "frame" -> { camOffset = new Vec3(0.0, 1.62, 2.1); camLook = new Vec3(0, 1.5, 3.6); }
+			case "ts" -> { camOffset = new Vec3(-4.2, 1.6, 4.0); camLook = new Vec3(0, 1.4, 4.0); }
+			case "pc" -> { camOffset = new Vec3(-1.9, 1.3, 4.5); camLook = new Vec3(0, 0.55, 6.6); }
+			case "pf" -> { camOffset = new Vec3(0.2, 0.9, 3.6); camLook = new Vec3(0, 0.6, 6.6); }
+			default -> {
+				camOffset = null;
+				mc.options.setCameraType(CameraType.FIRST_PERSON);
+			}
+		}
+	}
+
+	private static void hands(Minecraft mc, ItemStack main, ItemStack off) {
+		server(mc, p -> {
+			p.getInventory().clearContent();
+			p.getInventory().selected = 0;
+			p.setItemInHand(InteractionHand.MAIN_HAND, main);
+			p.setItemInHand(InteractionHand.OFF_HAND, off);
+			p.removeAttached(ModAttachments.WEAPON_COMBO);
+		});
+	}
+
+	private static ItemStack m() {
+		return new ItemStack(ModItems.MJOLNIR);
+	}
+
+	private static ItemStack s() {
+		return new ItemStack(ModItems.STORMBREAKER);
+	}
+
+	private static void tickRate(Minecraft mc, float rate) {
+		server(mc, p -> p.server.tickRateManager().setTickRate(rate));
+	}
+
+	private static int stills(Minecraft mc, int c, String tag, ItemStack main, ItemStack off, String... views) {
+		at(c, () -> hands(mc, main, off));
+		c += 24; // past the equip animation (binding re-equips the stack once)
+		for (String v : views) {
+			at(c, () -> view(mc, v));
+			at(c + 5, () -> shot(mc, tag + "_" + v));
+			c += 7;
+		}
+		return c;
+	}
+
+	private static void script(Minecraft mc) {
+		at(2, () -> server(mc, p -> {
+			p.setGameMode(GameType.SURVIVAL);
+			Worthiness.setScore(p, Worthiness.TEST_WORTHY_SCORE);
+			p.setItemInHand(InteractionHand.MAIN_HAND, m());
+			com.projecthero.mod.power.ThorPowers.bindOnAscend(p, p.getMainHandItem());
+			p.getAbilities().invulnerable = true;
+			p.onUpdateAbilities();
+		}));
+		int c = 20;
+		// --- held ---
+		c = stills(mc, c, "m_right", m(), ItemStack.EMPTY, "fp", "front", "side", "q", "back", "cq");
+		c = stills(mc, c, "s_right", s(), ItemStack.EMPTY, "fp", "front", "side", "q", "back", "cq");
+		c = stills(mc, c, "m_left", ItemStack.EMPTY, m(), "fp", "front", "lside");
+		c = stills(mc, c, "s_left", ItemStack.EMPTY, s(), "fp", "front", "lside");
+		c = stills(mc, c, "dual_ms", m(), s(), "fp", "front", "side", "lside", "q");
+		c = stills(mc, c, "dual_sm", s(), m(), "fp", "front");
+		// --- combo swings (slowed): Stormbreaker two-handed finisher wind-up, dual step 2 (the axe sweep) ---
+		at(c, () -> {
+			tickRate(mc, 4f);
+			hands(mc, s(), ItemStack.EMPTY);
+			view(mc, "q");
+		});
+		at(c + 4, () -> server(mc, p -> p.setAttached(ModAttachments.WEAPON_COMBO,
+				new WeaponComboState(3, WeaponComboState.WEAPON_STORMBREAKER, p.level().getGameTime()))));
+		at(c + 5, () -> shot(mc, "combo_s3_a"));
+		at(c + 7, () -> shot(mc, "combo_s3_b"));
+		at(c + 10, () -> shot(mc, "combo_s3_c"));
+		at(c + 16, () -> {
+			hands(mc, m(), s());
+			view(mc, "front");
+		});
+		at(c + 20, () -> server(mc, p -> p.setAttached(ModAttachments.WEAPON_COMBO,
+				new WeaponComboState(2, WeaponComboState.WEAPON_DUAL, p.level().getGameTime()))));
+		at(c + 21, () -> shot(mc, "combo_dual2_a"));
+		at(c + 23, () -> shot(mc, "combo_dual2_b"));
+		at(c + 26, () -> shot(mc, "combo_dual2_c"));
+		at(c + 32, () -> tickRate(mc, 20f));
+		c += 36;
+		// --- GUI: the inventory at GUI scale 2, then the hotbar at GUI scale 4 ---
+		at(c, () -> {
+			view(mc, "fp");
+			server(mc, p -> {
+				p.getInventory().clearContent();
+				p.getInventory().setItem(0, m());
+				p.getInventory().setItem(1, s());
+				p.getInventory().setItem(2, new ItemStack(Items.DIAMOND_AXE));
+				p.getInventory().setItem(3, new ItemStack(Items.MACE));
+				p.getInventory().setItem(9, m());
+				p.getInventory().setItem(10, s());
+				p.getInventory().setItem(11, new ItemStack(Items.NETHERITE_AXE));
+				p.getInventory().selected = 8;
+			});
+			mc.options.guiScale().set(3);
+			mc.resizeDisplay();
+		});
+		at(c + 4, () -> mc.setScreen(new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player)));
+		at(c + 10, () -> shot(mc, "gui_inventory"));
+		at(c + 12, () -> {
+			mc.setScreen(null);
+			mc.options.guiScale().set(4);
+			mc.resizeDisplay();
+			pitch = 60f;
+		});
+		at(c + 18, () -> shot(mc, "gui_hotbar"));
+		at(c + 20, () -> {
+			mc.options.guiScale().set(2);
+			mc.resizeDisplay();
+			pitch = 0f;
+		});
+		c += 24;
+		// --- on the ground (resting entities, promoted from dropped items) and in item frames ---
+		at(c, () -> {
+			view(mc, "g");
+			server(mc, p -> {
+				p.getInventory().clearContent();
+				ServerLevel level = p.serverLevel();
+				ItemEntity a = new ItemEntity(level, p.getX() - 0.8, p.getY() + 0.4, p.getZ() + 2.3, m(), 0, 0, 0);
+				ItemEntity b = new ItemEntity(level, p.getX() + 0.8, p.getY() + 0.4, p.getZ() + 2.3, s(), 0, 0, 0);
+				level.addFreshEntity(a);
+				level.addFreshEntity(b);
+				BlockPos base = p.blockPosition();
+				for (int x = -3; x <= 3; x++) {
+					for (int y = 0; y <= 3; y++) {
+						level.setBlock(base.offset(x, y, 5), Blocks.STONE_BRICKS.defaultBlockState(), 3);
+					}
+				}
+				ItemFrame fm = new ItemFrame(level, base.offset(-1, 1, 4), Direction.NORTH);
+				fm.setItem(m());
+				level.addFreshEntity(fm);
+				ItemFrame fs = new ItemFrame(level, base.offset(1, 1, 4), Direction.NORTH);
+				fs.setItem(s());
+				level.addFreshEntity(fs);
+				ItemFrame fs2 = new ItemFrame(level, base.offset(0, 2, 4), Direction.NORTH);
+				fs2.setItem(s());
+				fs2.setRotation(1);
+				level.addFreshEntity(fs2);
+			});
+		});
+		at(c + 40, () -> shot(mc, "ground"));
+		at(c + 41, () -> view(mc, "frame"));
+		at(c + 47, () -> shot(mc, "item_frames"));
+		c += 50;
+		at(c, () -> server(mc, p -> {
+			for (var e : p.serverLevel().getEntities((net.minecraft.world.entity.Entity) null, p.getBoundingBox().inflate(12),
+					e -> e instanceof ItemFrame || e instanceof com.projecthero.mod.entity.MjolnirEntity
+							|| e instanceof com.projecthero.mod.stormbreaker.StormbreakerEntity || e instanceof ItemEntity)) {
+				e.discard();
+			}
+			BlockPos base = p.blockPosition();
+			for (int x = -3; x <= 3; x++) {
+				for (int y = 0; y <= 3; y++) {
+					p.serverLevel().setBlock(base.offset(x, y, 5), Blocks.AIR.defaultBlockState(), 3);
+				}
+			}
+		}));
+		c += 4;
+		// --- thrown, side on, each in turn (slowed) ---
+		for (int w = 0; w < 2; w++) {
+			final boolean storm = w == 1;
+			final String tag = storm ? "thrown_s" : "thrown_m";
+			at(c, () -> {
+				view(mc, "ts");
+				tickRate(mc, 4f);
+				hands(mc, storm ? s() : m(), ItemStack.EMPTY);
+			});
+			at(c + 4, () -> server(mc, p -> {
+				if (storm) {
+					com.projecthero.mod.stormbreaker.StormbreakerEntity.throwFrom(p);
+				} else {
+					com.projecthero.mod.power.ThorPowers.throwMjolnir(p);
+				}
+			}));
+			at(c + 5, () -> shot(mc, tag + "_a"));
+			at(c + 6, () -> shot(mc, tag + "_b"));
+			at(c + 7, () -> shot(mc, tag + "_c"));
+			at(c + 8, () -> shot(mc, tag + "_d"));
+			at(c + 40, () -> tickRate(mc, 20f));
+			c += 60;
+		}
+		// --- pinned in a Thunder Field ---
+		at(c, () -> {
+			view(mc, "pc");
+			pitch = 14f;
+			server(mc, p -> {
+				p.setAttached(ModAttachments.COOLDOWNS, new com.projecthero.mod.attachment.CooldownState());
+				p.getInventory().clearContent();
+				p.setItemInHand(InteractionHand.MAIN_HAND, s());
+				p.setXRot(14f);
+				com.projecthero.mod.power.ThunderField.cast(p);
+			});
+		});
+		at(c + 33, () -> {
+			for (var e : mc.level.entitiesForRendering()) {
+				if (e instanceof com.projecthero.mod.stormbreaker.StormbreakerEntity sb) {
+					System.out.println("[HARNESS] pinned axe y=" + sb.getY() + " pinned=" + sb.isPinned() + " player y=" + mc.player.getY());
+				}
+			}
+		});
+		at(c + 34, () -> shot(mc, "pinned_side"));
+		at(c + 35, () -> view(mc, "pf"));
+		at(c + 41, () -> shot(mc, "pinned_front"));
+		at(c + 42, () -> pitch = 0f);
+		c += 140; // let the field end and the axe come home
+		if (mode.equals("after")) {
+			// --- films: the camera orbiting each held weapon (72 ticks = one turn), then a Stormbreaker throw ---
+			for (int w = 0; w < 3; w++) {
+				final int ww = w;
+				final String tag = w == 0 ? "film_orbit_s" : w == 1 ? "film_orbit_m" : "film_orbit_dual";
+				at(c, () -> {
+					if (ww == 0) {
+						hands(mc, s(), ItemStack.EMPTY);
+					} else if (ww == 1) {
+						hands(mc, m(), ItemStack.EMPTY);
+					} else {
+						hands(mc, m(), s());
+					}
+					mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+				});
+				for (int i = 0; i <= 72; i++) {
+					final double a = Math.toRadians(i * 5.0 + 90.0);
+					final int fi = i;
+					at(c + 4 + i, () -> {
+						camOffset = new Vec3(Math.sin(a) * 2.6, 1.35, Math.cos(a) * 2.6);
+						camLook = new Vec3(0, 1.05, 0);
+					});
+					if (i > 0) {
+						at(c + 5 + i, () -> shot(mc, tag + String.format("/f%03d", fi - 1)));
+					}
+				}
+				c += 82;
+			}
+			at(c, () -> {
+				view(mc, "ts");
+				hands(mc, s(), ItemStack.EMPTY);
+				tickRate(mc, 5f);
+			});
+			at(c + 6, () -> {
+				filmName = "film_throw_s";
+				filmFrame = 0;
+				server(mc, com.projecthero.mod.stormbreaker.StormbreakerEntity::throwFrom);
+			});
+			at(c + 30, () -> filmName = null);
+			at(c + 32, () -> tickRate(mc, 20f));
+			c += 40;
+		}
+		at(c, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				lastProgress = System.currentTimeMillis();
+				mc.execute(ThorWeaponsHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks % 10 == 0) {
+			lastProgress = System.currentTimeMillis();
+		}
+		if (inWorldTicks == 20) {
+			GLFW.glfwSetWindowSize(mc.getWindow().getWindow(), 854, 480);
+		}
+		if (t0 >= 0) {
+			mc.player.setYRot(0f);
+			mc.player.setXRot(pitch);
+			mc.player.yRotO = 0f;
+			mc.player.xRotO = pitch;
+			mc.player.yHeadRot = 0f;
+			mc.player.yHeadRotO = 0f;
+			mc.player.yBodyRot = 0f;
+			mc.player.yBodyRotO = 0f;
+			mc.options.hideGui = !mc.options.getCameraType().isFirstPerson();
+			mc.gui.getChat().clearMessages(false);
+		}
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			mc.getToasts().clear();
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.setWeatherParameters(6000, 0, false, false);
+				p.teleportTo(level, Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5, 0f, 0f);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			List<Runnable> r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.forEach(Runnable::run);
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("THORWPN_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false,
+				Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}
+
+// ===== mixin/ThorWeaponsHarnessCameraMixin.java =====
+package com.projecthero.mod.client.mixin;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import com.projecthero.mod.client.ThorWeaponsHarness;
+
+import net.minecraft.client.Camera;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): ThorWeaponsHarness's fixed camera, relative to the player. */
+@Mixin(Camera.class)
+public abstract class ThorWeaponsHarnessCameraMixin {
+	@Shadow
+	protected abstract void setPosition(Vec3 pos);
+
+	@Shadow
+	protected abstract void setRotation(float yRot, float xRot);
+
+	@Inject(method = "setup", at = @At("TAIL"))
+	private void projecthero$thorWeaponsCam(BlockGetter level, Entity entity, boolean detached, boolean reverse, float partialTick, CallbackInfo ci) {
+		Vec3 off = ThorWeaponsHarness.camOffset;
+		if (!detached || off == null || !ThorWeaponsHarness.active()) {
+			return;
+		}
+		Vec3 base = entity.getPosition(partialTick);
+		Vec3 pos = base.add(off);
+		Vec3 d = base.add(ThorWeaponsHarness.camLook).subtract(pos);
+		float yaw = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+		float pitch = (float) -Math.toDegrees(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)));
+		setRotation(yaw, pitch);
+		setPosition(pos);
+	}
+}
+
+// ===== mixin/ThorWeaponsHarnessFrameMixin.java =====
+package com.projecthero.mod.client.mixin;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import com.projecthero.mod.client.ThorWeaponsHarness;
+
+import net.minecraft.client.Minecraft;
+
+/** TEMP-HARNESS (not shipped): grabs the previous frame at the head of the next runTick while a film runs. */
+@Mixin(Minecraft.class)
+public abstract class ThorWeaponsHarnessFrameMixin {
+	@Inject(method = "runTick", at = @At("HEAD"))
+	private void projecthero$thorWeaponsFrame(boolean renderLevel, CallbackInfo ci) {
+		ThorWeaponsHarness.onFrame();
+	}
+}
