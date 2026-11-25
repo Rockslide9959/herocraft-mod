@@ -495,6 +495,46 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		});
 	}
 
+	/**
+	 * One tick of a runner pushing to move: walk + strafe input, a shove and a jump, then the per-tick upkeep (where the charge
+	 * roots), then the move itself as a client tick would make it. Returns the horizontal step taken.
+	 */
+	private static double pushAndStep(ServerPlayer p) {
+		p.zza = 1f;
+		p.xxa = 1f;
+		p.setJumping(true);
+		p.setDeltaMovement(0.3, 0.42, 0.3);
+		p.tickCount++;
+		SpeedForceSpeedster.tick(p);
+		Vec3 before = p.position();
+		p.moveRelative(0.1f, new Vec3(p.xxa, 0, p.zza));
+		p.move(net.minecraft.world.entity.MoverType.SELF, p.getDeltaMovement());
+		return p.position().subtract(before).horizontalDistance();
+	}
+
+	/** v0.17.7 (user: "make it so that you cant move when using the charging pose"): rooted in the charge, free after it. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void theChargeStanceRootsYou(GameTestHelper helper) {
+		ServerPlayer p = flash(helper, 4.5, 2.0, 4.5);
+		helper.assertTrue(SpeedForceAbilities.startCharge(p) && SpeedForceSpeedster.chargeRooted(p), "into the charge stance");
+		double worst = 0;
+		for (int i = 0; i < 10; i++) {
+			double step = pushAndStep(p);
+			worst = Math.max(worst, step);
+			helper.assertTrue(p.zza == 0f && p.xxa == 0f, "no walk or strafe input while rooted (tick " + i + ")");
+			helper.assertTrue(p.getDeltaMovement().y <= 0.0, "no jump while rooted (tick " + i + "), vy " + p.getDeltaMovement().y);
+		}
+		helper.assertTrue(worst < 1.0e-3, "every step while charging is ~0, worst " + worst);
+		helper.assertTrue(SpeedForceSpeedster.chargeRooted(p), "still charging");
+		helper.runAfterDelay(SpeedForceConfig.CHARGE_TICKS + 2, () -> {
+			helper.assertTrue(SpeedForceAbilities.releaseCharge(p), "let go after the full 3 s: launch");
+			helper.assertFalse(SpeedForceSpeedster.chargeRooted(p), "no longer rooted");
+			double step = pushAndStep(p);
+			helper.assertTrue(step > 0.1, "after the launch the runner moves again, step " + step);
+			helper.succeed();
+		});
+	}
+
 	/** v0.17.1 (user): the full Flash Suit feeds a hungry speedster -- the best fit, never a food with a side effect. */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void theFlashSuitFeedsAHungrySpeedster(GameTestHelper helper) {

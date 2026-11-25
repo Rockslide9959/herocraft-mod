@@ -190,6 +190,7 @@
 		"UndeadArmorPartsMixin",
 		"UndeadBodyRotationMixin",
 		"UndeadHeadThrowInputMixin",
+		"SpeedForceChargeInputMixin",
 		"UndeadItemInHandInvoker",
 		"UndeadCameraMixin",
 		"UndeadHeadCameraMixin",

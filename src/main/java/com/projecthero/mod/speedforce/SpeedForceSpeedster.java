@@ -224,6 +224,30 @@ public final class SpeedForceSpeedster {
 		return s == null || !s.hasPower ? 0L : s.chargeStart;
 	}
 
+	/**
+	 * v0.17.7 (user: "make it so that you cant move when using the charging pose"): true while the hold-C charge stance roots
+	 * the runner (client-safe: the synced state, so the owning client holds itself still too).
+	 */
+	public static boolean chargeRooted(Player player) {
+		return chargeStart(player) != 0L;
+	}
+
+	/**
+	 * v0.17.7: one tick of being rooted -- no walking, strafing, jumping or sprinting, the sideways slide killed (a fall still
+	 * falls). Run every tick on the server ({@code SpeedForceAbilities.chargeTick}) and on the owning client (its input mixin,
+	 * before the move). Never a movement-speed modifier: vanilla's FOV follows the speed, so a -100% one zooms the camera in.
+	 */
+	public static void holdStill(Player player) {
+		player.xxa = 0f;
+		player.zza = 0f;
+		player.setJumping(false);
+		if (player.isSprinting()) {
+			player.setSprinting(false);
+		}
+		Vec3 v = player.getDeltaMovement();
+		player.setDeltaMovement(0.0, Math.min(0.0, v.y), 0.0);
+	}
+
 	/** v0.17.1 (user): ticks left of the drain after leaving the Speed Force (client-safe; 0 = none). */
 	public static int drained(Player player) {
 		SpeedForceState s = peek(player);

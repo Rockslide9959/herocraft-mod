@@ -82,6 +82,10 @@ public final class SpeedForceAbilities {
 	private static final Map<UUID, Integer> MASS_WINDUP = new ConcurrentHashMap<>();
 	/** Hold G: the runner's tick count when the charge began. */
 	private static final Map<UUID, Integer> THROW_CHARGE = new ConcurrentHashMap<>();
+	/** v0.17.7: hold C, the charge stance -> where it was taken (a runner who drifts off it is put back). Plain positions only. */
+	private static final Map<UUID, Vec3> CHARGE_ANCHOR = new ConcurrentHashMap<>();
+	/** v0.17.7: how far a rooted runner may drift (client lag at the start of the stance) before the server puts them back. */
+	private static final double CHARGE_DRIFT = 0.75;
 
 	/** A hold move nobody let go of (a lost release packet) gives up after this long. */
 	private static final int HOLD_FAILSAFE = 10 * 20;
@@ -94,6 +98,7 @@ public final class SpeedForceAbilities {
 		RESCUE_GRACE.clear();
 		MASS_WINDUP.clear();
 		THROW_CHARGE.clear();
+		CHARGE_ANCHOR.clear();
 	}
 
 	// ---------------------------------------------------------------- shared
@@ -1330,6 +1335,8 @@ public final class SpeedForceAbilities {
 		n.animStart = n.chargeStart;
 		n.holdAnim = false;
 		SpeedForceSpeedster.save(p, n);
+		CHARGE_ANCHOR.put(p.getUUID(), p.position());
+		SpeedForceSpeedster.holdStill(p);
 		SpeedForceSpeedster.sound(p, SoundEvents.BEACON_POWER_SELECT, 0.6f, 1.6f);
 		return true;
 	}
@@ -1337,6 +1344,7 @@ public final class SpeedForceAbilities {
 	/** C let go: after the full 3 s, Speed Mode on at full momentum at once; earlier, the charge fizzles. */
 	public static boolean releaseCharge(ServerPlayer p) {
 		SpeedForceState s = SpeedForceSpeedster.state(p);
+		CHARGE_ANCHOR.remove(p.getUUID());
 		if (s.chargeStart == 0L) {
 			return false;
 		}
@@ -1374,9 +1382,11 @@ public final class SpeedForceAbilities {
 	private static void chargeTick(ServerPlayer p, long now) {
 		SpeedForceState s = SpeedForceSpeedster.state(p);
 		if (s.chargeStart == 0L) {
+			CHARGE_ANCHOR.remove(p.getUUID());
 			return;
 		}
 		if (p.isDeadOrDying() || s.phasing) {
+			CHARGE_ANCHOR.remove(p.getUUID());
 			SpeedForceState n = s.copy();
 			n.chargeStart = 0L;
 			n.animId = SpeedForceState.ANIM_NONE;
@@ -1384,9 +1394,17 @@ public final class SpeedForceAbilities {
 			return;
 		}
 		long age = now - s.chargeStart;
-		Vec3 v = p.getDeltaMovement();
-		p.setDeltaMovement(0, Math.min(0, v.y), 0);
+		// v0.17.7 (user: "make it so that you cant move when using the charging pose"): rooted -- the client's input mixin
+		// holds the runner still before each move, this kills any slide or jump that got through and syncs it
+		SpeedForceSpeedster.holdStill(p);
 		p.hurtMarked = true;
+		Vec3 anchor = CHARGE_ANCHOR.get(p.getUUID());
+		if (anchor == null) {
+			CHARGE_ANCHOR.put(p.getUUID(), p.position());
+		} else if (Math.hypot(p.getX() - anchor.x, p.getZ() - anchor.z) > CHARGE_DRIFT) {
+			// a client that slipped the input lock (or lagged into the stance): back onto the spot, keeping its look
+			p.connection.teleport(anchor.x, p.getY(), anchor.z, p.getYRot(), p.getXRot());
+		}
 		ServerLevel level = level(p);
 		float t = Math.min(1f, age / (float) SpeedForceConfig.CHARGE_TICKS);
 		double a = age * 0.7;
@@ -1456,6 +1474,7 @@ public final class SpeedForceAbilities {
 		}
 		MASS_WINDUP.remove(p.getUUID());
 		THROW_CHARGE.remove(p.getUUID());
+		CHARGE_ANCHOR.remove(p.getUUID());
 		killRemnant(p);
 		if (!SuperSpeedHandlers.owns(p)) {
 			SuperSpeedMoves.endSweep(p);
@@ -1472,5 +1491,6 @@ public final class SpeedForceAbilities {
 	static void forget(UUID id) {
 		MASS_WINDUP.remove(id);
 		THROW_CHARGE.remove(id);
+		CHARGE_ANCHOR.remove(id);
 	}
 }
