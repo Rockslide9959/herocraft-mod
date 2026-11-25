@@ -37,6 +37,7 @@ public final class ShazamMod {
 		ShazamSounds.initialize();
 		ShazamEntities.initialize();
 		ShazamDamage.initialize();
+		ShazamCombat.initialize(); // v0.17.7: the Thunderstrike chain
 		PayloadTypeRegistry.playC2S().register(ShazamFlightPayload.TYPE, ShazamFlightPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(com.projecthero.mod.shazam.network.ShazamFxPayload.TYPE,
 				com.projecthero.mod.shazam.network.ShazamFxPayload.CODEC); // v0.17.3 effects pass

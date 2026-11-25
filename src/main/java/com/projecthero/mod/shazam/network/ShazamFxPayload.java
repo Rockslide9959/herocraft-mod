@@ -28,6 +28,8 @@ public record ShazamFxPayload(int kind, float ax, float ay, float az, float bx, 
 	public static final int AURA = 5;
 	/** The landing: glowing lightning cracks across the ground from a, facing b. */
 	public static final int CRACK = 6;
+	/** v0.17.7: a punch landing at a, along b -- a gold-white starburst with short crackling spokes. */
+	public static final int IMPACT = 7;
 
 	public static final CustomPacketPayload.Type<ShazamFxPayload> TYPE = new CustomPacketPayload.Type<>(ProjectHeroMod.id("shazam_fx"));
 

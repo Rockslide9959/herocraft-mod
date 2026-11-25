@@ -12,7 +12,7 @@ placed power's "Primary Power" line, so the Guidebook and the I menu both show i
 | Planet | 16-19 | 16-20 | 32-40 | green |
 | Cosmic | 21-28 | 22-30 | 45-60 | light purple |
 
-**Placed so far (user, 2026-11-23):** Street = Super Soldier, Punisher, Black Panther, Power Armour. Cosmic = Thor (user, v0.17.7 Thor revamp).
+**Placed so far (user, 2026-11-23):** Street = Super Soldier, Punisher, Black Panther, Power Armour. Planet = Shazam (user: "hes A tier", v0.17.7). Cosmic = Thor (user, v0.17.7 Thor revamp).
 Every other power is unplaced (no badge) until the user assigns it. Don't place powers yourself.
 
 ## Rules used for the pass
@@ -24,6 +24,34 @@ Every other power is unplaced (no badge) until the user assigns it. Don't place 
 - **Main fighting form only.** Black Panther's unsuited (T'Challa) kit was left as it was: weaker by design.
 - **Toughness ~ full diamond armour** (takes ~30-40% of a 10-damage hit), at most +10 max health.
 - Gear anyone can use (the Punisher guns) was tuned too, since it is the Punisher's kit.
+
+## Planet: Shazam (v0.17.7 kit, `ShazamConfig`, `MAX_HIT` 40)
+
+A new S-H-A-Z-A-M kit with hold moves (see `docs/SHAZAM_REFERENCE.md`). Every hit whose source is a transformed Shazam passes
+`ShazamCombat.enter` (Wisdom x1.25, then the 40 cap, then the boss cap: 6% of max health, never launched / lifted). Family: half.
+
+| Hit | Before (v0.17.3 kit) | After |
+|---|---|---|
+| Bare fist | 11 (+10) | 17 (+16) |
+| R Hercules Combo | -- (R was Lightning Hand 9, chains 9) | 17 / 17 / 19 |
+| Shift+R Herculean Uppercut | -- (Call the Lightning 22) | 18 |
+| Hold R Haymaker of Hercules | -- | 16 -> 20, shockwave 16 |
+| G Lightning of Zeus / chain | -- (G was Hercules Punch 16 + wall 8) | 18 / 16 |
+| Shift+G Thunderhead Slam | -- (Atlas Lift throw 10) | 18 |
+| Hold G Zeus's Wrath | -- | 16 every 5 ticks |
+| C Mercury Blitz | -- (C was Thunderclap 12) | 16 x up to 3 |
+| Shift+C Thunderclap | 12 (on C) | 16 |
+| Hold C Mercury Rush | -- | 16 x up to 5 |
+| Z Atlas Quake | -- (Z was Zeus Storm 10 a bolt) | 19 |
+| Hold Z Titan's Grip | Atlas Lift 10 on landing | 20 |
+| Shift+Z ultimate | Eternity Strike 50 within 10 | "SHAZAM!" Thunderstrike 40 within 8, then 8 s chain 16 |
+| Shift+X | Thunder Tackle 18 | Sonic Leap (movement) |
+| V Wisdom crit | -- | x1.25, capped 40 |
+| Transform bolt | 12 | 12 (unchanged, the word is not part of the kit) |
+
+Toughness: netherite-level -- armour +20, toughness +12, knockback resistance 0.4 (was a flat 35% cut); 40 health (+20) and magic
+x1.5 unchanged. Courage of Achilles is Resistance II + no knockback for 8 s (was Achilles Stand's total immunity). Flight 18 / 34 b/s
+(was 22 / 44).
 
 ## Cosmic: Thor (v0.17.7 revamp, `power/ThorKit`, `MAX_HIT` 60)
 

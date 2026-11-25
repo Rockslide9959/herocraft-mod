@@ -221,12 +221,14 @@ public class ShazamGameTests implements FabricGameTest {
 		ServerPlayer p = shazam(helper, 1.5, 1.5);
 		double baseSpeed = p.getAttribute(Attributes.MOVEMENT_SPEED).getBaseValue();
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.MOVEMENT_SPEED) - baseSpeed * 1.4) < 1e-3, "Speed of Mercury: +40%");
-		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - (1.0 + 10.0)) < 1e-3, "Strength of Hercules: +10 melee");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - (1.0 + 16.0)) < 1e-3, "Strength of Hercules: +16 melee (v0.17.7 Planet)");
 		helper.assertTrue(Math.abs(p.getBbHeight() * 1.0 - 1.9) < 0.02 || p.getAttributeValue(Attributes.SCALE) > 1.05, "0.1 blocks taller");
-		// Stamina of Atlas: 35% off; magic +50% on top
+		// Stamina of Atlas (v0.17.7 Planet): netherite-level armour instead of the old flat 35%; magic +50%
 		var dmg = p.damageSources();
-		helper.assertTrue(Math.abs(ShazamDamage.factor(p, dmg.generic()) - 0.65f) < 1e-4, "35% damage resistance");
-		helper.assertTrue(Math.abs(ShazamDamage.factor(p, dmg.magic()) - 0.975f) < 1e-4, "magic hurts 50% more (before the resistance)");
+		helper.assertTrue(p.getAttributeValue(Attributes.ARMOR) >= 20.0 && p.getAttributeValue(Attributes.ARMOR_TOUGHNESS) >= 12.0, "armour 20, toughness 12");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE) - 0.4) < 1e-3, "40% knockback resistance");
+		helper.assertTrue(ShazamDamage.factor(p, dmg.generic()) == 1f, "no flat cut any more (the armour does it)");
+		helper.assertTrue(Math.abs(ShazamDamage.factor(p, dmg.magic()) - 1.5f) < 1e-4, "magic hurts 50% more");
 		helper.assertTrue(ShazamDamage.isMagic(dmg.indirectMagic(p, null)), "potions count as magic");
 		helper.assertTrue(ShazamDamage.factor(p, dmg.genericKill()) == 1f, "/kill still kills");
 		// no hunger drain
@@ -240,7 +242,7 @@ public class ShazamGameTests implements FabricGameTest {
 		// turned back: all gone
 		gapOver(p);
 		Shazam.speak(p);
-		helper.assertTrue(ShazamDamage.factor(p, dmg.generic()) == 1f, "no resistance as Billy");
+		helper.assertTrue(ShazamDamage.factor(p, dmg.generic()) == 1f && p.getAttributeValue(Attributes.ARMOR) < 1.0, "no toughness as Billy");
 		helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) < 2.0, "no melee bonus as Billy");
 		helper.assertTrue(p.addEffect(new MobEffectInstance(MobEffects.DARKNESS, 200)), "Billy can be afraid");
 		helper.succeed();
@@ -287,197 +289,7 @@ public class ShazamGameTests implements FabricGameTest {
 	}
 
 	// ---------------------------------------------------------------- moves
-
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void keysMapToTheSpec(GameTestHelper helper) {
-		helper.assertTrue(ShazamAbilityManager.LIGHTNING_HAND.equals(ShazamAbilityManager.moveFor(AbilitySlot.SLOT_1, false)), "R");
-		helper.assertTrue(ShazamAbilityManager.CALL_LIGHTNING.equals(ShazamAbilityManager.moveFor(AbilitySlot.SLOT_1, true)), "Shift+R");
-		helper.assertTrue(ShazamAbilityManager.HERCULES_PUNCH.equals(ShazamAbilityManager.moveFor(AbilitySlot.SLOT_2, false)), "G");
-		helper.assertTrue(ShazamAbilityManager.ATLAS_LIFT.equals(ShazamAbilityManager.moveFor(AbilitySlot.SLOT_2, true)), "Shift+G");
-		helper.assertTrue(ShazamAbilityManager.MERCURY_DASH.equals(ShazamAbilityManager.moveFor(AbilitySlot.SLOT_3, false)), "X = movement");
-		helper.assertTrue(ShazamAbilityManager.THUNDER_TACKLE.equals(ShazamAbilityManager.moveFor(AbilitySlot.SLOT_3, true)), "Shift+X");
-		helper.assertTrue(ShazamAbilityManager.ZEUS_STORM.equals(ShazamAbilityManager.moveFor(AbilitySlot.SLOT_4, false)), "Z");
-		helper.assertTrue(ShazamAbilityManager.ETERNITY_STRIKE.equals(ShazamAbilityManager.moveFor(AbilitySlot.SLOT_4, true)), "Shift+Z");
-		helper.assertTrue(ShazamAbilityManager.WISDOM.equals(ShazamAbilityManager.moveFor(AbilitySlot.SLOT_5, false)), "V = utility");
-		helper.assertTrue(ShazamAbilityManager.SHARE_POWER.equals(ShazamAbilityManager.moveFor(AbilitySlot.SLOT_5, true)), "Shift+V");
-		helper.assertTrue(ShazamAbilityManager.THUNDERCLAP.equals(ShazamAbilityManager.moveFor(AbilitySlot.SLOT_6, false)), "C");
-		helper.assertTrue(ShazamAbilityManager.ACHILLES_STAND.equals(ShazamAbilityManager.moveFor(AbilitySlot.SLOT_6, true)), "Shift+C");
-		for (AbilitySlot s : AbilitySlot.values()) {
-			if (s.ordinal() >= AbilitySlot.CORE_COUNT) {
-				helper.assertTrue(ShazamAbilityManager.moveFor(s, false) == null && ShazamAbilityManager.moveFor(s, true) == null, "H / N are never moves");
-			}
-		}
-		ServerPlayer billy = mock(helper, 1.5, 1.5);
-		Shazam.grant(billy);
-		helper.assertFalse(ShazamAbilityManager.hasContext(billy), "Billy has no moves until he says the word");
-		helper.succeed();
-	}
-
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void lightningHandChainsToTwoMore(GameTestHelper helper) {
-		ServerPlayer p = shazam(helper, 1.5, 1.5);
-		Zombie a = zombie(helper, 1.5, 5.5, 100);
-		Zombie b = zombie(helper, 3.5, 5.5, 100);
-		Zombie c = zombie(helper, 5.5, 6.5, 100);
-		Zombie d = zombie(helper, 6.5, 1.0, 100); // far from the chain
-		look(p, a);
-		float ha = a.getHealth(), hb = b.getHealth(), hc = c.getHealth(), hd = d.getHealth();
-		helper.assertTrue(ShazamMoves.use(p, ShazamAbilityManager.LIGHTNING_HAND), "it fires");
-		helper.assertTrue(near(lost(ha, a), 9f) && near(lost(hb, b), 9f) && near(lost(hc, c), 9f), "9 to the first and to 2 chained");
-		helper.assertTrue(d.getHealth() == hd, "a 4th creature isn't chained");
-		helper.assertTrue(Math.abs(Shazam.lightning(p) - (100f - ShazamConfig.HAND_COST)) < 0.01f, "8 lightning");
-		helper.assertFalse(ShazamMoves.use(p, ShazamAbilityManager.LIGHTNING_HAND), "on cooldown");
-		helper.succeed();
-	}
-
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void callTheLightningHits22(GameTestHelper helper) {
-		ServerPlayer p = shazam(helper, 1.5, 1.5);
-		Zombie z = zombie(helper, 5.5, 6.0, 100);
-		look(p, z);
-		float h = z.getHealth();
-		helper.assertTrue(ShazamMoves.use(p, ShazamAbilityManager.CALL_LIGHTNING), "it fires");
-		helper.assertTrue(near(lost(h, z), 22f), "22 damage, got " + lost(h, z));
-		helper.assertTrue(Math.abs(Shazam.lightning(p) - 70f) < 0.01f, "30 lightning");
-		helper.assertTrue(p.getHealth() == p.getMaxHealth(), "the bolt never hurts him");
-		helper.succeed();
-	}
-
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void herculesPunchLaunchesAndWallsHurt(GameTestHelper helper) {
-		ServerPlayer p = shazam(helper, 4.5, 2.0);
-		Zombie z = zombie(helper, 4.5, 4.5, 100);
-		look(p, z);
-		float h = z.getHealth();
-		helper.assertTrue(ShazamMoves.use(p, ShazamAbilityManager.HERCULES_PUNCH), "it lands");
-		helper.assertTrue(near(lost(h, z), 16f), "16 damage, got " + lost(h, z));
-		Vec3 v = z.getDeltaMovement();
-		helper.assertTrue(Math.sqrt(v.x * v.x + v.z * v.z) > 1.2 && v.z > 0, "launched hard along his look (about 15 blocks)");
-		helper.assertTrue(ShazamMoves.inFlight(p, z), "tracked for the wall hit");
-		float h2 = z.getHealth();
-		helper.assertTrue(ShazamMoves.impact(p, z), "hitting a wall");
-		helper.assertTrue(near(lost(h2, z), ShazamConfig.WALL_DAMAGE), "extra damage against a wall");
-		helper.succeed();
-	}
-
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void atlasLiftHoldsThenHurls(GameTestHelper helper) {
-		ServerPlayer p = shazam(helper, 4.5, 2.0);
-		Zombie z = zombie(helper, 4.5, 4.0, 100);
-		look(p, z);
-		helper.assertTrue(ShazamMoves.use(p, ShazamAbilityManager.ATLAS_LIFT), "grabbed");
-		helper.assertTrue(ShazamMoves.lifted(p) == z, "holding it");
-		helper.assertTrue(z.getY() > p.getY() + 1.5, "held overhead");
-		helper.assertTrue(Math.abs(Shazam.lightning(p) - 85f) < 0.01f, "15 lightning");
-		helper.assertTrue(ShazamMoves.use(p, ShazamAbilityManager.ATLAS_LIFT), "pressed again: hurled");
-		helper.assertTrue(ShazamMoves.lifted(p) == null && ShazamMoves.inFlight(p, z), "thrown and flying");
-		helper.assertTrue(z.getDeltaMovement().length() > 1.5, "thrown hard");
-		helper.assertTrue(Math.abs(Shazam.lightning(p) - 85f) < 0.01f, "the throw is free");
-		float h = z.getHealth();
-		ShazamMoves.impact(p, z);
-		helper.assertTrue(near(lost(h, z), ShazamConfig.LIFT_IMPACT_DAMAGE), "the landing hurts");
-		helper.succeed();
-	}
-
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void zeusStormStrikesHostiles(GameTestHelper helper) {
-		ServerPlayer p = shazam(helper, 1.5, 1.5);
-		Zombie z = zombie(helper, 6.5, 6.5, 100);
-		helper.assertTrue(ShazamMoves.use(p, ShazamAbilityManager.ZEUS_STORM), "the storm starts");
-		helper.assertTrue(Shazam.storming(p), "for 5 seconds");
-		helper.assertTrue(Math.abs(Shazam.lightning(p) - 50f) < 0.01f, "50 lightning");
-		helper.assertTrue(Shazam.cooldownRemaining(p, ShazamAbilityManager.ZEUS_STORM) == ShazamConfig.STORM_COOLDOWN, "15 s cooldown");
-		float h = z.getHealth();
-		helper.assertTrue(ShazamMoves.stormBolt(p) == z, "a half-second bolt picks the hostile");
-		helper.assertTrue(near(lost(h, z), 10f), "10 a bolt");
-		helper.assertTrue(ShazamConfig.STORM_TICKS / ShazamConfig.STORM_EVERY == 10, "10 bolts over 5 s");
-		helper.succeed();
-	}
-
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void eternityStrikeNeedsAFullBarAndHits50(GameTestHelper helper) {
-		ServerPlayer p = shazam(helper, 4.5, 4.5);
-		Zombie z = zombie(helper, 4.5, 7.0, 200);
-		Shazam.setLightning(p, 99f);
-		helper.assertFalse(ShazamMoves.use(p, ShazamAbilityManager.ETERNITY_STRIKE), "needs a full bar");
-		Shazam.setLightning(p, 100f);
-		helper.assertTrue(ShazamMoves.use(p, ShazamAbilityManager.ETERNITY_STRIKE), "it starts");
-		helper.assertTrue(Shazam.eternityAge(p) == 0, "rising");
-		helper.assertTrue(Shazam.cooldownRemaining(p, ShazamAbilityManager.ETERNITY_STRIKE) == 3 * 60 * 20, "3 minute cooldown");
-		float h = z.getHealth();
-		float ph = p.getHealth();
-		ShazamMoves.eternityBlast(p);
-		helper.assertTrue(near(lost(h, z), 50f), "50 within 10 blocks, got " + lost(h, z));
-		helper.assertTrue(Shazam.lightning(p) == 0f && Shazam.eternityAge(p) < 0, "the bar is emptied and it's over");
-		helper.assertTrue(p.getHealth() >= ph, "the huge bolt never hurts him");
-		helper.succeed();
-	}
-
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void mercuryDashAndThunderTackle(GameTestHelper helper) {
-		ServerPlayer p = shazam(helper, 1.5, 1.0);
-		p.setYRot(0f);
-		p.setXRot(0f);
-		Vec3 before = p.position();
-		helper.assertTrue(ShazamMoves.use(p, ShazamAbilityManager.MERCURY_DASH), "dashes");
-		double moved = p.position().z - before.z;
-		helper.assertTrue(moved > 3.0 && moved <= ShazamConfig.DASH_DISTANCE + 0.01, "along his look, stopped by the wall, moved " + moved);
-		helper.assertTrue(Shazam.lightning(p) == 100f, "free");
-		ServerPlayer q = shazam(helper, 6.5, 1.0);
-		Zombie z = zombie(helper, 6.5, 6.0, 100);
-		look(q, z);
-		float h = z.getHealth();
-		helper.assertTrue(ShazamMoves.use(q, ShazamAbilityManager.THUNDER_TACKLE), "the tackle");
-		helper.assertTrue(near(lost(h, z), 18f), "18 damage, got " + lost(h, z));
-		helper.assertTrue(q.distanceTo(z) < 3.0, "he flew to it");
-		helper.assertTrue(Math.abs(Shazam.lightning(q) - 80f) < 0.01f, "20 lightning");
-		helper.succeed();
-	}
-
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void thunderclapHitsTheConeOnly(GameTestHelper helper) {
-		ServerPlayer p = shazam(helper, 4.5, 4.0);
-		p.setYRot(0f);
-		p.setXRot(0f);
-		Zombie front = zombie(helper, 4.5, 7.0, 100);
-		Zombie behind = zombie(helper, 4.5, 1.0, 100);
-		p.setYRot(0f);
-		p.setXRot(0f);
-		float hf = front.getHealth(), hb = behind.getHealth();
-		helper.assertTrue(ShazamMoves.use(p, ShazamAbilityManager.THUNDERCLAP), "clap");
-		helper.assertTrue(near(lost(hf, front), 12f), "12 in the cone, got " + lost(hf, front));
-		helper.assertTrue(behind.getHealth() == hb, "nothing behind him");
-		helper.assertTrue(front.getDeltaMovement().z > 0.5, "knocked back");
-		helper.succeed();
-	}
-
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void achillesStandTauntsAndShields(GameTestHelper helper) {
-		ServerPlayer p = shazam(helper, 2.5, 2.5);
-		ServerPlayer mate = mock(helper, 4.5, 2.5);
-		var squad = squad(helper, p, mate);
-		Zombie z = zombie(helper, 6.5, 6.5, 100);
-		z.setTarget(mate);
-		helper.assertTrue(ShazamMoves.use(p, ShazamAbilityManager.ACHILLES_STAND), "the stand");
-		helper.assertTrue(z.getTarget() == p, "hostiles come for him");
-		helper.assertTrue(ShazamDamage.factor(p, p.damageSources().generic()) == 0f, "he takes no damage");
-		helper.assertTrue(Math.abs(ShazamDamage.factor(mate, mate.damageSources().generic()) - 0.7f) < 1e-4, "squadmates take 30% less");
-		helper.assertTrue(Shazam.cooldownRemaining(p, ShazamAbilityManager.ACHILLES_STAND) == 30 * 20, "30 s cooldown");
-		edit(p, s -> s.standUntil = 0L);
-		helper.assertTrue(Math.abs(ShazamDamage.factor(p, p.damageSources().generic()) - 0.65f) < 1e-4, "over after 4 s");
-		disband(helper, squad);
-		helper.succeed();
-	}
-
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void wisdomOfSolomonLastsTenSeconds(GameTestHelper helper) {
-		ServerPlayer p = shazam(helper, 1.5, 1.5);
-		helper.assertTrue(ShazamMoves.use(p, ShazamAbilityManager.WISDOM), "Wisdom");
-		helper.assertTrue(Shazam.wise(p), "on");
-		helper.assertTrue(Shazam.state(p).wisdomUntil - helper.getLevel().getGameTime() == ShazamConfig.WISDOM_TICKS, "10 s");
-		helper.assertTrue(Shazam.lightning(p) == 100f, "free");
-		helper.succeed();
-	}
+	// v0.17.7: the Planet-tier kit's moves are tested in ShazamKitGameTests.
 
 	// ---------------------------------------------------------------- the Shazam Family
 
@@ -489,20 +301,20 @@ public class ShazamGameTests implements FabricGameTest {
 		var squad = squad(helper, p, mate);
 		helper.assertFalse(ShazamFamily.share(p, outsider), "only a squadmate");
 		look(p, mate);
-		helper.assertTrue(ShazamMoves.use(p, ShazamAbilityManager.SHARE_POWER), "Shift+V at the squadmate");
+		helper.assertTrue(ShazamMoves.use(p, ShazamAbilityManager.SHARE_POWER), "hold V at the squadmate (v0.17.7; was Shift+V)");
 		helper.assertTrue(Shazam.isFamily(mate) && Shazam.canSpeak(mate) && !Shazam.hasPower(mate), "family, not a second champion");
 		helper.assertTrue(Shazam.state(mate).familyUntil - helper.getLevel().getGameTime() == ShazamConfig.FAMILY_TICKS, "for 10 minutes");
 		helper.assertTrue(Shazam.cooldownRemaining(p, ShazamAbilityManager.SHARE_POWER) == ShazamConfig.SHARE_COOLDOWN, "10 minute cooldown");
 		helper.assertTrue(ShazamMod.onChat(mate, "SHAZAM!") == Shazam.Spoken.TRANSFORMED, "the word transforms the family member too");
 		helper.assertTrue(Math.abs(mate.getMaxHealth() - 25f) < 0.01f, "half the champion's health, got " + mate.getMaxHealth());
-		helper.assertTrue(Math.abs(mate.getAttributeValue(Attributes.ATTACK_DAMAGE) - 6.0) < 1e-3, "half the melee bonus");
-		helper.assertFalse(ShazamMoves.use(mate, ShazamAbilityManager.ETERNITY_STRIKE), "no Eternity Strike for the family");
-		helper.assertFalse(ShazamAbilityManager.allowed(mate, ShazamAbilityManager.ETERNITY_STRIKE), "greyed on their HUD");
+		helper.assertTrue(Math.abs(mate.getAttributeValue(Attributes.ATTACK_DAMAGE) - 9.0) < 1e-3, "half the melee bonus (+8)");
+		helper.assertFalse(ShazamMoves.use(mate, ShazamAbilityManager.THUNDERSTRIKE), "no ultimate for the family");
+		helper.assertFalse(ShazamAbilityManager.allowed(mate, ShazamAbilityManager.THUNDERSTRIKE), "greyed on their HUD");
 		Zombie z = zombie(helper, 1.5, 7.0, 100);
 		look(mate, z);
 		float h = z.getHealth();
-		ShazamMoves.use(mate, ShazamAbilityManager.LIGHTNING_HAND);
-		helper.assertTrue(near(lost(h, z), 4.5f), "half damage, got " + lost(h, z));
+		ShazamMoves.use(mate, ShazamAbilityManager.HERCULES_COMBO);
+		helper.assertTrue(near(lost(h, z), ShazamConfig.COMBO_DAMAGE_1 * 0.5f), "half damage, got " + lost(h, z));
 		// the 10 minutes run out
 		edit(mate, s -> s.familyUntil = helper.getLevel().getGameTime());
 		Shazam.tick(mate);

@@ -23,6 +23,18 @@ import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import java.util.Optional;
+import com.projecthero.mod.client.beamclash.BeamClashClient;
+import com.projecthero.mod.shazam.ShazamAnim;
+import com.projecthero.mod.shazam.ShazamMoves;
+import com.projecthero.mod.shazam.data.ShazamState;
 
 /**
  * v0.17.3 Shazam effects pass (tester: "looks great, but needs a little work effect-wise"): his lightning as real branching bolt
@@ -44,7 +56,6 @@ public final class ShazamBoltFx {
 	private static final int CORE = 0xFFFFFF;
 	private static final int GOLD = 0xFFD24A;
 	private static final int PALE = 0xFFF4C8;
-	private static final int RED = 0xFF2A18;
 
 	private static final class Fx {
 		final ShazamFxPayload p;
@@ -195,7 +206,18 @@ public final class ShazamBoltFx {
 
 	public static void render(WorldRenderContext ctx) {
 		Minecraft mc = Minecraft.getInstance();
-		if (LIVE.isEmpty() || mc.level == null || ctx.consumers() == null || ctx.matrixStack() == null) {
+		if (mc.level == null || ctx.consumers() == null || ctx.matrixStack() == null) {
+			return;
+		}
+		boolean anyHeld = false;
+		for (AbstractClientPlayer pl : mc.level.players()) {
+			com.projecthero.mod.shazam.data.ShazamState s = Shazam.peek(pl);
+			if (s != null && s.transformed && s.hold != com.projecthero.mod.shazam.ShazamAnim.HOLD_NONE) {
+				anyHeld = true;
+				break;
+			}
+		}
+		if (LIVE.isEmpty() && !anyHeld) {
 			return;
 		}
 		float partial = ctx.tickCounter().getGameTimeDeltaPartialTick(false);
@@ -205,6 +227,15 @@ public final class ShazamBoltFx {
 		mat = pose.last().pose();
 		origin = ctx.camera().getPosition();
 		eye = origin;
+		if (anyHeld) {
+			for (AbstractClientPlayer pl : mc.level.players()) {
+				try {
+					held(mc, pl, partial, ctx.camera().isDetached());
+				} catch (RuntimeException e) {
+					// a bad frame for one player never takes the rest down
+				}
+			}
+		}
 		for (Iterator<Fx> it = LIVE.iterator(); it.hasNext();) {
 			Fx fx = it.next();
 			double age = now - fx.start;
@@ -248,6 +279,7 @@ public final class ShazamBoltFx {
 			}
 			case ShazamFxPayload.AURA -> aura(mc, fx, t, life, shape, partial);
 			case ShazamFxPayload.CRACK -> crack(fx, t, life, size, seed, shape);
+			case ShazamFxPayload.IMPACT -> impact(fx, t, life, size, seed, shape);
 			default -> {
 			}
 		}
@@ -301,9 +333,9 @@ public final class ShazamBoltFx {
 				float al = fade * Mth.clamp((f1 - (1f - fade) * 1.2f) * 2f, 0f, 1f);
 				Vec3 p0 = a.add(d.scale(f0)).add(0, h, 0), p1 = a.add(d.scale(f1)).add(0, h, 0);
 				Vec3 nrm = eye.subtract(p0.add(p1).scale(0.5));
-				bar(p0, p1, nrm, 0.32, RED, al * 0.18f);
-				bar(p0, p1, nrm, 0.1, RED, al * 0.7f);
-				bar(p0, p1, nrm, 0.035, 0xFFD8C8, al * 0.8f);
+				bar(p0, p1, nrm, 0.32, GOLD, al * 0.18f); // v0.17.7: gold and white (was red)
+				bar(p0, p1, nrm, 0.1, GOLD, al * 0.7f);
+				bar(p0, p1, nrm, 0.035, CORE, al * 0.8f);
 			}
 		}
 		// after-images: red silhouettes left along the path
@@ -315,7 +347,7 @@ public final class ShazamBoltFx {
 			Vec3 side = new Vec3(toEye.z, 0, -toEye.x);
 			side = side.lengthSqr() < 1.0e-6 ? new Vec3(1, 0, 0) : side.normalize();
 			quad(c.add(side.scale(0.32)), c.subtract(side.scale(0.32)), c.subtract(side.scale(0.32)).add(0, 1.85, 0),
-					c.add(side.scale(0.32)).add(0, 1.85, 0), RED, al, al * 0.5f);
+					c.add(side.scale(0.32)).add(0, 1.85, 0), PALE, al, al * 0.5f);
 		}
 		// crackle along the trail
 		RandomSource r = RandomSource.create(shape);
@@ -451,6 +483,154 @@ public final class ShazamBoltFx {
 							shape + k + s, 0, GOLD, heat);
 				}
 				prev = p;
+			}
+		}
+	}
+
+	// ---------------------------------------------------------------- v0.17.7 kit
+
+	/** A punch landing: a white-hot flash disc facing the hit, gold spokes and short crackling bolts bursting out of it. */
+	private static void impact(Fx fx, float t, int life, float size, int seed, int shape) {
+		Vec3 c = fx.a;
+		Vec3 n = fx.b.lengthSqr() < 1.0e-6 ? eye.subtract(c).normalize() : fx.b.normalize();
+		Vec3 ref = Math.abs(n.y) > 0.9 ? new Vec3(1, 0, 0) : UP;
+		Vec3 u = n.cross(ref).normalize();
+		Vec3 w = n.cross(u).normalize();
+		float grow = easeOut(t / 2.5f);
+		float al = Mth.clamp(1f - t / life, 0f, 1f);
+		double rad = (0.25 + 0.35 * size) * (0.4 + 0.6 * grow);
+		// the flash disc
+		for (int i = 0; i < 14; i++) {
+			double a0 = i * Math.PI * 2 / 14, a1 = (i + 1) * Math.PI * 2 / 14;
+			Vec3 p0 = c.add(u.scale(Math.cos(a0) * rad)).add(w.scale(Math.sin(a0) * rad));
+			Vec3 p1 = c.add(u.scale(Math.cos(a1) * rad)).add(w.scale(Math.sin(a1) * rad));
+			quad(c, c, p1, p0, CORE, 0.9f * al, 0f);
+		}
+		// spokes: a starburst, longer on a bigger hit
+		RandomSource r = RandomSource.create(seed);
+		int spokes = 8 + (int) (4 * size);
+		for (int i = 0; i < spokes; i++) {
+			double ang = (i + r.nextDouble() * 0.5) * Math.PI * 2 / spokes;
+			double len = (0.5 + 0.7 * size) * (0.6 + r.nextDouble() * 0.6) * grow;
+			Vec3 dir = u.scale(Math.cos(ang)).add(w.scale(Math.sin(ang))).add(n.scale(0.25 * r.nextDouble()));
+			Vec3 a = c.add(dir.scale(rad * 0.6));
+			Vec3 b = c.add(dir.scale(rad + len));
+			bar(a, b, eye.subtract(a), 0.05 + 0.03 * size, GOLD, al * 0.5f);
+			bar(a, b, eye.subtract(a), 0.018 + 0.01 * size, CORE, al);
+			if (i % 3 == 0) {
+				drawBolt(b, b.add(dir.scale(0.4 + 0.3 * size)).add(perp(dir, r).scale(0.2)), 0.15, 2, 0.02, shape + i, 0, GOLD, al);
+			}
+		}
+	}
+
+	/** The world point a held stream from {@code pl} reaches: the first creature along his look (pad 0.5), else the first block. */
+	private static Vec3 streamEnd(Minecraft mc, Player pl, float partial) {
+		Vec3 from = pl.getEyePosition(partial);
+		Vec3 look = pl.getViewVector(partial);
+		Vec3 far = from.add(look.scale(ShazamConfig.WRATH_RANGE));
+		BlockHitResult hit = mc.level.clip(new ClipContext(from, far, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, pl));
+		Vec3 end = hit.getType() == HitResult.Type.MISS ? far : hit.getLocation();
+		double best = from.distanceToSqr(end);
+		Vec3 stop = end;
+		for (Entity e : mc.level.getEntities(pl, new AABB(from, end).inflate(1.5), e -> e instanceof LivingEntity && e.isAlive() && !e.isSpectator())) {
+			Optional<Vec3> at = e.getBoundingBox().inflate(0.5).clip(from, end);
+			if (at.isPresent() && from.distanceToSqr(at.get()) < best) {
+				best = from.distanceToSqr(at.get());
+				stop = at.get();
+			}
+		}
+		return stop;
+	}
+
+	/** One of {@code pl}'s hands in the world, roughly where the held pose puts it (closer to the camera in first person). */
+	private static Vec3 handPos(Player pl, boolean lead, float partial, boolean firstPerson) {
+		Vec3 look = pl.getViewVector(partial);
+		float yaw = Mth.lerp(partial, pl.yRotO, pl.getYRot()) * ((float) Math.PI / 180f);
+		Vec3 side = new Vec3(-Math.cos(yaw), 0, -Math.sin(yaw)); // the player's right
+		double s = (lead ? 1 : -1) * (pl.getMainArm() == HumanoidArm.RIGHT ? 1 : -1);
+		if (firstPerson) {
+			return pl.getEyePosition(partial).add(0, -0.28, 0).add(look.scale(0.55)).add(side.scale(0.26 * s));
+		}
+		return pl.getEyePosition(partial).add(0, -0.42, 0).add(look.scale(0.75)).add(side.scale(0.3 * s));
+	}
+
+	private static void disc(Vec3 c, double rad, int rgb, float al) {
+		Vec3 n = eye.subtract(c);
+		n = n.lengthSqr() < 1.0e-8 ? UP : n.normalize();
+		Vec3 u = n.cross(Math.abs(n.y) > 0.9 ? new Vec3(1, 0, 0) : UP).normalize();
+		Vec3 w = n.cross(u).normalize();
+		for (int i = 0; i < 12; i++) {
+			double a0 = i * Math.PI * 2 / 12, a1 = (i + 1) * Math.PI * 2 / 12;
+			Vec3 p0 = c.add(u.scale(Math.cos(a0) * rad)).add(w.scale(Math.sin(a0) * rad));
+			Vec3 p1 = c.add(u.scale(Math.cos(a1) * rad)).add(w.scale(Math.sin(a1) * rad));
+			quad(c, c, p1, p0, rgb, al, 0f);
+		}
+	}
+
+	/** The held moves' effects, drawn every frame from the synced state: Zeus's Wrath's stream, the Haymaker's charging fist. */
+	private static void held(Minecraft mc, AbstractClientPlayer pl, float partial, boolean detached) {
+		ShazamState s = Shazam.peek(pl);
+		if (s == null || !s.transformed || s.hold == ShazamAnim.HOLD_NONE) {
+			return;
+		}
+		boolean fp = pl == mc.player && !detached;
+		float t = (float) (mc.level.getGameTime() - s.holdStart) + partial;
+		int frame = (int) (t / 2f);
+		switch (s.hold) {
+			case ShazamAnim.HOLD_WRATH -> {
+				if (BeamClashClient.hides(pl)) {
+					return; // a locked clash draws both beams itself
+				}
+				Vec3 end = streamEnd(mc, pl, partial);
+				float on = Mth.clamp(t / 3f, 0.25f, 1f);
+				Vec3 rh = handPos(pl, true, partial, fp), lh = handPos(pl, false, partial, fp);
+				double len = rh.distanceTo(end);
+				int seed = pl.getId() * 7919 + frame * 104729;
+				// two twisting bolts, one from each hand, braiding into the target, and a straight hot core between them
+				drawBolt(rh, end, Math.min(1.6, len * 0.08), 6, 0.07, seed, 2, GOLD, on);
+				drawBolt(lh, end, Math.min(1.6, len * 0.08), 6, 0.07, seed + 31, 2, GOLD, on);
+				stroke(rh.add(lh).scale(0.5), end, 0.045, PALE, on * 0.65f);
+				// a glowing knot at each palm and a flare where it lands
+				disc(rh, 0.16, CORE, 0.85f * on);
+				disc(lh, 0.16, CORE, 0.85f * on);
+				disc(end, 0.45, CORE, 0.8f * on);
+				disc(end, 0.9, GOLD, 0.3f * on);
+				RandomSource r = RandomSource.create(seed);
+				for (int i = 0; i < 4; i++) {
+					Vec3 d = new Vec3(r.nextDouble() - 0.5, r.nextDouble() - 0.3, r.nextDouble() - 0.5).normalize();
+					drawBolt(end, end.add(d.scale(0.8 + r.nextDouble())), 0.25, 3, 0.025, seed + i * 13, 0, GOLD, on);
+				}
+			}
+			case ShazamAnim.HOLD_HAYMAKER -> {
+				float f = ShazamMoves.haymakerCharge(pl);
+				Vec3 fist;
+				if (fp) {
+					fist = handPos(pl, true, partial, true).add(0, -0.1, 0);
+				} else {
+					double by = Math.toRadians(Mth.lerp(partial, pl.yBodyRotO, pl.yBodyRot));
+					Vec3 right = new Vec3(-Math.cos(by), 0, -Math.sin(by)).scale(pl.getMainArm() == HumanoidArm.RIGHT ? 1 : -1);
+					Vec3 fwd = new Vec3(-Math.sin(by), 0, Math.cos(by));
+					fist = pl.getPosition(partial).add(0, pl.getBbHeight() * 0.42, 0).add(right.scale(0.42)).add(fwd.scale(-0.25));
+				}
+				int seed = pl.getId() * 31 + frame * 7;
+				RandomSource r = RandomSource.create(seed);
+				// sparks of lightning drawn in to the fist from all round, more and longer as it builds
+				int n = 3 + (int) (5 * f);
+				for (int i = 0; i < n; i++) {
+					Vec3 d = new Vec3(r.nextDouble() - 0.5, r.nextDouble() - 0.5, r.nextDouble() - 0.5).normalize();
+					drawBolt(fist.add(d.scale(0.5 + 0.8 * f)), fist, 0.12, 3, 0.02, seed + i, 0, GOLD, 0.6f + 0.4f * f);
+				}
+				disc(fist, 0.1 + 0.2 * f, CORE, 0.6f + 0.35f * f);
+				disc(fist, 0.3 + 0.45 * f, GOLD, 0.25f * f);
+			}
+			case ShazamAnim.HOLD_GRIP -> {
+				// lightning crawling up his raised arms to the creature held overhead
+				int seed = pl.getId() * 17 + frame * 3;
+				Vec3 top = pl.getPosition(partial).add(0, pl.getBbHeight() + 0.35, 0);
+				Vec3 sh = pl.getPosition(partial).add(0, pl.getBbHeight() * 0.75, 0);
+				drawBolt(sh, top, 0.2, 3, 0.025, seed, 1, GOLD, 0.7f);
+			}
+			default -> {
 			}
 		}
 	}

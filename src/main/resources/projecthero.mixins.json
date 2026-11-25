@@ -155,6 +155,7 @@
 		"BeastBoyRideMixin",
 		"BeastBoySwimTurnMixin",
 		"ShazamCourageMixin",
+		"LivingEntityShazamHitMixin",
 		"VisionPhaseCollideMixin",
 		"VisionPhaseMoveCheckMixin",
 		"VisionProjectilePassMixin"

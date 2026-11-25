@@ -36,16 +36,28 @@ public final class ShazamState {
 	/** The champion's family: member UUID string -> until. */
 	public Map<String, Long> family = new HashMap<>();
 
-	/** Achilles Stand until this time. */
+	/** Courage of Achilles until this time (v0.17.7; was Achilles Stand). */
 	public long standUntil;
 	/** Wisdom of Solomon until this time. */
 	public long wisdomUntil;
 	/** Zeus Storm until this time. */
 	public long stormUntil;
-	/** Eternity Strike began at this time (0 = not running). */
+	/** The ultimate ("SHAZAM!" Thunderstrike since v0.17.7; was Eternity Strike) began at this time (0 = not running). */
 	public long eternityStart;
 	/** Muffled (Black Adam, later): no word until this time. */
 	public long muffledUntil;
+
+	// v0.17.7 kit (synced so every viewer plays the poses and the held effects)
+	/** The body clip playing ({@code ShazamKit.ANIM_*}, 0 = none) and when it began. */
+	public int anim;
+	public long animStart;
+	/** The hold move running ({@code ShazamKit.HOLD_*}, 0 = none) and when its key went down. */
+	public int hold;
+	public long holdStart;
+	/** Thunder-charged (after the ultimate: every hit chains lightning) until this time. */
+	public long thunderUntil;
+	/** Mercury Burst (X while flying) until this time. */
+	public long boostUntil;
 
 	/** The Wizard won't come back to him until this time. */
 	public long wizardBanUntil;
@@ -71,6 +83,12 @@ public final class ShazamState {
 		n.stormUntil = stormUntil;
 		n.eternityStart = eternityStart;
 		n.muffledUntil = muffledUntil;
+		n.anim = anim;
+		n.animStart = animStart;
+		n.hold = hold;
+		n.holdStart = holdStart;
+		n.thunderUntil = thunderUntil;
+		n.boostUntil = boostUntil;
 		n.wizardBanUntil = wizardBanUntil;
 		n.innocentKillAt = innocentKillAt;
 		return n;
@@ -117,6 +135,12 @@ public final class ShazamState {
 		t.putLong("storm_until", stormUntil);
 		t.putLong("eternity_start", eternityStart);
 		t.putLong("muffled_until", muffledUntil);
+		t.putInt("anim", anim);
+		t.putLong("anim_start", animStart);
+		t.putInt("hold", hold);
+		t.putLong("hold_start", holdStart);
+		t.putLong("thunder_until", thunderUntil);
+		t.putLong("boost_until", boostUntil);
 		t.putLong("wizard_ban_until", wizardBanUntil);
 		t.putLong("innocent_kill_at", innocentKillAt);
 		return t;
@@ -144,6 +168,12 @@ public final class ShazamState {
 		s.stormUntil = t.getLong("storm_until");
 		s.eternityStart = t.getLong("eternity_start");
 		s.muffledUntil = t.getLong("muffled_until");
+		s.anim = t.getInt("anim");
+		s.animStart = t.getLong("anim_start");
+		s.hold = t.getInt("hold");
+		s.holdStart = t.getLong("hold_start");
+		s.thunderUntil = t.getLong("thunder_until");
+		s.boostUntil = t.getLong("boost_until");
 		s.wizardBanUntil = t.getLong("wizard_ban_until");
 		s.innocentKillAt = t.getLong("innocent_kill_at");
 		return s;

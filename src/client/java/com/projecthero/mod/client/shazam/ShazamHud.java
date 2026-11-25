@@ -9,7 +9,9 @@ import com.projecthero.mod.client.gui.VanillaHud;
 import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.shazam.Shazam;
 import com.projecthero.mod.shazam.ShazamAbilityManager;
+import com.projecthero.mod.shazam.ShazamAnim;
 import com.projecthero.mod.shazam.ShazamConfig;
+import com.projecthero.mod.shazam.ShazamMoves;
 import com.projecthero.mod.shazam.data.ShazamState;
 
 import net.minecraft.client.DeltaTracker;
@@ -27,11 +29,11 @@ import net.minecraft.util.Mth;
  *   SHAZAM!
  *   Lightning [boss bar ======---]  64          the Lightning bar: a Minecraft boss bar, gold (v0.17.4; was a Slab)
  *   +----+----+----+----+----+----+             R G Z X C V while transformed: cooldowns; a move he can't pay for (or, family,
- *   | R  | G  | Z  | X  | C  | V  |             can't use) is greyed; yellow while Shift shows the Shift moves
+ *   | R  | G  | Z  | X  | C  | V  |             can't use) is greyed; yellow while Shift shows the Shift moves; a running hold move lights its key
  *   +----+----+----+----+----+----+
  * </pre>
- * Not transformed, only the title, the bar and the hint (say the word in chat). The world going dark under an Eternity Strike nearby
- * and Wisdom of Solomon's crosshair hint are drawn here too. Hold Left-Alt for the move list.
+ * Not transformed, only the title, the bar and the hint (say the word in chat). The world going dark under the ultimate nearby
+ * and Wisdom of Solomon's crosshair hint are drawn here too. Hold Left-Alt for the move list (v0.17.7: with each key's hold move).
  */
 public final class ShazamHud {
 	private static final AbilitySlot[] SLOTS = { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_4, AbilitySlot.SLOT_3,
@@ -99,10 +101,22 @@ public final class ShazamHud {
 			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.shazam.flying").getString(), VanillaHud.WHITE));
 		}
 		if (Shazam.standing(p)) {
-			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.shazam.stand").getString() + " " + clock(s.standUntil - now), GOLD_TEXT));
+			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.shazam.courage").getString() + " " + clock(s.standUntil - now), GOLD_TEXT));
 		}
-		if (Shazam.storming(p)) {
-			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.shazam.storm").getString() + " " + clock(s.stormUntil - now), GOLD_TEXT));
+		// v0.17.7: the ultimate's chain buff, Mercury Burst, the hold moves
+		if (s.thunderUntil > now) {
+			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.shazam.thunder").getString() + " " + clock(s.thunderUntil - now), 0xFFFFF4A0));
+		}
+		if (ShazamMoves.boosting(p)) {
+			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.shazam.burst").getString(), VanillaHud.WHITE));
+		}
+		if (s.hold == ShazamAnim.HOLD_HAYMAKER) {
+			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.shazam.charge", Math.round(ShazamMoves.haymakerCharge(p) * 100)).getString(),
+					GOLD_TEXT));
+		} else if (s.hold == ShazamAnim.HOLD_WRATH) {
+			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.shazam.wrath").getString(), GOLD_TEXT));
+		} else if (s.hold == ShazamAnim.HOLD_GRIP) {
+			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.shazam.grip").getString(), GOLD_TEXT));
 		}
 		if (Shazam.wise(p)) {
 			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.shazam.wisdom").getString() + " " + clock(s.wisdomUntil - now), 0xFF9AD0FF));
@@ -124,8 +138,10 @@ public final class ShazamHud {
 				if (ids.length == 0) {
 					continue;
 				}
+				String hold = ShazamAbilityManager.holdFor(slot);
 				rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot), Component.translatable("projecthero.shazam.ability." + ids[0]),
-						ids.length > 1 ? Component.translatable("projecthero.shazam.ability." + ids[1]) : null));
+						ids.length > 1 ? Component.translatable("projecthero.shazam.ability." + ids[1]) : null,
+						hold == null ? null : Component.translatable("hud.projecthero.move_list.hold", Component.translatable("projecthero.shazam.ability." + hold))));
 			}
 		}
 		hud.moveList(rows);
@@ -148,12 +164,25 @@ public final class ShazamHud {
 					: Math.min(1f, ShazamAbilityManager.cooldownRemaining(p, other) / (float) Math.max(1, ShazamAbilityManager.maxCooldown(other)));
 			boolean usable = ShazamAbilityManager.allowed(p, shown)
 					&& (p.getAbilities().instabuild || s.lightning + 1.0e-3f >= ShazamAbilityManager.cost(shown));
-			boolean active = (ShazamAbilityManager.ACHILLES_STAND.equals(shown) && Shazam.standing(p))
-					|| (ShazamAbilityManager.ZEUS_STORM.equals(shown) && Shazam.storming(p))
+			String hold = ShazamAbilityManager.holdFor(slot);
+			int held = ShazamMoves.holding(p);
+			boolean active = (ShazamAbilityManager.COURAGE.equals(shown) && Shazam.standing(p))
 					|| (ShazamAbilityManager.WISDOM.equals(shown) && Shazam.wise(p))
-					|| (ShazamAbilityManager.ETERNITY_STRIKE.equals(shown) && Shazam.eternityAge(p) >= 0);
+					|| (ShazamAbilityManager.THUNDERSTRIKE.equals(shown) && Shazam.eternityAge(p) >= 0)
+					|| (hold != null && held != ShazamAnim.HOLD_NONE && holdKind(hold) == held);
 			VanillaHud.slot(g, x0, y0, i, keyLabel(slot), usable, shift, frac, cd > 0 ? (cd + 19) / 20 : 0, otherFrac, active);
 		}
+	}
+
+	/** The ShazamAnim.HOLD_* a hold move runs as. */
+	private static int holdKind(String id) {
+		return switch (id) {
+			case ShazamAbilityManager.HAYMAKER -> ShazamAnim.HOLD_HAYMAKER;
+			case ShazamAbilityManager.ZEUS_WRATH -> ShazamAnim.HOLD_WRATH;
+			case ShazamAbilityManager.MERCURY_RUSH -> ShazamAnim.HOLD_RUSH;
+			case ShazamAbilityManager.TITANS_GRIP -> ShazamAnim.HOLD_GRIP;
+			default -> -1;
+		};
 	}
 
 	private static String keyLabel(AbilitySlot slot) {
@@ -161,7 +190,7 @@ public final class ShazamHud {
 		return text.length() > 2 ? text.substring(0, 2) : text;
 	}
 
-	/** Eternity Strike nearby: the sky (here, the whole view) darkens while he rises, flashes as the bolt hits, clears after the slam. */
+	/** The "SHAZAM!" Thunderstrike nearby: the sky (here, the whole view) darkens while he rises, flashes as the bolt hits, then clears. */
 	private static void eternityDark(GuiGraphics g, Minecraft mc, float partial) {
 		float dark = 0f;
 		float flash = 0f;
@@ -171,8 +200,8 @@ public final class ShazamHud {
 				continue;
 			}
 			float t = age + partial;
-			dark = Math.max(dark, Mth.clamp(t / ShazamConfig.ETERNITY_RISE_TICKS, 0f, 1f) * 0.55f);
-			float sinceBolt = t - ShazamConfig.ETERNITY_RISE_TICKS;
+			dark = Math.max(dark, Mth.clamp(t / ShazamConfig.ULT_RISE_TICKS, 0f, 1f) * 0.55f);
+			float sinceBolt = t - ShazamConfig.ULT_RISE_TICKS;
 			if (sinceBolt >= 0f && sinceBolt < 6f) {
 				flash = Math.max(flash, 1f - sinceBolt / 6f);
 			}

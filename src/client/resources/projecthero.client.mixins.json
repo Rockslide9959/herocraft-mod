@@ -172,6 +172,8 @@
 		"ItemInHandRendererBlackPantherMixin",
 		"ItemInHandRendererSuperSoldierMixin",
 		"ItemInHandRendererThorMixin",
+		"ItemInHandRendererShazamMixin",
+		"ShazamPoseMixin",
 		"ItemInHandLayerThorHideMixin",
 		"SuperSoldierBodyMixin",
 		"BeamClashInputMixin",

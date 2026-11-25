@@ -294,6 +294,7 @@
       "com.projecthero.mod.gametest.RavenGameTests",
       "com.projecthero.mod.gametest.BeastBoyGameTests",
       "com.projecthero.mod.gametest.ShazamGameTests",
+      "com.projecthero.mod.gametest.ShazamKitGameTests",
       "com.projecthero.mod.gametest.SentryGameTests",
       "com.projecthero.mod.gametest.VoidTakeoverGameTests",
       "com.projecthero.mod.gametest.DoctorFateGameTests",

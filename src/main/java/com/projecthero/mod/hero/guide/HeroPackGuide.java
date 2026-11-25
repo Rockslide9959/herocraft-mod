@@ -251,10 +251,14 @@ public final class HeroPackGuide {
 	}
 
 	/** v0.17.3 Shazam: the chapter's control rows {key, ability id} ({@code projecthero.shazam.ability.<id>} and its {@code .desc}). */
-	public static final String[][] SHAZAM_CONTROLS = { { "Chat", "word" }, { "Double Space", "flight" }, { "R", "lightning_hand" },
-			{ "Shift+R", "call_lightning" }, { "G", "hercules_punch" }, { "Shift+G", "atlas_lift" }, { "Z", "zeus_storm" },
-			{ "Shift+Z", "eternity_strike" }, { "X", "mercury_dash" }, { "Shift+X", "thunder_tackle" }, { "C", "thunderclap" },
-			{ "Shift+C", "achilles_stand" }, { "V", "wisdom" }, { "Shift+V", "share_power" } };
+	public static final String[][] SHAZAM_CONTROLS = { { "Chat", "word" }, { "Double Space", "flight" },
+			// v0.17.7 Planet-tier kit (S-H-A-Z-A-M, with hold moves)
+			{ "R", "hercules_combo" }, { "Shift+R", "herculean_uppercut" }, { "Hold R", "haymaker" },
+			{ "G", "zeus_lightning" }, { "Shift+G", "thunderhead_slam" }, { "Hold G", "zeus_wrath" },
+			{ "C", "mercury_blitz" }, { "Shift+C", "thunderclap" }, { "Hold C", "mercury_rush" },
+			{ "Z", "atlas_quake" }, { "Shift+Z", "thunderstrike" }, { "Hold Z", "titans_grip" },
+			{ "X", "mercury_dash" }, { "Shift+X", "sonic_leap" },
+			{ "V", "wisdom" }, { "Shift+V", "courage" }, { "Hold V", "share_power" } };
 
 	/** Shazam (v0.17.3). */
 	public static Chapter shazamChapter() {

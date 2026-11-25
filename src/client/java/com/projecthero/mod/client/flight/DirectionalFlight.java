@@ -197,9 +197,12 @@ public final class DirectionalFlight {
 			}
 			return DirectionalFlightModel.fixedCruise(DirectionalFlightModel.kryptonian(sprint, false), bps / 20.0);
 		}
-		// v0.17.3: Shazam's double-tap-Space flight -- Kryptonian handling, 22 b/s cruise, 44 sprinting
+		// v0.17.3: Shazam's double-tap-Space flight -- Kryptonian handling, 18 b/s cruise, 34 sprinting (v0.17.7 Planet; was 22 / 44)
 		if (com.projecthero.mod.shazam.Shazam.isFlying(player)) {
 			double bps = sprint ? com.projecthero.mod.shazam.ShazamConfig.FLIGHT_SPRINT_BPS : com.projecthero.mod.shazam.ShazamConfig.FLIGHT_CRUISE_BPS;
+			if (com.projecthero.mod.shazam.ShazamMoves.boosting(player)) {
+				bps *= com.projecthero.mod.shazam.ShazamConfig.BURST_SPEED; // v0.17.7: X while flying -- Mercury Burst, x1.6 for 2 s
+			}
 			return DirectionalFlightModel.fixedCruise(DirectionalFlightModel.kryptonian(sprint, false), bps / 20.0);
 		}
 		// v0.17.3: Undead's blood-jet flight (double-tap jump) -- the Saiyan's handling, 10 b/s cruise, 20 sprinting; right click held

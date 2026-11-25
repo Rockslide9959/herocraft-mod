@@ -23,10 +23,10 @@ import net.minecraft.world.entity.projectile.EvokerFangs;
 /**
  * v0.17.3 Shazam: hits on the champion (and the family), all while transformed.
  * <ul>
- *   <li><b>Achilles Stand</b>: no damage at all; squadmates within 16 blocks of a standing Shazam take 30% less.</li>
- *   <li><b>Magic</b> ({@link #isMagic}: potions, evokers, witches, Doctor Fate, Raven) hurts 50% more, then</li>
- *   <li><b>Stamina of Atlas</b>: 35% off every hit.</li>
- *   <li>No fall damage while flying or during Eternity Strike.</li>
+ *   <li><b>Magic</b> ({@link #isMagic}: potions, evokers, witches, Doctor Fate, Raven) hurts 50% more.</li>
+ *   <li>No fall damage while flying, during the ultimate or just after a dash, leap or slam.</li>
+ *   <li>v0.17.7 Planet: <b>Stamina of Atlas</b> is netherite-level armour ({@link Shazam#reconcile}; was a flat 35% here), and
+ *   <b>Courage of Achilles</b> is Resistance II (was Achilles Stand's total immunity and squad shield).</li>
  * </ul>
  * A changed hit is cancelled and re-issued behind a re-entrancy guard, vanilla's difficulty scaling undone first (as the Spin's).
  */
@@ -82,31 +82,16 @@ public final class ShazamDamage {
 		}
 		float f = 1f;
 		if (Shazam.transformed(victim)) {
-			if (Shazam.standing(victim)) {
-				return 0f;
-			}
 			if (source.is(DamageTypeTags.IS_FALL) && (Shazam.isFlying(victim) || Shazam.eternityAge(victim) >= 0 || ShazamMoves.fallSafe(victim))) {
 				return 0f;
 			}
 			if (isMagic(source)) {
 				f *= ShazamConfig.MAGIC_WEAKNESS;
 			}
-			f *= 1f - ShazamConfig.DAMAGE_RESIST;
-		} else if (guardedBySquadmate(victim)) {
-			f *= ShazamConfig.STAND_SQUAD_TAKEN;
+			// v0.17.7 Planet: the old flat 35% is gone -- his toughness is netherite-level armour now (Shazam.reconcile), and
+			// Courage of Achilles is Resistance II, no longer total immunity
 		}
 		return f;
-	}
-
-	/** A squadmate of {@code victim} within 16 blocks is holding an Achilles Stand. */
-	public static boolean guardedBySquadmate(ServerPlayer victim) {
-		double r = ShazamConfig.STAND_RANGE;
-		for (ServerPlayer p : victim.serverLevel().players()) {
-			if (p != victim && Shazam.standing(p) && p.distanceToSqr(victim) <= r * r && Squads.areAllies(p, victim)) {
-				return true;
-			}
-		}
-		return false;
 	}
 
 	public static boolean allowDamage(LivingEntity entity, DamageSource source, float amount) {

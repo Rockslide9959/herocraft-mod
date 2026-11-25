@@ -50,9 +50,10 @@ import org.joml.Vector3f;
  *   <li><b>The word</b> ({@link #speak}): typed in chat ({@link ShazamWord}), never posted. Magic lightning strikes him: he
  *   transforms, or turns back. The bolt hits every creature within 3 blocks for 12 (never him or a squadmate) and refills the
  *   Lightning bar. 4 s between words; no voice, no word.</li>
- *   <li><b>Passives</b> (transformed only, {@link #reconcile}, {@link ShazamDamage}): 50 health, 35% resistance, no hunger drain,
- *   +10 melee, +40% speed, 0.1 blocks taller, immune to fear; magic hurts him 50% more.</li>
- *   <li><b>Shazam Family</b>: half the health and damage, no Eternity Strike.</li>
+ *   <li><b>Passives</b> (transformed only, {@link #reconcile}, {@link ShazamDamage}): 40 health, netherite-level toughness (v0.17.7
+ *   Planet: armour 20, toughness 12, 40% knockback resistance; was a flat 35%), no hunger drain, +16 melee (a 17 fist), +40% speed,
+ *   0.1 blocks taller, immune to fear; magic hurts him 50% more. Every hit he deals is shaped by {@link ShazamCombat} (40 cap).</li>
+ *   <li><b>Shazam Family</b>: half the health and damage, no ultimate.</li>
  * </ul>
  */
 public final class Shazam {
@@ -68,6 +69,9 @@ public final class Shazam {
 	private static final ResourceLocation SPEED_ID = PowerToggles.id("shazam_speed");
 	private static final ResourceLocation ATTACK_ID = PowerToggles.id("shazam_attack");
 	private static final ResourceLocation SCALE_ID = PowerToggles.id("shazam_scale");
+	private static final ResourceLocation ARMOR_ID = PowerToggles.id("shazam_armor");
+	private static final ResourceLocation TOUGHNESS_ID = PowerToggles.id("shazam_toughness");
+	private static final ResourceLocation KNOCKBACK_ID = PowerToggles.id("shazam_knockback");
 
 	public static final int RED = 0xC8141E;
 	public static final int GOLD = 0xFFC83A;
@@ -84,6 +88,7 @@ public final class Shazam {
 		LAST_TICK.clear();
 		ShazamAbilityManager.clearSessionState();
 		ShazamMoves.clearSessionState();
+		ShazamCombat.clearSessionState(); // v0.17.7: Wisdom's marks (entity ids), the chain timer
 		ShazamFlight.clearSessionState();
 		ShazamWizards.clearSessionState();
 	}
@@ -157,6 +162,7 @@ public final class Shazam {
 		return isFamily(player) ? ShazamConfig.FAMILY_SHARE : 1f;
 	}
 
+	/** Courage of Achilles is on (v0.17.7; the field kept its old Achilles Stand name). */
 	public static boolean standing(Player player) {
 		ShazamState s = peek(player);
 		return s != null && s.transformed && s.standUntil > now(player);
@@ -172,7 +178,7 @@ public final class Shazam {
 		return s != null && s.transformed && s.stormUntil > now(player);
 	}
 
-	/** Eternity Strike's ticks so far (-1 when not running). Client-safe. */
+	/** The ultimate's ticks so far ("SHAZAM!" Thunderstrike since v0.17.7, was Eternity Strike; -1 when not running). Client-safe. */
 	public static int eternityAge(Player player) {
 		ShazamState s = peek(player);
 		return s == null || s.eternityStart <= 0L ? -1 : (int) Math.max(0L, now(player) - s.eternityStart);
@@ -384,6 +390,11 @@ public final class Shazam {
 		n.wisdomUntil = 0L;
 		n.stormUntil = 0L;
 		n.eternityStart = 0L;
+		n.anim = 0;
+		n.hold = 0;
+		n.holdStart = 0L;
+		n.thunderUntil = 0L;
+		n.boostUntil = 0L;
 	}
 
 	/** Turns him back without the word (death, family time up, revoke). No lightning. */
@@ -449,7 +460,7 @@ public final class Shazam {
 		}
 		ShazamFlight.stop(player);
 		ShazamMoves.forget(player.getUUID());
-		if (s.standUntil != 0L || s.stormUntil != 0L || s.eternityStart != 0L || s.flying) {
+		if (s.standUntil != 0L || s.stormUntil != 0L || s.eternityStart != 0L || s.flying || s.hold != 0 || s.thunderUntil != 0L) {
 			ShazamState n = state(player).copy();
 			boolean was = n.transformed;
 			endTransient(n);
@@ -490,6 +501,9 @@ public final class Shazam {
 			PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, SPEED_ID);
 			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, ATTACK_ID);
 			PowerToggles.clearModifier(player, Attributes.SCALE, SCALE_ID);
+			PowerToggles.clearModifier(player, Attributes.ARMOR, ARMOR_ID);
+			PowerToggles.clearModifier(player, Attributes.ARMOR_TOUGHNESS, TOUGHNESS_ID);
+			PowerToggles.clearModifier(player, Attributes.KNOCKBACK_RESISTANCE, KNOCKBACK_ID);
 			if (player.getHealth() > player.getMaxHealth()) {
 				player.setHealth(player.getMaxHealth());
 			}
@@ -501,6 +515,11 @@ public final class Shazam {
 		PowerToggles.modifier(player, Attributes.MOVEMENT_SPEED, SPEED_ID, ShazamConfig.SPEED_BONUS, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, ATTACK_ID, ShazamConfig.MELEE_BONUS * share(player), AttributeModifier.Operation.ADD_VALUE);
 		PowerToggles.modifier(player, Attributes.SCALE, SCALE_ID, ShazamConfig.SCALE_BONUS, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+		// v0.17.7 Planet: netherite-level toughness (Stamina of Atlas); Courage of Achilles: no knockback at all
+		PowerToggles.modifier(player, Attributes.ARMOR, ARMOR_ID, ShazamConfig.ARMOR_BONUS, AttributeModifier.Operation.ADD_VALUE);
+		PowerToggles.modifier(player, Attributes.ARMOR_TOUGHNESS, TOUGHNESS_ID, ShazamConfig.TOUGHNESS_BONUS, AttributeModifier.Operation.ADD_VALUE);
+		PowerToggles.modifier(player, Attributes.KNOCKBACK_RESISTANCE, KNOCKBACK_ID, standing(player) ? 1.0 : ShazamConfig.KNOCKBACK_RESIST,
+				AttributeModifier.Operation.ADD_VALUE);
 		if (player.getHealth() > player.getMaxHealth()) {
 			player.setHealth(player.getMaxHealth());
 		}
