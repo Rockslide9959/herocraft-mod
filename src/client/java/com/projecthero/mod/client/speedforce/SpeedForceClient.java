@@ -100,6 +100,12 @@ public final class SpeedForceClient {
 		ClientTickEvents.END_CLIENT_TICK.register(SpeedForceSprintKey::tick); // v0.17.1 (user): Ctrl held, Toggle Sprint or not
 		ClientTickEvents.END_CLIENT_TICK.register(SpeedForceSenses::tick); // v0.17.1 (user): danger sense, Flash Time vision
 		SpeedForceBuildClient.initialize(); // v0.17.1 (user): Speed Build's held right-click
+		// v0.17.7: in the hold-C set position the hands are down on the track (third person); first person shows no hands rather
+		// than arms floating at standing height
+		com.projecthero.mod.client.cutscene.CutsceneHands.register(() -> {
+			Minecraft mc = Minecraft.getInstance();
+			return mc.player != null && SpeedForceSpeedster.chargeRooted(mc.player);
+		});
 		// v0.17.1: in the full Flash Suit the visor HUD replaces SpeedForceHud -- the static charge, the speed cap and the
 		// danger sense go on it too
 		com.projecthero.mod.client.flash.FlashSuitHud.addTimerSource((p, list) -> {

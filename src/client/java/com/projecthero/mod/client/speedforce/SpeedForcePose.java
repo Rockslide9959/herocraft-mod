@@ -154,33 +154,71 @@ public final class SpeedForcePose {
 		sprint(player, m, limbSwing, w);
 	}
 
+	/** v0.17.7: ticks to ease from wherever the body was into the set position. */
+	static final float CHARGE_EASE_TICKS = 6f;
+	/** v0.17.7: the torso tipped ~104 degrees (past flat), so the hips ride above the shoulders. */
+	static final float SET_BODY_PITCH = 1.82f;
+	/** v0.17.7: shoulder pivot height (model pixels, Y down, the floor at 24) and how far ahead of the feet's centre it sits. */
+	static final float SET_SHOULDER_Y = 14.8f;
+	static final float SET_SHOULDER_Z = -6.0f;
+	/** v0.17.7: the rear foot rests this many pixels up, on the back block (which sends the rear leg further back). */
+	static final float SET_REAR_FOOT_LIFT = 3.0f;
+
 	/**
-	 * v0.17.1 (user): hold C -- a sprinter's crouched starting stance, one foot back, leaning in, fists low, the
-	 * body shaking harder as the 3 s charge fills.
+	 * v0.17.7 (user: "make the pose match this pose", a sprinter in the blocks at "set"): both hands flat on the ground just ahead
+	 * of the shoulders, arms straight; the torso tipped forward past flat so the hips ride above the shoulders; the front leg
+	 * forward under the chest, the rear leg reaching back nearly straight onto the back block; the head down, eyes on the track
+	 * just ahead. Eases in over {@link #CHARGE_EASE_TICKS}; a tremble builds with the 3 s charge while the hands stay planted.
+	 * The front leg is the off-hand side (left for a right-handed runner), mirrored for left-handers.
+	 *
+	 * <p>Worked in model space (pixels, Y down, front -Z, floor at y 24): the shoulder is placed, then the neck and hip follow from
+	 * the torso's pitch, and each limb is aimed so its end lands on the floor (an arm reaches 10 px below its pivot, a leg 12).
 	 */
 	private static void chargeStance(Player player, HumanoidModel<?> m) {
 		float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
-		float age = player.level().getGameTime() - SpeedForceSpeedster.chargeStart(player) + partial;
+		float age = Math.max(0f, player.level().getGameTime() - SpeedForceSpeedster.chargeStart(player) + partial);
 		float fill = Mth.clamp(age / com.projecthero.mod.speedforce.SpeedForceConfig.CHARGE_TICKS, 0f, 1f);
-		float shake = Mth.sin(age * 2.7f) * 0.03f * fill;
-		m.body.xRot = 0.55f + shake;
-		m.body.y = 3.2f;
-		m.head.y = 4.2f;
-		m.head.xRot = -0.45f;
-		m.rightArm.y = 5.2f;
-		m.leftArm.y = 5.2f;
-		m.rightArm.xRot = 0.35f + shake;
-		m.leftArm.xRot = -0.9f - shake;
-		m.rightArm.zRot = 0.1f;
-		m.leftArm.zRot = -0.1f;
-		m.rightLeg.z = 4.0f;
-		m.leftLeg.z = 4.0f;
-		m.rightLeg.y = 12.2f;
-		m.leftLeg.y = 12.2f;
-		m.rightLeg.xRot = -0.95f;
-		m.leftLeg.xRot = 0.55f;
-		m.rightLeg.yRot = 0f;
-		m.leftLeg.yRot = 0f;
+		float e = Mth.clamp(age / CHARGE_EASE_TICKS, 0f, 1f);
+		float k = e * e * (3f - 2f * e);
+		// the tremble: two shakes beating against each other, growing with the charge
+		float tr = fill * fill;
+		float shakeY = (Mth.sin(age * 3.1f) * 0.16f + Mth.sin(age * 7.7f) * 0.07f) * tr;
+		float shakeP = Mth.sin(age * 4.3f) * 0.03f * tr;
+		float shakeZ = Mth.sin(age * 5.9f) * 0.02f * tr;
+
+		float pitch = SET_BODY_PITCH + shakeP;
+		float cb = Mth.cos(pitch), sb = Mth.sin(pitch);
+		float shoulderY = SET_SHOULDER_Y + shakeY;
+		float shoulderZ = SET_SHOULDER_Z;
+		// the body's pivot is the neck, the shoulder 2 px down the torso, the hips 12 px down it
+		float neckY = shoulderY - 2f * cb;
+		float neckZ = shoulderZ - 2f * sb;
+		float hipY = neckY + 12f * cb;
+		float hipZ = neckZ + 12f * sb;
+		// arms straight, hands on the floor just ahead of the shoulders
+		float arm = -(float) Math.acos(Mth.clamp((24f - shoulderY) / 10f, -1f, 1f));
+		// the front leg forward onto the floor under the chest; the rear one back onto the raised back block
+		float front = -(float) Math.acos(Mth.clamp((24f - hipY) / 12f, -1f, 1f));
+		float rear = (float) Math.acos(Mth.clamp((24f - SET_REAR_FOOT_LIFT - hipY) / 12f, -1f, 1f));
+		boolean rightHanded = player.getMainArm() == net.minecraft.world.entity.HumanoidArm.RIGHT;
+
+		ease(m.body, k, 0f, neckY, neckZ, pitch, 0f, shakeZ);
+		ease(m.head, k, 0f, neckY, neckZ, 1.5f + shakeP, 0f, shakeZ);
+		m.hat.copyFrom(m.head);
+		ease(m.rightArm, k, -5f, shoulderY, shoulderZ, arm, 0f, 0.06f);
+		ease(m.leftArm, k, 5f, shoulderY, shoulderZ, arm, 0f, -0.06f);
+		ease(m.rightLeg, k, -1.9f, hipY, hipZ, rightHanded ? rear : front, 0f, rightHanded ? 0.04f : 0f);
+		ease(m.leftLeg, k, 1.9f, hipY, hipZ, rightHanded ? front : rear, 0f, rightHanded ? 0f : -0.04f);
+	}
+
+	/** Moves {@code part} {@code k} of the way from its current pose to the given one. */
+	private static void ease(net.minecraft.client.model.geom.ModelPart part, float k, float x, float y, float z, float xRot, float yRot, float zRot) {
+		part.x = Mth.lerp(k, part.x, x);
+		part.y = Mth.lerp(k, part.y, y);
+		part.z = Mth.lerp(k, part.z, z);
+		part.xRot = Mth.lerp(k, part.xRot, xRot);
+		part.yRot = Mth.lerp(k, part.yRot, yRot);
+		part.zRot = Mth.lerp(k, part.zRot, zRot);
 	}
 
 	/** {@code R = Rz(z) Ry(y) Rx(x)} applied to (px, py, pz) -- the order {@code ModelPart} rotates in. */

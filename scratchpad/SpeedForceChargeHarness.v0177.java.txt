@@ -1,0 +1,224 @@
+// v0.17.7 Speed Force charge stance: standing, hold-C set position (eased in), trying to walk/strafe/jump while rooted, launch.
+// To use: copy to src/client/java/com/projecthero/mod/client/SpeedForceChargeHarness.java and
+// SpeedForceChargeHarnessCameraMixin.v0177.java.txt to src/client/java/com/projecthero/mod/client/mixin/SpeedForceChargeHarnessCameraMixin.java,
+// add "com.projecthero.mod.client.SpeedForceChargeHarness" to fabric.mod.json client entrypoints and
+// "SpeedForceChargeHarnessCameraMixin" to projecthero.client.mixins.json, write run/sfcharge.flag = <out dir>.
+// Output: <out>/screenshots/*.png stills and <out>/screenshots/film/f###.png. Remove all of it before committing.
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped). */
+public final class SpeedForceChargeHarness implements ClientModInitializer {
+	public static Vec3 camOffset;
+	public static Vec3 camLook = new Vec3(0, 0.4, 0.3);
+	static final Vec3 SIDE = new Vec3(2.5, 0.65, 0.3);
+	static final Vec3 FRONT = new Vec3(0.0, 0.7, 2.7);
+	static final Vec3 THREE_Q = new Vec3(1.9, 1.0, 1.9);
+	private static boolean created, film;
+	private static int wait, t, frame;
+	private static File out;
+	private static Vec3 p0;
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("sfcharge.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			out = new File(Files.readString(flag).trim());
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		new File(out, "screenshots/film").mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(SpeedForceChargeHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(300_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		});
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[SFCHARGE] error " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void grab(Minecraft mc, String name) {
+		Screenshot.grab(out, name, mc.getMainRenderTarget(), m -> {
+		});
+	}
+
+	private static void keys(Minecraft mc, boolean down) {
+		KeyMapping.set(mc.options.keyUp.getDefaultKey(), down);
+		KeyMapping.set(mc.options.keyLeft.getDefaultKey(), down);
+		KeyMapping.set(mc.options.keyJump.getDefaultKey(), down);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			wait++;
+			if (!created && mc.getOverlay() == null && mc.screen instanceof TitleScreen && wait > 40) {
+				created = true;
+				mc.execute(SpeedForceChargeHarness::createWorld);
+			}
+			return;
+		}
+		t++;
+		if (t == 40) {
+			server(mc, p -> {
+				p.setGameMode(GameType.SURVIVAL);
+				System.out.println("[SFCHARGE] grant " + com.projecthero.mod.hero.PowerGrants.grantHero(p, "speed_force_speedster", true).message().getString());
+				p.serverLevel().setDayTime(6000);
+				BlockPos b = p.blockPosition();
+				p.connection.teleport(b.getX() + 0.5, b.getY(), b.getZ() + 0.5, 0f, 0f);
+			});
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			camOffset = SIDE;
+		}
+		if (t == 41) {
+			mc.options.hideGui = true; // stills without the HUD / chat
+		}
+		int u = t - 80; // the timeline below starts once the awakening fanfare is over
+		if (t > 40 && t < 300) {
+			mc.player.setYRot(0f);
+			mc.player.setXRot(10f);
+			mc.player.yBodyRot = 0f;
+			mc.player.yHeadRot = 0f;
+		}
+		if (u == 62) {
+			film = true;
+		}
+		if (u == 70) {
+			film = false;
+			grab(mc, "01_standing_side.png");
+		}
+		if (u == 71) {
+			film = true;
+		}
+		if (u == 78) {
+			server(mc, p -> System.out.println("[SFCHARGE] startCharge=" + com.projecthero.mod.speedforce.SpeedForceAbilities.startCharge(p)));
+		}
+		if (u == 84) {
+			p0 = mc.player.position();
+			keys(mc, true); // walk forward + strafe left + jump, all held through the charge
+		}
+		if (u > 84 && u < 166 && u % 10 == 0) {
+			Vec3 d = mc.player.position().subtract(p0);
+			System.out.println("[SFCHARGE] t=" + t + " rooted=" + com.projecthero.mod.speedforce.SpeedForceSpeedster.chargeRooted(mc.player)
+					+ " drift=" + String.format("%.4f", Math.sqrt(d.x * d.x + d.z * d.z)) + " dy=" + String.format("%.4f", d.y)
+					+ " fwd=" + mc.player.input.forwardImpulse + " jump=" + mc.player.input.jumping);
+		}
+		// the stills, mid-charge (the film pauses for them)
+		if (u == 140) {
+			film = false;
+			grab(mc, "02_charge_side.png");
+		}
+		if (u == 141) {
+			camOffset = FRONT;
+		}
+		if (u == 143) {
+			grab(mc, "03_charge_front.png");
+		}
+		if (u == 144) {
+			camOffset = THREE_Q;
+		}
+		if (u == 146) {
+			grab(mc, "04_charge_three_quarter.png");
+		}
+		if (u == 147) {
+			camOffset = new Vec3(-2.5, 0.65, 0.3);
+		}
+		if (u == 149) {
+			grab(mc, "05_charge_other_side.png");
+		}
+		if (u == 150) {
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.hideGui = false; // hideGui hides the hand too: show the GUI so a hand would show
+			mc.gui.getChat().clearMessages(false);
+		}
+		if (u == 153) {
+			grab(mc, "06_charge_first_person.png");
+		}
+		if (u == 154) {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.hideGui = true;
+			camOffset = SIDE;
+		}
+		if (u == 156) {
+			film = true;
+		}
+		if (u == 166) {
+			Vec3 d = mc.player.position().subtract(p0);
+			System.out.println("[SFCHARGE] before release: drift=" + Math.sqrt(d.x * d.x + d.z * d.z));
+			server(mc, p -> System.out.println("[SFCHARGE] releaseCharge=" + com.projecthero.mod.speedforce.SpeedForceAbilities.releaseCharge(p)));
+			KeyMapping.set(mc.options.keyLeft.getDefaultKey(), false);
+			KeyMapping.set(mc.options.keyJump.getDefaultKey(), false);
+		}
+		if (u == 180) {
+			Vec3 d = mc.player.position().subtract(p0);
+			System.out.println("[SFCHARGE] after release: moved=" + Math.sqrt(d.x * d.x + d.z * d.z));
+		}
+		if (u == 196) {
+			film = false;
+			keys(mc, false);
+		}
+		if (film) {
+			grab(mc, String.format("film/f%03d.png", frame++));
+		}
+		if (u == 215) {
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		rules.getRule(GameRules.RULE_DOMOBSPAWNING).set(false, null);
+		rules.getRule(GameRules.RULE_DAYLIGHT).set(false, null);
+		LevelSettings s = new LevelSettings("SFCHARGE_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false, Difficulty.PEACEFUL, true, rules,
+				WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(s.levelName(), s, new WorldOptions(5L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

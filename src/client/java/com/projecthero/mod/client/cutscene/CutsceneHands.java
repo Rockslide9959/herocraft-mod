@@ -12,7 +12,7 @@ import java.util.function.BooleanSupplier;
  * on screen during every cinematic.
  *
  * <p>Registered: the Shazam journey (every scene, descent to home), the Mjolnir lift, the Galactus raid cinematics, the
- * Omnitrix show sequences. (The Miraculous sequences hide the whole GUI and the Alien X hall forces third person, so their
+ * Omnitrix show sequences, and (not a cutscene, same need) the Speed Force Speedster's hold-C set position. (The Miraculous sequences hide the whole GUI and the Alien X hall forces third person, so their
  * hands were already hidden.)
  */
 public final class CutsceneHands {
