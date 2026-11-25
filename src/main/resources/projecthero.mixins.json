@@ -118,6 +118,7 @@
 		"OmnitrixUpgradeEntityMixin",
 		"OmnitrixPawsMixin",
 		"SpeedForcePhaseCollideMixin",
+		"SpeedPhaseMoveCheckMixin",
 		"SpeedForceMoveCheckMixin",
 		"SpeedsterStepUpMixin",
 		"SuperSpeedPhasePoseMixin",

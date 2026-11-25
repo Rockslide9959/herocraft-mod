@@ -1,0 +1,151 @@
+// v0.17.7 Speed Force phase check: a phasing Speed Force Speedster walks into a 3-thick wall; logs where he ends up.
+// To use: copy to src/client/java/com/projecthero/mod/client/PhaseHarness.java, add "com.projecthero.mod.client.PhaseHarness"
+// to fabric.mod.json client entrypoints, write run/phase.flag = <out dir>. Remove both before committing.
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+
+/** TEMP-HARNESS (not shipped). */
+public final class PhaseHarness implements ClientModInitializer {
+	private static boolean created;
+	private static int wait, t;
+	private static File out;
+	private static double startZ;
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("phase.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			out = new File(Files.readString(flag).trim());
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(PhaseHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(240_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		});
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[PHASE] error " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			wait++;
+			if (!created && mc.getOverlay() == null && mc.screen instanceof TitleScreen && wait > 40) {
+				created = true;
+				mc.execute(PhaseHarness::createWorld);
+			}
+			return;
+		}
+		t++;
+		if (t == 40) {
+			server(mc, p -> {
+				p.setGameMode(GameType.SURVIVAL);
+				System.out.println("[PHASE] grant " + com.projecthero.mod.hero.PowerGrants.grantHero(p, "speed_force_speedster", true).message().getString());
+				BlockPos b = p.blockPosition();
+				for (int x = -3; x <= 3; x++) {
+					for (int y = 0; y <= 3; y++) {
+						for (int z = 4; z <= 6; z++) {
+							p.serverLevel().setBlock(b.offset(x, y, z), Blocks.STONE.defaultBlockState(), 3);
+						}
+						for (int z = -2; z <= 12; z++) {
+							if (z < 4 || z > 6) {
+								p.serverLevel().setBlock(b.offset(x, y, z), Blocks.AIR.defaultBlockState(), 3);
+							}
+						}
+					}
+				}
+				p.connection.teleport(b.getX() + 0.5, b.getY(), b.getZ() + 0.5, 0f, 0f);
+			});
+		}
+		if (t == 70) {
+			server(mc, p -> {
+				startZ = p.getZ();
+				boolean ok = com.projecthero.mod.speedforce.SpeedForceAbilities.startPhase(p);
+				System.out.println("[PHASE] startPhase=" + ok + " meter=" + com.projecthero.mod.speedforce.SpeedForceSpeedster.meter(p) + " z=" + startZ);
+			});
+		}
+		if (t >= 80 && t < 140) {
+			mc.player.setYRot(0f);
+			mc.player.setXRot(0f);
+			KeyMapping.set(mc.options.keyUp.getDefaultKey(), true);
+		}
+		if (t == 100) {
+			Screenshot.grab(out, "phase_mid.png", mc.getMainRenderTarget(), m -> {
+			});
+		}
+		if (t == 140) {
+			KeyMapping.set(mc.options.keyUp.getDefaultKey(), false);
+			server(mc, p -> System.out.println("[PHASE] after walk: phasing=" + com.projecthero.mod.speedforce.SpeedForceSpeedster.phasing(p)
+					+ " z=" + p.getZ() + " moved=" + (p.getZ() - startZ) + " (wall spans +4..+7)"));
+		}
+		if (t == 150) {
+			server(mc, com.projecthero.mod.speedforce.SpeedForceAbilities::endPhase);
+		}
+		if (t == 160) {
+			Screenshot.grab(out, "phase_after.png", mc.getMainRenderTarget(), m -> {
+			});
+			server(mc, p -> System.out.println("[PHASE] final z=" + p.getZ() + " moved=" + (p.getZ() - startZ)));
+		}
+		if (t == 175) {
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		rules.getRule(GameRules.RULE_DOMOBSPAWNING).set(false, null);
+		LevelSettings s = new LevelSettings("PHASE_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false, Difficulty.PEACEFUL, true, rules,
+				WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(s.levelName(), s, new WorldOptions(5L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}
