@@ -95,6 +95,10 @@ public abstract class PlayerRendererHandMixin {
 		if ("punisher".equals(piece.armorSetId())) {
 			return;
 		}
+		// v0.17.7: Thor's Armour is only a helmet and a cape now -- the bare arm shows
+		if (piece instanceof com.projecthero.mod.thorarmor.ThorArmorItem) {
+			return;
+		}
 		PlayerModel<AbstractClientPlayer> model = ((PlayerRenderer) (Object) this).getModel();
 		boolean rightArm = arm == model.rightArm;
 		if (piece instanceof com.projecthero.mod.maxsteel.item.MaxSteelArmorItem) {

@@ -80,6 +80,15 @@ public final class HeroTiers {
 				|| com.projecthero.mod.omnitrix.Omnitrix.hasPower(player); // v0.17.1: the Omnitrix
 	}
 
+	/**
+	 * v0.17.7 (user: the Mjolnir and Green Lantern trials need you "to be unpowered in order to do the trial cos doing it with powers
+	 * would make it too easy"): any power at all -- a Hero-Tier power, an experimental mutation or a bonded Symbiote. Gear that anyone
+	 * can use (Iron Man suits, Power Armour, the Falcon wings, guns, artifacts) is not a power.
+	 */
+	public static boolean hasAnyPower(ServerPlayer player) {
+		return hasHeroTier(player) || hasExperimental(player) || com.projecthero.mod.symbiote.Symbiote.hasSymbiote(player);
+	}
+
 	/** How many Hero-Tier (non-experimental) Primary powers the player holds. */
 	public static int heroCount(ServerPlayer player) {
 		int n = 0;

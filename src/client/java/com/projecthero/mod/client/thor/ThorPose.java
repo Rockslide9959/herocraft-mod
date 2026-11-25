@@ -92,7 +92,7 @@ public final class ThorPose {
 	private static final float[][] SUIT = {
 			rest(0),
 			f(4, -3.05f, 0.1f, 0.12f, -0.25f, 0, -0.6f, -0.1f, 0, 0, 0, -0.4f, 1),
-			f(28, -3.05f, 0.1f, 0.12f, -0.25f, 0, -0.65f, -0.1f, 0, 0, 0, -0.4f, 1),
+			f(ThorArmor.FINAL_BOLT_TICK, -3.05f, 0.1f, 0.12f, -0.25f, 0, -0.65f, -0.1f, 0, 0, 0, -0.4f, 1), // v0.17.7: held to the last bolt
 			rest(ThorArmor.SUIT_UP_TICKS) };
 
 	/** Per player (entity id): {grip, arm override weight} from the last pose, read by the held-item layer. */

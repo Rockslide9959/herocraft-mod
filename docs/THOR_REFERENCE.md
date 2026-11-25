@@ -172,6 +172,43 @@ Config `config/projecthero_thor.json` (`power/ThorConfig`, versioned, sections `
   so grain / wraps / brushing run continuously across the stepped boxes. Textures now 32x32 (new
   `stormbreaker_bevel`). Same bounding convention and display transforms as before; `stormbreaker_thrown.json` is the
   same geometry unrotated. A pinned (Thunder Field) axe renders blade-first in the ground (`PINNED_LIFT` 0.66).
+  **Superseded in v0.17.7, see "v0.17.7: Mjolnir and Stormbreaker models" below.**
+
+### v0.17.7: Mjolnir and Stormbreaker models
+Screens and films: `docs/screenshots/v0177/thor_weapons/`. Offline previewer (textured rasteriser, gui / fixed views):
+`node scratchpad/preview_thor_weapons_v0177.js <out.png> mjolnir stormbreaker ...`. Client harness:
+`scratchpad/ThorWeaponsHarness.v0177.java.txt`.
+- **Mjolnir** -- new generator `scratchpad/gen_v0177_mjolnir_assets.js` (the old model was a hand-fitted Blockbench
+  export with no generator). 17 boxes: a 9 x 4.5 x 4.5 head with every edge chamfered in two steps (four boxes: 0.75
+  cut + 0.5 rounding step, the steps on the bright `mjolnir_bevel`), Celtic-knot side panels (a closed two-strand
+  figure-eight interlace with over-under, in a recessed frame), framed striking faces, a plain brushed top; stepped
+  collar, leather spiral grip between two Uru bands, chamfered pommel, eyelet and a leather wrist-strap loop hanging to
+  y -2.25. Textures 64x64 at 4 texels per model pixel: `mjolnir_head` (face atlas), `mjolnir_metal`, `mjolnir_leather`
+  (regenerated, same paths) and new `mjolnir_bevel` / `mjolnir_strap` (16x16). Bounding convention kept (x/z centred on
+  8, head top y 14.375), so `MjolnirEntityRenderer.UPRIGHT_LIFT` and the hand transforms are unchanged (same grip);
+  gui / fixed are now fitted to the slot / frame by the generator (it used to sit small in both).
+- **Stormbreaker** -- same generator, rebuilt: 63 boxes, **24 px long = 1.5 blocks** (y 0..24; elements run past the
+  16 px box, Minecraft allows -16..32). A faceted crescent blade whose every outline segment is a straight element at a
+  multiple of 22.5 degrees (honed edge 0.4 wide / ground bevel 0.8 / dark body, each thinner than the next so the edge
+  is a crisp bright step), horn swept up, beard hooked down along the haft, lit rims along the back edges, a rune strip;
+  a chamfered head with a rune band and branch-end crown, a stepped poll (root, waisted neck, block, polished face); a
+  long Groot-branch haft (knots, a vine), a leather grip y 6..12 between two ties, bare branch below it, ferrule + cap.
+  Held model: each facet's own rotation is composed with the -45 degree icon bake into one rotation about a new origin
+  (`place()`); totals outside -45..45 are brought in by turning the box a quarter turn exactly. UVs block-projected with
+  v wrapped every 16 px (tiling textures). Textures 64x64; new `stormbreaker_blade` (the darker flat of the blade).
+- **Size / grip.** Third person scale 1.0 = true size. Per the user, it is held like a greataxe: the fist sits at
+  **y 9 of 24 px from the pommel** (it was y 4.2, the very end), the end of the haft sticking out below the fist --
+  third person translation [0,-0.69,1.83] (the vanilla-style [0,4,1] slid 4.77 px down the baked handle axis), first
+  person [0,-1.0,-4.3] at 0.72. Rotations are still vanilla `item/handheld`, so `ItemInHandLayerMixin`'s move-pose
+  re-grip (-90 about the hand's X) still turns it about the fist. Mjolnir's grip is unchanged (fist at y ~4.2 of its
+  0.5..14.4 handle, on the leather).
+- **Entity renderer** (`StormbreakerEntityRenderer`): `stormbreaker_thrown.json` FIXED scale 1.0 (was 1.15) so the
+  flying / resting / pinned axe is 1.5 blocks too; `FIXED_SCALE` constant, `FLAT_LIFT` from the 1.5 px half-thickness
+  of the rune band, `FLAT_CENTRE` from y 12; new `SPIN_PIVOT` -- the tumble turns about model y 15 (the balance point
+  under the head) instead of y 8. Pinned: measured from the ground found under the axe on the client (`groundY`),
+  `PINNED_LIFT` 0.75 -- the client's copy of a just-pinned axe was seen 0.33..0.94 blocks inside the ground (it flies
+  on until the next position sync; the entity type syncs at `trackedUpdateRate(20)`), which buried the new head.
+- Not changed: the entity hitbox (0.6 x 0.6), `ThorFxRenderer`'s approximate raised-weapon points.
 
 ### HUD -- `client/gui/ThorHud.renderStatusRow`
 - Above the keys: 4 combo pips while dual wielding (gold up to the landed step; grey + seconds while Twin Thunder
@@ -225,7 +262,7 @@ Config `config/projecthero_thor.json` (`power/ThorConfig`, versioned, sections `
   before registering (as before); R (`MjolnirRecall.answerLoaded`) calls `recall` on the resting entity itself, which
   clears resting and flies the same entity home.
 - Render (`StormbreakerEntityRenderer`): resting = lying flat on its side along the landing yaw (model +Y along the yaw,
-  blade face up, lifted by half the model's 2.8 px thickness at the 1.15 FIXED scale).
+  blade face up, lifted by half the model's 2.8 px thickness at the 1.15 FIXED scale; v0.17.7: 3 px at 1.0).
 - Tests: `ThorWeaponSelectV0153GameTests` (toggle default/persist/validation; inactive never called even when closer;
   inactive only-bound weapon stays put; both inactive -> nothing; Q-drop becomes the entity, registry RESTING, unworthy
   can't lift, save/load, worthy can; dropped axe recalled home as the same entity; ghost resting axe deletes itself).
@@ -296,16 +333,22 @@ and only on change (the per-tick channel calls are free on the wire).
 ### Thor's Armour suit-up -- `thorarmor/ThorArmor`, client `thor/ThorSuitReveal`
 - H equips all three pieces on the first tick (the protection is instant and nothing can be interrupted), and starts
   the `SUIT_UP` clock *before* equipping so no viewer sees a frame of the full set.
-- The look is piece by piece over `SUIT_UP_TICKS` (36): boots 0-12, greaves 10-24, chestplate+cape 22-36
-  (`ThorArmor.pieceProgress`). Each piece sweeps up the body (`ArmorSweepReveal` now takes a `Sweep`: bone filter,
-  bottom-up, edge + trail colours; per-piece frames are cached per bone set) with a white-hot edge row and an
-  electric-blue trail row. The boots get the vanilla visual bolt; the greaves and chest get a sparks+flash+sound burst
-  server-side (`pieceArrives`) and a client bolt from the sky (`ThorFxRenderer.suitBolts`).
-- H again starts `SUIT_DOWN` (14 ticks, chest -> greaves -> boots dissolve); `ThorArmor.tick` strips the pieces when it
+- v0.17.7 look: only the **winged helmet** and the **red cape**; the wearer's own skin shows. `textures/armor/thor.png` keeps
+  only the helmet texels of the PlanetMinecraft "Thor | Avengers" skin (https://www.planetminecraft.com/skin/thor-avengers-6321094/,
+  built by `scratchpad/v0177/make_thor_skin.js`, original download beside it). `SuperheroArmorRenderer.applyBoneVisibilityBySlot`
+  shows only `armorHead`, on the chestplate's pass, and only while the HEAD slot is empty; greaves/boots draw nothing and
+  `PlayerRendererHandMixin` skips the first-person sleeve. Stats unchanged (chest+legs+boots = 15). Cape: `ThorCapeLayer`
+  (shared `FlowingCapeLayer`), `textures/entity/thor_cape.png` in the skin's cape reds.
+- Timeline (`ThorArmor.partProgress`, parts `PART_HELMET` / `PART_CAPE`): `SUIT_UP_TICKS` 52 -- helmet 6-26 (`ArmorSweepReveal`
+  sweep over `armorHead`), cape 22-44 (unrolls from the collar via `unfurl`). Visual-only vanilla bolts round the wearer at
+  ticks 6/12/18/24/30/36 (plus the opening bolt at 0), a rising crackle every 3 ticks, a clink (`pieceArrives`) as each part
+  locks on, and the final bolt + flash + layered thunder at `FINAL_BOLT_TICK` 46. The client also draws a sky bolt at each
+  part's start (`ThorFxRenderer.suitBolts` via `arrivalTick`).
+- H again starts `SUIT_DOWN` (18 ticks: cape 0-12, helmet 4-16, the build reversed); `ThorArmor.tick` strips the pieces when it
   ends and clears the clock 20 ticks later (clearing at once could flash the suit back on for a frame).
 - Toggle debounce: `SUIT_UP_TICKS + 4` after summoning, 20 after dismissing. Death / the once-a-second audit still
   strip instantly.
-- Hooked in `SuperheroArmorRenderer#getRenderType` by `getCurrentSlot()`.
+- Hooked in `SuperheroArmorRenderer#getRenderType` (`ThorSuitReveal.helmetTexture`).
 
 ### Move animations -- client `thor/ThorPose`
 Hooked as its own `HumanoidModelMixin` TAIL injection declared **after** the flight pose, so a move made mid-flight

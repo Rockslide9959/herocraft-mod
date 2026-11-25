@@ -564,6 +564,17 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 			}
 		}
 
+		// v0.17.7 (user: "for the thor armour remove the skin from it so players can see their skin underneath and keep the helmet"):
+		// Thor's Armour draws only its winged helmet -- on the chestplate's pass (there is no helmet piece, so the armour value is
+		// unchanged), and only while nothing else is worn on the head. The greaves and boots draw nothing; the cape is ThorCapeLayer.
+		if (getAnimatable() instanceof com.projecthero.mod.thorarmor.ThorArmorItem) {
+			setAllBonesVisible(false);
+			if (slot == EquipmentSlot.CHEST && getCurrentEntity() instanceof net.minecraft.world.entity.LivingEntity wearer
+					&& wearer.getItemBySlot(EquipmentSlot.HEAD).isEmpty()) {
+				setBoneVisible(this.head, true);
+			}
+		}
+
 		// Max Steel (v0.14.2) and the Symbiote no longer hide whole bones -- their suits materialise pixel by pixel in
 		// the texture instead, see getRenderType below (MaxSteelNano / SymbioteDissolve).
 		// Symbiote: v0.13.19 no longer hides whole bones -- the suit materialises pixel by pixel instead, see
@@ -619,9 +630,9 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 		if (getCurrentEntity() instanceof Player gl && animatable instanceof com.projecthero.mod.greenlantern.item.GreenLanternArmorItem) {
 			texture = com.projecthero.mod.client.greenlantern.GreenLanternSuitReveal.texture(gl, texture, partialTick);
 		}
-		// v0.14.4: Thor's Armour forms piece by piece (boots -> greaves -> chest), each sweeping up from a lightning edge
+		// v0.14.4: Thor's Armour forms on the suit clock; v0.17.7 only its helmet is drawn, built onto the head pixel by pixel
 		if (getCurrentEntity() instanceof Player th && animatable instanceof com.projecthero.mod.thorarmor.ThorArmorItem) {
-			texture = com.projecthero.mod.client.thor.ThorSuitReveal.texture(th, getCurrentSlot(), texture, partialTick);
+			texture = com.projecthero.mod.client.thor.ThorSuitReveal.helmetTexture(th, texture, partialTick);
 		}
 		// v0.14.21: an Iron Man piece builds on plate by plate as it locks on (and breaks away coming off)
 		if (getCurrentEntity() instanceof Player im && animatable instanceof com.projecthero.mod.ironman.item.IronManArmorItem ima) {

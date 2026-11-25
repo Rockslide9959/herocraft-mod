@@ -153,6 +153,11 @@ public final class GreenLanternTrial {
 			player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.already_bonded"), true);
 			return false;
 		}
+		// v0.17.7 (user): the Will Trial is faced without powers -- with them it would be too easy. Refused before anything is taken.
+		if (com.projecthero.mod.hero.HeroTiers.hasAnyPower(player)) {
+			player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.trial_powered"), true);
+			return false;
+		}
 		// v0.16.1: projectheroUniquePowers -- no trial (and no levels taken) while someone else wears the ring
 		if (com.projecthero.mod.hero.UniquePowers.refuse(player, "green_lantern")) {
 			return false;
@@ -378,6 +383,12 @@ public final class GreenLanternTrial {
 			}
 			if (!player.isAlive()) {
 				fail(entry.getKey(), trial, "message.projecthero.green_lantern.trial_failed_death");
+				it.remove();
+				continue;
+			}
+			if (com.projecthero.mod.hero.HeroTiers.hasAnyPower(player)) {
+				// v0.17.7: gained a power mid-trial (a serum, a pod...): the trial is lost
+				fail(entry.getKey(), trial, "message.projecthero.green_lantern.trial_failed_powered");
 				it.remove();
 				continue;
 			}

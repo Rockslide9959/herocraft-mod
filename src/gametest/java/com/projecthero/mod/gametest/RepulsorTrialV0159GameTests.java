@@ -289,5 +289,19 @@ public class RepulsorTrialV0159GameTests implements FabricGameTest {
 			GreenLanternTrial.release(other);
 		}
 
+		// v0.17.7 (user): the Will Trial is faced without powers -- a powered player is refused and keeps every level
+		ServerPlayer powered = h.makeMockServerPlayerInLevel();
+		powered.setGameMode(GameType.SURVIVAL);
+		BlockPos third = h.absolutePos(new BlockPos(3, 1, 3));
+		try {
+			com.projecthero.mod.supersoldier.SuperSoldier.grant(powered);
+			h.assertTrue(com.projecthero.mod.hero.HeroTiers.hasAnyPower(powered), "a Super Soldier has a power");
+			powered.giveExperienceLevels(30);
+			h.assertFalse(GreenLanternTrial.admit(powered, third, false), "a powered player is refused");
+			h.assertTrue(powered.experienceLevel == 30, "and keeps every level");
+		} finally {
+			GreenLanternTrial.release(third);
+		}
+
 	}
 }

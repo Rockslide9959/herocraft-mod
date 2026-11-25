@@ -26,16 +26,32 @@ import net.minecraft.world.item.ItemStack;
 public final class StormbreakerEntityRenderer extends EntityRenderer<StormbreakerEntity> {
 	/** Degrees of tumble per tick -- a little over two full turns a second. */
 	private static final float SPIN_DEGREES_PER_TICK = 40.0f;
-	/** v0.16.1: a pinned axe's centre this high above the ground (the head sunk into it), and its lean. */
-	private static final float PINNED_LIFT = 0.66f;
+	/**
+	 * v0.17.7: {@code stormbreaker_thrown.json}'s FIXED display scale. The model is 24 px long (y 0..24), so at 1.0 the
+	 * flying / resting / pinned axe is 1.5 blocks, like the held one. Every offset below is derived from it.
+	 */
+	private static final float FIXED_SCALE = 1.0f;
+	/**
+	 * v0.16.1: a pinned axe's centre this high above the ground, and its lean. v0.17.7: measured from the ground found
+	 * under the axe on the client ({@link #groundY}), not from the entity's y -- the client's copy of a just-pinned axe
+	 * can sit up to a block inside the ground (it flew on until the next position sync), which buried the head. The head
+	 * (model y 13.8..24) points down, its lowest point 16 px below the model centre (0.97 blocks with the lean), so about
+	 * a third of the blade is sunk.
+	 */
+	private static final float PINNED_LIFT = 0.75f;
 	private static final float PINNED_TILT = 14.0f;
 	/**
-	 * v0.15.3: lying flat, the model's thin Z extent (6.6..9.4 px, centred on 8) is what stands off the ground: lift by
-	 * half of it at the FIXED display scale (1.15, {@code stormbreaker_thrown.json}) so it sits on the floor.
+	 * v0.15.3: lying flat, the model's thin Z extent is what stands off the ground: lift by half of it (v0.17.7: the rune
+	 * band, 6.5..9.5 px, centred on 8) at the FIXED display scale so it sits on the floor.
 	 */
-	private static final float FLAT_LIFT = 1.4f / 16.0f * 1.15f + 0.005f;
-	/** v0.15.3: the model's handle-to-head centre sits at y 7.44 px, so the axe is slid back this far to centre it on the entity. */
-	private static final float FLAT_CENTRE = (7.4375f - 8.0f) / 16.0f * 1.15f;
+	private static final float FLAT_LIFT = 1.5f / 16.0f * FIXED_SCALE + 0.005f;
+	/** v0.15.3: slid back along its length so its middle (v0.17.7: y 12 of 0..24) sits on the entity. */
+	private static final float FLAT_CENTRE = (12.0f - 8.0f) / 16.0f * FIXED_SCALE;
+	/**
+	 * v0.17.7: the tumble turns about this point of the axe (model y 15, where the haft meets the heavy head) instead of
+	 * the model's y 8 -- a thrown axe spins round its balance point, and y 8 is a third of the way up the long haft.
+	 */
+	private static final float SPIN_PIVOT = (15.0f - 8.0f) / 16.0f * FIXED_SCALE;
 
 	private final ItemRenderer itemRenderer;
 	private final ItemStack modelStack;
@@ -65,7 +81,8 @@ public final class StormbreakerEntityRenderer extends EntityRenderer<Stormbreake
 		}
 		if (entity.isPinned()) {
 			// v0.16.1 Thunder Field: driven blade-first into the ground, the haft standing up out of it, a little tilted
-			poseStack.translate(0.0f, PINNED_LIFT, 0.0f);
+			double renderY = Mth.lerp(partialTicks, entity.yOld, entity.getY());
+			poseStack.translate(0.0f, (float) (groundY(entity, renderY) - renderY) + PINNED_LIFT, 0.0f);
 			poseStack.mulPose(Axis.YP.rotationDegrees(-entity.getYRot()));
 			poseStack.mulPose(Axis.XP.rotationDegrees(PINNED_TILT));
 			poseStack.mulPose(Axis.ZP.rotationDegrees(180.0f));
@@ -87,10 +104,28 @@ public final class StormbreakerEntityRenderer extends EntityRenderer<Stormbreake
 		float spin = (entity.tickCount + partialTicks) * SPIN_DEGREES_PER_TICK;
 		poseStack.mulPose(Axis.XP.rotationDegrees(90.0f + spin));
 		poseStack.mulPose(Axis.YP.rotationDegrees(90.0f));
+		poseStack.translate(0.0f, -SPIN_PIVOT, 0.0f);
 		itemRenderer.renderStatic(this.modelStack, ItemDisplayContext.FIXED, packedLight, OverlayTexture.NO_OVERLAY,
 				poseStack, buffer, entity.level(), entity.getId());
 		poseStack.popPose();
 		super.render(entity, entityYaw, partialTicks, poseStack, buffer, packedLight);
+	}
+
+	/**
+	 * v0.17.7: the top of the ground under a pinned axe -- the first air block with a solid one under it, scanning down
+	 * from two blocks above the axe (it may be drawn inside the ground). Falls back to the axe's own y.
+	 */
+	private static double groundY(StormbreakerEntity entity, double y) {
+		net.minecraft.core.BlockPos.MutableBlockPos m = net.minecraft.core.BlockPos.containing(entity.getX(), y + 2.0, entity.getZ()).mutable();
+		for (int i = 0; i < 6; i++) {
+			net.minecraft.core.BlockPos below = m.below();
+			if (!entity.level().getBlockState(below).getCollisionShape(entity.level(), below).isEmpty()
+					&& entity.level().getBlockState(m).getCollisionShape(entity.level(), m).isEmpty()) {
+				return m.getY();
+			}
+			m.move(0, -1, 0);
+		}
+		return y;
 	}
 
 	@Override
