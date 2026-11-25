@@ -12,6 +12,8 @@ import net.minecraft.resources.ResourceLocation;
  *   <li>v0.15.6: the roman-numeral Iron Man armour ids ({@link IronManItems#legacyId});</li>
  *   <li>v0.17.7: {@code superman_suit_boots} -- the Superman Suit's boots became part of its leggings, so an old pair loads as
  *       a pair of Superman Suit leggings ({@code SupermanSuit.fixMisplacedPieces} moves one still worn in the feet slot).</li>
+ *   <li>v0.17.7: {@code stormwarden} / {@code stormwarden_spawn_egg} -- the Trial of Asgard's guardian became the Destroyer
+ *       (an entity id: the mixin covers every {@code MappedRegistry}, so a saved Stormwarden loads as a Destroyer).</li>
  * </ul>
  * Kept free of item / class references beyond plain ids: it is first touched from inside vanilla's registry bootstrap.
  */
@@ -20,6 +22,11 @@ public final class LegacyItemIds {
 	/** v0.17.7: the removed Superman Suit boots (the id {@code SupermanSuit.LEGACY_BOOTS_ID}). */
 	private static final String SUPERMAN_BOOTS = "superman_suit_boots";
 	private static final String SUPERMAN_LEGGINGS = "superman_suit_leggings";
+	/** v0.17.7: the Trial of Asgard's guardian became the Destroyer -- its entity id and its spawn egg's. */
+	private static final String STORMWARDEN = "stormwarden";
+	private static final String DESTROYER = "destroyer";
+	private static final String STORMWARDEN_EGG = "stormwarden_spawn_egg";
+	private static final String DESTROYER_EGG = "destroyer_spawn_egg";
 
 	private LegacyItemIds() {
 	}
@@ -31,6 +38,12 @@ public final class LegacyItemIds {
 		}
 		if (SUPERMAN_BOOTS.equals(id.getPath())) {
 			return ResourceLocation.fromNamespaceAndPath(NAMESPACE, SUPERMAN_LEGGINGS);
+		}
+		if (STORMWARDEN.equals(id.getPath())) {
+			return ResourceLocation.fromNamespaceAndPath(NAMESPACE, DESTROYER);
+		}
+		if (STORMWARDEN_EGG.equals(id.getPath())) {
+			return ResourceLocation.fromNamespaceAndPath(NAMESPACE, DESTROYER_EGG);
 		}
 		return IronManItems.legacyId(id);
 	}

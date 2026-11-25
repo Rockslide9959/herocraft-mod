@@ -14,7 +14,7 @@ import com.projecthero.mod.thoracquire.ThorAcquire;
 import com.projecthero.mod.thoracquire.ThorAcquireAttachments;
 import com.projecthero.mod.thoracquire.TrialOfAsgard;
 import com.projecthero.mod.thoracquire.Valor;
-import com.projecthero.mod.thoracquire.entity.StormwardenBoss;
+import com.projecthero.mod.thoracquire.entity.DestroyerBoss;
 import com.projecthero.mod.thoracquire.forge.StarForge;
 import com.projecthero.mod.thoracquire.forge.StarForgeBlockEntity;
 import com.projecthero.mod.worldgen.CraterAmbience;
@@ -49,8 +49,8 @@ import net.minecraft.world.phys.Vec3;
 /**
  * v0.17.7: how players get Thor and Stormbreaker -- Valor (every source, saved, copied on death, nothing while powered), the
  * lift gate (unworthy / no storm / trial / lift + bind), the Trial of Asgard (unpowered only, a win lets you lift, a loss blocks
- * the rest of the storm, gaining a power mid-fight fails it, the Stormwarden's threat table), Mjolnir's Crater (the plinth and
- * hammer, the protection), the Star Forge (the ring, the 10 s channel and breaking it, finishing), the Living Branch and old
+ * the rest of the storm, gaining a power mid-fight fails it, the Destroyer's threat table, its Disintegration Beam, the old
+ * Stormwarden id loading as the Destroyer), Mjolnir's Crater (the plinth and hammer, the protection), the Star Forge (the ring, the 10 s channel and breaking it, finishing), the Living Branch and old
  * Unforged Stormbreakers.
  *
  * <p>The weather is forced through {@link Storms#forced} (a shared static), so the storm-on and storm-off tests run in batches
@@ -84,15 +84,15 @@ public class ThorAcquireV0177GameTests implements FabricGameTest {
 		return m;
 	}
 
-	/** The Stormwarden of {@code p}'s running trial (by its UUID: neighbouring tests' trials are close by). */
-	private static StormwardenBoss guardian(GameTestHelper helper, ServerPlayer p) {
+	/** The Destroyer of {@code p}'s running trial (by its UUID: neighbouring tests' trials are close by). */
+	private static DestroyerBoss guardian(GameTestHelper helper, ServerPlayer p) {
 		TrialOfAsgard.Trial t = TrialOfAsgard.running(p.getUUID());
-		return t == null || t.boss == null ? null : helper.getLevel().getEntity(t.boss) instanceof StormwardenBoss b ? b : null;
+		return t == null || t.boss == null ? null : helper.getLevel().getEntity(t.boss) instanceof DestroyerBoss b ? b : null;
 	}
 
 	private static void clearWorldStuff(GameTestHelper helper) {
 		AABB box = helper.getBounds().inflate(1);
-		for (var e : helper.getLevel().getEntitiesOfClass(StormwardenBoss.class, box)) {
+		for (var e : helper.getLevel().getEntitiesOfClass(DestroyerBoss.class, box)) {
 			e.discard();
 		}
 		for (var e : helper.getLevel().getEntitiesOfClass(MjolnirEntity.class, box)) {
@@ -233,8 +233,8 @@ public class ThorAcquireV0177GameTests implements FabricGameTest {
 		helper.assertFalse(Worthiness.isWorthy(p) || m.isRemoved(), "nothing is bound and the hammer stays put");
 		helper.assertTrue(TrialOfAsgard.running(p.getUUID()) != null, "a trial is running for the player");
 		helper.runAfterDelay(TrialOfAsgard.INTRO_TICKS + 6, () -> {
-			StormwardenBoss boss = guardian(helper, p);
-			helper.assertTrue(boss != null && boss.isAlive(), "the Stormwarden formed");
+			DestroyerBoss boss = guardian(helper, p);
+			helper.assertTrue(boss != null && boss.isAlive(), "the Destroyer landed");
 			helper.assertTrue(boss.trialBound() && TrialOfAsgard.owns(boss), "bound to the trial");
 			TrialOfAsgard.loseForTest(helper.getLevel(), p, "fled");
 			clearWorldStuff(helper);
@@ -251,8 +251,8 @@ public class ThorAcquireV0177GameTests implements FabricGameTest {
 		Valor.set(p, Valor.MAX);
 		helper.assertTrue(MjolnirLift.tryLift(p, m) == MjolnirLift.Result.TRIAL_STARTED, "the trial starts");
 		helper.runAfterDelay(TrialOfAsgard.INTRO_TICKS + 6, () -> {
-			StormwardenBoss boss = guardian(helper, p);
-			helper.assertTrue(boss != null, "the Stormwarden formed");
+			DestroyerBoss boss = guardian(helper, p);
+			helper.assertTrue(boss != null, "the Destroyer landed");
 			boss.kill();
 		});
 		helper.runAfterDelay(TrialOfAsgard.INTRO_TICKS + 10, () -> {
@@ -314,8 +314,8 @@ public class ThorAcquireV0177GameTests implements FabricGameTest {
 		helper.assertTrue(MjolnirLift.tryLift(p, m) == MjolnirLift.Result.TRIAL_STARTED, "the trial starts");
 		java.util.UUID[] bossId = new java.util.UUID[1];
 		helper.runAfterDelay(TrialOfAsgard.INTRO_TICKS + 6, () -> {
-			StormwardenBoss boss = guardian(helper, p);
-			helper.assertTrue(boss != null, "the Stormwarden formed");
+			DestroyerBoss boss = guardian(helper, p);
+			helper.assertTrue(boss != null, "the Destroyer landed");
 			bossId[0] = boss.getUUID();
 			helper.assertTrue(com.projecthero.mod.hulk.Hulk.grant(p), "a serum mid-fight");
 		});
@@ -323,7 +323,7 @@ public class ThorAcquireV0177GameTests implements FabricGameTest {
 			helper.assertTrue(TrialOfAsgard.running(p.getUUID()) == null, "the trial ended");
 			long storm = Storms.current(helper.getLevel().getServer());
 			helper.assertTrue(p.getAttachedOrElse(ThorAcquireAttachments.TRIAL_FAILED_STORM, -1L) == storm, "as a loss");
-			helper.assertTrue(helper.getLevel().getEntity(bossId[0]) == null, "the Stormwarden dissipated");
+			helper.assertTrue(helper.getLevel().getEntity(bossId[0]) == null, "the Destroyer dissipated");
 			helper.assertFalse(m.isRemoved(), "the hammer stays");
 			clearWorldStuff(helper);
 			leave(helper, p);
@@ -332,9 +332,9 @@ public class ThorAcquireV0177GameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, batch = STORM_OFF)
-	public void theStormwardenUsesTheThreatTable(GameTestHelper helper) {
+	public void theDestroyerUsesTheThreatTable(GameTestHelper helper) {
 		helper.getLevel().getServer().setDifficulty(Difficulty.NORMAL, true);
-		StormwardenBoss boss = helper.spawn(ThorAcquire.STORMWARDEN, new BlockPos(4, 2, 4));
+		DestroyerBoss boss = helper.spawn(ThorAcquire.DESTROYER, new BlockPos(4, 2, 4));
 		ServerPlayer a = player(helper, new Vec3(1.5, 2, 1.5));
 		ServerPlayer b = player(helper, new Vec3(6.5, 2, 6.5));
 		boss.hurt(helper.getLevel().damageSources().playerAttack(a), 6f);
@@ -352,12 +352,93 @@ public class ThorAcquireV0177GameTests implements FabricGameTest {
 		float hp = boss.getHealth();
 		boss.invulnerableTime = 0;
 		var src = helper.getLevel().damageSources().playerAttack(c);
-		helper.assertFalse(StormwardenBoss.countsAgainst(src), "a powered player's hit does not count");
+		helper.assertFalse(DestroyerBoss.countsAgainst(src), "a powered player's hit does not count");
 		boolean landed = boss.hurt(src, 20f);
 		helper.assertFalse(landed, "hurt refuses it");
 		helper.assertTrue(boss.getHealth() == hp && boss.threat().threatOf(c) == 0f, "borrowed power can't hurt it: no damage, no threat (" + hp + " -> " + boss.getHealth() + ")");
 		boss.discard();
 		leave(helper, a, b, c);
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, batch = STORM_OFF, timeoutTicks = 220)
+	public void theDisintegrationBeamBurnsWhoeverIsInItAndPoweredHitsStillDoNothing(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		level.getServer().setDifficulty(Difficulty.NORMAL, true);
+		DestroyerBoss boss = helper.spawn(ThorAcquire.DESTROYER, new BlockPos(1, 2, 4));
+		ServerPlayer p = player(helper, new Vec3(6.5, 2, 4.5));
+		p.getAttribute(Attributes.MAX_HEALTH).setBaseValue(400.0);
+		p.setHealth(400f);
+		try {
+			// a fresh mock player shrugs off everything for 60 ticks (spawn protection): not what this test is about
+			java.lang.reflect.Field f = ServerPlayer.class.getDeclaredField("spawnInvulnerableTime");
+			f.setAccessible(true);
+			f.setInt(p, 0);
+		} catch (ReflectiveOperationException e) {
+			throw new IllegalStateException(e);
+		}
+		boss.setTarget(p);
+		boss.startBeam();
+		helper.assertTrue(boss.move() == DestroyerBoss.MOVE_BEAM && !boss.beamOn(), "the beam winds up first (the faceplate opens)");
+		// every tick: when did a hit land, and was the beam live
+		List<Integer> hitTicks = new java.util.ArrayList<>();
+		int[] seen = { 0 };
+		boolean[] wasOn = { false };
+		int sweepEnd = DestroyerBoss.BEAM_WINDUP + DestroyerBoss.BEAM_SWEEP;
+		for (int i = 1; i <= sweepEnd + 2; i++) {
+			final int tick = i;
+			helper.runAfterDelay(i, () -> {
+				if (boss.beamOn()) {
+					wasOn[0] = true;
+				}
+				if (boss.beamHits() > seen[0]) {
+					seen[0] = boss.beamHits();
+					hitTicks.add(tick);
+				}
+				if (tick < DestroyerBoss.BEAM_WINDUP - 1) {
+					helper.assertTrue(p.getHealth() == 400f, "nothing hurts during the wind-up, got " + p.getHealth() + " at " + tick);
+				}
+			});
+		}
+		helper.runAfterDelay(sweepEnd + 4, () -> {
+			helper.assertTrue(wasOn[0], "the beam fired");
+			helper.assertTrue(hitTicks.size() >= 2, "the sweep crossed the player and burned them more than once, hits at " + hitTicks);
+			for (int k = 1; k < hitTicks.size(); k++) {
+				int step = hitTicks.get(k) - hitTicks.get(k - 1);
+				helper.assertTrue(step == DestroyerBoss.BEAM_HIT_EVERY, "a hit every " + DestroyerBoss.BEAM_HIT_EVERY + " ticks while in it, got steps of " + step + " (" + hitTicks + ")");
+			}
+			helper.assertTrue(p.getHealth() <= 400f - 2 * DestroyerBoss.BEAM_DAMAGE + 0.01f, "about 10 a hit, health " + p.getHealth());
+			helper.assertTrue(boss.scorchCount() > 0, "it scorched the ground it crossed");
+			// no block damage: no fire blocks, the floor intact
+			AABB box = helper.getBounds();
+			for (BlockPos q : BlockPos.betweenClosed((int) box.minX, (int) box.minY, (int) box.minZ, (int) box.maxX, (int) box.maxY, (int) box.maxZ)) {
+				helper.assertFalse(level.getBlockState(q).is(Blocks.FIRE), "the beam set no real fire at " + q);
+			}
+			// a powered player's hit still does nothing; an unpowered one's lands
+			ServerPlayer c = player(helper, new Vec3(4.5, 2, 1.5));
+			helper.assertTrue(com.projecthero.mod.hulk.Hulk.grant(c), "C is powered");
+			float hp = boss.getHealth();
+			boss.invulnerableTime = 0;
+			helper.assertFalse(boss.hurt(level.damageSources().playerAttack(c), 20f), "a powered hit is refused");
+			helper.assertTrue(boss.getHealth() == hp, "and does no damage (" + hp + " -> " + boss.getHealth() + ")");
+			boss.invulnerableTime = 0;
+			helper.assertTrue(boss.hurt(level.damageSources().playerAttack(p), 5f) && boss.getHealth() < hp, "an unpowered hit lands");
+			boss.discard();
+			leave(helper, p, c);
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, batch = STORM_OFF)
+	public void anOldStormwardenLoadsAsTheDestroyer(GameTestHelper helper) {
+		CompoundTag tag = new CompoundTag();
+		tag.putString("id", "projecthero:stormwarden");
+		helper.assertTrue(EntityType.by(tag).orElse(null) == ThorAcquire.DESTROYER, "the old entity id maps to the Destroyer");
+		var loaded = EntityType.create(tag, helper.getLevel());
+		helper.assertTrue(loaded.isPresent() && loaded.get() instanceof DestroyerBoss, "a saved Stormwarden loads as a Destroyer");
+		loaded.ifPresent(e -> e.discard());
+		var egg = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("projecthero", "stormwarden_spawn_egg"));
+		helper.assertTrue(egg == ThorAcquire.DESTROYER_SPAWN_EGG, "the old spawn egg id maps to the Destroyer's egg, got " + egg);
 		helper.succeed();
 	}
 

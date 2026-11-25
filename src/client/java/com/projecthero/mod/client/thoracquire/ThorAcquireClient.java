@@ -26,7 +26,7 @@ import net.minecraft.network.chat.Component;
 /**
  * v0.17.7 Thor acquisition, client side: the crater storm clouds ({@link CraterCloudRenderer}), the lift cutscene's light and
  * flash ({@link MjolnirLiftClient}), the Valor bar when you look at a free hammer ({@link ValorHud}), the Star Forge renderer,
- * the Stormwarden and Storm Spirit renderers, and the Guidebook's live Valor line.
+ * the Destroyer renderer, and the Guidebook's live Valor line.
  */
 public final class ThorAcquireClient {
 	/** Crater hammer spot -> client game time it was last listed by the server. */
@@ -54,8 +54,7 @@ public final class ThorAcquireClient {
 			TRIALS.clear();
 			lastValor = -1;
 		});
-		EntityRendererRegistry.register(ThorAcquire.STORMWARDEN, StormwardenRenderer::new);
-		EntityRendererRegistry.register(ThorAcquire.STORM_SPIRIT, StormSpiritRenderer::new);
+		EntityRendererRegistry.register(ThorAcquire.DESTROYER, DestroyerRenderer::new);
 		BlockEntityRenderers.register(ThorAcquire.STAR_FORGE_BE, StarForgeRenderer::new);
 		WorldRenderEvents.AFTER_ENTITIES.register(CraterCloudRenderer::render);
 		WorldRenderEvents.AFTER_ENTITIES.register(MjolnirLiftClient::render);

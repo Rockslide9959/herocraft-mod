@@ -172,31 +172,57 @@ powers -> the lift cutscene binds Mjolnir** (Thor becomes the one Primary power 
   a cylinder of light client-side) strikes, white screen flash, shake; tick 46 a burst (flash, end rods, fireworks, totem +
   beacon sounds, an expanding ring), the bind (`Worthiness.ascend`), and Thor's Armour forms (`ThorArmor.toggle`).
 
-### The Trial of Asgard -- `TrialOfAsgard`, boss `entity/StormwardenBoss`, summon `entity/StormSpiritEntity`
+### The Trial of Asgard -- `TrialOfAsgard`, boss `entity/DestroyerBoss` (was the Stormwarden)
 - Starts when a full-Valor player tries to lift in a storm: refused (attempt kept) while they have any power; refused if they
   already lost in this storm (`TRIAL_FAILED_STORM` vs `Storms.current`, a saved storm counter that ticks up each time the
-  overworld starts thundering); one trial per hammer. Intro 30 ticks: title, pillars strike the plinth (0/14/28), then the
-  Stormwarden forms 4 blocks from the hammer toward the challenger (a 40-tick "form" clip, untouchable).
+  overworld starts thundering); one trial per hammer. Intro 30 ticks: title, a pillar strikes the plinth (0), two more strike
+  the landing spot 4 blocks from the hammer toward the challenger (14/28, `landingSpot`), then the Destroyer lands there in a
+  bolt (the 50-tick "form" clip, untouchable): down on one knee, it stands, the faceplate cracks open on the fire at tick 38.
 - Lost on: death, more than 48 blocks from the crater, logging out, the storm ending, or gaining a power -> the guardian
   dissipates, the hammer stays, the storm is recorded. Won (the guardian dies): `TRIAL_PASSED` saved; 50 ticks later, if it is
   still storming and the hammer is within 48, the lift plays; otherwise the next storm lets them lift it without fighting.
 - Running trials: a static map of player UUID -> centre/dimension/boss UUID (no worlds or entities), cleared by
-  `ServerStateReset`; a trial guardian whose trial is gone (server restart) dissipates. A spawn-egg Stormwarden is free.
-- **The Stormwarden** (original): a 3.6-block Asgardian construct -- dark Uru plate, gold trim, horned crested helm with a
-  lightning visor slit, a storm core in the chest, a rune tabard, a great rune-carved maul -- custom GeckoLib body
-  (`scratchpad/v0177/gen_stormwarden.js`: geo, 256x80 texture + glowmask, 11 clips). 420 HP, 12 armour / 4 toughness,
-  knockback-immune, fire-immune, 9 melee. Tuned for a well-geared unpowered player (diamond/netherite, potions): a few minutes.
-  Shared `BossThreat` table (switches targets), boss bar (blue, "Unbound" purple in phase 2), leashed 28 blocks to the crater.
-  **Only unpowered players' hits count** (`countsAgainst`, checked in `hurt` and `actuallyHurt`); lightning never hurts it.
-  - Skyfall: maul to the sky, crackling rings mark 3 spots (the target's feet + 2 near) for 25 ticks, then lightning:
-    9 within 2 blocks.
-  - Storm Charge (6-18 blocks): a 16-tick crouch with a spark line along the path, a 16-tick charge at 1.0 b/t (12 +
+  `ServerStateReset`; a trial guardian whose trial is gone (server restart) dissipates. A spawn-egg Destroyer is free.
+- **The Destroyer** (user: "can you make the mjolnir guardian the destroyer please, i think it would be more fitting"; it
+  replaced the original Stormwarden before release): the enchanted Asgardian armour from Thor (2011). Entity id `destroyer`
+  (was `stormwarden`; `item/LegacyItemIds` redirects `stormwarden` and `stormwarden_spawn_egg` in every registry, so one
+  saved in a test world loads as the Destroyer). The Storm Spirit summon is gone. Spawn egg silver / orange.
+- Look (user: "use this skin for the model of the destroyer please"): built from the PlanetMinecraft skin "Destroyer"
+  (https://www.planetminecraft.com/skin/destroyer-6483954/, original at `scratchpad/v0177/destroyer_skin_original.png`;
+  ships publicly like the other borrowed skins, credited in the generator and `DestroyerRenderer`). `scratchpad/v0177/
+  gen_destroyer.js` (edit it, not the outputs) makes a player-shaped GeckoLib body at one unit per skin texel (32 units;
+  the renderer draws it `withScale(1.8)`, about 3.6 blocks) on a 128x128 atlas: the skin copied 1:1 at its own box-UV
+  offsets (head + hat, body + jacket), arms and legs split at elbow / knee into halves with their own box-UV regions painted
+  from the matching skin rows (sleeves / trousers as 0.25-inflated cubes), the skin's near-black overlay texels keyed out.
+  The face is cut out of the head and hat and moved onto two faceplate bones (`faceplate_left` / `faceplate_right`, the
+  face's halves, hinged at the outer edges, swung open by the clips) over a white-hot molten cube (glowmask). The skin's
+  opaque black base texels (the gaps between its plates and the eye slits) glow orange; `destroyer_unleashed.png` (+
+  glowmask) makes them blaze and warms the darker plates; the renderer swaps to it in phase 2, flickers the glow, fades it
+  out over the death, and drops vanilla's red death tint. No weapon. 13 clips (translations scaled 32/57 from the earlier
+  57-unit body): idle, walk, form, beam, beam_wide, blast, blast_double, slam, slam_double, charge, backhand, surge, death.
+- 420 HP, 12 armour / 4 toughness, knockback-immune, fire-immune, lightning-proof (`thunderHit` does nothing, lightning
+  damage refused), speed 0.25. Tuned for a well-geared unpowered player (diamond/netherite, potions): a few minutes.
+  Shared `BossThreat` table (switches targets), boss bar (white; "The Destroyer -- Unleashed" red in phase 2), leashed 28
+  blocks to the crater. **Only unpowered players' hits count** (`countsAgainst`, checked in `hurt` and `actuallyHurt`).
+  The body lingers 50 ticks after death (`tickDeath`) so the collapse plays.
+  - Disintegration Beam (5-20 blocks, 240-tick cooldown): stops, plants its feet, the faceplate grinds open in four steps
+    (anvil / iron door / smithing table) while the fire builds at its face and a line of embers marks the start of the arc
+    (30 ticks; it tracks you until tick 24, then turns to the start). Then a thick molten beam from the face (range 22, stops
+    at blocks) sweeps 50 degrees each side of where you stood over 60 ticks: 10 every 5 ticks to anyone in it (`invulnerableTime`
+    reset), alight 4 s; where it crosses the ground it leaves scorch points (flames for 3 s that set standers alight, no
+    blocks changed). Beacon / blaze / fire roar. `BeamClash.report` every live tick (power 1.6, orange); a locked clash holds
+    the sweep and skips the damage. The renderer skips its beam while `BeamClashClient.hides` it.
+  - Fire Blast (5-16 blocks, 110): the faceplate flashes open, aim tracks until tick 8 then a line of embers marks the locked
+    path (14 ticks), then a 10-tick short blast down that line (range 16): 8 once per shot, alight 3 s.
+  - Armoured Slam (within 7, 160): both fists overhead 24 ticks while a ring marks the reach, then a ground-pound shockwave
+    rolls out to 8 blocks -- 10 to anyone on the ground as it passes (jump it).
+  - Charge (6-18 blocks, 110): a 16-tick crouch with an ember line along the path, a 16-tick charge at 0.9 b/t (12 +
     thrown), an 18-tick stagger where it takes +25%.
-  - Thunder Slam (within 7): both hands overhead 24 ticks while a ring marks the reach, then a shockwave rolls out to 8 blocks
-    -- 10 to anyone on the ground as it passes (jump it).
-  - Storm Spirits: arms spread 20 ticks, then 2 wisps (4 HP, one hit) that circle and dart (5 on contact, 20 s life).
-  - Phase 2 at half health: a 40-tick surge (untouchable, lightning pours in), then Unbound: speed 0.31, cooldowns -30%,
-    damage +15%, 5 Skyfall bolts, a double slam, 4 spirits.
+  - Backhand (its melee: `doHurtTarget` starts it, 30-tick cooldown): the arm drawn across 10 ticks, then a swat: 9 to
+    everyone in front within 4.2, knocked 1.6 away.
+  - Phase 2 at half health: a 40-tick surge (untouchable, lightning pours in, the faceplate flies open), then Unleashed:
+    speed 0.30, cooldowns -30%, damage +15%, the beam sweeps 65 degrees each side and back again (100 ticks), a double Fire
+    Blast, a double slam.
 - Mock-player gotcha (tests): a GameTest mock player's `isCreative()` is always true, so the boss uses
   `getAbilities().instabuild` for "creative".
 
@@ -224,7 +250,9 @@ powers -> the lift cutscene binds Mjolnir** (Thor becomes the one Primary power 
 Valor from every source + capped + save/load + copyOnDeath; powered gets none; refused unworthy / no storm; a trial winner
 lifts and binds; full Valor in a storm starts the trial (no bind); winning lifts the hammer; a loss blocks the rest of the
 storm, the next storm allows a retry; powered refused and keeps the attempt; gaining a power mid-trial fails it; the
-threat table (and powered hits do nothing); the crater (plinth, hammer, protection on/off); the forge ring; the 10 s
+threat table (and powered hits do nothing); the Disintegration Beam (nothing during the wind-up, a hit every 5 ticks while
+in it, about 10 each, the ground scorched, no fire blocks, powered hits still refused); an old `stormwarden` id / egg loads
+as the Destroyer; the crater (plinth, hammer, protection on/off); the forge ring; the 10 s
 channel; letting go breaks it; the branch finishes Stormbreaker; old Unforged Stormbreakers are heads; a struck jungle tree
 (forced chance, and a real bolt) drops a branch. Updated: `PrimaryPowerGameTests` (full Valor, not Hero of the Village),
 `HulkGameTests`, `StormbreakerGameTests` (head recipe; lava tests removed).

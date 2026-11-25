@@ -181,7 +181,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.saiyan.kit.SaiyanKitClient.initialize(); // v0.17.3 Saiyan revamp: the move kit's effects and poses
 		com.projecthero.mod.client.beamclash.BeamClashClient.initialize(); // v0.17.3
 		com.projecthero.mod.client.wardrobe.WardrobeClient.initialize(); // v0.16.5: Mannequin + Wardrobe
-		com.projecthero.mod.client.thoracquire.ThorAcquireClient.initialize(); // v0.17.7: crater clouds, lift cutscene, Valor bar, Star Forge, Stormwarden
+		com.projecthero.mod.client.thoracquire.ThorAcquireClient.initialize(); // v0.17.7: crater clouds, lift cutscene, Valor bar, Star Forge, the Destroyer
 		com.projecthero.mod.client.targetdummy.TargetDummyClient.initialize(); // v0.17.5 (user): Target Dummy numbers + readout
 		com.projecthero.mod.client.backpack.BackpackClient.initialize(); // v0.17.5 (user): backpack screen, worn layer, icons, Open Backpack key
 		com.projecthero.mod.client.powerarmour.PowerArmourClient.initialize(); // v0.17.5 (user): Power Armour -- voxel suit, frame, HUD, editor

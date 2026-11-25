@@ -1,0 +1,505 @@
+// v0.17.7 Destroyer harness (the Trial of Asgard's guardian). To use: copy to
+// src/client/java/com/projecthero/mod/client/DestroyerHarness.java, add "com.projecthero.mod.client.DestroyerHarness" to
+// fabric.mod.json client entrypoints, write run/destroyer.flag = <out dir>, run node scratchpad/low_graphics_options.js
+// run/options.txt, then ./gradlew runClient. Remove both from src before committing.
+// Builds Mjolnir's Crater on flat terrain, films the trial start (the Destroyer landing), takes stills (front, side, the face
+// shut and open, Unleashed), then films the faceplate opening, the Disintegration Beam sweep, the slam and charge, the walk,
+// the Fire Blast and backhand, phase 2 (surge + the wide beam) and the death.
+// Frames: film_<name>_NNN.png -> node scratchpad/v0177/destroyer_films_v0177.js <out dir>
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import com.projecthero.mod.entity.MjolnirEntity;
+import com.projecthero.mod.thoracquire.Storms;
+import com.projecthero.mod.thoracquire.ThorAcquire;
+import com.projecthero.mod.thoracquire.TrialOfAsgard;
+import com.projecthero.mod.thoracquire.Valor;
+import com.projecthero.mod.thoracquire.entity.DestroyerBoss;
+import com.projecthero.mod.worldgen.CraterAmbience;
+import com.projecthero.mod.worldgen.MjolnirCraterPiece;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.monster.Husk;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped). Kept as scratchpad/DestroyerHarness.v0177.java.txt. */
+public final class DestroyerHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks, planTick;
+	private static final List<Runnable> PLAN = new ArrayList<>();
+	private static File out;
+	private static volatile BlockPos spot; // the hammer spot
+	private static volatile int cx, cz, ground;
+	private static volatile boolean waiting;
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("destroyer.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			out = new File(Files.readString(flag).trim());
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(DestroyerHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(900_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] watchdog");
+			Runtime.getRuntime().halt(3);
+		}, "destroyer-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		mc.getToasts().clear();
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	static void at(int ticks, Runnable r) {
+		while (PLAN.size() < ticks) {
+			PLAN.add(() -> {
+			});
+		}
+		Runnable prev = PLAN.get(ticks - 1);
+		PLAN.set(ticks - 1, () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	static float[] yawPitch(Vec3 cam, Vec3 at) {
+		Vec3 d = at.subtract(cam);
+		float yaw = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+		float pitch = (float) -Math.toDegrees(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)));
+		return new float[] { yaw, pitch };
+	}
+
+	/** Creative flying camera at {@code cam} (eye) looking at {@code at}. */
+	static void camAt(ServerPlayer p, Vec3 cam, Vec3 at) {
+		float[] yp = yawPitch(cam, at);
+		p.setGameMode(GameType.CREATIVE);
+		p.getAbilities().mayfly = true;
+		p.getAbilities().flying = true;
+		p.onUpdateAbilities();
+		p.connection.teleport(cam.x, cam.y - 1.62, cam.z, yp[0], yp[1]);
+	}
+
+	static void look(Minecraft mc, Vec3 cam, Vec3 at) {
+		mc.options.hideGui = true;
+		mc.options.setCameraType(CameraType.FIRST_PERSON);
+		server(mc, p -> camAt(p, cam, at));
+	}
+
+	static Vec3 groundAt(ServerLevel level, Vec3 xz) {
+		int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(xz.x), (int) Math.floor(xz.z));
+		return new Vec3(xz.x, y, xz.z);
+	}
+
+	static Vec3 c(double dx, double dy, double dz) {
+		return new Vec3(cx + 0.5 + dx, ground + dy, cz + 0.5 + dz);
+	}
+
+	static MjolnirEntity hammer(ServerPlayer p) {
+		var l = p.serverLevel().getEntitiesOfClass(MjolnirEntity.class, p.getBoundingBox().inflate(80),
+				m -> m.getState() == MjolnirEntity.State.RESTING);
+		return l.isEmpty() ? null : l.get(0);
+	}
+
+	static DestroyerBoss boss(ServerPlayer p) {
+		var l = p.serverLevel().getEntitiesOfClass(DestroyerBoss.class, p.getBoundingBox().inflate(120), b -> b.isAlive());
+		return l.isEmpty() ? null : l.get(0);
+	}
+
+	static Husk dummy(ServerPlayer p) {
+		var l = p.serverLevel().getEntitiesOfClass(Husk.class, p.getBoundingBox().inflate(120));
+		return l.isEmpty() ? null : l.get(0);
+	}
+
+	/** Frames every {@code every} ticks from {@code start}: film_<name>_<offset+i>. */
+	static void film(Minecraft mc, int start, String name, int frames, int every, int offset) {
+		for (int i = 0; i < frames; i++) {
+			final int n = offset + i;
+			at(start + i * every, () -> shot(mc, String.format("film_%s_%03d", name, n)));
+		}
+	}
+
+	private static int[] findSpot(ServerLevel lvl, int x0, int z0) {
+		var gen = lvl.getChunkSource().getGenerator();
+		var rs = lvl.getChunkSource().randomState();
+		for (int dz = 0; dz < 3000; dz += 48) {
+			for (int x = x0; x < x0 + 400; x += 16) {
+				int z = z0 + dz;
+				int s = gen.getFirstOccupiedHeight(x, z, Heightmap.Types.WORLD_SURFACE_WG, lvl, rs);
+				if (s != gen.getFirstOccupiedHeight(x, z, Heightmap.Types.OCEAN_FLOOR_WG, lvl, rs) || s < 64) {
+					continue;
+				}
+				var biome = gen.getBiomeSource().getNoiseBiome(x >> 2, s >> 2, z >> 2, rs.sampler());
+				if (!(biome.is(net.minecraft.world.level.biome.Biomes.PLAINS) || biome.is(net.minecraft.world.level.biome.Biomes.MEADOW)
+						|| biome.is(net.minecraft.world.level.biome.Biomes.SAVANNA) || biome.is(net.minecraft.world.level.biome.Biomes.SUNFLOWER_PLAINS))) {
+					continue;
+				}
+				return new int[] { x, z };
+			}
+		}
+		return new int[] { x0, z0 };
+	}
+
+	/** The free Destroyer used for the stills and move films: on the flat meadow east of the crater, facing -X. */
+	static Vec3 stage() {
+		return c(12, 0, 0);
+	}
+
+	/** Puts the boss at {@code at} facing {@code yaw}, the dummy at {@code target}; the boss rests (no moves of its own). */
+	static DestroyerBoss pose(ServerPlayer p, Vec3 at, float yaw, Vec3 target) {
+		ServerLevel level = p.serverLevel();
+		DestroyerBoss b = boss(p);
+		if (b == null) {
+			b = ThorAcquire.DESTROYER.create(level);
+			b.moveTo(at.x, at.y, at.z, yaw, 0f);
+			level.addFreshEntity(b);
+		}
+		b.moveTo(at.x, at.y, at.z, yaw, 0f);
+		b.setYBodyRot(yaw);
+		b.setYHeadRot(yaw);
+		b.setDeltaMovement(Vec3.ZERO);
+		b.getNavigation().stop();
+		b.restForTest(400);
+		b.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(0.0);
+		Husk d = dummy(p);
+		if (d == null) {
+			d = EntityType.HUSK.create(level);
+			d.setNoAi(true);
+			d.setInvulnerable(true);
+			d.setSilent(true);
+			d.setCustomName(Component.literal("Challenger"));
+			level.addFreshEntity(d);
+		}
+		d.moveTo(target.x, target.y, target.z, 0f, 0f);
+		b.setTarget(d);
+		return b;
+	}
+
+	private static void buildPlan(Minecraft mc) {
+		int k = 1;
+		// ---- the crater, on a levelled meadow
+		at(k, () -> waiting = true);
+		at(k, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			int[] s = findSpot(level, p.blockPosition().getX() + 100, p.blockPosition().getZ());
+			cx = s[0];
+			cz = s[1];
+			p.connection.teleport(cx + 0.5, 140, cz + 30.5, 180f, 40f);
+			waiting = false;
+		}));
+		k += 80;
+		at(k, () -> waiting = true);
+		at(k, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, cx, cz);
+			for (int x = cx - 30; x <= cx + 34; x++) {
+				for (int z = cz - 26; z <= cz + 26; z++) {
+					for (int y = ground - 12; y <= ground + 26; y++) {
+						BlockPos q = new BlockPos(x, y, z);
+						if (y >= ground) {
+							level.setBlock(q, Blocks.AIR.defaultBlockState(), 2);
+						} else if (y == ground - 1) {
+							level.setBlock(q, Blocks.GRASS_BLOCK.defaultBlockState(), 2);
+						} else if (y >= ground - 4) {
+							level.setBlock(q, Blocks.DIRT.defaultBlockState(), 2);
+						} else if (level.getBlockState(q).isAir() || !level.getFluidState(q).isEmpty()) {
+							level.setBlock(q, Blocks.STONE.defaultBlockState(), 2);
+						}
+					}
+				}
+			}
+			ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, cx, cz);
+			spot = MjolnirCraterPiece.buildOnTerrain(level, cx, cz);
+			CraterAmbience.placeHammerForTest(level, spot);
+			System.out.println("[HARNESS] crater at " + spot + " ground " + ground);
+			waiting = false;
+		}));
+		k += 70;
+		// ---- film: the trial starts -- the pillars, the Destroyer landing, standing, the faceplate glowing
+		at(k, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			level.setWeatherParameters(0, 60000, true, false);
+			Storms.forced = true;
+			Valor.set(p, Valor.MAX);
+			p.getAbilities().invulnerable = true;
+			p.onUpdateAbilities();
+		}));
+		// the challenger stands south of the hammer: the Destroyer lands 4 blocks south of the plinth; the camera looks at it
+		// (the bowl floor is ~4 below the meadow: look down into it, at where the Destroyer lands toward the camera)
+		at(k + 2, () -> look(mc, c(5.0, 3.0, 11.0), c(1.4, -2.6, 3.0)));
+		k += 60;
+		at(k, () -> server(mc, p -> {
+			MjolnirEntity m = hammer(p);
+			if (m != null) {
+				System.out.println("[HARNESS] trial: " + TrialOfAsgard.tryStart(p, m));
+			}
+		}));
+		film(mc, k, "arrival", 92, 1, 0);
+		for (int d : new int[] { 32, 50, 80 }) {
+			at(k + d, () -> server(mc, p -> {
+				DestroyerBoss b = boss(p);
+				var t = TrialOfAsgard.running(p.getUUID());
+				System.out.println("[HARNESS] arrival boss " + (b == null ? "none" : b.position() + " move " + b.move() + " alive " + b.isAlive())
+						+ " trial boss " + (t == null ? "no trial" : t.boss + " stage " + t.stage) + " player " + p.position());
+			}));
+		}
+		k += 96;
+		at(k, () -> shot(mc, "01_arrival_end"));
+		// end the trial (the guardian dissipates) and stage a free Destroyer for the rest
+		at(k + 2, () -> server(mc, p -> TrialOfAsgard.loseForTest(p.serverLevel(), p, "fled")));
+		k += 10;
+		at(k, () -> server(mc, p -> {
+			Vec3 s = groundAt(p.serverLevel(), stage());
+			pose(p, s, 90f, s.add(-14, 0, 0));
+		}));
+		k += 30;
+		// ---- stills: front, side, face shut close-up
+		at(k, () -> server(mc, p -> {
+			DestroyerBoss b = boss(p);
+			camAt(p, b.position().add(-6.5, 2.0, 0), b.position().add(0, 1.8, 0));
+		}));
+		at(k + 12, () -> shot(mc, "02_front"));
+		at(k + 14, () -> server(mc, p -> {
+			DestroyerBoss b = boss(p);
+			camAt(p, b.position().add(0, 2.0, 6.5), b.position().add(0, 1.8, 0));
+		}));
+		at(k + 26, () -> shot(mc, "03_side"));
+		at(k + 28, () -> server(mc, p -> {
+			DestroyerBoss b = boss(p);
+			camAt(p, b.position().add(-6.0, 4.2, 4.5), b.position().add(0, 1.8, 0));
+		}));
+		at(k + 40, () -> shot(mc, "04_three_quarter"));
+		at(k + 42, () -> server(mc, p -> {
+			DestroyerBoss b = boss(p);
+			camAt(p, b.position().add(-2.3, 3.4, 0.3), b.position().add(0, 3.2, 0));
+		}));
+		at(k + 54, () -> shot(mc, "05_face_closed"));
+		at(k + 56, () -> server(mc, p -> {
+			DestroyerBoss b = boss(p);
+			camAt(p, b.position().add(5.5, 2.0, 0), b.position().add(0, 1.8, 0));
+		}));
+		at(k + 68, () -> shot(mc, "03b_back"));
+		k += 74;
+		// ---- film: the faceplate opening (close-up), still at full open
+		at(k, () -> server(mc, p -> {
+			Vec3 s = groundAt(p.serverLevel(), stage());
+			DestroyerBoss b = pose(p, s, 90f, s.add(-16, 0, 0));
+			camAt(p, b.position().add(-2.5, 3.45, 0.6), b.position().add(0, 3.2, 0));
+			b.startBeam();
+		}));
+		film(mc, k + 1, "faceplate", 32, 1, 0);
+		at(k + 29, () -> shot(mc, "06_face_open"));
+		k += 34;
+		at(k, () -> server(mc, p -> {
+			DestroyerBoss b = boss(p);
+			camAt(p, b.position().add(-3.5, 4.2, 6.5), b.position().add(-6, 1.6, 0));
+		}));
+		at(k + 20, () -> shot(mc, "07_beam"));
+		k += DestroyerBoss.BEAM_SWEEP + DestroyerBoss.BEAM_RECOVER + 10;
+		// ---- film: the whole Disintegration Beam, wide: wind-up and the sweep across the meadow
+		at(k, () -> server(mc, p -> {
+			Vec3 s = groundAt(p.serverLevel(), stage());
+			DestroyerBoss b = pose(p, s, 90f, s.add(-13, 0, 0));
+			camAt(p, b.position().add(1.5, 5.0, 7.0), b.position().add(-6, 1.0, 0));
+			b.startBeam();
+		}));
+		film(mc, k + 1, "beam", 56, 2, 0);
+		k += 116;
+		// ---- film: the slam, then the charge
+		at(k, () -> server(mc, p -> {
+			Vec3 s = groundAt(p.serverLevel(), stage());
+			DestroyerBoss b = pose(p, s, 90f, s.add(-4, 0, 0));
+			camAt(p, b.position().add(-2.5, 3.5, 7.0), b.position().add(-0.5, 1.2, 0));
+			b.startSlam();
+		}));
+		film(mc, k + 1, "slam_charge", 24, 2, 0);
+		k += 50;
+		at(k, () -> server(mc, p -> {
+			Vec3 s = groundAt(p.serverLevel(), stage());
+			DestroyerBoss b = pose(p, s, 90f, s.add(-14, 0, 0));
+			camAt(p, b.position().add(-6, 3.5, 8.0), b.position().add(-6, 1.2, 0));
+			b.startCharge();
+		}));
+		film(mc, k + 1, "slam_charge", 27, 2, 24);
+		k += 58;
+		// ---- film: the walk (the boss free to walk at the dummy for 2 s)
+		at(k, () -> server(mc, p -> {
+			Vec3 s = groundAt(p.serverLevel(), stage());
+			DestroyerBoss b = pose(p, s, 90f, s.add(-16, 0, 0));
+			b.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(0.25);
+			camAt(p, b.position().add(-4, 3.0, 7.5), b.position().add(-3, 1.6, 0));
+		}));
+		film(mc, k + 2, "walk", 40, 1, 0);
+		k += 46;
+		// ---- film: Fire Blast, then the backhand
+		at(k, () -> server(mc, p -> {
+			Vec3 s = groundAt(p.serverLevel(), stage());
+			DestroyerBoss b = pose(p, s, 90f, s.add(-10, 0, 1));
+			camAt(p, b.position().add(-3, 4.0, 8.5), b.position().add(-4.5, 1.6, 0));
+			b.startBlast();
+		}));
+		film(mc, k + 1, "blast_backhand", 34, 1, 0);
+		k += 38;
+		at(k, () -> server(mc, p -> {
+			Vec3 s = groundAt(p.serverLevel(), stage());
+			DestroyerBoss b = pose(p, s, 90f, s.add(-2.6, 0, 0));
+			camAt(p, b.position().add(-2.5, 3.0, 6.5), b.position().add(-1, 1.8, 0));
+			b.startBackhand();
+		}));
+		film(mc, k + 1, "blast_backhand", 24, 1, 34);
+		k += 30;
+		// ---- film: phase 2 -- the surge, then the wide beam sweeping across and back
+		at(k, () -> server(mc, p -> {
+			Vec3 s = groundAt(p.serverLevel(), stage());
+			DestroyerBoss b = pose(p, s, 90f, s.add(-13, 0, 0));
+			camAt(p, b.position().add(-5.5, 3.6, 6.5), b.position().add(0, 2.0, 0));
+			b.setHealth((float) (b.getMaxHealth() * 0.49));
+			b.startSurge(p.serverLevel());
+		}));
+		film(mc, k + 1, "phase2", 42, 1, 0);
+		k += 46;
+		at(k, () -> server(mc, p -> {
+			Vec3 s = groundAt(p.serverLevel(), stage());
+			DestroyerBoss b = pose(p, s, 90f, s.add(-13, 0, 0));
+			camAt(p, b.position().add(-4.5, 2.8, 3.0), b.position().add(0, 2.0, 0));
+		}));
+		at(k + 10, () -> shot(mc, "08_unleashed"));
+		k += 12;
+		at(k, () -> server(mc, p -> {
+			DestroyerBoss b = boss(p);
+			camAt(p, b.position().add(1.5, 5.5, 7.5), b.position().add(-6, 1.0, 0));
+			b.startBeam();
+		}));
+		film(mc, k + 1, "phase2", 74, 2, 42);
+		at(k + 70, () -> shot(mc, "09_unleashed_beam"));
+		k += 152;
+		// ---- film: the death -- it collapses and the glow fades
+		at(k, () -> server(mc, p -> {
+			Vec3 s = groundAt(p.serverLevel(), stage());
+			DestroyerBoss b = pose(p, s, 90f, s.add(-13, 0, 0));
+			camAt(p, b.position().add(-4.0, 2.6, 2.8), b.position().add(0, 1.4, 0));
+		}));
+		at(k + 6, () -> server(mc, p -> {
+			DestroyerBoss b = boss(p);
+			if (b != null) {
+				b.kill();
+			}
+		}));
+		film(mc, k + 6, "death", 56, 1, 0);
+		k += 66;
+		at(k, () -> System.out.println("[HARNESS] done"));
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.getWindow().setWindowed(960, 540);
+				mc.execute(DestroyerHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 30) {
+			mc.options.fov().set(70);
+			mc.options.tutorialStep = net.minecraft.client.tutorial.TutorialSteps.NONE;
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			mc.options.renderDistance().set(8);
+			mc.options.entityDistanceScaling().set(2.0);
+			if (mc.getSingleplayerServer() != null) {
+				mc.getSingleplayerServer().getPlayerList().setViewDistance(8);
+			}
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(5000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.setWeatherParameters(24000, 0, false, false);
+				p.setGameMode(GameType.CREATIVE);
+				p.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 20 * 60 * 30, 0, false, false));
+			});
+			buildPlan(mc);
+		}
+		if (t < 50 || waiting) {
+			return;
+		}
+		if (planTick < PLAN.size()) {
+			PLAN.get(planTick++).run();
+		} else if (!PLAN.isEmpty()) {
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		LevelSettings settings = new LevelSettings("DESTROYER_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.NORMAL, true,
+				rules, WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(5175L, true, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.NORMAL).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

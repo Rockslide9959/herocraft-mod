@@ -3,8 +3,7 @@ package com.projecthero.mod.thoracquire;
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.item.ModCreativeTab;
 import com.projecthero.mod.item.ModItems;
-import com.projecthero.mod.thoracquire.entity.StormSpiritEntity;
-import com.projecthero.mod.thoracquire.entity.StormwardenBoss;
+import com.projecthero.mod.thoracquire.entity.DestroyerBoss;
 import com.projecthero.mod.thoracquire.forge.StarForgeBlock;
 import com.projecthero.mod.thoracquire.forge.StarForgeBlockEntity;
 
@@ -37,7 +36,7 @@ import net.minecraft.world.level.storage.loot.providers.number.ConstantValue;
 /**
  * v0.17.7 <b>how players get Thor and Stormbreaker</b> -- registration and wiring for: {@link Valor} (the worthiness meter),
  * Mjolnir's Crater ({@code worldgen/MjolnirCraterPiece}, {@link CraterGuard}), the {@link TrialOfAsgard} and its guardian
- * {@link StormwardenBoss}, the lift cutscene ({@link MjolnirLift}), the Star Forge
+ * {@link DestroyerBoss} (the Destroyer), the lift cutscene ({@link MjolnirLift}), the Star Forge
  * ({@link com.projecthero.mod.thoracquire.forge.StarForge}) and the {@link LivingBranch}. See {@code docs/THOR_REFERENCE.md}
  * "v0.17.7: how players get Thor and Stormbreaker".
  */
@@ -56,24 +55,24 @@ public final class ThorAcquire {
 	public static final Item LIVING_BRANCH = Registry.register(BuiltInRegistries.ITEM, ProjectHeroMod.id("living_branch"),
 			new LivingBranch.BranchItem(new Item.Properties().rarity(Rarity.EPIC).fireResistant().stacksTo(16)));
 
-	public static final EntityType<StormwardenBoss> STORMWARDEN = Registry.register(BuiltInRegistries.ENTITY_TYPE,
-			ResourceKey.create(Registries.ENTITY_TYPE, ProjectHeroMod.id("stormwarden")),
-			EntityType.Builder.<StormwardenBoss>of(StormwardenBoss::new, MobCategory.MONSTER).sized(1.4f, 3.6f).eyeHeight(3.2f)
-					.fireImmune().clientTrackingRange(12).build("stormwarden"));
-	public static final EntityType<StormSpiritEntity> STORM_SPIRIT = Registry.register(BuiltInRegistries.ENTITY_TYPE,
-			ResourceKey.create(Registries.ENTITY_TYPE, ProjectHeroMod.id("storm_spirit")),
-			EntityType.Builder.<StormSpiritEntity>of(StormSpiritEntity::new, MobCategory.MONSTER).sized(0.6f, 0.6f).eyeHeight(0.3f)
-					.fireImmune().clientTrackingRange(8).build("storm_spirit"));
-	public static final Item STORMWARDEN_SPAWN_EGG = Registry.register(BuiltInRegistries.ITEM, ProjectHeroMod.id("stormwarden_spawn_egg"),
-			new SpawnEggItem(STORMWARDEN, 0x2A2F3A, 0x8FD0FF, new Item.Properties()));
+	/**
+	 * The Trial of Asgard's guardian. v0.17.7 (user): the original "Stormwarden" became the Destroyer and its id went from
+	 * {@code stormwarden} to {@code destroyer} (never released, but test worlds may hold one): {@code LegacyItemIds} points the
+	 * old entity and spawn egg ids at these, so a saved one loads as the Destroyer. Its Storm Spirit summon is gone.
+	 */
+	public static final EntityType<DestroyerBoss> DESTROYER = Registry.register(BuiltInRegistries.ENTITY_TYPE,
+			ResourceKey.create(Registries.ENTITY_TYPE, ProjectHeroMod.id("destroyer")),
+			EntityType.Builder.<DestroyerBoss>of(DestroyerBoss::new, MobCategory.MONSTER).sized(1.4f, 3.6f).eyeHeight(3.2f)
+					.fireImmune().clientTrackingRange(12).build("destroyer"));
+	public static final Item DESTROYER_SPAWN_EGG = Registry.register(BuiltInRegistries.ITEM, ProjectHeroMod.id("destroyer_spawn_egg"),
+			new SpawnEggItem(DESTROYER, 0x9A9EA6, 0xFF7A1E, new Item.Properties()));
 
 	private ThorAcquire() {
 	}
 
 	public static void initialize() {
 		ThorAcquireAttachments.initialize();
-		FabricDefaultAttributeRegistry.register(STORMWARDEN, StormwardenBoss.createAttributes());
-		FabricDefaultAttributeRegistry.register(STORM_SPIRIT, StormSpiritEntity.createAttributes());
+		FabricDefaultAttributeRegistry.register(DESTROYER, DestroyerBoss.createAttributes());
 		PayloadTypeRegistry.playS2C().register(CraterCloudPayload.TYPE, CraterCloudPayload.CODEC);
 		Valor.initialize();
 		Storms.initialize();
@@ -82,7 +81,7 @@ public final class ThorAcquire {
 		TrialOfAsgard.initialize();
 		ItemGroupEvents.modifyEntriesEvent(ModCreativeTab.SUPERHEROES_KEY).register(entries -> {
 			entries.addAfter(ModItems.UNFORGED_STORMBREAKER, STAR_FORGE_ITEM, LIVING_BRANCH);
-			entries.accept(STORMWARDEN_SPAWN_EGG);
+			entries.accept(DESTROYER_SPAWN_EGG);
 		});
 		// a small chance of a Living Branch in jungle temple chests (1 roll, 1 in 12)
 		LootTableEvents.MODIFY.register((key, builder, source, registries) -> {

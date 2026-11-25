@@ -9,7 +9,7 @@ import java.util.UUID;
 
 import com.projecthero.mod.entity.MjolnirEntity;
 import com.projecthero.mod.hero.HeroTiers;
-import com.projecthero.mod.thoracquire.entity.StormwardenBoss;
+import com.projecthero.mod.thoracquire.entity.DestroyerBoss;
 
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 
@@ -26,20 +26,19 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
  * v0.17.7 (user: "a trial at the crater"): the <b>Trial of Asgard</b>. A player with full Valor who tries to lift Mjolnir in a
- * thunderstorm is tested first: the storm darkens, a lightning pillar strikes the plinth and {@link StormwardenBoss The
- * Stormwarden} forms beside the hammer.
+ * thunderstorm is tested first: the storm darkens, a lightning pillar strikes the plinth and {@link DestroyerBoss the
+ * Destroyer} lands beside the hammer in the lightning.
  *
  * <ul>
  * <li><b>Unpowered only</b> (user: "doing it with powers would make it too easy"): a player with any power
  * ({@link HeroTiers#hasAnyPower}) is refused and keeps their attempt; gaining a power mid-trial is a loss.</li>
- * <li><b>Win</b> (the Stormwarden dies): {@link ThorAcquireAttachments#TRIAL_PASSED} is saved, and if it is still storming the
+ * <li><b>Win</b> (the Destroyer falls): {@link ThorAcquireAttachments#TRIAL_PASSED} is saved, and if it is still storming the
  * lift cutscene starts straight away ({@link #LIFT_DELAY} ticks after the kill). If the storm has gone, the next storm lets
  * them lift it without fighting again.</li>
  * <li><b>Loss</b>: dying, going more than {@link #LEASH} blocks from the crater, logging out, the storm ending, or gaining a
@@ -52,7 +51,7 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class TrialOfAsgard {
 	public static final double LEASH = 48.0;
-	/** The intro: storm darkens (0), pillars strike the plinth (0, 14, 28), the guardian forms (30). */
+	/** The intro: storm darkens (0), pillars strike the plinth (0, 14, 28), the Destroyer lands in the last of them (30). */
 	public static final int INTRO_TICKS = 30;
 	public static final int LIFT_DELAY = 50;
 
@@ -110,7 +109,7 @@ public final class TrialOfAsgard {
 	}
 
 	/** Whether a running trial owns {@code boss} (an unowned trial guardian dissipates). */
-	public static boolean owns(StormwardenBoss boss) {
+	public static boolean owns(DestroyerBoss boss) {
 		for (Trial t : RUNS.values()) {
 			if (boss.getUUID().equals(t.boss)) {
 				return true;
@@ -181,7 +180,7 @@ public final class TrialOfAsgard {
 		if (level == null) {
 			return true;
 		}
-		StormwardenBoss boss = t.boss == null ? null : level.getEntity(t.boss) instanceof StormwardenBoss b ? b : null;
+		DestroyerBoss boss = t.boss == null ? null : level.getEntity(t.boss) instanceof DestroyerBoss b ? b : null;
 		if (t.stage == Stage.WON) {
 			return stepWon(level, p, t);
 		}
@@ -193,9 +192,11 @@ public final class TrialOfAsgard {
 		Vec3 c = Vec3.atBottomCenterOf(t.center);
 		if (t.stage == Stage.INTRO) {
 			if (t.ticks == 1 || t.ticks == 14 || t.ticks == 28) {
-				MjolnirLift.bolt(level, c);
-				level.playSound(null, t.center, SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.WEATHER, 2.0f, 0.7f);
-				level.sendParticles(ParticleTypes.FLASH, c.x, c.y + 1, c.z, 1, 0, 0, 0, 0);
+				// the first pillar hits the plinth, the next two the spot where the Destroyer will land
+				Vec3 at = t.ticks == 1 ? c : landingSpot(level, t, p);
+				MjolnirLift.bolt(level, at);
+				level.playSound(null, BlockPos.containing(at), SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.WEATHER, 2.0f, 0.7f);
+				level.sendParticles(ParticleTypes.FLASH, at.x, at.y + 1, at.z, 1, 0, 0, 0, 0);
 			}
 			if (t.ticks % 2 == 0) {
 				level.sendParticles(ParticleTypes.CLOUD, c.x, c.y + 0.2, c.z, 10, 2.5, 0.05, 2.5, 0.05);
@@ -213,7 +214,7 @@ public final class TrialOfAsgard {
 	}
 
 	/** Why the trial is lost right now, or null. */
-	static String lossReason(ServerLevel level, ServerPlayer p, Trial t, StormwardenBoss boss) {
+	static String lossReason(ServerLevel level, ServerPlayer p, Trial t, DestroyerBoss boss) {
 		if (p == null || p.isRemoved()) {
 			return "left";
 		}
@@ -232,18 +233,25 @@ public final class TrialOfAsgard {
 		return null;
 	}
 
-	private static StormwardenBoss spawnGuardian(ServerLevel level, Trial t, ServerPlayer p) {
-		StormwardenBoss boss = ThorAcquire.STORMWARDEN.create(level);
+	/** Where the Destroyer lands: between the hammer and the challenger, 4 blocks from the plinth, on the ground. */
+	static Vec3 landingSpot(ServerLevel level, Trial t, ServerPlayer p) {
+		Vec3 c = Vec3.atBottomCenterOf(t.center);
+		Vec3 away = p != null ? p.position().subtract(c).multiply(1, 0, 1) : new Vec3(0, 0, 1);
+		away = away.lengthSqr() < 1.0e-3 ? new Vec3(0, 0, 1) : away.normalize();
+		Vec3 at = c.add(away.scale(4.0));
+		int y = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(at.x), (int) Math.floor(at.z));
+		return new Vec3(at.x, Math.abs(y - c.y) < 6 ? y : c.y, at.z);
+	}
+
+	private static DestroyerBoss spawnGuardian(ServerLevel level, Trial t, ServerPlayer p) {
+		DestroyerBoss boss = ThorAcquire.DESTROYER.create(level);
 		if (boss == null) {
 			return null;
 		}
 		Vec3 c = Vec3.atBottomCenterOf(t.center);
-		Vec3 away = p != null ? p.position().subtract(c).multiply(1, 0, 1) : new Vec3(0, 0, 1);
-		away = away.lengthSqr() < 1.0e-3 ? new Vec3(0, 0, 1) : away.normalize();
-		// it forms between the hammer and the challenger, a few blocks from the plinth
-		Vec3 at = c.add(away.scale(4.0));
-		int y = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(at.x), (int) Math.floor(at.z));
-		boss.moveTo(at.x, Math.abs(y - c.y) < 6 ? y : c.y, at.z, (float) Math.toDegrees(Math.atan2(-away.x, away.z)), 0f);
+		Vec3 at = landingSpot(level, t, p);
+		Vec3 away = at.subtract(c).multiply(1, 0, 1);
+		boss.moveTo(at.x, at.y, at.z, (float) Math.toDegrees(Math.atan2(-away.x, away.z)), 0f);
 		boss.bindToTrial(t.center);
 		if (p != null) {
 			boss.setTarget(p);
@@ -251,7 +259,7 @@ public final class TrialOfAsgard {
 		level.addFreshEntity(boss);
 		t.boss = boss.getUUID();
 		MjolnirLift.bolt(level, boss.position());
-		level.playSound(null, boss.blockPosition(), SoundEvents.WITHER_SPAWN, SoundSource.HOSTILE, 1.0f, 1.2f);
+		level.playSound(null, boss.blockPosition(), SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.HOSTILE, 2.0f, 0.6f);
 		return boss;
 	}
 
@@ -300,13 +308,10 @@ public final class TrialOfAsgard {
 						&& m.getItem().get(com.projecthero.mod.item.ModDataComponents.BOUND_OWNER) == null).stream().findFirst().orElse(null);
 	}
 
-	private static void lose(ServerLevel level, ServerPlayer p, Trial t, StormwardenBoss boss, String reason) {
+	private static void lose(ServerLevel level, ServerPlayer p, Trial t, DestroyerBoss boss, String reason) {
 		com.projecthero.mod.ProjectHeroMod.LOGGER.info("[TrialOfAsgard] {} lost the trial at {}: {}", p != null ? p.getGameProfile().getName() : t.player, t.center, reason);
 		if (boss != null) {
 			boss.dissipate();
-		}
-		for (Entity e : level.getEntitiesOfClass(com.projecthero.mod.thoracquire.entity.StormSpiritEntity.class, new AABB(t.center).inflate(48))) {
-			e.discard();
 		}
 		if (p != null) {
 			p.setAttached(ThorAcquireAttachments.TRIAL_FAILED_STORM, Storms.current(level.getServer()));
@@ -319,7 +324,7 @@ public final class TrialOfAsgard {
 	public static void loseForTest(ServerLevel level, ServerPlayer p, String reason) {
 		Trial t = RUNS.remove(p.getUUID());
 		if (t != null) {
-			StormwardenBoss boss = t.boss == null ? null : level.getEntity(t.boss) instanceof StormwardenBoss b ? b : null;
+			DestroyerBoss boss = t.boss == null ? null : level.getEntity(t.boss) instanceof DestroyerBoss b ? b : null;
 			lose(level, p, t, boss, reason);
 		}
 	}

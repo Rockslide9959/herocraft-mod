@@ -147,7 +147,7 @@ json(path.join(A, 'models/block/star_forge_lit.json'), { parent: 'minecraft:bloc
 json(path.join(A, 'models/item/star_forge.json'), { parent: 'projecthero:block/star_forge' });
 json(path.join(A, 'models/item/living_branch.json'), { parent: 'minecraft:item/handheld', textures: { layer0: 'projecthero:item/living_branch' } });
 json(path.join(A, 'models/item/unforged_stormbreaker.json'), { parent: 'minecraft:item/generated', textures: { layer0: 'projecthero:item/unforged_stormbreaker' } });
-json(path.join(A, 'models/item/stormwarden_spawn_egg.json'), { parent: 'minecraft:item/template_spawn_egg' });
+json(path.join(A, 'models/item/destroyer_spawn_egg.json'), { parent: 'minecraft:item/template_spawn_egg' });
 
 // ---------------- loot table, recipes
 json(path.join(D, 'projecthero/loot_table/blocks/star_forge.json'), { type: 'minecraft:block', pools: [{ rolls: 1,
