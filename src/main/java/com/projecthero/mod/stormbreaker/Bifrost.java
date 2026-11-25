@@ -48,15 +48,15 @@ import net.minecraft.world.phys.Vec3;
  *   <li>inside the world border and the build height, in the player's own dimension (no limit on distance);</li>
  *   <li>a safe landing in that column ({@link #findSafeLanding}) -- else nothing happens and no cooldown is spent.</li>
  * </ul>
- * The rainbow bridge takes the user and every squadmate ({@link Squads#areAllies}) within {@link #CARRY_RADIUS} blocks
- * (a squadmate can sneak to stay behind), each keeping roughly their offset and landing safely.
+ * v0.17.7: the trip itself is the {@link BifrostTravel} cinematic -- the caster raises the axe, the bridge beams down, everyone
+ * in it (players within 4 blocks, squadmates within {@link #CARRY_RADIUS}, their pets) rises 10 blocks and is set down at the
+ * destination, each keeping roughly their offset and landing safely (a player can sneak to stay behind).
  */
 public final class Bifrost {
 	public static final double CARRY_RADIUS = 8.0;
 	public static final int COOLDOWN_TICKS = 60 * 20;
 	/** A squadmate keeps their offset only if their own safe spot is within this many blocks up/down of the user's. */
 	private static final int ALLY_MAX_STEP = 6;
-	private static final double COLUMN_HEIGHT = 22.0;
 
 	/** Red, orange, yellow, green, blue, indigo, violet -- the bridge's colours bottom to top. */
 	private static final Vector3f[] RAINBOW = {
@@ -67,7 +67,9 @@ public final class Bifrost {
 
 	/** Why a travel request did or did not go; each failure has a {@code message.projecthero.bifrost.fail.*} line. */
 	public enum Result {
-		OK, NOT_HOLDING, COOLDOWN, WRONG_DIMENSION, OUT_OF_BOUNDS, NO_LANDING, EMPTY_WAYPOINT;
+		OK, NOT_HOLDING, COOLDOWN, WRONG_DIMENSION, OUT_OF_BOUNDS, NO_LANDING, EMPTY_WAYPOINT,
+		/** v0.17.7: already in a Bifrost trip (casting or riding one). */
+		BUSY;
 
 		public String messageKey() {
 			return "message.projecthero.bifrost.fail." + name().toLowerCase(Locale.ROOT);
@@ -197,6 +199,9 @@ public final class Bifrost {
 		if (!canUse(player)) {
 			return Result.NOT_HOLDING;
 		}
+		if (BifrostTravel.busy(player)) {
+			return Result.BUSY;
+		}
 		if (cooldownRemaining(player) > 0) {
 			return Result.COOLDOWN;
 		}
@@ -210,44 +215,9 @@ public final class Bifrost {
 			return Result.NO_LANDING;
 		}
 
-		Vec3 from = player.position();
-		Vec3 to = Vec3.atBottomCenterOf(landing);
-		List<ServerPlayer> allies = alliesInReach(player);
-
-		level.playSound(null, from.x, from.y, from.z, SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 1.0f, 1.6f);
-		level.playSound(null, from.x, from.y, from.z, SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 0.5f, 1.3f);
-
-		send(player, to);
-		int carried = 0;
-		for (ServerPlayer ally : allies) {
-			Vec3 offset = ally.position().subtract(from);
-			Vec3 dest = to;
-			int ax = landing.getX() + Mth.floor(offset.x + 0.5);
-			int az = landing.getZ() + Mth.floor(offset.z + 0.5);
-			if (inBounds(level, ax, landing.getY(), az)) {
-				loadChunk(level, ax, az, ally);
-				BlockPos own = findSafeLanding(level, ax, landing.getY() + Mth.floor(offset.y + 0.5), az);
-				if (own != null && Math.abs(own.getY() - landing.getY()) <= ALLY_MAX_STEP) {
-					dest = Vec3.atBottomCenterOf(own);
-				}
-			}
-			send(ally, dest);
-			ally.displayClientMessage(Component.translatable("message.projecthero.bifrost.carried", player.getDisplayName()), true);
-			carried++;
-		}
-
-		// v0.17.1: the bridge itself -- a rainbow beam crashing down where they land, lingering where they left, and a rune
-		// circle burned into the ground at both ends
-		bridge(level, from, false);
-		bridge(level, to, true);
-		level.playSound(null, to.x, to.y, to.z, SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 1.0f, 1.3f);
-		level.playSound(null, to.x, to.y, to.z, SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 0.6f, 1.1f);
-		level.playSound(null, to.x, to.y, to.z, SoundEvents.TRIDENT_THUNDER.value(), SoundSource.PLAYERS, 0.5f, 1.2f);
-
+		// v0.17.7: the trip itself is the Bifrost Travel cinematic (raise the axe, the beam, the rise, across, the descent)
+		BifrostTravel.begin(player, landing);
 		player.setAttached(ModAttachments.BIFROST_READY_AT, now(player) + COOLDOWN_TICKS);
-		player.displayClientMessage(carried > 0
-				? Component.translatable("message.projecthero.bifrost.travelled_with", carried, COOLDOWN_TICKS / 20)
-				: Component.translatable("message.projecthero.bifrost.travelled", COOLDOWN_TICKS / 20), true);
 		return Result.OK;
 	}
 
@@ -263,21 +233,25 @@ public final class Bifrost {
 		return out;
 	}
 
-	/** One rider across: dismount, rainbow at both ends, no momentum or fall distance carried over. */
-	private static void send(ServerPlayer rider, Vec3 dest) {
-		ServerLevel level = rider.serverLevel();
-		column(level, rider.position());
-		if (rider.isPassenger()) {
-			rider.stopRiding();
+	/**
+	 * Where a rider standing {@code offset} from the caster lands: keeping that X/Z offset on their own safe spot when it is
+	 * within {@link #ALLY_MAX_STEP} blocks up/down of the caster's landing, else on the caster's spot.
+	 */
+	static Vec3 landingFor(ServerLevel level, BlockPos landing, Vec3 offset) {
+		Vec3 dest = Vec3.atBottomCenterOf(landing);
+		if (offset.horizontalDistanceSqr() < 0.04 && Math.abs(offset.y) < 0.5) {
+			return dest;
 		}
-		if (rider.isVehicle()) {
-			rider.ejectPassengers();
+		int ax = landing.getX() + Mth.floor(offset.x + 0.5);
+		int az = landing.getZ() + Mth.floor(offset.z + 0.5);
+		if (inBounds(level, ax, landing.getY(), az)) {
+			loadChunk(level, ax, az, null);
+			BlockPos own = findSafeLanding(level, ax, landing.getY() + Mth.floor(offset.y + 0.5), az);
+			if (own != null && Math.abs(own.getY() - landing.getY()) <= ALLY_MAX_STEP) {
+				dest = Vec3.atBottomCenterOf(own);
+			}
 		}
-		rider.teleportTo(level, dest.x, dest.y, dest.z, Set.of(), rider.getYRot(), rider.getXRot());
-		rider.setDeltaMovement(Vec3.ZERO);
-		rider.hurtMarked = true;
-		rider.resetFallDistance();
-		column(level, dest);
+		return dest;
 	}
 
 	static boolean inBounds(Level level, int x, int y, int z) {
@@ -288,7 +262,7 @@ public final class Bifrost {
 	/** Loads (generating if need be) the destination chunk and keeps it loaded while the riders arrive. */
 	private static void loadChunk(ServerLevel level, int x, int z, ServerPlayer holder) {
 		ChunkPos chunk = new ChunkPos(new BlockPos(x, 0, z));
-		level.getChunkSource().addRegionTicket(TicketType.POST_TELEPORT, chunk, 1, holder.getId());
+		level.getChunkSource().addRegionTicket(TicketType.POST_TELEPORT, chunk, 1, holder == null ? 0 : holder.getId());
 		level.getChunk(chunk.x, chunk.z);
 	}
 
@@ -350,41 +324,28 @@ public final class Bifrost {
 				&& !state.is(Blocks.COBWEB);
 	}
 
-	/** v0.17.1: a Bifrost beam and a rune mark at one end ({@code arrival}: the crash-down, a shockwave and sparks). */
-	private static void bridge(ServerLevel level, Vec3 feet, boolean arrival) {
-		BifrostEntities.Beam beam = new BifrostEntities.Beam(BifrostEntities.BEAM, level);
-		beam.setPos(feet.x, feet.y, feet.z);
-		beam.setArrival(arrival);
-		level.addFreshEntity(beam);
+	/**
+	 * v0.17.1 / v0.17.7: burns the rune circle into the ground at {@code feet} (a fresh circle over an old one replaces it);
+	 * {@code size} 1 = 6.4 blocks across, the cinematic scales it to the beam.
+	 */
+	static void burnMark(ServerLevel level, Vec3 feet, float size) {
 		for (BifrostEntities.Mark old : level.getEntitiesOfClass(BifrostEntities.Mark.class, new net.minecraft.world.phys.AABB(feet, feet).inflate(1.5))) {
-			old.discard(); // a fresh circle over an old one replaces it
+			old.discard();
 		}
 		BifrostEntities.Mark mark = new BifrostEntities.Mark(BifrostEntities.MARK, level);
 		mark.setPos(feet.x, feet.y + 0.02, feet.z);
 		mark.setYRot(level.random.nextFloat() * 360f);
+		mark.setSize(Math.max(1f, size));
 		level.addFreshEntity(mark);
-		if (arrival) {
-			for (int i = 0; i < 36; i++) {
-				double a = i * Math.PI / 18;
-				Vector3f c = RAINBOW[i % RAINBOW.length];
-				level.sendParticles(new DustParticleOptions(c, 2.2f), feet.x + Math.cos(a) * 1.5, feet.y + 0.15, feet.z + Math.sin(a) * 1.5, 2,
-						Math.cos(a) * 0.6, 0.02, Math.sin(a) * 0.6, 0.0);
-			}
-			level.sendParticles(ParticleTypes.EXPLOSION, feet.x, feet.y + 0.3, feet.z, 2, 0.6, 0.1, 0.6, 0.0);
-			level.sendParticles(ParticleTypes.END_ROD, feet.x, feet.y + 0.5, feet.z, 30, 1.2, 0.3, 1.2, 0.12);
-		}
 	}
 
-	/** The rainbow bridge: a tall column of dust cycling red to violet, with a white sparkle core. */
-	private static void column(ServerLevel level, Vec3 base) {
-		int steps = (int) (COLUMN_HEIGHT / 0.5);
-		for (int i = 0; i < steps; i++) {
-			double y = base.y + i * 0.5;
-			Vector3f colour = RAINBOW[(i / 3) % RAINBOW.length];
-			level.sendParticles(new DustParticleOptions(colour, 2.0f), base.x, y, base.z, 3, 0.35, 0.15, 0.35, 0.0);
+	/** v0.17.1: the rainbow dust rolling out over the ground where the bridge strikes. */
+	static void rainbowRing(ServerLevel level, Vec3 feet, double radius) {
+		for (int i = 0; i < 42; i++) {
+			double a = i * Math.PI / 21;
+			Vector3f c = RAINBOW[i % RAINBOW.length];
+			level.sendParticles(new DustParticleOptions(c, 2.2f), feet.x + Math.cos(a) * radius, feet.y + 0.15, feet.z + Math.sin(a) * radius, 2,
+					Math.cos(a) * 0.6, 0.02, Math.sin(a) * 0.6, 0.0);
 		}
-		level.sendParticles(ParticleTypes.END_ROD, base.x, base.y + COLUMN_HEIGHT * 0.5, base.z,
-				40, 0.25, COLUMN_HEIGHT * 0.3, 0.25, 0.02);
-		level.sendParticles(ParticleTypes.FLASH, base.x, base.y + 1.0, base.z, 1, 0.0, 0.0, 0.0, 0.0);
 	}
 }

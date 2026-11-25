@@ -194,13 +194,17 @@ const rbox = (name, cx, cy, w, h, zh, angle, tex) => ELEMENTS.push({
 });
 /**
  * A straight strip lying along segment p -> q of the blade outline: `w` wide, starting `off` in from the line on the
- * inward side (the left of p -> q, the outline running counter-clockwise), `zh` half thick, overlapping `ext` past
- * both ends so neighbouring facets join cleanly.
+ * inward side (the left of p -> q, the outline running counter-clockwise), `zh` half thick, running `ext` past
+ * both ends so neighbouring facets join cleanly -- or [past p, past q] (negative = stop short).
  */
 function strip(name, p, q, w, zh, tex, ext = 0.12, off = 0) {
-	const dx = q[0] - p[0], dy = q[1] - p[1], L = Math.hypot(dx, dy);
-	const nx = -dy / L, ny = dx / L;
-	const cx = (p[0] + q[0]) / 2 + nx * (off + w / 2), cy = (p[1] + q[1]) / 2 + ny * (off + w / 2);
+	const [e0, e1] = Array.isArray(ext) ? ext : [ext, ext];
+	const dx = q[0] - p[0], dy = q[1] - p[1], L0 = Math.hypot(dx, dy);
+	const ux = dx / L0, uy = dy / L0, shift = (e1 - e0) / 2; // an uneven extension slides the centre along the line
+	const L = L0 + e0 + e1;
+	ext = 0; // already in L
+	const nx = -dy / L0, ny = dx / L0;
+	const cx = (p[0] + q[0]) / 2 + ux * shift + nx * (off + w / 2), cy = (p[1] + q[1]) / 2 + uy * shift + ny * (off + w / 2);
 	let a = Math.atan2(dy, dx) * 180 / Math.PI;
 	a = ((a % 180) + 180) % 180; if (a > 90) a -= 180; // (-90, 90]
 	const snapped = Math.round(a / 22.5) * 22.5;
@@ -227,26 +231,38 @@ const EDGE = [[B, Cc], [Cc, D], [D, E], [E, F], [F, G]];
 // blade thicknesses (half, in z): the body thickest, the ground bevel thinner, the honed edge thinnest -- a stepped
 // profile, so from the flat the edge is a crisp bright line outside a lighter bevel band outside the dark body
 const ZB = 0.32, ZV = 0.21, ZE = 0.11, WE = 0.4, WV = 0.8, BODY = WE + WV;
+// v0.17.7 clipping fix (user: "stormbreaker model has some clipping on it"). Audit: scratchpad/v0177/stormbreaker_overlap_check.js
+// (0 fights / 0 close pairs now); close-ups: VIEW=head [FIGHT=1] node scratchpad/preview_thor_weapons_v0177.js ...
+//  - neighbouring edge / bevel facets used to overlap 0.12 past every joint on the SAME plane (z-fighting at each joint)
+//    and, at the horn and beard tips, the overlap stuck the bright edge out past the horn / beard back (the light nub):
+//    now every second facet is JOG thinner (the thicker one wins the overlap cleanly), a joint overlaps only by
+//    w * tan(11.25 deg) -- exactly enough to close the wedge a 22.5 degree turn leaves -- and the tips do not overlap at
+//    all (the horn / beard strip already covers that corner);
+//  - the body pieces were 0.003 px apart in thickness (flicker past ~12 blocks): now 0.02 px steps, plates abutting;
+//  - the lit rims sat on the same plane as the horn / beard back: they now wrap 0.03 proud of it, and stop short of the tips.
+const JOG = 0.03, TAN11 = Math.tan(Math.PI / 16);
 for (const [i, [p, q]] of EDGE.entries()) {
-	strip('edge' + i, p, q, WE, ZE, 'edge');
-	strip('bevel' + i, p, q, WV, ZV, 'bevel', 0.12, WE);
+	const jog = i % 2 ? JOG : 0;
+	const tip = (k, w) => (k ? r4(w * TAN11) : 0);
+	// the beard tip turns 90 degrees: the last facet stops 0.03 short so its end is not on the beard's back face
+	const last = (k, w) => (k < EDGE.length - 1 ? tip(true, w) : -0.03);
+	strip('edge' + i, p, q, WE, r4(ZE - jog), 'edge', [tip(i > 0, WE), last(i, WE)]);
+	strip('bevel' + i, p, q, WV, r4(ZV - jog), 'bevel', [tip(i > 0, WV), last(i, WV)], WE);
 }
-// the body: strips along the back edges (horn, beard) and inside the bevel, plates between them, each a hair thinner
-// than the last so no two coplanar faces fight
-let zk = 0;
-const zb = () => r4(ZB - 0.003 * zk++);
-strip('horn', A, B, 1.8, zb(), 'blade', 0.05);
-strip('beard', G, Hh, 1.8, zb(), 'blade', 0.05);
-strip('horn_tip_fill', B, Cc, 0.9, zb(), 'blade', 0, BODY);
-strip('horn_fill', Cc, D, 1.6, zb(), 'blade', 0, BODY);
-strip('beard_fill', E, F, 1.6, zb(), 'blade', 0, BODY);
-strip('beard_tip_fill', F, G, 1.2, zb(), 'blade', 0, BODY);
-{ const z = zb(); box('plate', [r4(D[0] + BODY), r4(E[1]), 8 - z], [6.6, r4(D[1]), 8 + z], 'blade'); }
-{ const z = zb(); box('plate_hi', [3.15, r4(D[1] - 0.05), 8 - z], [6.6, 22.4, 8 + z], 'blade'); }
-{ const z = zb(); box('plate_lo', [3.45, 16.3, 8 - z], [6.6, r4(E[1] + 0.05), 8 + z], 'blade'); }
-// a lit rim along the back of the horn and the beard, just proud of the flat
-strip('horn_rim', A, B, 0.25, r4(ZB + 0.02), 'bevel', 0.02);
-strip('beard_rim', G, Hh, 0.25, r4(ZB + 0.02), 'bevel', 0.02);
+// the body: strips along the back edges (horn, beard) and inside the bevel, plates between them; any two that overlap
+// differ in thickness by at least 0.02 px so no two flats fight
+strip('horn', A, B, 1.8, ZB, 'blade', [0.05, 0]);
+strip('beard', G, Hh, 1.8, ZB, 'blade', [-0.03, 0.05]); // its start face would sit on the last edge facet's outer face
+strip('horn_tip_fill', B, Cc, 0.9, 0.30, 'blade', 0, BODY);
+strip('horn_fill', Cc, D, 1.6, 0.28, 'blade', 0, BODY);
+strip('beard_fill', E, F, 1.6, 0.28, 'blade', 0, BODY);
+strip('beard_tip_fill', F, G, 1.2, 0.30, 'blade', [0, -0.03], BODY);
+{ const z = 0.26; box('plate', [r4(D[0] + BODY), r4(E[1]), 8 - z], [6.6, r4(D[1]), 8 + z], 'blade'); }
+{ const z = 0.26; box('plate_hi', [3.15, r4(D[1]), 8 - z], [6.6, 22.4, 8 + z], 'blade'); }
+{ const z = 0.26; box('plate_lo', [3.45, 16.3, 8 - z], [6.6, r4(E[1]), 8 + z], 'blade'); }
+// a lit rim along the back of the horn and the beard, wrapping just proud of the back and the flat
+strip('horn_rim', A, B, 0.28, r4(ZB + 0.025), 'bevel', [0.02, -0.03], -0.03);
+strip('beard_rim', G, Hh, 0.28, r4(ZB + 0.025), 'bevel', [-0.06, 0.02], -0.03);
 box('throat', [5.6, 18.25, 7.45], [6.6, 21.75, 8.55], 'metal');
 // the rune strip down the flat of the blade, just proud of it on both faces
 box('blade_rune', [3.2, 17.9, r4(8 - ZB - 0.03)], [3.95, 21.1, r4(8 + ZB + 0.03)], 'rune', {
@@ -288,9 +304,9 @@ const branch = (tag, y0, y1, k0) => {
 branch('branch_lo', 1.3, GRIP0 + 0.1, 0);
 branch('branch_hi', GRIP1 - 0.1, 16.0 + LIFT, 4);
 box('knot0', [8.6, 3.2, 7.55], [9.0, 3.75, 8.2], 'handle');
-box('knot1', [6.95, 14.1, 7.7], [7.35, 14.6, 8.35], 'handle');
+box('knot1', [6.95, 14.1, 7.68], [7.35, 14.6, 8.35], 'handle');
 box('vine0', [7.7, 1.6, 8.62], [8.25, 3.4, 8.92], 'handle');
-box('vine1', [8.62, 3.9, 7.75], [8.92, 5.9, 8.3], 'handle');
+box('vine1', [8.62, 3.9, 7.75], [8.92, 5.66, 8.3], 'handle');
 box('vine2', [7.75, 12.4, 7.08], [8.3, 14.4, 7.38], 'handle');
 box('vine3', [7.08, 14.3, 7.7], [7.38, 16.3, 8.25], 'handle');
 
@@ -394,6 +410,8 @@ const TEXTURES = {
 	particle: 'projecthero:item/stormbreaker_metal',
 };
 console.log('elements', ELEMENTS.length);
+// element names for the clipping audit (scratchpad/v0177/stormbreaker_overlap_check.js)
+fs.writeFileSync(path.join(__dirname, 'v0177/stormbreaker_names.json'), JSON.stringify(ELEMENTS.map((e) => e.name)) + '\n');
 
 // --- fit a display rotation's projection of the baked model into `size` model px, centred ---
 function rotXYZ(p, r) { // MC: rotationXYZ = Rx * Ry * Rz applied to the point

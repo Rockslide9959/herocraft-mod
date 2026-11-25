@@ -11,6 +11,7 @@ import com.projecthero.mod.power.ThorPowers;
 import com.projecthero.mod.squad.Squad;
 import com.projecthero.mod.squad.SquadManager;
 import com.projecthero.mod.stormbreaker.Bifrost;
+import com.projecthero.mod.stormbreaker.BifrostTravel;
 import com.projecthero.mod.stormbreaker.BifrostWaypoints;
 import com.projecthero.mod.stormbreaker.StormbreakerEntity;
 import com.projecthero.mod.worthiness.Worthiness;
@@ -351,7 +352,8 @@ public class StormbreakerGameTests implements FabricGameTest {
 		ServerPlayer thor = player(helper, new Vec3(1.5, 2, 1.5), true);
 		ServerPlayer mate = player(helper, new Vec3(3.5, 2, 1.5), false);
 		ServerPlayer farMate = player(helper, new Vec3(1.5, 12, 1.5), false); // 10 blocks away: out of reach
-		ServerPlayer stranger = player(helper, new Vec3(1.5, 2, 3.5), false); // close by, but not in the squad
+		// v0.17.7: anyone within 4 blocks rides the beam now; this one is 7 blocks off and not in the squad
+		ServerPlayer stranger = player(helper, new Vec3(7.5, 2, 5.5), false);
 		Vec3 farStart = farMate.position();
 		Vec3 strangerStart = stranger.position();
 		SquadManager squads = SquadManager.get(helper.getLevel().getServer());
@@ -364,13 +366,14 @@ public class StormbreakerGameTests implements FabricGameTest {
 
 			Bifrost.Result result = travel(helper, thor, 2, BIFROST_ALT + 1, 2);
 			helper.assertTrue(result == Bifrost.Result.OK, "the Bifrost opens, got " + result);
+			BifrostTravel.finishForTests(thor); // v0.17.7: play the travel cinematic out at once
 			helper.assertTrue(thor.blockPosition().equals(helper.absolutePos(new BlockPos(2, BIFROST_ALT + 1, 2))),
 					"Thor lands on the platform at the coordinates, got " + thor.blockPosition());
 			helper.assertTrue(mate.blockPosition().equals(helper.absolutePos(new BlockPos(4, BIFROST_ALT + 1, 2))),
 					"the squadmate keeps their 2-block offset, got " + mate.blockPosition());
 			helper.assertTrue(thor.fallDistance == 0.0f && mate.fallDistance == 0.0f, "no fall distance carried over");
 			helper.assertTrue(farMate.position().distanceToSqr(farStart) < 1.0E-6, "a squadmate 10 blocks away stays put");
-			helper.assertTrue(stranger.position().distanceToSqr(strangerStart) < 1.0E-6, "a player outside the squad stays put");
+			helper.assertTrue(stranger.position().distanceToSqr(strangerStart) < 1.0E-6, "a player outside the squad and the beam stays put");
 
 			helper.assertTrue(Bifrost.cooldownRemaining(thor) == Bifrost.COOLDOWN_TICKS && Bifrost.COOLDOWN_TICKS == 60 * 20,
 					"a 60 s cooldown, got " + Bifrost.cooldownRemaining(thor));
@@ -383,6 +386,7 @@ public class StormbreakerGameTests implements FabricGameTest {
 
 			Bifrost.resetCooldownForTests(thor);
 			helper.assertTrue(travel(helper, thor, 5, BIFROST_ALT + 1, 5) == Bifrost.Result.OK, "once recharged it works again");
+			BifrostTravel.finishForTests(thor);
 		} finally {
 			squads.disband(squad);
 			platform(helper, BIFROST_ALT, Blocks.AIR);
@@ -456,6 +460,7 @@ public class StormbreakerGameTests implements FabricGameTest {
 			helper.assertTrue(Bifrost.cooldownRemaining(p) == 0, "without spending the cooldown");
 
 			helper.assertTrue(travel(helper, p, 5, BIFROST_ALT + 2, 5) == Bifrost.Result.OK, "aimed into the pillar");
+			BifrostTravel.finishForTests(p);
 			helper.assertTrue(p.blockPosition().equals(helper.absolutePos(new BlockPos(5, BIFROST_ALT + 4, 5))),
 					"lands on top of it, not inside it, got " + p.blockPosition());
 			helper.assertTrue(p.fallDistance == 0.0f, "no fall distance carried over");

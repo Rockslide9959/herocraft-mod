@@ -128,6 +128,70 @@ Twin Thunder 20 / ring 8 -> 30 / 22, Thunder Field 4 every 10 ticks -> 22 every 
 - **Sound**: the amethyst chimes and the beam's beacon hum (the Bifrost's sounds) became trident thunder / lightning impacts.
 - Films: `docs/screenshots/v0177/thor_revamp/*_lightning.mp4` (+ frame sheets) beside the old rainbow ones.
 
+### Bifrost Travel cinematic (v0.17.7) -- `stormbreaker/BifrostTravel`, client `thor/BifrostTravelClient`, `thor/BifrostColumnDraw`
+User: "When player selects a destination on the bifrost travel can you make it so that player lifts stormbreaker and then the
+bifrost appears beaming down on the player and surrounding players, then they all slowly rise up 10 blocks for 3 seconds and
+get transported back down where they wanted to teleport". `Bifrost.travelTo` validates exactly as before (and spends the 60 s
+cooldown), then `BifrostTravel.begin` runs the trip instead of teleporting at once. Ticks from the start:
+- **0..14 raise** -- the caster lifts Stormbreaker to the sky: `BifrostRaisePoseMixin` (axe arm straight up, free arm out,
+  head back), `BifrostRaiseGripMixin` (the axe turned a quarter turn about the hand's X so the head points up along the arm),
+  `BifrostRaiseFirstPersonMixin` (first person: lifted 0.42 and tilted back 28 degrees). Weight from the synced `CAST` clock
+  (`BifrostTravelClient.raise`): up over 10 ticks, held through the whole trip, lowered over the last `POSE_LOWER` 10 ticks
+  of the descent. Lightning arcs crawl over the raised head (more as it builds), sparks + a beacon charge sound, and at the
+  strike a bolt from the axe into the sky. Everyone in the beam is held where they stand.
+- **14 strike** -- the Bifrost beams down: a `BifrostEntities.Beam` in mode `LIFT` (radius = the group's spread + 1, 1.6..5.5)
+  crashes down in 4 ticks, the rune circle (`Mark`, scaled to the beam via its new saved `size`) burns in under it, a ring of
+  rainbow dust, thunder + lightning impact + beacon power-select + amethyst resonance, a 0.6 camera shake for every rider and a
+  soft white flash on their screens.
+- **18..78 rise** (60 ticks = 3 s) -- everyone rises `RISE_HEIGHT` 10 blocks, smoothstep-eased (biggest step 0.25 blocks/tick),
+  gravity off, fall distance held at 0. Players: the server sets the position (so the server copy is right) and sends the next
+  step as velocity (smooth on the client); more than 1.25 blocks off (lag, knockback) snaps them back. Pets: positioned every
+  tick, navigation stopped. Fly kick: `mixin/BifrostFlightKickMixin` lifts `getMaximumFlyingTicks` while `inBeam`. Sound:
+  an elytra whoosh + wind charge burst at the start, then an amethyst chime and the beacon hum every 10 ticks, rising in pitch.
+  END_ROD motes stream up the column.
+- **78 transport** -- the screen whites out over the last 4 ticks; the landing is checked again (it may have been built over);
+  everyone goes to the top of the destination column (as high above their landing as the space allows, up to 10 -- a
+  `DESCEND` Beam crashing down onto them), a flash + END_ROD burst up there, thunder, beacon, amethyst cluster break.
+- **78..108 descent** (30 ticks) -- lowered with an ease-out (quick at the top, settling softly), then at **108 land**: exactly
+  on their landing, gravity back, momentum + fall distance cleared, the rune circle burned in, a rainbow shockwave (the DESCEND
+  beam's), trident thunder + amethyst + a 0.35 shake. The action-bar message ("The Bifrost carried you and N companion(s)").
+
+**Who comes** (`BifrostTravel.ridersFor`): the caster; every player within `PLAYER_RADIUS` 4 blocks (anyone standing in it, squad
+or not); every squadmate within `Bifrost.CARRY_RADIUS` 8 (as before); any `OwnableEntity` (wolves, cats, parrots, tamed horses)
+owned by one of those players within 4 blocks of the caster or of its owner -- not one told to sit. A player can sneak to stay
+behind. Hostile mobs and creatures nobody owns never come. Riders are dismounted; each keeps their X/Z offset on their own
+safe spot (`Bifrost.landingFor`, the old ally rule: within 6 blocks up/down of the caster's landing, else the caster's spot).
+
+**The column** (`BifrostColumnDraw`, the one place the rainbow stays): a white core in a soft glow; a luminous sheath of smooth
+rainbow bands spiralling up the wall (vertex-coloured quads, both windings, hue by angle + height, scrolling up on the way up
+and down on the way down); a counter-turning inner swirl of brighter streaks; four rings of Asgardian rune glyphs (Tiwaz, Algiz,
+Fehu, Thurisaz, Raido, Kenaz, Gebo, Sowilo as gold-white strokes) turning round it and climbing it (sinking for DESCEND) over a
+thin band of light; 46 motes; a glowing pool on the ground; a rainbow shockwave on each impact; a white-gold flare at the top at
+the moment of transport. LIFT lives 80 ticks (pulls up into the sky after the transport), DESCEND 60. Rider HUD
+(`BifrostTravelClient.hud`, `RIDE` clock, owner-synced): rainbow shimmer at the screen edges while in the beam + the flashes.
+
+**Edge cases.** Cross-dimension: still refused (same dimension only, as before). Unloaded destination: loaded (generated if
+need be) before validation, then held by a `projecthero_bifrost` ticket (renewed every second) on every rider's landing chunk.
+A ceiling: each rider rises only as far as their box stays clear (`clearance`, 1/8-block steps) -- never into blocks; the
+same at the destination's top. Destination inside blocks: `findSafeLanding` climbs out (as before); if the landing is no longer
+safe at the transport another is searched in that column, and if there is none the beam lowers everyone back where they started
+and refunds the cooldown. Logout mid-trip (`DISCONNECT` -> `onLeave`): put back on the ground (where they stood, or their
+landing once across), gravity on, fall distance 0, off the run -- so nobody is saved floating with NoGravity; if it was the
+caster the bridge stays open for the others. Death / leaving the level / spectator: dropped from the run with gravity restored.
+Server stopping: everyone is set down safely before the players are saved (`SERVER_STOPPING`). A jump in game time cannot skip
+the strike or the transport (`>=` + flags). A second trip while one runs is refused with `Result.BUSY`
+(`message.projecthero.bifrost.fail.busy`). Statics (`RUNS`, `RIDING`: UUIDs, dimension keys, positions) cleared in
+`ServerStateReset`.
+
+Tests: `BifrostTravelGameTests` (batch `bifrost_travel_v0177`) -- the beam takes the caster, a non-squad player 2 blocks away
+and his wolf but not a far player, a zombie or a cow; the rise is upward every tick with the biggest step 0.1..0.3 and tops out
+10 blocks up for all three; the descent never drops more than 0.75 a tick; everyone lands on their spot with gravity back, no
+fall distance and no damage; a second trip is BUSY; a rider / the caster logging out mid-rise is put back where they stood with
+gravity on (and the others still arrive); a ceiling stops the rise under it without ever being inside a block, and a destination
+inside a pillar lands on top. `StormbreakerGameTests`' Bifrost tests play the trip out with `BifrostTravel.finishForTests`.
+Lang: `scratchpad/v0177/lang_bifrost_travel.js`. Films: `docs/screenshots/v0177/bifrost/` (harness
+`scratchpad/BifrostHarness.v0177.java.txt`, script `scratchpad/v0177/bifrost_films.js`).
+
 ### HUD -- `client/gui/ThorHud`
 State badge first in the tags (Unarmed / Mjolnir / Stormbreaker / Twin Gods), then Storm-Charged, God of Thunder, Lightning
 Incarnate. The boxes show the state's cooldowns (Shift swaps to the Shift moves, the other on the durability bar); a narrow
@@ -383,6 +447,19 @@ Screens and films: `docs/screenshots/v0177/thor_weapons/`. Offline previewer (te
   `PINNED_LIFT` 0.75 -- the client's copy of a just-pinned axe was seen 0.33..0.94 blocks inside the ground (it flies
   on until the next position sync; the entity type syncs at `trackedUpdateRate(20)`), which buried the new head.
 - Not changed: the entity hitbox (0.6 x 0.6), `ThorFxRenderer`'s approximate raised-weapon points.
+- **Clipping fix (v0.17.7, user: "stormbreaker model has some clipping on it")** -- audit with
+  `node scratchpad/v0177/stormbreaker_overlap_check.js [stormbreaker|stormbreaker_thrown]` (lists every pair of same-facing
+  faces on one plane, or under 0.019 px apart, that overlap and are not buried inside a third element; 0 / 0 now, was 20
+  coplanar fights + 32 too-close pairs). Close-ups: `VIEW=head [FIGHT=1] [HC=x,y HS=span] node
+  scratchpad/preview_thor_weapons_v0177.js out.png stormbreaker_thrown` (FIGHT paints z-fighting pixels magenta). What it was:
+  neighbouring edge / bevel facets ran 0.12 px past every joint on the same plane (flicker at each joint), and at the horn and
+  beard tips that overrun stuck the bright edge out past the horn / beard back (the light nub in the screenshot); the lit rims
+  sat on the horn / beard back planes; the beard's start face sat on the last edge facet; the blade body pieces were only
+  0.003 px apart in thickness (flicker at range); knot1 / vine3 and vine1 / tie_lo shared faces. Fix (generator): every second
+  edge / bevel facet 0.03 thinner, joints overlap only w * tan(11.25 deg) (just enough to close a 22.5 degree turn), no overrun
+  at the tips (the horn / beard strip already covers that corner), body pieces 0.02 px steps with the plates abutting, rims
+  wrapped 0.03 proud and stopped short of the tips, the handle bits nudged apart. `strip()` takes `[past p, past q]`. Size,
+  look, grip and display transforms unchanged (gui / fixed fit moved by 0.001). Stills: `docs/screenshots/v0177/bifrost/clip_*`.
 
 ### HUD -- `client/gui/ThorHud.renderStatusRow`
 - Above the keys: 4 combo pips while dual wielding (gold up to the landed step; grey + seconds while Twin Thunder
@@ -595,7 +672,8 @@ throw), `StormbreakerForge` (10 s in Nether lava), `ThorPowers.isHoldingThorWeap
   if the drop hits something unsafe) climb to the first gap. A spot needs two free blocks (no collision, fluid, fire,
   powder snow, berry bush or cobweb) over a solid floor that is not lava, magma, a campfire, cactus or powder snow --
   or a water surface. A column with nothing safe (the void) is refused.
-- **Riders:** the user + every `Squads.areAllies` squadmate within **8 blocks** (3D), same level, alive, not a
+- **Riders (v0.17.7: see "Bifrost Travel cinematic" -- now also every player within 4 blocks and pets, and the trip is a
+  cinematic, not an instant teleport):** the user + every `Squads.areAllies` squadmate within **8 blocks** (3D), same level, alive, not a
   spectator and not sneaking (sneak = stay behind). Each keeps their X/Z offset and gets their own safe landing in
   their column if it is within 6 blocks up/down of the user's; otherwise they share the user's spot. Non-squad
   players are never carried. Everyone is dismounted (`stopRiding` / `ejectPassengers`), teleported with
