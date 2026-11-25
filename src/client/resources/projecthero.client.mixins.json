@@ -5,6 +5,9 @@
 	"mixins": [
 		"EyeBeamHeadCaptureMixin",
 		"ThorAcquireLiftPoseMixin",
+		"BifrostRaisePoseMixin",
+		"BifrostRaiseGripMixin",
+		"BifrostRaiseFirstPersonMixin",
 		"CapShieldPoseMixin",
 		"CapShieldHeldLayerMixin",
 		"CapShieldFirstPersonMixin",

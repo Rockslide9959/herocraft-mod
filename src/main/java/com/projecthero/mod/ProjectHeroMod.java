@@ -259,6 +259,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.greenlantern.GreenLanternArsenal.initialize();
 		com.projecthero.mod.greenlantern.mech.GreenLanternMech.initialize(); // v0.17.1: the Hard-Light Mech
 		com.projecthero.mod.stormbreaker.BifrostEntities.initialize(); // v0.17.1
+		com.projecthero.mod.stormbreaker.BifrostTravel.initialize(); // v0.17.7: the Bifrost Travel cinematic (raise, beam, rise, descent)
 		com.projecthero.mod.wolverine.Wolverine.initialize();
 		com.projecthero.mod.titanshifter.TitanShifterDamage.initialize();
 		com.projecthero.mod.titanshifter.TitanBoulders.initialize(); // v0.16.7: the Beast Titan's boulders

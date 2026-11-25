@@ -38,7 +38,7 @@ public class BifrostMarkRenderer extends EntityRenderer<BifrostEntities.Mark> {
 		pose.pushPose();
 		pose.mulPose(Axis.YP.rotationDegrees(-e.getYRot()));
 		float grow = Mth.clamp(age / 6f, 0f, 1f);
-		float half = HALF * (0.6f + 0.4f * grow);
+		float half = HALF * e.size() * (0.6f + 0.4f * grow); // v0.17.7: the cinematic scales the circle to its beam
 		// the scorch, lit like the ground
 		quad(buffers.getBuffer(RenderType.entityTranslucent(RUNES)), pose, half, 0.0f, 0x2A1A0F, 0.85f * fadeOut * grow, light);
 		// the glow, cooling away

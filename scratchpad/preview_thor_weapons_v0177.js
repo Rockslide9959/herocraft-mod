@@ -4,6 +4,9 @@
 // Usage (repo root): node scratchpad/preview_thor_weapons_v0177.js <out.png> <model id> [<model id> ...]
 // Each model gets one row: side (south face on), back (north), 3/4 front, 3/4 from above, the GUI icon at 8x and the
 // GUI icon at 2x (what a GUI-scale-2 slot shows), the item frame (fixed) view.
+// v0.17.7 clipping fix: VIEW=head renders head / blade close-ups instead (side, back, 3/4 front, 3/4 back, above, below,
+// edge-on); FIGHT=1 paints magenta every pixel where two different elements' faces meet within 0.01 px of depth (the
+// spots that z-fight / flicker in game).
 const fs = require('fs');
 const path = require('path');
 const { decode, encode } = require('./pngkit.js');
@@ -70,10 +73,13 @@ function render(model, view, W, H, span, bg) {
 	const px = Buffer.alloc(W * H * 4);
 	for (let i = 0; i < W * H; i++) { px[i * 4] = bg[0]; px[i * 4 + 1] = bg[1]; px[i * 4 + 2] = bg[2]; px[i * 4 + 3] = 255; }
 	const zb = new Float32Array(W * H).fill(-1e9);
+	const owner = new Int32Array(W * H).fill(-1);
+	const fight = new Uint8Array(W * H);
+	const FIGHT = !!process.env.FIGHT;
 	const sc = W / span;
 	const toPx = (p) => [W / 2 + p[0] * sc, H / 2 - p[1] * sc, p[2]];
 	const resolve = (t) => { let r = t; for (let k = 0; k < 5 && r && r.startsWith('#'); k++) r = model.textures[r.slice(1)]; return r; };
-	for (const e of model.elements) {
+	for (const [ei, e] of model.elements.entries()) {
 		const em = mul(view, elementMatrix(e));
 		for (const [fname, face] of Object.entries(e.faces || {})) {
 			const F = FACES[fname];
@@ -98,19 +104,23 @@ function render(model, view, W, H, span, bg) {
 				if (s < 0 || s > 1 || t < 0 || t > 1) continue;
 				const z = p0[2] + s * (p1[2] - p0[2]) + t * (p3[2] - p0[2]);
 				const k = y * W + x;
+				if (FIGHT && owner[k] >= 0 && owner[k] !== ei && Math.abs(z - zb[k]) < 0.01) fight[k] = 1;
 				if (z < zb[k]) continue;
 				const u = uv[0] + s * (uv[2] - uv[0]), v = uv[1] + t * (uv[3] - uv[1]);
 				const tx = Math.min(tex.w - 1, Math.max(0, Math.floor(u / 16 * tex.w - (uv[2] < uv[0] ? 1e-6 : -1e-6))));
 				const ty = Math.min(tex.h - 1, Math.max(0, Math.floor(v / 16 * tex.h - (uv[3] < uv[1] ? 1e-6 : -1e-6))));
 				const ti = (ty * tex.w + tx) * 4;
 				if (tex.px[ti + 3] < 128) continue;
+				if (z > zb[k] + 0.01) fight[k] = 0;
 				zb[k] = z;
+				owner[k] = ei;
 				px[k * 4] = Math.round(tex.px[ti] * shade);
 				px[k * 4 + 1] = Math.round(tex.px[ti + 1] * shade);
 				px[k * 4 + 2] = Math.round(tex.px[ti + 2] * shade);
 			}
 		}
 	}
+	if (FIGHT) for (let k = 0; k < W * H; k++) if (fight[k]) { px[k * 4] = 255; px[k * 4 + 1] = 0; px[k * 4 + 2] = 255; }
 	return { W, H, px };
 }
 
@@ -142,6 +152,13 @@ function row(id) {
 	const ys = m.elements.flatMap((e) => [e.from[1], e.to[1]]);
 	const yc = (Math.min(...ys) + Math.max(...ys)) / 2, span = Math.max(18, Math.max(...ys) - Math.min(...ys) + 3);
 	const raw = (r) => mul(mul(mul(r, T(0, -(yc - 8), 0)), unbake), centre);
+	if (process.env.VIEW === 'head') { // close-ups of the head and blade (x 2..12.5, y 15..24.5 of the unbaked model)
+		const [hx, hy] = (process.env.HC || "7.2,20").split(",").map(Number); // HC=x,y / HS=span zoom elsewhere
+		const hv = (r) => mul(mul(mul(r, T(-(hx - 8), -(hy - 8), 0)), unbake), centre);
+		const hs = +(process.env.HS || 11.5);
+		return [I(), RY(180), mul(RX(12), RY(-35)), mul(RX(12), RY(145)), mul(RX(60), RY(-20)), mul(RX(-40), RY(30)), mul(RX(5), RY(-80))]
+			.map((r) => render(m, hv(r), CELL, CELL, hs, BG));
+	}
 	views.push(render(m, raw(I()), CELL, CELL, span, BG));
 	views.push(render(m, raw(RY(180)), CELL, CELL, span, BG));
 	views.push(render(m, raw(mul(RX(12), RY(-35))), CELL, CELL, span, BG));

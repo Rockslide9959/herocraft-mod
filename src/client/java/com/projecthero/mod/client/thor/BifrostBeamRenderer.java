@@ -29,6 +29,11 @@ public class BifrostBeamRenderer extends EntityRenderer<BifrostEntities.Beam> {
 
 	@Override
 	public void render(BifrostEntities.Beam e, float yaw, float partial, PoseStack pose, MultiBufferSource buffers, int light) {
+		if (e.mode() >= BifrostEntities.Beam.LIFT) { // v0.17.7: the Bifrost Travel cinematic column
+			BifrostColumnDraw.render(e, partial, pose, TurboDraw.buffer(buffers),
+					entityRenderDispatcher.camera.getPosition().subtract(e.getPosition(partial)));
+			return;
+		}
 		float t = e.tickCount + partial;
 		float life = BifrostEntities.BEAM_TICKS;
 		float bottom;
