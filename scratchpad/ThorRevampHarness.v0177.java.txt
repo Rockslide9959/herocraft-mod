@@ -273,13 +273,87 @@ public final class ThorRevampHarness implements ClientModInitializer {
 			at(t + 7, () -> server(mc, p -> release(p, slot)));
 		}
 		if (still != null) {
-			at(t + 6 + Math.max(4, Math.min(len - 8, holdTicks > 0 ? holdTicks + 4 : 8)), () -> shot(mc, still));
+			at(t + 6 + Math.max(4, Math.min(len - 8, holdTicks > 0 ? holdTicks - 6 : 8)), () -> shot(mc, still));
 		}
 		return t + len;
 	}
 
+	/** One melee swing (the combo) at the nearest husk in front, with the attack ticker reset so it lands at full strength. */
+	private static void swingAt(ServerPlayer p) {
+		var hs = p.serverLevel().getEntitiesOfClass(Husk.class, new AABB(p.blockPosition()).inflate(4));
+		if (!hs.isEmpty()) {
+			p.swing(InteractionHand.MAIN_HAND, true);
+			p.attack(hs.get(0));
+			p.resetAttackStrengthTicker();
+		}
+	}
+
+	/** mode "axe": close looks at every Stormbreaker / dual pose with the 1.5-block greataxe (side, front, first person). */
+	private static void planAxe() {
+		Minecraft mc = Minecraft.getInstance();
+		final Item MJ = ModItems.MJOLNIR, SB = ModItems.STORMBREAKER;
+		int t = 0;
+		final int R = 1, G = 2, X = 3, Z = 4, C = 6;
+		float[][] cams = { { 90f, 4.2f, 1.5f, 0.6f, 1.2f }, { 200f, 4.4f, 1.6f, 0.5f, 1.3f } };
+		String[] camName = { "side", "front" };
+		for (int ci = 0; ci < 2; ci++) {
+			final float[] c = cams[ci];
+			final String cn = camName[ci];
+			for (int w = 0; w < 2; w++) {
+				final Item off = w == 0 ? null : MJ;
+				final String wn = w == 0 ? "stormbreaker" : "twin";
+				at(t, () -> cam3(c[0], c[1], c[2], c[3], c[4]));
+				int s0 = t;
+				at(t, () -> server(mc, p -> {
+					reset(p, SB, off);
+					husk(p, 0.0, 1.8);
+				}));
+				for (int k = 0; k < (w == 0 ? 3 : 4); k++) {
+					at(t + 8 + k * 30, () -> server(mc, ThorRevampHarness::swingAt));
+				}
+				t += 8 + (w == 0 ? 3 : 4) * 30 + 10;
+				film(s0 + 6, t, "film_axe_combo_" + wn + "_" + cn);
+				int s1 = t;
+				if (w == 0) {
+					t = move(mc, t, SB, null, G, false, 0, 30, null);
+					t = move(mc, t, SB, null, C, false, 0, 26, null);
+					t = move(mc, t, SB, null, R, true, 0, 22, null);
+					t = move(mc, t, SB, null, Z, false, 0, 50, null);
+				} else {
+					t = move(mc, t, SB, MJ, G, false, 0, 32, null);
+					t = move(mc, t, SB, MJ, R, true, 0, 26, null);
+					t = move(mc, t, SB, MJ, C, true, 24, 30, null);
+					t = move(mc, t, SB, MJ, Z, false, 0, 40, null);
+				}
+				film(s1 + 4, t - 2, "film_axe_moves_" + wn + "_" + cn);
+			}
+		}
+		at(t, () -> fp());
+		int f0 = t;
+		at(t, () -> server(mc, p -> {
+			reset(p, SB, null);
+			husk(p, 0.0, 2.2);
+		}));
+		for (int k = 0; k < 3; k++) {
+			at(t + 8 + k * 30, () -> server(mc, ThorRevampHarness::swingAt));
+		}
+		t += 8 + 90 + 6;
+		t = move(mc, t, SB, null, G, false, 0, 26, null);
+		t = move(mc, t, SB, null, C, false, 0, 24, null);
+		film(f0 + 4, t - 2, "film_axe_fp");
+		final int end = t + 4;
+		at(end, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
 	private static void plan() {
 		Minecraft mc = Minecraft.getInstance();
+		if (mode.equals("axe")) {
+			planAxe();
+			return;
+		}
 		final Item MJ = ModItems.MJOLNIR, SB = ModItems.STORMBREAKER;
 		int t = 0;
 		final int R = 1, G = 2, X = 3, Z = 4, V = 5, C = 6;
