@@ -10,12 +10,11 @@ import net.minecraft.world.item.ItemStack;
 /**
  * Whether a player holds the Power of Thor (a worthiness score at or above {@link #THRESHOLD}).
  *
- * <p>v0.11.14: worthiness is earned one way only -- by <b>lifting Mjolnir while you have the Hero of the
- * Village effect</b> ({@link #canLift}/{@link #ascend}). The lift binds the hammer to you on the spot, makes
- * you Thor (replacing whatever Primary power you had) and consumes the effect. Once you are Thor you may
- * pick the hammer up freely; anyone else -- including someone whose Hero of the Village effect has since run
- * out -- cannot budge it. The score itself is still the persisted flag, and the {@code /thor} test commands
- * still set it directly.
+ * <p>v0.17.7: worthiness is earned by <b>lifting a free Mjolnir</b> -- with full Valor, during a thunderstorm, after winning
+ * the Trial of Asgard ({@code thoracquire.MjolnirLift} / {@code TrialOfAsgard}). Hero of the Village no longer opens it (it
+ * gives Valor instead). The lift binds the hammer, makes you Thor ({@link #ascend}). Once you are Thor you may pick the hammer
+ * up freely; nobody else can budge it. The score is still the persisted flag, and the {@code /thor} test commands set it.
+ * (v0.11.14-v0.17.6: lifting it with Hero of the Village was the way in.)
  */
 public final class Worthiness {
 	/** Score needed to lift/use Mjolnir. Matches THOR_DESIGN.md's suggested threshold. */
@@ -39,34 +38,29 @@ public final class Worthiness {
 		return getScore(player) >= THRESHOLD;
 	}
 
-	/** True while the player has the Hero of the Village effect -- the only key that lets an outsider lift Mjolnir. */
+	/** True while the player has the Hero of the Village effect (v0.17.7: no longer opens Mjolnir; Shazam still reads it). */
 	public static boolean hasAscensionEffect(Player player) {
 		return player.hasEffect(MobEffects.HERO_OF_THE_VILLAGE);
 	}
 
-	/** Whether {@code player} may physically lift a hammer right now: creative, already Thor, or Hero of the Village. */
+	/** Whether {@code player} may physically pick a hammer up right now: creative, or already Thor (and not the Hulk). */
 	public static boolean canLift(Player player) {
 		// v0.13.12: the Hulk cannot lift Mjolnir, worthy or not
 		return WorthinessEnforcer.bypassesWorthiness(player)
-				|| (!com.projecthero.mod.hulk.Hulk.isHulk(player) && (isWorthy(player) || hasAscensionEffect(player)));
+				|| (!com.projecthero.mod.hulk.Hulk.isHulk(player) && isWorthy(player));
 	}
 
 	/**
-	 * True if lifting the hammer right now would be an ascension: an unworthy, non-creative player with
-	 * the Hero of the Village effect. Callers check this, make room for the hammer, then call
-	 * {@link #ascend}.
+	 * v0.17.7: true if this player is an outsider who could become Thor by lifting a free hammer: not creative, not already
+	 * Thor, not the Hulk, and with full Valor. (The storm and the Trial of Asgard are checked at the hammer by
+	 * {@code thoracquire.MjolnirLift}.)
 	 */
 	public static boolean wouldAscend(Player player) {
-		return !WorthinessEnforcer.bypassesWorthiness(player) && !isWorthy(player) && hasAscensionEffect(player)
+		return !WorthinessEnforcer.bypassesWorthiness(player) && !isWorthy(player) && com.projecthero.mod.thoracquire.Valor.isFull(player)
 				&& !com.projecthero.mod.hulk.Hulk.isHulk(player);
 	}
 
-	/**
-	 * v0.11.15: as {@link #wouldAscend(Player)}, but for a specific hammer. A hammer that is already bound to
-	 * <em>another</em> player never turns its lifter into Thor and never rebinds -- a Hero of the Village may
-	 * still lift it (see {@link #canLift}), but the power stays with its owner and nothing about the
-	 * owner changes.
-	 */
+	/** As {@link #wouldAscend(Player)}, for a specific hammer: one bound to another player never turns its lifter into Thor. */
 	public static boolean wouldAscend(Player player, ItemStack hammer) {
 		return wouldAscend(player) && !boundToSomeoneElse(player, hammer);
 	}
@@ -78,8 +72,8 @@ public final class Worthiness {
 	}
 
 	/**
-	 * The moment a Hero of the Village lifts Mjolnir: replaces their Primary power with Thor, binds
-	 * {@code hammer} to them (unless someone else already owns it), and consumes the effect.
+	 * The moment of the lift (v0.17.7: the end of {@code MjolnirLift}'s cutscene): replaces their Primary power with Thor and
+	 * binds {@code hammer} to them (unless someone else already owns it). Hero of the Village is no longer consumed.
 	 *
 	 * @param hammer the stack about to enter the player's inventory -- mutated in place so it arrives bound
 	 */
@@ -87,7 +81,6 @@ public final class Worthiness {
 		com.projecthero.mod.hero.HeroTiers.claimPrimary(player, "thor");
 		setScore(player, TEST_WORTHY_SCORE);
 		com.projecthero.mod.power.ThorPowers.bindOnAscend(player, hammer);
-		player.removeEffect(MobEffects.HERO_OF_THE_VILLAGE);
 		// The "You are worthy / Mjolnir accepts you" announcement comes from ThorFeedback#bound, which the
 		// bind above triggers -- one place, two lines, no duplicate.
 	}

@@ -114,6 +114,7 @@ public final class HideoutClearing {
 		Component title = Component.translatable("projecthero.hideout.cleared.title").withStyle(s -> s.withColor(faction.colour()).withBold(true));
 		Component sub = Component.translatable("projecthero.hideout.cleared.sub", faction.hideoutName()).withStyle(ChatFormatting.GRAY);
 		for (ServerPlayer p : playersNear(level, core, 64)) {
+			com.projecthero.mod.thoracquire.Valor.add(p, com.projecthero.mod.thoracquire.Valor.Source.CLEARED); // v0.17.7
 			p.connection.send(new ClientboundSetTitlesAnimationPacket(10, 60, 20));
 			p.connection.send(new ClientboundSetTitleTextPacket(title));
 			p.connection.send(new ClientboundSetSubtitleTextPacket(sub));

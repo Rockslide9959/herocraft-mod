@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
-    "projecthero:omnitrix_containment_pod"
+    "projecthero:omnitrix_containment_pod",
+    "projecthero:star_forge"
   ]
 }

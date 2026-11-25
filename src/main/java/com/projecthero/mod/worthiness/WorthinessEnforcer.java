@@ -48,7 +48,8 @@ public final class WorthinessEnforcer {
 
 	public static void serverTick(ServerPlayer player) {
 		boolean hulk = com.projecthero.mod.hulk.Hulk.isHulk(player);
-		if (bypassesWorthiness(player) || (Worthiness.isWorthy(player) && !hulk)) {
+		if (bypassesWorthiness(player) || (Worthiness.isWorthy(player) && !hulk)
+				|| com.projecthero.mod.thoracquire.MjolnirLift.isLifting(player)) { // v0.17.7: mid-lift cutscene, the bind is coming
 			return;
 		}
 
@@ -66,12 +67,7 @@ public final class WorthinessEnforcer {
 		for (int i = 0; i < slots.size(); i++) {
 			ItemStack stack = slots.get(i);
 			if (stack.is(ModItems.MJOLNIR)) {
-				// v0.11.15: a Hero of the Village who lifted another player's bound hammer keeps hold of it
-				// for as long as the effect lasts (it then drops back like any unworthy carry).
-				if (Worthiness.hasAscensionEffect(player) && Worthiness.boundToSomeoneElse(player, stack)
-						&& !com.projecthero.mod.hulk.Hulk.isHulk(player)) {
-					continue;
-				}
+				// v0.17.7: no Hero of the Village exception any more -- only Thor (or a lift in progress) may hold Mjolnir
 				slots.set(i, ItemStack.EMPTY);
 				dropAtFeet(player, stack);
 				any = true;

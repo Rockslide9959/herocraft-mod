@@ -217,6 +217,45 @@ public final class CraterAmbience {
 		PENDING.clear();
 	}
 
+	/**
+	 * v0.17.7: the hammer spot of every loaded crater in {@code level} whose hammer is still in it (unclaimed) -- what the
+	 * storm cloud is drawn over and what {@code CraterGuard} protects. A fresh list; empty most of the time.
+	 */
+	public static java.util.List<BlockPos> activeCraters(ServerLevel level) {
+		if (ACTIVE.isEmpty()) {
+			return java.util.List.of();
+		}
+		java.util.List<BlockPos> out = new java.util.ArrayList<>();
+		for (ActiveCrater a : ACTIVE.values()) {
+			if (a.level == level) {
+				out.add(a.craterCenter);
+			}
+		}
+		return out;
+	}
+
+	/** v0.17.7: whether any crater in {@code level} is active (a cheap pre-check for the explosion guard). */
+	public static boolean anyActive(ServerLevel level) {
+		for (ActiveCrater a : ACTIVE.values()) {
+			if (a.level == level) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * v0.17.7 (tests / the harness): places a crater's hammer at {@code spawnPos} and activates it exactly as a freshly
+	 * generated crater does on its first load.
+	 */
+	public static MjolnirEntity placeHammerForTest(ServerLevel level, BlockPos spawnPos) {
+		MjolnirEntity hammer = MjolnirEntity.createResting(level, null, new ItemStack(ModItems.MJOLNIR),
+				new Vec3(spawnPos.getX() + 0.5, spawnPos.getY(), spawnPos.getZ() + 0.5), Vec3.ZERO, true);
+		level.addFreshEntity(hammer);
+		activate(level, hammer, spawnPos);
+		return hammer;
+	}
+
 	private static void onChunkUnload(ServerLevel level, LevelChunk chunk) {
 		if (ACTIVE.isEmpty()) {
 			return;

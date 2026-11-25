@@ -799,6 +799,17 @@ public final class HeroPackGuide {
 	 */
 	public static java.util.function.Supplier<List<Component>> masterControlLive = List::of;
 
+	/** v0.17.7: the reader's own Valor lines on the Thor page -- set by the client from its synced Valor; the server has none. */
+	public static java.util.function.Supplier<List<Component>> thorValorLive = List::of;
+
+	/** v0.17.7: the reader's Valor changed -- rebuild the pages (the Thor chapter is built inline with the rest). */
+	public static void refreshThor() {
+		synchronized (HeroPackGuide.class) {
+			chapters = null;
+			searchText = null;
+		}
+	}
+
 	/** v0.17.5: rebuilds the Master Control page (its found digits changed). */
 	public static void refreshMasterControl() {
 		List<Chapter> all = chapters;
@@ -995,9 +1006,25 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.thor.body");
 			blank(lines);
 			head(lines, "projecthero.guide.thor.progression");
-			for (String step : new String[]{"find_hammer", "worthy", "lift"}) {
+			// v0.17.7: Valor (earned unpowered) -> the crater -> a thunderstorm -> the Trial of Asgard (unpowered) -> the lift
+			for (String step : new String[]{"valor", "find_hammer", "storm", "trial", "lift"}) {
 				lines.add(Component.literal("  ↓  ").withStyle(ChatFormatting.DARK_GRAY)
 						.append(Component.translatable("projecthero.guide.thor.step." + step).withStyle(ChatFormatting.WHITE)));
+			}
+			blank(lines);
+			// v0.17.7: Valor, the crater and the Trial of Asgard, with the reader's own Valor (thorValorLive)
+			head(lines, "projecthero.guide.thor.valor");
+			lines.addAll(thorValorLive.get());
+			for (String part : new String[]{"body", "sources", "unpowered"}) {
+				para(lines, "projecthero.guide.thor.valor." + part);
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.thor.crater");
+			para(lines, "projecthero.guide.thor.crater.body");
+			blank(lines);
+			head(lines, "projecthero.guide.thor.trial");
+			for (String part : new String[]{"body", "unpowered", "boss", "rules"}) {
+				para(lines, "projecthero.guide.thor.trial." + part);
 			}
 			blank(lines);
 			para(lines, "projecthero.guide.thor.bind");
@@ -1032,7 +1059,8 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.thor.stormbreaker");
 			// v0.15.1: "recall" -- Stormbreaker binds on first worthy carry and R calls it interchangeably with Mjolnir
 			// v0.15.3: "dropped" -- Stormbreaker on the ground is a resting entity like Mjolnir
-			for (String part : new String[]{"intro", "recipe", "forge", "throw", "bifrost", "recall", "dropped", "weapon"}) {
+			// v0.17.7: "recipe" = the Stormbreaker Head, "forge" = the Star Forge, "branch" = the Living Branch, "finish"
+			for (String part : new String[]{"intro", "recipe", "forge", "channel", "branch", "finish", "throw", "bifrost", "recall", "dropped", "weapon"}) {
 				para(lines, "projecthero.guide.thor.stormbreaker." + part);
 			}
 			// v0.14.20: the Mjolnir / Stormbreaker 3-hit melee combo

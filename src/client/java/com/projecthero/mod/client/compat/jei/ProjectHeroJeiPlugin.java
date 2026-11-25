@@ -39,6 +39,15 @@ public final class ProjectHeroJeiPlugin implements IModPlugin {
 	public void registerRecipes(IRecipeRegistration registration) {
 		registration.addRecipes(FABRICATOR, FabricatorRecipes.all());
 		lootInfo(registration);
+		// v0.17.7: Thor acquisition -- the Star Forge, the Living Branch, the Stormbreaker Head, the Stormwarden's egg
+		registration.addItemStackInfo(new ItemStack(com.projecthero.mod.thoracquire.ThorAcquire.STAR_FORGE_ITEM),
+				net.minecraft.network.chat.Component.translatable("projecthero.jei.star_forge"));
+		registration.addItemStackInfo(new ItemStack(com.projecthero.mod.thoracquire.ThorAcquire.LIVING_BRANCH),
+				net.minecraft.network.chat.Component.translatable("projecthero.jei.living_branch"));
+		registration.addItemStackInfo(new ItemStack(com.projecthero.mod.item.ModItems.UNFORGED_STORMBREAKER),
+				net.minecraft.network.chat.Component.translatable("projecthero.jei.stormbreaker_head"));
+		registration.addItemStackInfo(new ItemStack(com.projecthero.mod.thoracquire.ThorAcquire.STORMWARDEN_SPAWN_EGG),
+				net.minecraft.network.chat.Component.translatable("projecthero.jei.stormwarden"));
 		// v0.17.5: the Omnitrix Data Fragment (Hero Vault loot; reveals a Master Control digit)
 		registration.addItemStackInfo(new ItemStack(com.projecthero.mod.omnitrix.item.OmnitrixItems.DATA_FRAGMENT),
 				net.minecraft.network.chat.Component.translatable("item.projecthero.omnitrix_data_fragment.use"),

@@ -92,7 +92,11 @@ public final class TempleClearing {
 		level.playSound(null, home, SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 1.2f, 1.0f);
 		Component title = Component.translatable("projecthero.temple.cleared.title").withStyle(s -> s.withColor(0xE8C060).withBold(true));
 		Component sub = Component.translatable("projecthero.temple.cleared.sub").withStyle(ChatFormatting.GRAY);
+		if (level.random.nextFloat() < 0.15f) { // v0.17.7: a small chance the king guarded a Living Branch
+			net.minecraft.world.level.block.Block.popResource(level, home.above(), new net.minecraft.world.item.ItemStack(com.projecthero.mod.thoracquire.ThorAcquire.LIVING_BRANCH));
+		}
 		for (ServerPlayer p : playersNear(level, home, 64)) {
+			com.projecthero.mod.thoracquire.Valor.add(p, com.projecthero.mod.thoracquire.Valor.Source.CLEARED); // v0.17.7
 			p.connection.send(new ClientboundSetTitlesAnimationPacket(10, 70, 20));
 			p.connection.send(new ClientboundSetTitleTextPacket(title));
 			p.connection.send(new ClientboundSetSubtitleTextPacket(sub));

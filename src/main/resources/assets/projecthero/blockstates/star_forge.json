@@ -1,0 +1,13 @@
+{
+  "variants": {
+    "heat=0": {
+      "model": "projecthero:block/star_forge"
+    },
+    "heat=1": {
+      "model": "projecthero:block/star_forge_lit"
+    },
+    "heat=2": {
+      "model": "projecthero:block/star_forge_lit"
+    }
+  }
+}

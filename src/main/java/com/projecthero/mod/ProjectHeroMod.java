@@ -336,6 +336,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.city.CityWorldgen.initialize();
 		CraterAmbience.initialize();
 		com.projecthero.mod.hammer.MjolnirSeer.initialize();
+		com.projecthero.mod.thoracquire.ThorAcquire.initialize(); // v0.17.7: Valor, the Trial of Asgard, the lift, the Star Forge, the Living Branch
 		// v0.14.16: retires superseded (recalled) hammer copies wherever they are next observed
 		com.projecthero.mod.hammer.MjolnirGuard.initialize();
 		com.projecthero.mod.maxsteel.worldgen.SteelCrashAmbience.initialize();

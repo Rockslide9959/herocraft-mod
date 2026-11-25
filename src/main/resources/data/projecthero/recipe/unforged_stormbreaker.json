@@ -3,8 +3,7 @@
   "category": "equipment",
   "pattern": [
     "NSN",
-    "NRN",
-    " R "
+    "N N"
   ],
   "key": {
     "N": {
@@ -12,9 +11,6 @@
     },
     "S": {
       "item": "minecraft:nether_star"
-    },
-    "R": {
-      "item": "minecraft:blaze_rod"
     }
   },
   "result": {
