@@ -208,4 +208,113 @@ public class GuidebookStabilityGameTests implements FabricGameTest {
 				"the GameTest server skips the build check");
 		helper.succeed();
 	}
+
+	// ---------------------------------------------------------------- v0.17.7: Power Tiers in the book
+
+	/** The tier a line names: "projecthero.rank.<id>" anywhere in it (a tier heading), or "unranked" for the Not yet ranked heading. */
+	private static String tierNamed(Component line) {
+		if (line.getContents() instanceof TranslatableContents t) {
+			for (com.projecthero.mod.hero.PowerRank r : com.projecthero.mod.hero.PowerRank.values()) {
+				if (t.getKey().equals("projecthero.rank." + r.id)) {
+					return r.id;
+				}
+			}
+			if (t.getKey().equals("projecthero.guide.tiers.unranked")) {
+				return "unranked";
+			}
+		}
+		for (Component sib : line.getSiblings()) {
+			String s = tierNamed(sib);
+			if (s != null) {
+				return s;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * v0.17.7 (user: "can you add the tiers to the guidebook aswell please i didnt see it"): the Power Tiers chapter is filed second on
+	 * the home page and first in its own category, every placed power is listed (as a link) under its own tier and every other power
+	 * under "Not yet ranked", and the same holds for the Powers by Tier list.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void everyPlacedPowerIsListedUnderItsTier(GameTestHelper helper) {
+		List<HeroPackGuide.Chapter> all = HeroPackGuide.chapters();
+		int tiers = HeroPackGuide.powerTiersChapterIndex();
+		helper.assertTrue(HeroPackGuide.validChapter(tiers), "the Power Tiers chapter exists (" + tiers + " of " + all.size() + ")");
+		helper.assertTrue(HeroPackGuide.titleKey(tiers).equals("projecthero.guide.power_tiers"), "chapter " + tiers + " is Power Tiers");
+		helper.assertTrue(HeroPackGuide.categoryOf(tiers) == HeroPackGuide.Category.TIERS, "Power Tiers is filed under its own category");
+		helper.assertTrue(HeroPackGuide.Category.TIERS.ordinal() <= 1, "the Power Tiers category is first or second");
+		helper.assertTrue(HeroPackGuide.HOME_SHELVES[0].length >= 2 && HeroPackGuide.HOME_SHELVES[0][1] == HeroPackGuide.Category.TIERS,
+				"Power Tiers is the second tile on the home page");
+		// in the book's outline, Power Tiers is the first or second chapter
+		int seen = 0;
+		boolean nearStart = false;
+		for (HeroPackGuide.IndexEntry e : HeroPackGuide.index()) {
+			if (!e.isHeading() && seen++ < 2) {
+				nearStart |= e.chapterIndex() == tiers;
+			}
+		}
+		helper.assertTrue(nearStart, "Power Tiers is one of the first two chapters in the outline");
+
+		// where each link in the roster sits
+		java.util.Map<Integer, String> listedUnder = new java.util.HashMap<>();
+		String current = null;
+		for (Component line : all.get(tiers).lines()) {
+			int target = HeroPackGuide.linkTarget(line);
+			if (target < 0) {
+				String t = tierNamed(line);
+				if (t != null) {
+					current = t;
+				}
+				continue;
+			}
+			helper.assertTrue(HeroPackGuide.validChapter(target), "a roster link points at a real chapter: " + line.getString());
+			helper.assertTrue(listedUnder.put(target, current) == null, "each power is listed once: " + line.getString());
+		}
+		int placed = 0;
+		for (int i = 0; i < all.size(); i++) {
+			com.projecthero.mod.hero.PowerRank r = HeroPackGuide.rankOf(i);
+			if (r != null) {
+				placed++;
+				helper.assertTrue(HeroPackGuide.isPowerChapter(i), all.get(i).title().getString() + " (placed) is a power chapter");
+				helper.assertTrue(r.id.equals(listedUnder.get(i)), all.get(i).title().getString() + " is listed under " + r.id + ", got "
+						+ listedUnder.get(i));
+				boolean hasLine = false;
+				for (Component line : all.get(i).lines()) {
+					hasLine |= HeroPackGuide.tierOfLine(line) == r;
+				}
+				helper.assertTrue(hasLine, all.get(i).title().getString() + " carries its tier banner line");
+			} else if (HeroPackGuide.isPowerChapter(i)) {
+				helper.assertTrue("unranked".equals(listedUnder.get(i)), all.get(i).title().getString() + " is listed as Not yet ranked, got "
+						+ listedUnder.get(i));
+			}
+		}
+		helper.assertTrue(placed >= 6, "the user's placements are in (" + placed + ")");
+		int thor = all.indexOf(HeroPackGuide.thorChapter());
+		int cap = all.indexOf(HeroPackGuide.superSoldierChapter());
+		int shazam = all.indexOf(HeroPackGuide.shazamChapter());
+		helper.assertTrue(HeroPackGuide.rankOf(thor) == com.projecthero.mod.hero.PowerRank.COSMIC, "Thor is Cosmic");
+		helper.assertTrue(HeroPackGuide.rankOf(cap) == com.projecthero.mod.hero.PowerRank.STREET, "Super Soldier is Street");
+		helper.assertTrue(HeroPackGuide.rankOf(shazam) == com.projecthero.mod.hero.PowerRank.PLANET, "Shazam is Planet");
+
+		// the Powers by Tier list agrees
+		String under = null;
+		for (HeroPackGuide.IndexEntry e : HeroPackGuide.powersByTier()) {
+			if (e.isHeading()) {
+				under = tierNamed(e.label());
+				continue;
+			}
+			com.projecthero.mod.hero.PowerRank r = HeroPackGuide.rankOf(e.chapterIndex());
+			helper.assertTrue((r == null ? "unranked" : r.id).equals(under), e.label().getString() + " sits under " + under);
+		}
+		// the tier line is a banner, not a section heading (search sections, page breaks)
+		for (Component line : all.get(thor).lines()) {
+			if (HeroPackGuide.tierOfLine(line) != null) {
+				helper.assertFalse(HeroPackGuide.isSectionLine(line), "the tier line is not a section heading");
+			}
+		}
+		helper.assertFalse(HeroPackGuide.search("Not yet ranked").isEmpty(), "the roster is searchable");
+		helper.succeed();
+	}
 }
