@@ -197,7 +197,10 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 	private boolean slimArmCubes;
 
 	private boolean slimSymbioteArm(software.bernie.geckolib.cache.object.GeoBone bone) {
-		if (!(getAnimatable() instanceof com.projecthero.mod.symbiote.item.SymbioteHostArmorItem)) {
+		// v0.17.7: Thor's Armour too -- its arms are mostly see-through now (the wearer's own arm shows between the shoulder plate and
+		// the bracer), so on a slim player the 4 px shell would float a pixel off the 3 px arm
+		if (!(getAnimatable() instanceof com.projecthero.mod.symbiote.item.SymbioteHostArmorItem
+				|| getAnimatable() instanceof com.projecthero.mod.thorarmor.ThorArmorItem)) {
 			return false;
 		}
 		String n = bone.getName();
@@ -564,21 +567,67 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 			}
 		}
 
-		// v0.17.7 (user: "for the thor armour remove the skin from it so players can see their skin underneath and keep the helmet"):
-		// Thor's Armour draws only its winged helmet -- on the chestplate's pass (there is no helmet piece, so the armour value is
-		// unchanged), and only while nothing else is worn on the head. The greaves and boots draw nothing; the cape is ThorCapeLayer.
+		// v0.17.7 (user: "no i still want the suit and armour i was just saying remove thors actual skin form the suit and keep the
+		// helmet"): Thor's Armour draws the whole suit in its slots (Thor himself is cleared out of the texture, so the wearer's own
+		// face and skin show), plus its winged helmet on the chestplate's pass -- there is no helmet item, so the armour value is
+		// unchanged -- while nothing else is worn on the head. During H each piece appears whole and settles on (ThorSuitReveal).
 		if (getAnimatable() instanceof com.projecthero.mod.thorarmor.ThorArmorItem) {
-			setAllBonesVisible(false);
-			if (slot == EquipmentSlot.CHEST && getCurrentEntity() instanceof net.minecraft.world.entity.LivingEntity wearer
-					&& wearer.getItemBySlot(EquipmentSlot.HEAD).isEmpty()) {
-				setBoneVisible(this.head, true);
-			}
+			applyThorPieces(slot);
 		}
 
 		// Max Steel (v0.14.2) and the Symbiote no longer hide whole bones -- their suits materialise pixel by pixel in
 		// the texture instead, see getRenderType below (MaxSteelNano / SymbioteDissolve).
 		// Symbiote: v0.13.19 no longer hides whole bones -- the suit materialises pixel by pixel instead, see
 		// getRenderType below and SymbioteDissolve.
+	}
+
+	/**
+	 * v0.17.7: Thor's Armour, per slot -- boots / greaves / chestplate (tunic + arm plates) as usual, plus the winged helmet on the
+	 * chestplate's pass while the head slot is empty. On the suit clock each piece is hidden until it arrives, then drawn a little
+	 * oversized and settled down onto the body ({@link com.projecthero.mod.client.thor.ThorSuitReveal#pieceScale}); the scales are
+	 * reset every pass because the baked bones are shared by every wearer.
+	 */
+	private void applyThorPieces(EquipmentSlot slot) {
+		Player wearer = getCurrentEntity() instanceof Player p ? p : null;
+		float pt = net.minecraft.client.Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+		boolean headFree = getCurrentEntity() instanceof net.minecraft.world.entity.LivingEntity le
+				&& le.getItemBySlot(EquipmentSlot.HEAD).isEmpty();
+		thorPiece(this.head, slot == EquipmentSlot.CHEST && headFree, wearer, com.projecthero.mod.thorarmor.ThorArmor.PART_HELMET, pt, 4f);
+		boolean chest = slot == EquipmentSlot.CHEST;
+		int chestPart = com.projecthero.mod.thorarmor.ThorArmor.PART_CHEST;
+		thorPiece(this.body, chest, wearer, chestPart, pt, -6f);
+		thorPiece(this.rightArm, chest, wearer, chestPart, pt, -4f);
+		thorPiece(this.leftArm, chest, wearer, chestPart, pt, -4f);
+		boolean legs = slot == EquipmentSlot.LEGS;
+		int greaves = com.projecthero.mod.thorarmor.ThorArmor.PART_GREAVES;
+		thorPiece(this.rightLeg, legs, wearer, greaves, pt, -6f);
+		thorPiece(this.leftLeg, legs, wearer, greaves, pt, -6f);
+		boolean feet = slot == EquipmentSlot.FEET;
+		int boots = com.projecthero.mod.thorarmor.ThorArmor.PART_BOOTS;
+		thorPiece(this.rightBoot, feet, wearer, boots, pt, -10f);
+		thorPiece(this.leftBoot, feet, wearer, boots, pt, -10f);
+	}
+
+	/**
+	 * One Thor bone: shown or not, at the part's settle scale. {@code centreDy} is the piece's centre height above its bone pivot (model
+	 * pixels), so the scale grows the piece round its own middle instead of round the shoulder / hip / neck pivot.
+	 */
+	private void thorPiece(@Nullable software.bernie.geckolib.cache.object.GeoBone bone, boolean inPass, @Nullable Player wearer, int part,
+			float pt, float centreDy) {
+		if (bone == null) {
+			return;
+		}
+		bone.updateScale(1f, 1f, 1f);
+		if (!inPass) {
+			setBoneVisible(bone, false);
+			return;
+		}
+		float s = wearer == null ? 1f : com.projecthero.mod.client.thor.ThorSuitReveal.pieceScale(wearer, part, pt);
+		setBoneVisible(bone, s > 0f);
+		if (s > 0f && s != 1f) {
+			bone.updateScale(s, s, s);
+			bone.setPosY(bone.getPosY() + centreDy * (1f - s));
+		}
 	}
 
 	/**
@@ -629,10 +678,6 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 		// v0.13.21: the Green Lantern suit sweeps on from the shoulders down one pixel row at a time (ArmorSweepReveal)
 		if (getCurrentEntity() instanceof Player gl && animatable instanceof com.projecthero.mod.greenlantern.item.GreenLanternArmorItem) {
 			texture = com.projecthero.mod.client.greenlantern.GreenLanternSuitReveal.texture(gl, texture, partialTick);
-		}
-		// v0.14.4: Thor's Armour forms on the suit clock; v0.17.7 only its helmet is drawn, built onto the head pixel by pixel
-		if (getCurrentEntity() instanceof Player th && animatable instanceof com.projecthero.mod.thorarmor.ThorArmorItem) {
-			texture = com.projecthero.mod.client.thor.ThorSuitReveal.helmetTexture(th, texture, partialTick);
 		}
 		// v0.14.21: an Iron Man piece builds on plate by plate as it locks on (and breaks away coming off)
 		if (getCurrentEntity() instanceof Player im && animatable instanceof com.projecthero.mod.ironman.item.IronManArmorItem ima) {

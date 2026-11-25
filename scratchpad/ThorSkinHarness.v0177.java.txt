@@ -187,7 +187,7 @@ public final class ThorSkinHarness implements ClientModInitializer {
 	private static void plan() {
 		Minecraft mc = Minecraft.getInstance();
 		int t = 0;
-		// ---- the suit-up (H), front three-quarters: bolts round him, the helmet sweeping on, then the cape unrolling
+		// ---- the suit-up (H), front three-quarters: bolts round him, boots / greaves / chestplate / helmet locking on, then the cape unrolling
 		at(t, () -> cam(35f, 4.6f, 1.7f, 1.2f));
 		film(t + 2, t + 80, "film_suitup");
 		at(t + 6, () -> server(mc, p -> {
@@ -212,7 +212,9 @@ public final class ThorSkinHarness implements ClientModInitializer {
 		at(t + 42, () -> shot(mc, "thor_front_three_quarter"));
 		at(t + 44, () -> cam(30f, 1.5f, 1.75f, 1.6f));
 		at(t + 50, () -> shot(mc, "thor_helmet_closeup"));
-		t += 54;
+		at(t + 52, () -> cam(0f, 1.4f, 1.7f, 1.6f));
+		at(t + 58, () -> shot(mc, "thor_face_closeup"));
+		t += 62;
 		// ---- Mjolnir in hand
 		at(t, () -> server(mc, p -> hands(p, true)));
 		at(t + 4, () -> cam(30f, 3.0f, 1.3f, 1.0f));
@@ -279,18 +281,18 @@ public final class ThorSkinHarness implements ClientModInitializer {
 			pitch = 8f;
 		});
 		t += 116;
-		// ---- the suit dismissed (H): the build reversed, cape first
+		// ---- the suit dismissed (H): the build reversed, cape first, front three-quarters
 		at(t, () -> server(mc, p -> {
 			com.projecthero.mod.power.ThorPowers.toggleFlight(p);
 			home(p);
 			hands(p, false);
 		}));
-		at(t + 20, () -> cam(150f, 3.8f, 1.6f, 1.1f));
+		at(t + 20, () -> cam(35f, 4.2f, 1.6f, 1.1f));
 		film(t + 22, t + 64, "film_removal");
 		at(t + 26, () -> server(mc, p -> com.projecthero.mod.thorarmor.ThorArmor.toggle(p)));
 		at(t + 70, () -> {
 			server(mc, p -> System.out.println("[HARNESS] armour after H: " + com.projecthero.mod.thorarmor.ThorArmor.isWearing(p)));
-			shot(mc, "no_suit_no_cape_back");
+			shot(mc, "no_suit_after_removal");
 		});
 		t += 76;
 		// ---- the suit-up again, from behind: the cape unrolling from the collar
@@ -306,10 +308,12 @@ public final class ThorSkinHarness implements ClientModInitializer {
 		});
 		at(t + 2, () -> server(mc, p -> com.projecthero.mod.thorarmor.ThorArmor.toggle(p)));
 		at(t + 34, () -> server(mc, p -> com.projecthero.mod.thorarmor.ThorArmor.toggle(p)));
-		at(t + 44, () -> shot(mc, "fp_suitup_start"));
-		at(t + 60, () -> shot(mc, "fp_suitup_helmet"));
-		at(t + 78, () -> shot(mc, "fp_suitup_cape"));
-		t += 100;
+		at(t + 30, () -> shot(mc, "fp_bare_hand"));
+		at(t + 34 + 25, () -> shot(mc, "fp_suitup_sleeve_arriving"));
+		at(t + 34 + 70, () -> shot(mc, "fp_full_suit"));
+		at(t + 34 + 74, () -> server(mc, p -> hands(p, true)));
+		at(t + 34 + 82, () -> shot(mc, "fp_full_suit_mjolnir"));
+		t += 34 + 90;
 		final int end = t;
 		at(end, () -> {
 			System.out.println("[HARNESS] done");
