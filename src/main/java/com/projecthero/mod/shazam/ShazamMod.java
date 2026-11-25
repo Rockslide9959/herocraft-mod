@@ -125,6 +125,31 @@ public final class ShazamMod {
 					c.getSource().sendSuccess(() -> Component.literal(w == null ? "No room for the Wizard here" : "Wizard Shazam appears"), false);
 					return w == null ? 0 : 1;
 				}))
+				// v0.17.7 (user: "is there a command to max out valor?"): test helpers for the journey
+				.then(Commands.literal("valor")
+						.then(Commands.literal("max").executes(c -> {
+							ServerPlayer player = c.getSource().getPlayerOrException();
+							com.projecthero.mod.thoracquire.Valor.set(player, com.projecthero.mod.thoracquire.Valor.MAX);
+							c.getSource().sendSuccess(() -> Component.literal("Valor set to " + com.projecthero.mod.thoracquire.Valor.MAX + " (full)"), false);
+							return 1;
+						}))
+						.then(Commands.argument("amount", com.mojang.brigadier.arguments.IntegerArgumentType.integer(0, com.projecthero.mod.thoracquire.Valor.MAX)).executes(c -> {
+							ServerPlayer player = c.getSource().getPlayerOrException();
+							int v = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(c, "amount");
+							com.projecthero.mod.thoracquire.Valor.set(player, v);
+							c.getSource().sendSuccess(() -> Component.literal("Valor set to " + v), false);
+							return 1;
+						})))
+				.then(Commands.literal("illusion").executes(c -> {
+					ServerPlayer player = c.getSource().getPlayerOrException();
+					if (!com.projecthero.mod.shazam.journey.ShazamIllusions.worthy(player)) {
+						c.getSource().sendFailure(Component.literal("Not worthy yet: you need full Valor and no powers (try: valor max)"));
+						return 0;
+					}
+					var l = com.projecthero.mod.shazam.journey.ShazamIllusions.forceAppear(player);
+					c.getSource().sendSuccess(() -> Component.literal(l == null ? "No open ground in view for the stairway -- look at a flat clear spot and try again" : "The stairway appears ahead of you"), false);
+					return l == null ? 0 : 1;
+				}))
 				.then(Commands.literal("pure").executes(c -> {
 					ServerPlayer player = c.getSource().getPlayerOrException();
 					boolean pure = ShazamWizards.pure(player);
