@@ -1,6 +1,7 @@
 package com.projecthero.mod.client.mutation.v0145;
 
 import java.util.Optional;
+import java.util.function.Function;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -23,7 +24,8 @@ import net.minecraft.world.entity.EquipmentSlot;
  * v0.14.12: the armour on a Super Speed after-image. The player renderer's own armour layer is run on the copy (so
  * vanilla armour and every GeckoLib suit -- the Flash Suit included -- come out exactly as worn, posed like the copy),
  * through a buffer source that turns whatever it draws into the same ghost as the copy's skin: each draw's texture is
- * redrawn {@code entityTranslucent}, tinted and faded like the skin, at full brightness. Enchantment glint is dropped.
+ * redrawn with the copy's ghost render type (v0.17.7: {@link GhostCopies}' depth / colour pass, so the armour never doubles up
+ * over the skin), tinted and faded like the skin, at full brightness. Enchantment glint is dropped.
  */
 public final class GhostArmour {
 	private GhostArmour() {
@@ -42,13 +44,13 @@ public final class GhostArmour {
 	/** Draws the armour layer of {@code renderer} for {@code player} at the current pose, as a ghost tinted {@code argb}. */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static void render(PlayerRenderer renderer, AbstractClientPlayer player, PoseStack pose, MultiBufferSource buffers,
-			int argb, float limbPos, float limbSpeed, float ageInTicks, float headYaw, float pitch, float partial) {
+			Function<ResourceLocation, RenderType> ghostType, int argb, float limbPos, float limbSpeed, float ageInTicks, float headYaw, float pitch, float partial) {
 		MultiBufferSource ghost = type -> {
 			Optional<ResourceLocation> tex = texture(type);
 			if (tex.isEmpty() || tex.get().getPath().contains("glint")) {
 				return NOTHING;
 			}
-			return new Tinted(buffers.getBuffer(RenderType.entityTranslucent(tex.get())), argb);
+			return new Tinted(buffers.getBuffer(ghostType.apply(tex.get())), argb);
 		};
 		for (RenderLayer layer : ((LivingEntityRendererLayersAccessor) renderer).projecthero$layers()) {
 			if (layer instanceof HumanoidArmorLayer) {

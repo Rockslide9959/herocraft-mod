@@ -13,6 +13,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
 import com.projecthero.mod.client.mutation.v0145.GhostArmour;
+import com.projecthero.mod.client.mutation.v0145.GhostCopies;
 import com.projecthero.mod.client.thor.ThorDraw;
 import com.projecthero.mod.speedforce.SpeedForceSpeedster;
 import com.projecthero.mod.speedforce.network.SpeedForceFxPayload;
@@ -57,7 +58,8 @@ public final class SpeedForceClient {
 	/** v0.17.1 (user): the trail's lightning shows from 5% momentum (the copies themselves at any); arcs to nearby blocks above 10%. */
 	private static final float TRAIL_MOMENTUM = 0.05f;
 	private static final float GROUND_ARC_MOMENTUM = 0.10f;
-	private static final float TRAIL_ALPHA = 0.38f;
+	/** v0.17.7 (user: "it should strictly be 40% for the afterimages"): exactly 40%, never denser (see GhostCopies). */
+	private static final float TRAIL_ALPHA = GhostCopies.ALPHA;
 	private static final double FILL_SPACING = 1.6;
 	private static final int MAX_FILL = 10;
 	private static final int PLAIN = 0xFFFFFF;
@@ -136,6 +138,7 @@ public final class SpeedForceClient {
 			}
 		});
 		WorldRenderEvents.AFTER_ENTITIES.register(SpeedForceClient::render);
+		GhostCopies.initialize(); // v0.17.7: after-images drawn at exactly 40%
 		ClientPlayNetworking.registerGlobalReceiver(SpeedForceFxPayload.TYPE,
 				(payload, context) -> context.client().execute(() -> accept(payload)));
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> reset());
@@ -297,7 +300,7 @@ public final class SpeedForceClient {
 					double t = i / (double) (n - 1);
 					Vec3 at = from.lerp(to, t);
 					int life = Math.max(3, Math.round(14 * (0.45f + 0.55f * (float) t)));
-					q.addLast(new Snapshot(now, life, 0.42f, at.x, at.y, at.z, yaw, yaw, 0f, limb + i * 1.1f, 1.0f, 1.0f, false, true));
+					q.addLast(new Snapshot(now, life, TRAIL_ALPHA, at.x, at.y, at.z, yaw, yaw, 0f, limb + i * 1.1f, 1.0f, 1.0f, false, true));
 				}
 			}
 			case SpeedForceFxPayload.PORTAL, SpeedForceFxPayload.PORTAL_COLLAPSE -> {
@@ -636,27 +639,31 @@ public final class SpeedForceClient {
 				pose.scale(-1.0f, -1.0f, 1.0f);
 				pose.scale(0.9375f, 0.9375f, 0.9375f);
 				pose.translate(0.0f, -1.501f, 0.0f);
-				model.attackTime = 0.0f;
-				model.riding = false;
-				model.young = false;
-				model.crouching = false;
-				SpeedForcePose.overrideWeight = s.weight();
-				try {
-					model.setupAnim(acp, s.limbPos(), s.limbSpeed(), acp.tickCount + partial, s.headYaw() - s.bodyYaw(), s.pitch());
-				} finally {
-					SpeedForcePose.overrideWeight = Float.NaN;
-				}
-				model.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(skin)), LightTexture.FULL_BRIGHT,
-						OverlayTexture.NO_OVERLAY, color);
-				if (wearsArmour) {
+				// v0.17.7 (user): queued and drawn with every other copy by GhostCopies, so it stays exactly 40% -- armour,
+				// 2-layer skins and overlapping copies included
+				float age2 = acp.tickCount + partial;
+				GhostCopies.add(pose, (ps, pass, out) -> {
+					model.attackTime = 0.0f;
+					model.riding = false;
+					model.young = false;
+					model.crouching = false;
 					SpeedForcePose.overrideWeight = s.weight();
 					try {
-						GhostArmour.render(pr, acp, pose, buffers, color, s.limbPos(), s.limbSpeed(), acp.tickCount + partial,
-								s.headYaw() - s.bodyYaw(), s.pitch(), partial);
+						model.setupAnim(acp, s.limbPos(), s.limbSpeed(), age2, s.headYaw() - s.bodyYaw(), s.pitch());
 					} finally {
 						SpeedForcePose.overrideWeight = Float.NaN;
 					}
-				}
+					model.renderToBuffer(ps, out.getBuffer(pass.type(skin)), LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, color);
+					if (wearsArmour) {
+						SpeedForcePose.overrideWeight = s.weight();
+						try {
+							GhostArmour.render(pr, acp, ps, out, pass::type, color, s.limbPos(), s.limbSpeed(), age2,
+									s.headYaw() - s.bodyYaw(), s.pitch(), partial);
+						} finally {
+							SpeedForcePose.overrideWeight = Float.NaN;
+						}
+					}
+				});
 				pose.popPose();
 			}
 		}

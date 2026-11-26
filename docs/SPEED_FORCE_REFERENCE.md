@@ -29,3 +29,18 @@ implementation notes that are not obvious from those.
   eye height, so hands on the ground would not line up with the view.
 - **VFX:** unchanged -- gold dust spiralling in and electric sparks, growing with the charge, bell notes rising in pitch.
 - **Test:** `SpeedForceSpeedsterGameTests.theChargeStanceRootsYou` (per-tick steps ~0 while charging, free after the launch).
+
+## After-images: strictly 40% (v0.17.7, user)
+
+- **Rule:** every after-image (the Speed Force trail and its streak/decoy copies, the plain Super Speed trail, zips and decoys,
+  XLR8) is exactly 40% opaque (`GhostCopies.ALPHA`) and never denser -- not where the hat/jacket/sleeve/trouser layers overlap
+  the base skin, not with armour on, not through the model's own inner faces, not where two copies overlap. A copy starts at
+  40% and only fades below it. Colour unchanged: full-bright, plain white tint (Super Speed keeps its `s.rgb()`), no glow.
+- **How:** `client/mutation/v0145/GhostCopies`. The renderers queue each copy (skin + `GhostArmour`) and a later
+  `AFTER_ENTITIES` phase draws all of them twice through its own immediate buffer: first a depth-only pass (colour writes off,
+  back faces culled, the entity-translucent shader's `a < 0.1` cutout keeps empty hat pixels out, polygon offset pushes it back
+  a hair), then the colour pass at the copy's alpha with a strict `LESS` test that writes depth. Only the frontmost surface
+  of all the copies passes, once; anything behind or coplanar with it fails. Never draw a copy straight with
+  `entityTranslucent` again: that blends every overlapping layer.
+- Known trade-off: on two exactly coplanar textures (leather armour's dye layer + overlay, trims) only the first drawn shows
+  on the copy.

@@ -115,6 +115,7 @@ public final class SuperSpeedClientV0145 {
 		TimeSlowClient.init();
 		SpeedPhaseFx.init(); // v0.14.8: Phase vibration
 		WorldRenderEvents.AFTER_ENTITIES.register(SuperSpeedClientV0145::renderTrails);
+		GhostCopies.initialize(); // v0.17.7: the copies are drawn at exactly 40% (see GhostCopies)
 		ClientPlayNetworking.registerGlobalReceiver(SpeedStreakPayload.TYPE,
 				(payload, context) -> context.client().execute(() -> acceptStreak(payload)));
 		registerPoses();
@@ -259,7 +260,7 @@ public final class SuperSpeedClientV0145 {
 			boolean red = SpeedRunPose.overdrive(p);
 			// an after-image is left where the player WAS (last tick), never where they are about to be -- the rendered
 			// player is interpolated between xo and x, so a copy at x would pop up just ahead of them
-			TRAILS.computeIfAbsent(p.getUUID(), k -> new ArrayDeque<>()).addLast(new Snapshot(now, TRAIL_LIFE, 0.4f,
+			TRAILS.computeIfAbsent(p.getUUID(), k -> new ArrayDeque<>()).addLast(new Snapshot(now, TRAIL_LIFE, GhostCopies.ALPHA,
 					p.xo, p.yo, p.zo, p.yBodyRotO, p.yHeadRotO, p.xRotO, p.walkAnimation.position(0f),
 					p.walkAnimation.speed(0f), p.isCrouching(), PLAIN, SpeedRunPose.weight(p, 0f), red, false));
 		}
@@ -296,7 +297,8 @@ public final class SuperSpeedClientV0145 {
 			Vec3 at = from.lerp(to, t);
 			// copies nearer the start fade first, so the zip reads as a blur racing toward its end
 			int life = Math.max(3, Math.round(msg.life() * (0.45f + 0.55f * (float) t)));
-			q.addLast(new Snapshot(now, life, 0.45f, at.x, at.y, at.z, msg.yaw(), msg.yaw(), 0f, limb + i * 1.1f, 1.0f,
+			q.addLast(new Snapshot(now, life, GhostCopies.ALPHA, // v0.17.7 (user): strictly 40% (was 45%)
+					 at.x, at.y, at.z, msg.yaw(), msg.yaw(), 0f, limb + i * 1.1f, 1.0f,
 					false, PLAIN, 1.0f, red, true));
 		}
 	}
@@ -417,30 +419,34 @@ public final class SuperSpeedClientV0145 {
 				pose.scale(-1.0f, -1.0f, 1.0f);
 				pose.scale(0.9375f * bodyScale, 0.9375f * bodyScale, 0.9375f * bodyScale);
 				pose.translate(0.0f, -1.501f, 0.0f);
-				model.attackTime = 0.0f;
-				model.riding = false;
-				model.young = false;
-				model.crouching = s.crouching();
-				SpeedRunPose.overrideWeight = s.run();
-				SpeedRunPose.overrideOverdrive = s.overdrive();
-				try {
-					model.setupAnim(acp, s.limbPos(), s.limbSpeed(), acp.tickCount + partial,
-							s.headYaw() - s.bodyYaw(), s.pitch());
-				} finally {
-					SpeedRunPose.overrideWeight = Float.NaN;
-				}
-				model.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(skin)),
-						LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, color);
-				// v0.14.12: whatever armour they wear shows on the copy too, ghosted the same way
-				if (wearsArmour) {
+				// v0.17.7 (user: "it should strictly be 40% for the afterimages ... even when wearing armour"): queued, and drawn
+				// with every other copy by GhostCopies -- depth first, then colour on the frontmost surface only
+				PlayerModel<AbstractClientPlayer> m = model;
+				float age2 = acp.tickCount + partial;
+				GhostCopies.add(pose, (ps, pass, out) -> {
+					m.attackTime = 0.0f;
+					m.riding = false;
+					m.young = false;
+					m.crouching = s.crouching();
 					SpeedRunPose.overrideWeight = s.run();
+					SpeedRunPose.overrideOverdrive = s.overdrive();
 					try {
-						GhostArmour.render(pr, acp, pose, buffers, color, s.limbPos(), s.limbSpeed(), acp.tickCount + partial,
-								s.headYaw() - s.bodyYaw(), s.pitch(), partial);
+						m.setupAnim(acp, s.limbPos(), s.limbSpeed(), age2, s.headYaw() - s.bodyYaw(), s.pitch());
 					} finally {
 						SpeedRunPose.overrideWeight = Float.NaN;
 					}
-				}
+					m.renderToBuffer(ps, out.getBuffer(pass.type(skin)), LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, color);
+					// v0.14.12: whatever armour they wear shows on the copy too, ghosted the same way
+					if (wearsArmour) {
+						SpeedRunPose.overrideWeight = s.run();
+						try {
+							GhostArmour.render(pr, acp, ps, out, pass::type, color, s.limbPos(), s.limbSpeed(), age2,
+									s.headYaw() - s.bodyYaw(), s.pitch(), partial);
+						} finally {
+							SpeedRunPose.overrideWeight = Float.NaN;
+						}
+					}
+				});
 				pose.popPose();
 			}
 		}

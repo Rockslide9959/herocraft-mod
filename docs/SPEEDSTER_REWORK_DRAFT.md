@@ -1,5 +1,8 @@
 # Speedster rework — draft (nothing built yet)
 
+> **After-images (v0.17.7, user, both speedsters and XLR8):** strictly 40% opaque, never denser -- with armour, with 2-layer
+> skins, where copies overlap. Drawn through `client/mutation/v0145/GhostCopies`; see `SPEED_FORCE_REFERENCE.md`.
+
 Two kinds of speedster that **play differently**:
 
 | | **Speedster** (the mutation, today's Super Speed) | **Speed Force Speedster** (the DC Flash) |
