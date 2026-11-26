@@ -518,6 +518,8 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.symbiote.s.get." + step);
 		}
 		lines.add(Component.translatable("projecthero.guide.symbiote.s.get.purge").withStyle(ChatFormatting.DARK_GRAY));
+		// v0.17.7: wild Symbiotes dissolve when nobody is around, and a crowded area stops freeing new ones
+		lines.add(Component.translatable("projecthero.guide.symbiote.s.get.wild").withStyle(ChatFormatting.DARK_GRAY));
 		blank(lines);
 	}
 

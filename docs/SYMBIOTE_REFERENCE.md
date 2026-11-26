@@ -1123,3 +1123,67 @@ so it is unchanged, and so is the Biomass bar. The Monster's **+100% max health 
 a percentage doubled a Primary's own health); its 50% damage cut stays.
 
 Tests: `SymbioteMonsterGameTests` (+16 health). The other Symbiote tests read the constants.
+
+## v0.17.7 -- the bonding struggle, and wild Symbiotes despawn
+
+User: "Change the bonding UI and bonding minigame, make it harder to beat" and "Also make symbiote entities disappear after a
+while please, a lot spawn sometimes".
+
+### The bonding struggle (`SymbioteBondGame`, `SymbioteBondGameScreen`)
+
+Was: three single presses, stop a sweeping marker in a wide zone (half-widths 0.17 / 0.15 / 0.135). Now three **phases**, each with
+its own **Bond meter** you fill by striking (Space / Enter / click) while the marker is in the zone:
+
+| | Contact | Resistance | Merge |
+|---|---|---|---|
+| Marker | steady sweep, 44 ticks there-and-back | 46 ticks, speed swings (+0.08 / +0.03 wobbles), nearly stalls | 40 ticks, bigger wobbles (+0.09 / +0.04), stalls and surges |
+| Zone half-width (empty meter) | 0.14, fixed | 0.12, drifts +-0.12 (90 t) | 0.11, drifts +-0.18 (70 t) |
+| Zone squeeze as the meter fills | none | -15% at full | -25% at full |
+| Meter start | 40% | 35% | 30% |
+| Drain per tick (`DRAIN * (0.6 + 0.8 * meter)`) | 0.0030 | 0.0038 | 0.0045 |
+| Hit / perfect (core = inner 40% of the zone) | +20% / +28% | +16% / +23% | +15% / +21% |
+| Miss | -15%, a strike | -18%, a strike | -20%, a strike |
+
+- **Lose** on 3 strikes (whole game), an empty meter (it pulls free), or 45 s in one phase. 20-tick grace (no drain) at each phase
+  start, 24-tick gap between phases. After every strike the marker **flinches** for 6 ticks and ignores input (mashing only buys strikes).
+- Tuned with a seeded bot (a scratch copy of the maths): a flawless player ~15 s; 35 ms timing error wins ~99% in ~19 s;
+  50 ms ~70% in ~21 s; 75 ms ~11%. Retry cooldown 5 -> **8 s**; nothing is used up on a loss (unchanged).
+- **Server authority:** the whole game is `SymbioteBondGame.simulate(seed, presses, time)`, a pure function (StrictMath) the screen
+  draws every frame and the server replays (`verifyWin`): every press valid and outside the lockout, the win on the very last
+  press, no give-up marker, and the run had time to happen on the server clock (+-40 ticks). Payload ids unchanged
+  (`symbiote_bond_result` is still a VAR_INT list, limit raised 8 -> 65); the client appends `GAVE_UP` (-1) when it lost or let go.
+  **Esc is free only before the first strike and in the first 40 ticks** (server allows 80); later, an empty answer is a failure.
+- **UI:** house-style panel (violet gradient, dim accent frame, highlight line, divider -- like the colour screen), a phase strip
+  (Contact / Resistance / Merge: done / breathing / dim / red on the lost one), the phase's tip (wrapped, max two lines), the track
+  with the breathing zone and its bright perfect core, a motion trail, a dimmed jolting marker during the flinch, floating
+  PERFECT / HIT / MISS under the track, the Bond meter as a Slab bar with quarter ticks (red pulsing frame under 25%), strike pips, a
+  red pulse on the screen edges when the meter is nearly empty, a panel shake on a miss, and the verdict with its reason
+  (pulled free / three misses / too slow / you let go). All text from lang, all wrapped to the panel.
+
+### Wild Symbiotes despawn (`SymbioteEntity`, `SymbioteHost`, `HeroConfig`)
+
+**Why so many spawned:** `SymbioteEntity` is `MobCategory.MISC` (no natural spawning), but `SymbioteHost.mark` forced every host
+**persistent** -- natural hosts (`symbioteHostChance`), mobs a free Symbiote took over, and structure guards. Hosts never despawned
+and every host death freed a new **indestructible, never-despawning** Symbiote, which took over another mob, whose death freed
+another... The population only ever grew (zombie / skeleton hosts burning at dawn and cleared Symbiote hives freed several at once).
+
+**Fixes:**
+- `SymbioteHost.mark` no longer calls `setPersistenceRequired()`: natural hosts and taken-over mobs follow vanilla despawn rules.
+  Structure guards (`HideoutGuards`, `SiteGuards`) still set persistence themselves; a name tag still keeps any mob.
+- A **wild** free Symbiote dissolves after `freeSymbioteDespawnTicks` (6000 = 5 min) with no player within
+  `freeSymbioteDespawnRange` (32) blocks (`config/projecthero.json`). Checked every 20 ticks (`DESPAWN_CHECK`), clock saved as
+  `IdleTicks`, reset when a player comes near. It is a plain `Entity` (not a `Mob`), so `removeWhenFarAway` /
+  `requiresCustomPersistence` never applied -- this is the equivalent. **Never despawns:** confined (lab), named, `Persistent` (NBT;
+  set by `/spiderman symbiote spawn`), claimed for a bond or mid Carnage call. 0 or less = off.
+- **Crowd cap:** a dying host or a wild pet Symbiote tearing free goes through `SymbioteEntity.spawnReleased`, which frees nothing when
+  `freeSymbioteMaxNearby` (3) wild Symbiotes already roam within 32 blocks (`CROWD_RANGE`; lab ones do not count). Nearby players get
+  "The Symbiote shrivels away with its host". Meteorites and labs still always give theirs.
+- No new static state (the bond-game maps are UUID-keyed and were already cleared in `ServerStateReset`).
+
+Tests: `SymbioteBondStruggleGameTests` -- a flawless bot wins every seed in 6-40 s with 9+ strikes, the meter drains (and drains
+harder when fuller), idling loses in 5-15 s, mashing at the lockout rate loses, forged results are rejected (other seed, one short,
+presses after the win, give-up marker, a press inside the lockout, too early, too late), an instant win claim fails and sets the
+retry cooldown, a real win after real time bonds and consumes the entity, Esc is free only at the start; the despawn clock (5 min,
+reset by a player, saved), persistent kinds never tick, the crowd cap and a host dying in a crowd frees nothing.
+`SymbioteGameTests.symbioteHostBuffsAndKeepsTheMob` now asserts a host is NOT persistence-required;
+`HulkGameTests.theBondingMarkerMovesSmoothly` samples at 0.1-tick steps (the marker's speed now varies).

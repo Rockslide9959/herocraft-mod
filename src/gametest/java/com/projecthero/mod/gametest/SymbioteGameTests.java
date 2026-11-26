@@ -359,7 +359,10 @@ public class SymbioteGameTests implements FabricGameTest {
 		helper.assertTrue(zombie.getAttributeBaseValue(
 				net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH) > baseHp + 0.5,
 				"a Symbiote Host has more health than a plain zombie");
-		helper.assertTrue(zombie.isPersistenceRequired(), "a Symbiote Host never de-spawns");
+		// v0.17.7: mark() no longer forces persistence (helper.spawn sets it itself, so check a plain zombie)
+		net.minecraft.world.entity.monster.Zombie plain = net.minecraft.world.entity.EntityType.ZOMBIE.create(helper.getLevel());
+		com.projecthero.mod.symbiote.SymbioteHost.mark(plain);
+		helper.assertFalse(plain.isPersistenceRequired(), "a natural Symbiote Host follows normal despawn rules");
 		helper.succeed();
 	}
 

@@ -64,6 +64,20 @@ public final class HeroConfig {
 	 * entirely (the meteor crater and the lab structure still generate). Default 0.0015 (~1 in 650).
 	 */
 	public double symbioteHostChance = 0.0015;
+	/**
+	 * v0.17.7 (user: "make symbiote entities disappear after a while please, a lot spawn sometimes"): ticks a wild free
+	 * Symbiote may go without a player within {@link #freeSymbioteDespawnRange} blocks before it dissolves. Lab
+	 * (confined), named, command-spawned and mid-bond / mid-Carnage-call Symbiotes never do. 0 or less = never despawn.
+	 * Default 6000 (5 minutes).
+	 */
+	public int freeSymbioteDespawnTicks = 20 * 60 * 5;
+	/** v0.17.7: a player this close (blocks) keeps a wild Symbiote around and restarts its despawn clock. Default 32. */
+	public double freeSymbioteDespawnRange = 32.0;
+	/**
+	 * v0.17.7: a dying host (or a wild pet Symbiote tearing free) only frees a new Symbiote when fewer than this many wild
+	 * ones are already within 32 blocks -- otherwise its Symbiote shrivels away with it. 0 or less = no cap. Default 3.
+	 */
+	public int freeSymbioteMaxNearby = 3;
 
 	private HeroConfig() {
 	}

@@ -324,7 +324,7 @@ public final class SymbiotePet {
 		if (pet.level() instanceof ServerLevel level) {
 			bondFx(level, pet, false);
 			if (tearFree && origin == WILD) {
-				SymbioteEntity free = SymbioteEntity.spawn(level, pet.getX(), pet.getY() + pet.getBbHeight() * 0.5 + 0.2,
+				SymbioteEntity free = SymbioteEntity.spawnReleased(level, pet.getX(), pet.getY() + pet.getBbHeight() * 0.5 + 0.2,
 						pet.getZ());
 				if (free != null) {
 					free.setHuntDelay(200);
@@ -341,7 +341,7 @@ public final class SymbiotePet {
 		}
 		level.sendParticles(ParticleTypes.SQUID_INK, mob.getX(), mob.getY() + 0.5, mob.getZ(), 30, 0.4, 0.4, 0.4, 0.1);
 		if (origin(mob) == WILD) {
-			SymbioteEntity free = SymbioteEntity.spawn(level, mob.getX(), mob.getY() + mob.getBbHeight() * 0.5 + 0.2, mob.getZ());
+			SymbioteEntity free = SymbioteEntity.spawnReleased(level, mob.getX(), mob.getY() + mob.getBbHeight() * 0.5 + 0.2, mob.getZ());
 			if (free != null) {
 				free.setHuntDelay(100);
 			}

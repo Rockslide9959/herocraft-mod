@@ -68,7 +68,10 @@ public final class SpiderManCommand {
 	private static int spawnSymbiote(CommandContext<CommandSourceStack> c, ServerPlayer player) {
 		net.minecraft.world.phys.Vec3 look = player.getLookAngle();
 		net.minecraft.world.phys.Vec3 at = player.position().add(look.x * 3.0, 0.5, look.z * 3.0);
-		com.projecthero.mod.symbiote.entity.SymbioteEntity.spawn(player.serverLevel(), at.x, at.y, at.z);
+		var blob = com.projecthero.mod.symbiote.entity.SymbioteEntity.spawn(player.serverLevel(), at.x, at.y, at.z);
+		if (blob != null) {
+			blob.setPersistent(true); // v0.17.7: an operator's Symbiote never despawns
+		}
 		c.getSource().sendSuccess(() -> Component.literal("Spawned a free Symbiote ahead."), false);
 		return 1;
 	}

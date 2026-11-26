@@ -7,55 +7,81 @@ import org.lwjgl.glfw.GLFW;
 
 import com.projecthero.mod.network.SymbioteBondResultPayload;
 import com.projecthero.mod.symbiote.SymbioteBondGame;
+import com.projecthero.mod.symbiote.SymbioteBondGame.State;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 
 /**
- * The Symbiote bonding minigame (v0.12.25). A marker sweeps across a bar; press Space / click / Enter to
- * stop it inside the glowing zone, three times in a row, faster and tighter each round. The maths lives in
- * {@link SymbioteBondGame} (shared with the server, which replays the press times from the same seed); this
- * screen only draws and records when the player pressed. One miss ends it; Esc backs out.
+ * The Symbiote bonding minigame screen.
  *
- * <p>v0.13.15: smooth. The marker used to move once per game tick (20 steps a second, so it visibly skipped); it is now
- * drawn at the exact fractional tick every frame, with a short motion trail, and a press is timed to that same
- * fractional tick ({@link SymbioteBondGame#SUBTICKS}) so it lands exactly where the player saw the marker. The zone
- * breathes instead of blinking, and hits / misses fade out instead of popping.
+ * <p>v0.17.7 redesign (user: "change the bonding UI and bonding minigame, make it harder to beat"): a struggle in three
+ * phases -- Contact, Resistance, Merge -- on a dark violet panel in the house style (the colour screen's gradient panel,
+ * dim accent frame and divider). A phase strip across the top, a one-line tip for the phase, the track with the zone and
+ * its bright perfect core, the Bond meter (a Slab bar) that the Symbiote drains, and the strike pips. Hits / perfects /
+ * misses float under the track; a miss shakes the panel and the meter flashes red when it is nearly empty.
+ *
+ * <p>The rules all live in {@link SymbioteBondGame#simulate} (shared with the server, which replays the press times from
+ * the same seed). This screen only records when the player struck and draws the simulation's state every frame, so what
+ * the player sees is exactly what the server will judge. Presses are timed to the fractional tick
+ * ({@link SymbioteBondGame#SUBTICKS}) at which the smoothly drawn marker was seen. Every text line is word-wrapped to the
+ * panel.
  */
 public class SymbioteBondGameScreen extends Screen {
-	private static final int BAR_W = 260;
-	private static final int BAR_H = 18;
+	private static final int PANEL_MAX_W = 300;
+	private static final int TRACK_H = 20;
+	private static final int METER_H = 8;
 	/** Ticks the result stays up before the screen closes. */
-	private static final int RESULT_HOLD = 26;
+	private static final int RESULT_HOLD = 34;
 	/** Motion trail: ghost markers this many ticks apart behind the real one. */
 	private static final int TRAIL = 6;
 	private static final float TRAIL_STEP = 0.35f;
+	private static final int SHAKE_TICKS = 8;
+
+	private static final int ACCENT = 0xFFEDE6F7;
+	private static final int ACCENT_DIM = 0xFF3B2A4C;
+	private static final int MUTED = 0xFFA898BC;
+	private static final int PANEL_TOP = 0xF2140C1E;
+	private static final int PANEL_BOTTOM = 0xF207040A;
+	private static final int TRACK_BG = 0xFF1C1028;
+	private static final int ZONE_DIM = 0x2E9F55;
+	private static final int ZONE_BRIGHT = 0x4FD07E;
+	private static final int CORE = 0xB8FFD0;
+	private static final int METER_LO = 0x4A1E7A;
+	private static final int METER_HI = 0xA866F0;
+	private static final int DANGER = 0xD03040;
 
 	private final int seed;
 	/** Press times in 1/{@link SymbioteBondGame#SUBTICKS} of a tick since the screen opened. */
 	private final List<Integer> presses = new ArrayList<>();
 	private int tick;
-	/** Start of the current round, in ticks (fractional: it follows a fractional press). */
-	private double roundStart;
-	private int round;
-	/** Once decided: 1 = won, -1 = failed, 0 = still playing. */
-	private int outcome;
+	/** The decided state once the game is over (null while playing). */
+	private State end;
+	/** Whether the player let go with Esc (shown as its own reason). */
+	private boolean gaveUp;
 	private int outcomeTick;
 	private boolean sent;
-	/** Position (0..1) the marker was frozen at by the last press, for the feedback flash. */
-	private double frozen = -1.0;
-	private double flashAt = -100.0;
-	private boolean flashHit;
-	/** Which round the frozen marker belongs to (drawn in the gap before the next round starts). */
-	private int frozenRound = -1;
+
+	private int panelW;
+	private int left;
+	private int top;
 
 	public SymbioteBondGameScreen(int seed) {
 		super(Component.translatable("screen.projecthero.symbiote_bond_game"));
 		this.seed = seed;
+	}
+
+	@Override
+	protected void init() {
+		panelW = Math.min(PANEL_MAX_W, width - 16);
+		left = (width - panelW) / 2;
+		top = Math.max(8, height / 2 - 84);
 	}
 
 	@Override
@@ -77,45 +103,48 @@ public class SymbioteBondGameScreen extends Screen {
 		return Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
 	}
 
+	private State state(double now) {
+		return end != null ? end : SymbioteBondGame.simulate(seed, presses, now);
+	}
+
 	@Override
 	public void tick() {
 		tick++;
-		if (outcome == 0 && tick - roundStart > SymbioteBondGame.ROUND_TIMEOUT - 20) {
-			finish(-1); // too slow
-		}
-		if (outcome != 0 && tick - outcomeTick > RESULT_HOLD) {
+		if (end == null) {
+			State st = SymbioteBondGame.simulate(seed, presses, tick);
+			if (!st.playing()) {
+				finish(st); // drained or too slow
+			}
+		} else if (tick - outcomeTick > RESULT_HOLD) {
 			onClose();
 		}
 	}
 
 	private void press() {
 		double now = clock(partialNow());
-		if (outcome != 0 || now - roundStart < 3.0) {
-			return;
+		State st = state(now);
+		if (end != null || !st.accepts(now) || presses.size() >= SymbioteBondGame.MAX_PRESSES) {
+			return; // over, between phases, or the marker is still flinching from the last strike
 		}
 		int stamp = (int) Math.floor(now * SymbioteBondGame.SUBTICKS);
-		double t = stamp / (double) SymbioteBondGame.SUBTICKS - roundStart;
-		boolean ok = SymbioteBondGame.hit(seed, round, t);
-		presses.add(stamp);
-		frozen = SymbioteBondGame.marker(seed, round, t);
-		frozenRound = round;
-		flashAt = now;
-		flashHit = ok;
-		if (!ok) {
-			finish(-1);
+		if (stamp / (double) SymbioteBondGame.SUBTICKS < st.phaseStart()) {
 			return;
 		}
-		round++;
-		roundStart = stamp / (double) SymbioteBondGame.SUBTICKS + SymbioteBondGame.ROUND_GAP;
-		if (round >= SymbioteBondGame.ROUNDS) {
-			finish(1);
+		presses.add(stamp);
+		State after = SymbioteBondGame.simulate(seed, presses, stamp / (double) SymbioteBondGame.SUBTICKS);
+		if (!after.playing()) {
+			finish(after);
 		}
 	}
 
-	private void finish(int result) {
-		outcome = result;
+	private void finish(State st) {
+		end = st;
 		outcomeTick = tick;
-		send(presses);
+		List<Integer> report = new ArrayList<>(presses);
+		if (st.outcome() != SymbioteBondGame.WON) {
+			report.add(SymbioteBondGame.GAVE_UP);
+		}
+		send(report);
 	}
 
 	private void send(List<Integer> list) {
@@ -128,10 +157,13 @@ public class SymbioteBondGameScreen extends Screen {
 	@Override
 	public boolean keyPressed(int key, int scan, int mods) {
 		if (key == GLFW.GLFW_KEY_ESCAPE) {
-			if (outcome == 0) {
-				send(List.of()); // backed out
-				outcome = -1;
-				outcomeTick = -RESULT_HOLD; // close at once
+			if (end == null) {
+				if (presses.isEmpty() && tick <= SymbioteBondGame.FREE_BACK_OUT) {
+					send(List.of()); // backed out before it began: free
+				} else {
+					gaveUp = true;
+					finish(SymbioteBondGame.simulate(seed, presses, clock(partialNow())));
+				}
 			}
 			onClose();
 			return true;
@@ -152,98 +184,23 @@ public class SymbioteBondGameScreen extends Screen {
 	@Override
 	public void onClose() {
 		if (!sent) {
-			send(List.of());
+			if (end == null && presses.isEmpty() && tick <= SymbioteBondGame.FREE_BACK_OUT) {
+				send(List.of());
+			} else {
+				List<Integer> report = new ArrayList<>(presses);
+				if (end == null || end.outcome() != SymbioteBondGame.WON) {
+					report.add(SymbioteBondGame.GAVE_UP);
+				}
+				send(report);
+			}
 		}
 		super.onClose();
 	}
 
+	// ------------------------------------------------------------------ drawing
+
 	private static int argb(float a, int rgb) {
 		return (Mth.clamp(Math.round(a * 255.0f), 0, 255) << 24) | (rgb & 0xFFFFFF);
-	}
-
-	@Override
-	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-		double now = clock(partialTick);
-		g.fill(0, 0, width, height, 0xB0100418);
-		int cx = width / 2;
-		int top = height / 2 - 40;
-		g.drawCenteredString(font, Component.translatable("screen.projecthero.symbiote_bond_game")
-				.withStyle(net.minecraft.ChatFormatting.DARK_PURPLE, net.minecraft.ChatFormatting.BOLD), cx, top - 22, 0xFFFFFFFF);
-		g.drawCenteredString(font, Component.translatable("screen.projecthero.symbiote_bond_game.hint"), cx, top - 8, 0xFFB0A0C0);
-
-		// round pips: the one in play breathes
-		float breathe = 0.5f + 0.5f * Mth.sin((float) now * 0.35f);
-		for (int r = 0; r < SymbioteBondGame.ROUNDS; r++) {
-			int px = cx - 24 + r * 24;
-			int col;
-			if (r < round) {
-				col = 0xFF6A2BB0;
-			} else if (r == round && outcome == 0) {
-				col = argb(1.0f, lerpColor(0x7A58A8, 0xC8A8F0, breathe));
-			} else {
-				col = 0xFF3A2A4A;
-			}
-			g.fill(px - 6, top + 6, px + 6, top + 18, col);
-		}
-
-		int x0 = cx - BAR_W / 2;
-		int y0 = top + 34;
-		g.fill(x0 - 2, y0 - 2, x0 + BAR_W + 2, y0 + BAR_H + 2, 0xFF000000);
-		g.fill(x0, y0, x0 + BAR_W, y0 + BAR_H, 0xFF221430);
-
-		boolean inGap = outcome == 0 && now < roundStart && frozenRound >= 0;
-		int shown = inGap ? frozenRound : Math.min(round, SymbioteBondGame.ROUNDS - 1);
-		if (outcome != 0 && frozenRound >= 0) {
-			shown = frozenRound;
-		}
-		double centre = SymbioteBondGame.zoneCenter(seed, shown);
-		double half = SymbioteBondGame.HALF_ZONE[shown];
-		int zl = x0 + (int) Math.round((centre - half) * BAR_W);
-		int zr = x0 + (int) Math.round((centre + half) * BAR_W);
-		// the zone breathes (a smooth glow, not a blink), with bright edges so its bounds are easy to read
-		int zoneCol = lerpColor(0x2E9F55, 0x4FD07E, breathe);
-		g.fill(zl, y0, zr, y0 + BAR_H, argb(1.0f, zoneCol));
-		g.fill(zl, y0, zl + 1, y0 + BAR_H, 0xFFB8FFD0);
-		g.fill(zr - 1, y0, zr, y0 + BAR_H, 0xFFB8FFD0);
-
-		boolean live = outcome == 0 && !inGap;
-		double t = now - roundStart;
-		if (live) {
-			// motion trail: fading ghosts where the marker just was
-			for (int i = TRAIL; i >= 1; i--) {
-				double tt = t - i * TRAIL_STEP;
-				if (tt < 0.0) {
-					continue;
-				}
-				int gx = x0 + (int) Math.round(SymbioteBondGame.marker(seed, shown, tt) * BAR_W);
-				float a = 0.28f * (1.0f - i / (float) (TRAIL + 1));
-				g.fill(gx - 1, y0 + 1, gx + 1, y0 + BAR_H - 1, argb(a, 0xE0D0FF));
-			}
-		}
-		double m = live ? SymbioteBondGame.marker(seed, shown, t) : (frozen >= 0.0 ? frozen : SymbioteBondGame.marker(seed, shown, 0.0));
-		int mx = x0 + (int) Math.round(m * BAR_W);
-		boolean over = Math.abs(m - centre) <= half + SymbioteBondGame.EDGE_GRACE;
-		g.fill(mx - 2, y0 - 6, mx + 2, y0 + BAR_H + 6, 0xFF0A0A0A);
-		g.fill(mx - 1, y0 - 4, mx + 1, y0 + BAR_H + 4, live && over ? 0xFFF4FFF8 : 0xFFE0D0FF);
-
-		// press feedback: a band that fades out, green on a hit, red on a miss
-		double since = now - flashAt;
-		if (since >= 0.0 && since < 10.0) {
-			float a = 1.0f - (float) (since / 10.0);
-			int col = flashHit ? 0x3FBF6A : 0xC03030;
-			g.fill(x0, y0 + BAR_H + 10, x0 + BAR_W, y0 + BAR_H + 13, argb(a, col));
-			g.renderOutline(x0 - 3, y0 - 3, BAR_W + 6, BAR_H + 6, argb(a, col));
-		}
-		if (outcome > 0) {
-			g.drawCenteredString(font, Component.translatable("screen.projecthero.symbiote_bond_game.won")
-					.withStyle(net.minecraft.ChatFormatting.LIGHT_PURPLE, net.minecraft.ChatFormatting.BOLD), cx, y0 + BAR_H + 22, 0xFFFFFFFF);
-		} else if (outcome < 0) {
-			g.drawCenteredString(font, Component.translatable("screen.projecthero.symbiote_bond_game.lost")
-					.withStyle(net.minecraft.ChatFormatting.RED, net.minecraft.ChatFormatting.BOLD), cx, y0 + BAR_H + 22, 0xFFFFFFFF);
-		} else {
-			g.drawCenteredString(font, Component.translatable("screen.projecthero.symbiote_bond_game.round", round + 1,
-					SymbioteBondGame.ROUNDS), cx, y0 + BAR_H + 22, 0xFF9080A8);
-		}
 	}
 
 	private static int lerpColor(int a, int b, float f) {
@@ -251,5 +208,223 @@ public class SymbioteBondGameScreen extends Screen {
 		int gg = Math.round(Mth.lerp(f, (a >> 8) & 0xFF, (b >> 8) & 0xFF));
 		int bl = Math.round(Mth.lerp(f, a & 0xFF, b & 0xFF));
 		return (r << 16) | (gg << 8) | bl;
+	}
+
+	private List<FormattedCharSequence> wrap(Component c, int w) {
+		return font.split(c, Math.max(40, w));
+	}
+
+	private int centred(GuiGraphics g, List<FormattedCharSequence> lines, int cx, int y, int colour) {
+		for (FormattedCharSequence line : lines) {
+			g.drawCenteredString(font, line, cx, y, colour);
+			y += 10;
+		}
+		return y;
+	}
+
+	@Override
+	public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+		// the world stays visible behind a violet wash; the panel itself is drawn in render (it shakes)
+		g.fill(0, 0, width, height, 0x9A0C0414);
+	}
+
+	@Override
+	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+		super.render(g, mouseX, mouseY, partialTick);
+		double now = clock(partialTick);
+		State st = state(now);
+		boolean over = end != null;
+		boolean inGap = !over && now < st.phaseStart() && st.phase() > 0;
+		int phase = over ? Math.max(0, Math.min(SymbioteBondGame.PHASES - 1, st.lastPhase() < 0 ? st.phase() : st.lastPhase()))
+				: inGap ? st.phase() - 1 : st.phase();
+		double meter = over ? st.meter() : inGap ? 1.0 : st.meter();
+		float breathe = 0.5f + 0.5f * Mth.sin((float) now * 0.35f);
+
+		// a miss shakes the panel
+		double sinceStrike = now - st.lastAt();
+		int shake = 0;
+		if (st.lastResult() == SymbioteBondGame.RESULT_MISS && sinceStrike >= 0.0 && sinceStrike < SHAKE_TICKS) {
+			shake = Math.round(Mth.sin((float) sinceStrike * 2.6f) * 3.0f * (1.0f - (float) sinceStrike / SHAKE_TICKS));
+		}
+		// danger: the screen edges pulse red as the meter nears empty
+		if (!over && !inGap && meter < 0.3) {
+			float a = (float) ((0.3 - meter) / 0.3) * (0.25f + 0.2f * breathe);
+			g.fillGradient(0, 0, width, 40, argb(a, DANGER), argb(0.0f, DANGER));
+			g.fillGradient(0, height - 40, width, height, argb(0.0f, DANGER), argb(a, DANGER));
+		}
+
+		int inner = panelW - 24;
+		int cx = left + panelW / 2 + shake;
+		int x0 = left + 12 + shake;
+		List<FormattedCharSequence> tip = wrap(Component.translatable("screen.projecthero.symbiote_bond_game.phase." + phase + ".tip"), inner);
+		List<FormattedCharSequence> controls = wrap(Component.translatable("screen.projecthero.symbiote_bond_game.controls"), inner);
+		int tipH = Math.min(2, tip.size()) * 10;
+		int panelH = 6 + 13 + 6 + 14 + 6 + tipH + 8 + TRACK_H + 6 + 12 + 12 + METER_H + 8 + controls.size() * 10 + 6;
+
+		// panel (house style: dim frame, violet gradient, a highlight line, a divider under the title)
+		int px = left + shake;
+		g.fill(px - 1, top - 1, px + panelW + 1, top + panelH + 1, ACCENT_DIM);
+		g.fillGradient(px, top, px + panelW, top + panelH, PANEL_TOP, PANEL_BOTTOM);
+		g.fill(px + 2, top + 2, px + panelW - 2, top + 3, 0x30FFFFFF);
+		int y = top + 6;
+		g.drawCenteredString(font, title.copy().withStyle(ChatFormatting.BOLD), cx, y, ACCENT);
+		y += 13;
+		g.fill(px + 10, y, px + panelW - 10, y + 1, ACCENT_DIM);
+		y += 6;
+
+		// phase strip
+		int segW = inner / SymbioteBondGame.PHASES;
+		int donePhases = over && st.outcome() == SymbioteBondGame.WON ? SymbioteBondGame.PHASES : inGap ? st.phase() : phase;
+		for (int p = 0; p < SymbioteBondGame.PHASES; p++) {
+			int sx = x0 + p * segW;
+			int col;
+			int text;
+			if (p < donePhases) {
+				col = 0xFF8A4FD0;
+				text = ACCENT;
+			} else if (p == phase && !over) {
+				col = argb(1.0f, lerpColor(0x5A3A88, 0xB890F0, breathe));
+				text = ACCENT;
+			} else if (p == phase && st.outcome() == SymbioteBondGame.FAILED) {
+				col = 0xFF8A2A34;
+				text = 0xFFE0A0A8;
+			} else {
+				col = 0xFF2E2240;
+				text = 0xFF6E6080;
+			}
+			g.fill(sx + 2, y + 11, sx + segW - 2, y + 14, col);
+			Component name = Component.translatable("screen.projecthero.symbiote_bond_game.phase." + p);
+			List<FormattedCharSequence> nm = wrap(name, segW - 4);
+			if (!nm.isEmpty()) {
+				g.drawCenteredString(font, nm.get(0), sx + segW / 2, y + 1, text);
+			}
+		}
+		y += 14 + 6;
+
+		// the phase's tip (at most two wrapped lines)
+		centred(g, tip.subList(0, Math.min(2, tip.size())), cx, y, MUTED);
+		y += tipH + 8;
+
+		// ---- the track ----
+		int ty = y;
+		g.fill(x0 - 2, ty - 2, x0 + inner + 2, ty + TRACK_H + 2, 0xFF000000);
+		g.fill(x0, ty, x0 + inner, ty + TRACK_H, TRACK_BG);
+		boolean live = !over && !inGap;
+		double t = now - st.phaseStart();
+		double centre;
+		double half;
+		if (live) {
+			centre = SymbioteBondGame.zoneCenter(seed, phase, t);
+			half = SymbioteBondGame.halfZone(phase, meter);
+		} else if (st.lastPhase() >= 0) {
+			centre = st.lastCentre();
+			half = st.lastHalf();
+		} else {
+			centre = SymbioteBondGame.zoneCenter(seed, phase, 0.0);
+			half = SymbioteBondGame.halfZone(phase, meter);
+		}
+		int zl = x0 + (int) Math.round((centre - half) * inner);
+		int zr = x0 + (int) Math.round((centre + half) * inner);
+		g.fill(zl, ty, zr, ty + TRACK_H, argb(1.0f, lerpColor(ZONE_DIM, ZONE_BRIGHT, breathe)));
+		g.fill(zl, ty, zl + 1, ty + TRACK_H, argb(1.0f, CORE));
+		g.fill(zr - 1, ty, zr, ty + TRACK_H, argb(1.0f, CORE));
+		int cl = x0 + (int) Math.round((centre - half * SymbioteBondGame.CORE) * inner);
+		int cr = x0 + (int) Math.round((centre + half * SymbioteBondGame.CORE) * inner);
+		g.fill(cl, ty + 3, Math.max(cl + 1, cr), ty + TRACK_H - 3, argb(0.55f + 0.25f * breathe, CORE));
+
+		boolean flinch = live && sinceStrike >= 0.0 && sinceStrike < SymbioteBondGame.LOCKOUT;
+		if (live && !flinch) {
+			for (int i = TRAIL; i >= 1; i--) {
+				double tt = t - i * TRAIL_STEP;
+				if (tt < 0.0) {
+					continue;
+				}
+				int gx = x0 + (int) Math.round(SymbioteBondGame.marker(seed, phase, tt) * inner);
+				float a = 0.28f * (1.0f - i / (float) (TRAIL + 1));
+				g.fill(gx - 1, ty + 1, gx + 1, ty + TRACK_H - 1, argb(a, 0xE0D0FF));
+			}
+		}
+		double m = live ? SymbioteBondGame.marker(seed, phase, t) : st.lastPos() >= 0.0 ? st.lastPos() : SymbioteBondGame.marker(seed, phase, 0.0);
+		int mx = x0 + (int) Math.round(m * inner);
+		boolean inside = Math.abs(m - centre) <= half + SymbioteBondGame.EDGE_GRACE;
+		int jolt = flinch ? Math.round(Mth.sin((float) sinceStrike * 4.0f) * 2.0f) : 0;
+		g.fill(mx - 2, ty - 6 + jolt, mx + 2, ty + TRACK_H + 6 + jolt, 0xFF0A0A0A);
+		int markerCol = flinch ? 0xFF7A6A90 : live && inside ? 0xFFF4FFF8 : 0xFFE0D0FF;
+		g.fill(mx - 1, ty - 4 + jolt, mx + 1, ty + TRACK_H + 4 + jolt, markerCol);
+		y = ty + TRACK_H + 6;
+
+		// strike feedback under the track, fading out
+		if (st.lastResult() != SymbioteBondGame.RESULT_NONE && sinceStrike >= 0.0 && sinceStrike < 14.0 && !over) {
+			float a = 1.0f - (float) (sinceStrike / 14.0);
+			String key = st.lastResult() == SymbioteBondGame.RESULT_PERFECT ? "perfect"
+					: st.lastResult() == SymbioteBondGame.RESULT_HIT ? "hit" : "miss";
+			int col = st.lastResult() == SymbioteBondGame.RESULT_PERFECT ? CORE : st.lastResult() == SymbioteBondGame.RESULT_HIT ? ZONE_BRIGHT : DANGER;
+			Component word = Component.translatable("screen.projecthero.symbiote_bond_game." + key).withStyle(ChatFormatting.BOLD);
+			int fx = Mth.clamp(x0 + (int) Math.round(st.lastPos() * inner), x0 + font.width(word) / 2, x0 + inner - font.width(word) / 2);
+			g.drawCenteredString(font, word, fx, y, argb(Math.max(0.05f, a), col));
+			g.renderOutline(x0 - 3, ty - 3, inner + 6, TRACK_H + 6, argb(a, col));
+		} else if (inGap) {
+			g.drawCenteredString(font, Component.translatable("screen.projecthero.symbiote_bond_game.phase_clear")
+					.withStyle(ChatFormatting.BOLD), cx, y, argb(1.0f, CORE));
+		}
+		y += 12;
+
+		// ---- the Bond meter and the strike pips ----
+		int pct = Mth.clamp((int) Math.round(meter * 100.0), 0, 100);
+		Component bond = Component.translatable("screen.projecthero.symbiote_bond_game.bond", pct);
+		Component strikesLabel = Component.translatable("screen.projecthero.symbiote_bond_game.strikes");
+		int pipsW = SymbioteBondGame.MAX_STRIKES * 9;
+		int strikesW = font.width(strikesLabel) + 4 + pipsW;
+		List<FormattedCharSequence> bondLine = wrap(bond, inner - strikesW - 8);
+		if (!bondLine.isEmpty()) {
+			g.drawString(font, bondLine.get(0), x0, y, ACCENT);
+		}
+		int sx = x0 + inner - strikesW;
+		g.drawString(font, strikesLabel, sx, y, MUTED);
+		for (int i = 0; i < SymbioteBondGame.MAX_STRIKES; i++) {
+			int pxs = sx + font.width(strikesLabel) + 4 + i * 9;
+			boolean used = i < st.strikes();
+			g.fill(pxs, y, pxs + 7, y + 7, used ? 0xFF000000 | DANGER : 0xFF2E2240);
+			g.fill(pxs + 1, y + 1, pxs + 6, y + 6, used ? 0xFFF06070 : 0xFF3E3050);
+		}
+		y += 12;
+		boolean danger = !over && !inGap && meter < 0.25;
+		g.fill(x0 - 1, y - 1, x0 + inner + 1, y + METER_H + 1, danger ? argb(0.6f + 0.4f * breathe, DANGER) : 0xFF000000);
+		g.fill(x0, y, x0 + inner, y + METER_H, 0xFF1A1024);
+		int fillW = (int) Math.round(meter * inner);
+		if (fillW > 0) {
+			g.fillGradient(x0, y, x0 + fillW, y + METER_H, argb(1.0f, METER_HI), argb(1.0f, METER_LO));
+			g.fill(x0, y, x0 + fillW, y + 1, 0x50FFFFFF);
+		}
+		// quarter ticks
+		for (int q = 1; q < 4; q++) {
+			int qx = x0 + inner * q / 4;
+			g.fill(qx, y, qx + 1, y + METER_H, 0x40000000);
+		}
+		y += METER_H + 8;
+
+		// controls
+		centred(g, controls, cx, y, 0xFF7E7092);
+
+		// the verdict, over the track
+		if (over) {
+			boolean won = st.outcome() == SymbioteBondGame.WON;
+			float age = Mth.clamp((float) (now - outcomeTick) / 6.0f, 0.0f, 1.0f);
+			g.fill(x0, ty, x0 + inner, ty + TRACK_H, argb(0.75f * age, won ? 0x1A0830 : 0x200608));
+			Component verdict = Component.translatable(won ? "screen.projecthero.symbiote_bond_game.won"
+					: "screen.projecthero.symbiote_bond_game.lost").withStyle(ChatFormatting.BOLD);
+			g.drawCenteredString(font, verdict, cx, ty + (TRACK_H - 8) / 2, argb(Math.max(0.05f, age), won ? 0xE0B8FF : 0xFF6070));
+			if (!won) {
+				String reason = gaveUp ? "gave_up" : switch (st.reason()) {
+					case SymbioteBondGame.REASON_STRIKES -> "strikes";
+					case SymbioteBondGame.REASON_TIMEOUT -> "timeout";
+					default -> "drained";
+				};
+				List<FormattedCharSequence> why = wrap(Component.translatable("screen.projecthero.symbiote_bond_game.reason." + reason), inner);
+				if (!why.isEmpty()) {
+					g.drawCenteredString(font, why.get(0), cx, ty + TRACK_H + 6, argb(Math.max(0.05f, age), 0xE0A0A8));
+				}
+			}
+		}
 	}
 }
