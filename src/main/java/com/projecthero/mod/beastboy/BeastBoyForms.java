@@ -91,10 +91,11 @@ public final class BeastBoyForms {
 	/** Extra melee damage on a left click in the form. */
 	public static double meleeBonus(BeastForm f) {
 		return switch (f) {
-			case TREX -> 8.0;
-			case BEAST -> 10.0;
-			case GORILLA, BEAR, RHINO, ELEPHANT, WHALE -> 5.0;
-			case WOLF, SHARK, CHEETAH, PTERODACTYL -> 2.0;
+			// v0.17.7 City tier: left clicks land 14 / 14 / 12 / 11 (was 9 / 11 / 6 / 3)
+			case TREX -> BeastBoyConfig.MELEE_TREX;
+			case BEAST -> BeastBoyConfig.MELEE_BEAST;
+			case GORILLA, BEAR, RHINO, ELEPHANT, WHALE -> BeastBoyConfig.MELEE_BIG;
+			case WOLF, SHARK, CHEETAH, PTERODACTYL -> BeastBoyConfig.MELEE_SMALL;
 			default -> 0.0;
 		};
 	}

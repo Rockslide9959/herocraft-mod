@@ -285,3 +285,26 @@ sea form (`BeastBoyForms.aquatic`: dolphin, shark, octopus, whale); the helper i
   Manipulation) lifts the x5 "not on the ground" while in water. No form ever blocked block breaking (only the fly / mouse refuse
   to attack creatures, and animals can't use items or blocks). On land the sea forms mine normally (they are on the ground).
 - Test: `BeastBoyGameTests.seaFormsMineUnderwater`.
+
+## Beast Boy: v0.17.7 City tier
+
+The user placed Beast Boy in the **City** tier (melee 11-14, abilities 11-15, ultimate 25-30 a hit). Numbers only (`BeastBoyConfig`);
+keys, cooldowns, stamina and animations unchanged. The form bites / punches count as melee, the big forms (T-Rex, elephant, whale) at
+the top of the range.
+
+| Hit | Before | After |
+|---|---|---|
+| Quick morphs: Ram / Pounce / Gorilla Smash / Snake / T-Rex Roar / Elephant Stomp | 10 / 8 / 12 / 5 / 6 / 14 | 11 / 11 / 12 / 11 / 11 / 14 |
+| Pounce bleed | 1 a second for 3 s | unchanged (DoT) |
+| T-Rex Bite / Tail / Roar | 18 / 12 / 6 | 14 / 13 / 11 |
+| Gorilla Punch / Throw | 12 / 6 | 12 / 11 |
+| Rhino Charge | 16 | 15 |
+| Elephant Trunk / Stomp | 8 / 14 | 11 / 15 |
+| Wolf Bite / Bear Maul / Ptero Dive / Hawk Talon / Shark Bite / Whale Slam | 8 / 14 / 12 / 5 / 14 / 10 | 11 / 14 / 12 / 11 / 14 / 14 |
+| Left click in a form: T-Rex / Beast / big bodies / Wolf, Shark, Cheetah, Ptero | 9 / 11 / 6 / 3 | 14 / 14 / 12 / 11 |
+| The Beast (Shift+Z) swipe / leap slam (x1.4 locked chain) | 28 / 16.8 | 26.6 / 25.2 (base 19 / 18) |
+| The Beast roar | 6 | 11 |
+
+**Cap:** `BeastBoyConfig.MAX_HIT` 30 in `BeastBoy.hit`, after the Morph Chain (up to x1.4), divided by Titans Together's x1.1 when it is
+on (that is applied later, in the hurt head), so no move hit lands over 30. **Toughness:** the form health pools (and Regeneration II in
+forms) are the shapeshifter's design and were left as they are; Beast Boy grants no armour or resistance. Tests read the constants.

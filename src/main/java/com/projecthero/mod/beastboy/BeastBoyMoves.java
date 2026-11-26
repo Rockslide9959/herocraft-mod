@@ -212,7 +212,7 @@ public final class BeastBoyMoves {
 
 	// ---------------------------------------------------------------- human form: the quick morphs
 
-	/** R: Ram -- a half-second rhino charge; everything in the 6-block lane takes 10 and a big knockback. */
+	/** R: Ram -- a half-second rhino charge; everything in the 6-block lane takes 11 and a big knockback. */
 	static boolean ram(ServerPlayer p) {
 		if (!quick(p, BeastForm.RHINO, BeastBoyConfig.RAM_COST, "charge")) {
 			return false;
@@ -640,7 +640,7 @@ public final class BeastBoyMoves {
 		return true;
 	}
 
-	/** Elephant R: the trunk throws the creature in front up and away (8). */
+	/** Elephant R: the trunk throws the creature in front up and away (11). */
 	private static boolean trunkThrow(ServerPlayer p) {
 		LivingEntity t = target(p, 4.5);
 		if (t == null) {

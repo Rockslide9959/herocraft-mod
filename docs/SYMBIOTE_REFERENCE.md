@@ -1082,3 +1082,44 @@ Shots: `docs/screenshots/v0175/symbiote_monster_polish/` -- `cocoon_classic_<1..
 films (`.mp4` + `_sheet.png`) `cocoon_transformation_realtime`, `cocoon_slowmo` (6 tps), `first_person_moves`. Harness
 `scratchpad/SymbioteMonsterPolishHarness.v0175.java.txt` (class `SymbioteMonsterHarness`, same camera / GUI mixins), films via
 `scratchpad/symbiote/films_monster_polish_v0175.js <harness out dir>`.
+
+## v0.17.7 City tier
+
+The user placed the Symbiote (Normal host, the Secondary kit) in the **City** tier (`PowerRank.CITY`: melee 11-14, abilities 11-15,
+ultimate 25-30 a hit). Numbers only; keys, cooldowns and animations unchanged. Black Suit Spider-Man, Agent Venom, Carnage, pets and
+hostile hosts were not touched.
+
+| Hit | Before | After |
+|---|---|---|
+| Suit fist (`SymbiotePassives.SUIT_MELEE_BONUS`) | 6 (+5) | 11 (+10) |
+| Weapon punch: Blade / Axe / Mace / Whip | 11 / 14 / 12 / 9 (+5 / +8 / +6 / +3) | 13 / 14 / 13 / 12 (+2 / +3 / +2 / +1) |
+| R Tendril Strike | 15 | 12 (kept under the Slam) |
+| R x3 Tendril Slam / splash | 22 / 6 | 15 / 11 |
+| Hold R Impaling Spear | 14 -> 26 | 11 -> 15 |
+| Shift+R Tendril Sweep | 8-10 | 11-13 |
+| G Spike Shot | 14 | 14 |
+| Hold G Spike Rain (a spike) | 3 | 5 (tick-like: about 6 land on one target, ~30 over 3 s) |
+| Shift+G Spike Nova | 10 | 12 |
+| X Lunge ram | 15 | 15 |
+| X air Dive Bomb | 12 + 0.8 / block, max 24 | 11 + 0.4 / block, max 15 |
+| Z Tendril Barrage (a tendril) | 4 | 11 (hit invulnerability lets about 3 land on one target) |
+| Z Blade Slash / Cleave / Ground Smash / Lash | 8+2 / 16+4 / 14 / 12 | 12+2 / 14+4 / 14 / 12 |
+| Hold Z Ground Eruption | 12 | 12 |
+| C Maw Bite | 18 | 15 |
+| Hold C heavy bite (boss) | 30 | 15 (the Devour execute is unchanged) |
+| Shift+C throw / crush | 7 / 6 | 11 / 8 (crush repeats twice a second: kept under the range like tick damage) |
+| Thorns aura / Spike Surge (every 0.75 s) | 3 / 5 | 3 / 5 (tick damage, unchanged) |
+| Monster (Shift+Z ultimate form): claws | 19 (+8) | 15 (+4) |
+| Monster R Claw Swipe (1 s) / Z Roar / V Pull | 24 / 8 / 4 | 15 / 11 / 11 |
+| Monster G Ground Pound / X Leap Smash / C boss bite | 20 / 22 / 35 | 25 / 25 / 30 |
+| Onslaught | 20 | 20 (has no key since the Monster form replaced it) |
+
+**Cap:** `SymbiotePassives.MAX_HIT` 30. The Symbiote stacks on a Primary, so its attack-damage bonuses (suit, weapon, Monster claws) never
+lift a real melee swing past 30 (`PlayerSymbioteMeleeCapMixin` on `Player#attack`'s hit -> `SymbiotePassives.capMelee`); a punch already
+over 30 without them (the Primary's own) is never lowered. Ability hits are flat and all at or under 30.
+
+**Toughness:** the suit (diamond-grade 20 armour / 2 toughness + Resistance I) already takes ~70% off a 12-damage hit (netherite-ish),
+so it is unchanged, and so is the Biomass bar. The Monster's **+100% max health became a flat +16** (`SymbioteMonster.HEALTH_BONUS`;
+a percentage doubled a Primary's own health); its 50% damage cut stays.
+
+Tests: `SymbioteMonsterGameTests` (+16 health). The other Symbiote tests read the constants.

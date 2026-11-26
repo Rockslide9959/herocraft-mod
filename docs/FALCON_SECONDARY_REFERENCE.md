@@ -82,3 +82,23 @@ never claims or replaces a Primary (and a new Primary leaves it alone), no Prima
 Armour comes first and the kit resumes with its Thrust, and old saves migrate (order entry and the `blocked` to `revoked` key).
 `FalconGameTests`: the Hero-Tier key assertions now expect a Secondary, and `replacedFalconStaysOffUntilRegeared` became
 `aNewPrimaryNeverReplacesTheFalconGear`.
+
+## v0.17.7 City tier
+
+The user placed the Falcon (the gear's Secondary kit) in the **City** tier (melee 11-14, abilities 11-15, ultimate 25-30 a hit).
+Numbers only (`FalconConfig`); keys, cooldowns and animations unchanged. Bosses still take at most 8% of their max health a hit.
+
+| Hit | Before | After |
+|---|---|---|
+| R Wrist Guns (a round, 5 a second) | 7 | 7 (a stream, treated like tick damage: 35 a second already) |
+| Shift+R Micro-Missile direct / splash | 10 / 3 | 12 / 4 |
+| G Wing Slash / diving slash | 15 / 15 | 15 / 15 |
+| Shift+G Wing Shield bash | 6 | 11 |
+| Z Redwing laser (5 bolts) | 5 | 11 |
+| Shift+Z Bombing Run (a bomb, 6 bombs) | 10 | 25 (the ultimate) |
+| C Dive Bomb | 6 + 0.6 / block, max 18 (20 blocks) | 11 + 0.25 / block, max 15 (16 blocks) |
+
+No damage buffs in the kit, and no melee bonus on top of the Primary, so no extra cap was needed.
+
+**Toughness:** the gear was iron-grade (2/5/6/2 = 15 armour, toughness 1); now netherite-grade 3/6/8/3 = 20 armour, toughness 2
+(`FalconItems`). The Wing Shield (40 points) is unchanged. Tests: `FalconGameTests` (missiles / lasers / bombs, Dive Bomb scaling).

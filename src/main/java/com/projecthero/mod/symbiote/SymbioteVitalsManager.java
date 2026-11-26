@@ -96,7 +96,7 @@ public final class SymbioteVitalsManager {
 	private static final double ARROW_CATCH_RADIUS = 2.4;
 	private static final float ARROW_CATCH_HP_COST = 3.0f;
 
-	private static final ResourceLocation BLADE_ATTACK = ProjectHeroMod.id("symbiote_blade_attack");
+	public static final ResourceLocation BLADE_ATTACK = ProjectHeroMod.id("symbiote_blade_attack");
 	private static final ResourceLocation BLADE_SPEED = ProjectHeroMod.id("symbiote_blade_speed");
 	/** v0.17.5 weapons: the Blade's and the Whip's extra reach. */
 	private static final ResourceLocation BLADE_REACH = ProjectHeroMod.id("symbiote_weapon_reach");

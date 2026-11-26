@@ -4,7 +4,8 @@ package com.projecthero.mod.falcon;
  * v0.17.1: every Falcon (Sam Wilson) number in one place (static finals, like Cyborg's / Nova's). Times are in ticks.
  * The second v0.17.1 pass (user): directional jet flight like the Kryptonian's (19 b/s, 35 sprinting, 40 holding X), a
  * 100-round Wrist Gun magazine, and the user's damage numbers (guns 7, missiles 10, Wing Slash 15, Redwing lasers 5,
- * bombs 10). Bosses still take at most 8% of their max health a hit.
+ * bombs 10). Bosses still take at most 8% of their max health a hit. v0.17.7 City tier: missiles 12, bash 11, lasers 11, bombs 25,
+ * Dive Bomb 11-15; Wing Slash 15 and the guns 7 unchanged; gear netherite-grade (20 armour, 2 toughness; was iron 15 / 1).
  */
 public final class FalconConfig {
 	private FalconConfig() {
@@ -53,7 +54,7 @@ public final class FalconConfig {
 	public static final float BOSS_MAX_FRACTION_PER_HIT = 0.08f;
 
 	// R: Wrist Guns (hold) -- the assault rifle's report, tracers and impacts
-	public static final float GUN_DAMAGE = 7f;
+	public static final float GUN_DAMAGE = 7f; // v0.17.7 City tier: unchanged -- a 5-a-second stream, treated like tick damage (35 a second already)
 	/** Ticks between rounds (5 a second). */
 	public static final int GUN_INTERVAL = 4;
 	public static final double GUN_RANGE = 48.0;
@@ -68,9 +69,9 @@ public final class FalconConfig {
 	// Shift+R: Micro-Missile Volley
 	public static final int MISSILES = 4;
 	/** A direct hit (the one it struck takes no splash on top). */
-	public static final float MISSILE_DAMAGE = 10f;
+	public static final float MISSILE_DAMAGE = 12f; // v0.17.7 City tier: was 10
 	/** Everyone else in the blast. */
-	public static final float MISSILE_SPLASH = 3f;
+	public static final float MISSILE_SPLASH = 4f; // v0.17.7 City tier: was 3 (splash, kept low)
 	public static final double MISSILE_BLAST = 2.5;
 	public static final double MISSILE_RANGE = 40.0;
 	/** Lock-on cone (cosine of the half angle, about 25 degrees). */
@@ -96,7 +97,7 @@ public final class FalconConfig {
 	public static final float SHIELD_HP = 40f;
 	public static final int SHIELD_MAX_TICKS = 160;
 	public static final double SHIELD_ARC = 0.34;
-	public static final float BASH_DAMAGE = 6f;
+	public static final float BASH_DAMAGE = 11f; // v0.17.7 City tier: was 6
 	public static final double BASH_RANGE = 4.0;
 	public static final double BASH_KNOCKBACK = 1.6;
 	public static final int SHIELD_COOLDOWN = 100;
@@ -119,7 +120,7 @@ public final class FalconConfig {
 	public static final double REDWING_RANGE = 32.0;
 	public static final int LASER_SHOTS = 5;
 	public static final int LASER_INTERVAL = 10;
-	public static final float LASER_DAMAGE = 5f;
+	public static final float LASER_DAMAGE = 11f; // v0.17.7 City tier: was 5 (5 bolts, 0.5 s apart)
 	public static final float STRIKE_COST = 15f;
 	public static final int STRIKE_COOLDOWN = 140;
 
@@ -127,7 +128,7 @@ public final class FalconConfig {
 	public static final double BOMB_RANGE = 48.0;
 	public static final int BOMBS = 6;
 	public static final int BOMB_INTERVAL = 5;
-	public static final float BOMB_DAMAGE = 10f;
+	public static final float BOMB_DAMAGE = 25f; // v0.17.7 City tier: was 10 -- Shift+Z, the ultimate (25-30 a hit)
 	public static final double BOMB_RADIUS = 3.0;
 	public static final double EMP_RADIUS = 5.0;
 	public static final int EMP_STUN_TICKS = 60;
@@ -150,10 +151,10 @@ public final class FalconConfig {
 	public static final double DIVE_MIN_HEIGHT = 5.0;
 	public static final double DIVE_SPEED = 2.4;
 	public static final int DIVE_MAX_TICKS = 60;
-	public static final float DIVE_MIN_DAMAGE = 6f;
-	public static final float DIVE_MAX_DAMAGE = 18f;
+	public static final float DIVE_MIN_DAMAGE = 11f; // v0.17.7 City tier: was 6
+	public static final float DIVE_MAX_DAMAGE = 15f; // v0.17.7 City tier: was 18
 	/** Extra damage a block of drop. */
-	public static final float DIVE_DAMAGE_PER_BLOCK = 0.6f;
+	public static final float DIVE_DAMAGE_PER_BLOCK = 0.25f; // v0.17.7 City tier: was 0.6 (the max from 16 blocks, was 20)
 	public static final double DIVE_RADIUS = 4.0;
 	public static final float DIVE_COST = 10f;
 	public static final int DIVE_COOLDOWN = 160;

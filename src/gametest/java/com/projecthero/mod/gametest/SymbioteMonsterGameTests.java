@@ -151,7 +151,7 @@ public class SymbioteMonsterGameTests implements FabricGameTest {
 			SymbioteAbilityManager.serverTick(p);
 			helper.assertTrue(phase(p) == SymbioteMonsterState.MONSTER, "the cocoon bursts: the monster");
 			helper.assertTrue(Math.abs(p.getBbHeight() - SymbioteMonster.HEIGHT) < 0.15, "7 blocks tall, was " + p.getBbHeight());
-			helper.assertTrue(p.getMaxHealth() >= health * 2 - 0.01f, "+100% max health");
+			helper.assertTrue(Math.abs(p.getMaxHealth() - (health + SymbioteMonster.HEALTH_BONUS)) < 0.01f, "+16 max health (v0.17.7 City tier), now " + p.getMaxHealth());
 			helper.assertTrue(SymbioteMonster.damageFactor(p) == 0.5f, "half damage");
 			helper.succeed();
 		});
