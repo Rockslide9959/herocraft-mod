@@ -1,0 +1,214 @@
+// v0.17.7 round 2: offline preview of Cyborg composited into a player's skin at TRUE scale (base layer at 0, sleeves / jacket /
+// trousers inflated 0.25 and the hat 0.5 like vanilla), next to the same player plain. Runs the mod's own
+// CyborgSkinComposite (pure Java) -- no game client needed.
+//
+//   copy this to <tmp>/CyborgCompositePreviewHarness.java, then
+//   javac -d <tmp>/out <tmp>/CyborgCompositePreviewHarness.java src/client/java/com/projecthero/mod/client/cyborg/CyborgSkinComposite.java
+//   java -cp <tmp>/out CyborgCompositePreviewHarness <outDir> <name> <skin.png> <slim:true|false> [<name> <skin> <slim>]...
+//
+// holoOrder / convertOrder / heights are copied from CyborgRender / OverlayStrips (those import Minecraft classes).
+import java.awt.image.BufferedImage;
+import java.io.File;
+
+import javax.imageio.ImageIO;
+
+import com.projecthero.mod.client.cyborg.CyborgSkinComposite;
+
+public class CyborgCompositePreviewHarness {
+	static final String TEX = "src/main/resources/assets/projecthero/textures/entity/cyborg/";
+	static final int S = 12; // screen pixels per texel
+	static final int HOLO_EDGE = 0xFF7FE6FF;
+
+	public static void main(String[] a) throws Exception {
+		File outDir = new File(a[0]);
+		outDir.mkdirs();
+		int[] cyWide = read(new File(TEX + "cyborg.png")), cySlim = read(new File(TEX + "cyborg_slim.png"));
+		int[] flesh = read(new File(TEX + "cyborg_flesh.png"));
+		for (int i = 1; i + 2 < a.length; i += 3) {
+			String name = a[i];
+			int[] skin = read(new File(a[i + 1]));
+			boolean slim = Boolean.parseBoolean(a[i + 2]);
+			int[] cy = slim ? cySlim : cyWide;
+			int[] fl = slim ? CyborgSkinComposite.slimOf(flesh) : flesh;
+			int[] full = compose(skin, cy, fl, slim, mode(CyborgSkinComposite.CYBORG), null);
+			// sheet 1: plain vs Cyborg, front / right side / back
+			String[] views = { "front", "right", "back" };
+			BufferedImage sheet = canvas(6);
+			for (int v = 0; v < 3; v++) {
+				draw(sheet, (2 * v) * W, skin, slim, views[v]);
+				draw(sheet, (2 * v + 1) * W, full, slim, views[v]);
+			}
+			ImageIO.write(sheet, "png", new File(outDir, "normal_size_" + name + ".png"));
+			// sheet 2: the hologram building at 30% / 60%, draining at 50%; the Mother Box spread at 40% over the flesh
+			BufferedImage holo = canvas(6);
+			float[] lines = { 0.3f, 0.6f };
+			int col = 0;
+			for (float line : lines) {
+				int[] t = new int[4096];
+				byte[] m = new byte[4096];
+				for (int b = 0; b < 4096; b++) {
+					int tt = holoTint(b & 63, b >> 6, line, true);
+					m[b] = tt == 0 ? CyborgSkinComposite.CYBORG : CyborgSkinComposite.PLAIN;
+					t[b] = tt == 0 || tt == 0xFFFFFFFF ? -1 : HOLO_EDGE;
+				}
+				int[] img = compose(skin, cy, fl, slim, m, t);
+				draw(holo, col++ * W, img, slim, "front");
+				draw(holo, col++ * W, img, slim, "right");
+			}
+			byte[] m = new byte[4096];
+			for (int b = 0; b < 4096; b++) {
+				m[b] = holoTint(b & 63, b >> 6, 0.5f, false) == 0 ? CyborgSkinComposite.CYBORG : CyborgSkinComposite.PLAIN;
+			}
+			draw(holo, col++ * W, compose(skin, cy, fl, slim, m, null), slim, "front");
+			for (int b = 0; b < 4096; b++) {
+				m[b] = convertOrder(b & 63, b >> 6) <= 0.4f ? CyborgSkinComposite.CYBORG : CyborgSkinComposite.FLESH;
+			}
+			draw(holo, col++ * W, compose(skin, cy, fl, slim, m, null), slim, "front");
+			ImageIO.write(holo, "png", new File(outDir, "normal_size_" + name + "_hologram_spread.png"));
+			System.out.println("wrote " + name);
+		}
+	}
+
+	static byte[] mode(byte v) {
+		byte[] m = new byte[4096];
+		java.util.Arrays.fill(m, v);
+		return m;
+	}
+
+	static int[] compose(int[] skin, int[] cy, int[] fl, boolean slim, byte[] mode, int[] tint) {
+		int[] out = new int[4096];
+		CyborgSkinComposite.compose(skin, 64, cy, fl, slim, CyborgSkinComposite.ALL_PARTS, mode, tint, out);
+		return out;
+	}
+
+	static int[] read(File f) throws Exception {
+		BufferedImage img = ImageIO.read(f);
+		int[] px = new int[64 * 64];
+		for (int y = 0; y < 64; y++) {
+			for (int x = 0; x < 64; x++) {
+				px[y * 64 + x] = img.getRGB(x, y);
+			}
+		}
+		return px;
+	}
+
+	// ---- an orthographic figure, base faces then second-layer faces inflated like vanilla's
+	static final int W = 22 * S, H = 36 * S;
+
+	static BufferedImage canvas(int cols) {
+		BufferedImage img = new BufferedImage(cols * W, H, BufferedImage.TYPE_INT_ARGB);
+		for (int y = 0; y < H; y++) {
+			for (int x = 0; x < cols * W; x++) {
+				boolean c = ((x / S) + (y / S)) % 2 == 0;
+				img.setRGB(x, y, (x / W) % 2 == 0 ? (c ? 0xFFD8D8D8 : 0xFFC8C8C8) : (c ? 0xFFD0D8E0 : 0xFFC0C8D0));
+			}
+		}
+		return img;
+	}
+
+	// cube: base u, v, overlay u, v, w, h, d, figure x (front), figure y, grow
+	static int[][] cubes(boolean slim) {
+		int aw = slim ? 3 : 4;
+		return new int[][] {
+				{ 0, 0, 32, 0, 8, 8, 8, 4, 0, 50 }, // head, hat 0.50
+				{ 16, 16, 16, 32, 8, 12, 4, 4, 8, 25 }, // body
+				{ 40, 16, 40, 32, aw, 12, 4, 4 - aw, 8, 25 }, // right arm
+				{ 32, 48, 48, 48, aw, 12, 4, 12, 8, 25 }, // left arm
+				{ 0, 16, 0, 32, 4, 12, 4, 4, 20, 25 }, // right leg
+				{ 16, 48, 0, 48, 4, 12, 4, 8, 20, 25 } }; // left leg
+	}
+
+	static void draw(BufferedImage img, int ox, int[] skin, boolean slim, String view) {
+		int[][] c = cubes(slim);
+		int[] order = view.equals("right") ? new int[] { 0, 4, 2 } : new int[] { 2, 3, 4, 5, 1, 0 };
+		for (int layer = 0; layer < 2; layer++) {
+			for (int k : order) {
+				int[] q = c[k];
+				int u = layer == 0 ? q[0] : q[2], v = layer == 0 ? q[1] : q[3];
+				int w = q[4], h = q[5], d = q[6];
+				float g = layer == 0 ? 0f : q[9] / 100f;
+				int fu, fv = v + d, fw;
+				float fx;
+				switch (view) {
+					case "front" -> { fu = u + d; fw = w; fx = q[7]; }
+					case "back" -> { fu = u + 2 * d + w; fw = w; fx = 16 - q[7] - w; }
+					default -> { fu = u; fw = d; fx = k == 0 ? 4 : 6; }
+				}
+				face(img, ox + 3 * S, 2 * S, skin, fu, fv, fw, h, fx, q[8], g);
+			}
+		}
+	}
+
+	static void face(BufferedImage img, int ox, int oy, int[] skin, int fu, int fv, int fw, int fh, float fx, float fy, float g) {
+		float x0 = (fx - g) * S, y0 = (fy - g) * S, sw = (fw + 2 * g) * S / fw, sh = (fh + 2 * g) * S / fh;
+		for (int ty = 0; ty < fh; ty++) {
+			for (int tx = 0; tx < fw; tx++) {
+				int px = skin[(fv + ty) * 64 + fu + tx];
+				if ((px >>> 24) <= 25) {
+					continue;
+				}
+				int ax = Math.round(x0 + tx * sw), bx = Math.round(x0 + (tx + 1) * sw);
+				int ay = Math.round(y0 + ty * sh), by = Math.round(y0 + (ty + 1) * sh);
+				for (int y = ay; y < by; y++) {
+					for (int x = ax; x < bx; x++) {
+						img.setRGB(ox + x, oy + y, px | 0xFF000000);
+					}
+				}
+			}
+		}
+	}
+
+	// ---- copied from CyborgRender / OverlayStrips
+	static float[] heights;
+
+	static float height(int u, int v) {
+		if (heights == null) {
+			float[] hh = new float[4096];
+			java.util.Arrays.fill(hh, -1f);
+			int[][] cubes = { { 0, 0, 8, 8, 8, 0 }, { 32, 0, 8, 8, 8, 0 }, { 16, 16, 8, 12, 4, 8 }, { 16, 32, 8, 12, 4, 8 }, { 40, 16, 4, 12, 4, 8 },
+					{ 40, 32, 4, 12, 4, 8 }, { 32, 48, 4, 12, 4, 8 }, { 48, 48, 4, 12, 4, 8 }, { 0, 16, 4, 12, 4, 20 }, { 0, 32, 4, 12, 4, 20 },
+					{ 16, 48, 4, 12, 4, 20 }, { 0, 48, 4, 12, 4, 20 } };
+			for (int[] c : cubes) {
+				int u0 = c[0], v0 = c[1], w = c[2], h = c[3], d = c[4], top = c[5];
+				float bottom = top == 0 ? h - 0.1f : top + h;
+				for (int y = v0; y < v0 + d; y++) {
+					for (int x = u0 + d; x < u0 + d + w; x++) hh[y * 64 + x] = top;
+					for (int x = u0 + d + w; x < u0 + d + 2 * w; x++) hh[y * 64 + x] = bottom;
+				}
+				for (int y = v0 + d; y < v0 + d + h; y++) {
+					for (int x = u0; x < u0 + 2 * d + 2 * w; x++) hh[y * 64 + x] = top + (y - v0 - d) + 0.5f;
+				}
+			}
+			heights = hh;
+		}
+		return heights[v * 64 + u];
+	}
+
+	static float clamp(float x) {
+		return Math.max(0f, Math.min(1f, x));
+	}
+
+	static float holoOrder(int u, int v) {
+		float h = height(u, v);
+		if (h < 0f) return 2f;
+		int k = u * 73856093 ^ v * 19349663;
+		k = (k ^ (k >>> 13)) * 1274126177;
+		float jitter = ((k >>> 8) & 0xFFFF) / 65536f;
+		return clamp((Math.min(h, 31.99f) + jitter * 0.98f) / 32f);
+	}
+
+	static int holoTint(int u, int v, float line, boolean building) {
+		float o = holoOrder(u, v);
+		if (building ? o > line : o > line + 1e-4f || line <= 0f) return 0;
+		return building && line - o < 0.035f ? HOLO_EDGE : 0xFFFFFFFF;
+	}
+
+	static float convertOrder(int u, int v) {
+		float h = height(u, v);
+		if (h < 0f) return 2f;
+		int k = u * 668265263 ^ v * 374761393;
+		k = (k ^ (k >>> 13)) * 1274126177;
+		float jitter = ((k >>> 8) & 0xFFFF) / 65536f;
+		return clamp((Math.abs(h - 11f) + jitter * 0.98f) / 22f);
+	}
+}

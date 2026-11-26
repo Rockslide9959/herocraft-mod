@@ -19,9 +19,6 @@
 //   textures/entity/cyborg/cyborg_slim.png        the same remapped to the slim (3-pixel arm) layout for slim players
 //   textures/entity/cyborg/cyborg_glow.png        the red cybernetic eye alone (emissive pass); the eye is on the head, so one
 //                                                 glow map serves both arm widths
-//   textures/entity/cyborg/cyborg_head_cover.png  the head's plates (base with the hat layer composited on top) in head-base UV,
-//                                                 drawn just outside the wearer's own hat / hair layer so the metal hides their
-//                                                 hair there while it shows on the human half
 // and the offline previews in docs/screenshots/v0177/cyborg_skin/.
 //
 // Texel rules (from the source's own palette -- 30 opaque colours; see the tables below):
@@ -83,7 +80,7 @@ for (const [x, y] of EYE) {
 	glow.set([src[i], src[i + 1], src[i + 2], 255], i);
 }
 
-// ---- the head cover: head base with the hat layer over it, in head-base UV (0..32, 0..16) ----
+// ---- (v0.17.7 round 2: the head cover is no longer used -- Cyborg is composited into the wearer's skin at normal size) ----
 const cover = Buffer.alloc(W * H * 4);
 for (let y = 0; y < 16; y++) {
 	for (let x = 0; x < 32; x++) {
@@ -124,8 +121,7 @@ const slim = slimOf(px);
 PNG.write(path.join(TEX, 'cyborg.png'), W, H, px);
 PNG.write(path.join(TEX, 'cyborg_slim.png'), W, H, slim);
 PNG.write(path.join(TEX, 'cyborg_glow.png'), W, H, glow);
-PNG.write(path.join(TEX, 'cyborg_head_cover.png'), W, H, cover);
-console.log('wrote cyborg.png, cyborg_slim.png, cyborg_glow.png, cyborg_head_cover.png');
+console.log('wrote cyborg.png, cyborg_slim.png, cyborg_glow.png');
 
 // ---- previews: original vs processed (pink checker = cleared), then over a plain wearer skin, wide and slim ----
 fs.mkdirSync(SHOTS, { recursive: true });

@@ -36,6 +36,9 @@ public final class CyborgClient {
 				(payload, context) -> context.client().execute(() -> com.projecthero.mod.client.gui.BifrostScreen.receiveBoomTube(payload)));
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> CyborgTech.clearSessionState());
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> CyborgScanClient.reset());
+		// v0.17.7 round 2: the per-player Cyborg skins (released on disconnect, level change, skin change, leaving, idling)
+		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> client.execute(CyborgSkins::clear));
+		ClientTickEvents.END_CLIENT_TICK.register(CyborgSkins::tick);
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			if (client.level == null) {
 				CyborgScanClient.reset();

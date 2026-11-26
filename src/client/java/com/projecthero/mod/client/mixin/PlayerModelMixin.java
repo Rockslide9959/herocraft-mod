@@ -76,17 +76,16 @@ public abstract class PlayerModelMixin<T extends LivingEntity> {
 			}
 			return;
 		}
-		// v0.16.5: Cyborg keeps the wearer's hat / hair layer (user: it should show on the human half of the head) -- the
-		// metal half is drawn on a cover just outside it (CyborgRender), so it only shows where his own face does
-		if (com.projecthero.mod.client.cyborg.CyborgRender.hidesSkinOverlay(player)) {
-			if (com.projecthero.mod.cyborg.Cyborg.fleshShows(player)) {
-				model.hat.visible = false; // v0.16.5: the flesh head (his own face shows through its gap)
-			}
-			model.jacket.visible = false;
-			model.leftSleeve.visible = false;
-			model.rightSleeve.visible = false;
-			model.leftPants.visible = false;
-			model.rightPants.visible = false;
+		// v0.17.7 round 2 (user: Cyborg at the player's normal size): a Cyborg player is drawn with one skin made of his own and
+		// Cyborg's (CyborgSkins), second layer included -- it already leaves out his own hair / jacket over Cyborg's parts and the
+		// overlay parts he switched off, so every overlay part whose base part shows is drawn (at vanilla's own size)
+		if (player instanceof net.minecraft.client.player.AbstractClientPlayer acp && com.projecthero.mod.client.cyborg.CyborgSkins.active(acp)) {
+			model.hat.visible = model.head.visible;
+			model.jacket.visible = model.body.visible;
+			model.leftSleeve.visible = model.leftArm.visible;
+			model.rightSleeve.visible = model.rightArm.visible;
+			model.leftPants.visible = model.leftLeg.visible;
+			model.rightPants.visible = model.rightLeg.visible;
 			return;
 		}
 		// v0.17.5: Sentry's suit keeps the wearer's hat / hair (each piece hides only its own parts); the bare Void Form and the
