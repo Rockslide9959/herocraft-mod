@@ -966,7 +966,6 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				|| com.projecthero.mod.client.ghostrider.GhostRiderClient.ownsH(p)
 				|| com.projecthero.mod.client.cyborg.CyborgClient.ownsH(p)
 				|| com.projecthero.mod.client.saiyan.SaiyanClient.ownsH(p)
-				|| com.projecthero.mod.client.blackpanther.BlackPantherClient.ownsH(p)
 				|| com.projecthero.mod.client.bluebeetle.BlueBeetleClient.ownsH(p)
 				|| com.projecthero.mod.client.flash.FlashClient.ownsH(p)
 				|| wearingAnyIronMan(p)
@@ -1099,9 +1098,6 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			} else if (client.player != null && com.projecthero.mod.client.saiyan.SaiyanClient.ownsH(client.player)) {
 				// v0.17.3: H as a Saiyan -- Super Saiyan once the Rage bar is full (Shift+H still opens the power wheel).
 				com.projecthero.mod.client.saiyan.SaiyanClient.pressH();
-			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.blackpanther.BlackPantherClient.ownsH(client.player)) {
-				// v0.17.3: H as Black Panther -- the suit out of the necklace / back in (Shift+H still opens the power wheel).
-				com.projecthero.mod.client.blackpanther.BlackPantherClient.pressH();
 			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.bluebeetle.BlueBeetleClient.ownsH(client.player)) {
 				// v0.16.5: H as Blue Beetle -- the armour on / off (Shift+H still opens the power wheel).
 				com.projecthero.mod.client.bluebeetle.BlueBeetleClient.pressH();
@@ -1154,7 +1150,6 @@ public class ProjectHeroModClient implements ClientModInitializer {
 							|| com.projecthero.mod.miraculous.Miraculous.hasPower(client.player)
 							|| com.projecthero.mod.cyborg.Cyborg.hasPower(client.player)
 							|| com.projecthero.mod.bluebeetle.BlueBeetle.hasPower(client.player)
-							|| com.projecthero.mod.blackpanther.BlackPanther.hasPower(client.player)
 							|| com.projecthero.mod.sentry.Sentry.hasPower(client.player))) {
 				// v0.12.32: H as a Thor bound to Mjolnir -- lightning strikes down and Thor's Armour forms (H again
 				// dismisses it). Shift+H still opens the power wheel, unless another power already owns plain H,
@@ -1321,7 +1316,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			maxSteelTransformWasDown = down;
 			return;
 		}
-		// v0.17.3 (tester): Black Panther's N pops the vibranium claws out / in; Shift+N takes the mask off / on (the server reads Shift)
+		// v0.17.3 (tester): Black Panther's Shift+N takes the mask off / on (the server reads Shift); v0.17.7: the claws are always out
 		if (client.player != null && com.projecthero.mod.blackpanther.BlackPanther.hasPower(client.player) && !mutationSelected(client)) {
 			if (down && !maxSteelTransformWasDown && client.screen == null) {
 				ClientPlayNetworking.send(new AbilityInputPayload(8, true));

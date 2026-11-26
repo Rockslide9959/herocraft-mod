@@ -37,9 +37,9 @@ import net.minecraft.world.entity.player.Player;
  *
  * <p>The user: "Make the suit retract into a necklace". The necklace is a small voxel chain of silver beads and fangs round the
  * wearer's collar, there whenever they hold the power. The suit runs out of it texel by texel across the skin (the Blue Beetle
- * geodesic, seeded at the necklace), the head last, behind a glowing violet edge; H again plays it backwards, so it drains back
- * into the necklace. The necklace is drawn over the suit too (v0.17.3 tester round), and not at all once it is taken off (hold
- * H). N adds three vibranium claws to each fist; Shift+N hides the suit's head. The trim glows purple with the Kinetic bar.
+ * geodesic, seeded at the necklace), the head last, behind a glowing violet edge, once the full crafted suit is worn (v0.17.7);
+ * taking a piece off plays it backwards. The necklace is drawn over the suit too (v0.17.3 tester round). v0.17.7: the claw model
+ * is gone (user: "remove the claw model it looks bad please"). Shift+N hides the suit's head. The trim glows purple with the Kinetic bar.
  */
 public final class BlackPantherRender {
 	public static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/black_panther/black_panther.png");
@@ -145,90 +145,6 @@ public final class BlackPantherRender {
 	/** The wearer's own hat / hair layer shows: the mask is off and the suit is on. */
 	public static boolean showsWearerHat(Player player) {
 		return unmasked(player);
-	}
-
-	// ---------------------------------------------------------------- the claws (N)
-
-	/** [right, left] x [third person, first person]. */
-	private static final ModelPart[] CLAWS = new ModelPart[4];
-
-	/**
-	 * v0.17.4 (user: "make them show up around the tip of his hand in finger positions that make sense"): five short curved
-	 * vibranium claws, one out of each fingertip. In the arm bone's own space -- the suit's arm is always the wide 4 px arm
-	 * ({@link BlueBeetleRender#model}, slim wearers included): the hand is the bottom face (y = 10, the sleeve's skin at 10.3),
-	 * x -3..1 on the right arm (+x the inner side, toward the body), -1..3 on the left, the front at z = -2.
-	 *
-	 * <p>The four fingers sit side by side along the front edge of the hand; each claw grows out of the fingertip in three
-	 * tapering segments that hook forward like a cat's (dark vibranium at the root, bright silver at the point). The thumb's
-	 * claw, shorter, comes out of the inner side of the hand, set back from the fingers. The first-person set is a little longer
-	 * and thicker so it reads at the bottom of the screen.
-	 */
-	private static ModelPart claws(boolean right, boolean firstPerson) {
-		int i = (right ? 0 : 1) + (firstPerson ? 2 : 0);
-		if (CLAWS[i] != null) {
-			return CLAWS[i];
-		}
-		float k = firstPerson ? 1.35f : 1.0f; // length
-		float t = firstPerson ? 1.2f : 1.0f; // thickness
-		float centre = right ? -1f : 1f;
-		float inner = right ? 1f : -1f; // toward the body
-		MeshDefinition mesh = new MeshDefinition();
-		var root = mesh.getRoot();
-		// the fingers, little finger outermost; the middle two a touch longer
-		float[] fx = { -1.45f, -0.5f, 0.45f, 1.35f };
-		float[] len = { 0.85f, 1.0f, 1.0f, 0.9f };
-		for (int f = 0; f < 4; f++) {
-			float x = centre + (right ? fx[f] : -fx[f]);
-			root.addOrReplaceChild("finger" + f, claw(len[f] * k, t), PartPose.offset(x, 10.0f, -1.55f));
-		}
-		// the thumb: out of the inner side, further back, angled in and down
-		root.addOrReplaceChild("thumb", claw(0.7f * k, t * 0.95f),
-				PartPose.offsetAndRotation(centre + inner * 1.75f, 9.4f, -0.9f, 0f, 0f, -inner * 0.55f));
-		CLAWS[i] = LayerDefinition.create(mesh, 32, 32).bakeRoot();
-		return CLAWS[i];
-	}
-
-	/**
-	 * One claw at its root (0, 0, 0), growing down (+y) and hooking back toward the palm (+z): three segments, each narrower, further down and
-	 * further forward than the last.
-	 */
-	private static CubeListBuilder claw(float len, float t) {
-		CubeListBuilder c = CubeListBuilder.create();
-		// the root sheath (dark vibranium), set into the fingertip
-		c.texOffs(16, 8).addBox(-0.26f * t, -0.2f, -0.28f * t, 0.52f * t, 0.75f * len + 0.2f, 0.56f * t);
-		// v0.17.5 (user: "make black panther claws curve the other way"): the hook now curls back toward the palm (+z)
-		// the body (silver), bending back
-		c.texOffs(24, 8).addBox(-0.2f * t, 0.55f * len, -0.08f * t + 0.28f * len, 0.4f * t, 0.65f * len, 0.42f * t);
-		// the hooked point (bright)
-		c.texOffs(8, 8).addBox(-0.13f * t, 1.15f * len, 0.62f * len, 0.26f * t, 0.5f * len, 0.3f * t);
-		c.texOffs(8, 8).addBox(-0.08f * t, 1.5f * len, -0.14f * t + 0.95f * len, 0.16f * t, 0.3f * len, 0.36f * t);
-		return c;
-	}
-
-	/** The claws are out (N), the suit is fully on. */
-	public static boolean clawsShown(Player player) {
-		BlackPantherState s = state(player);
-		return s != null && s.hasPower && s.suited && s.clawsOut && !s.necklaceOff;
-	}
-
-	/** Both hands' claws on the third-person model (the pose already in the entity's model space). */
-	public static void renderClaws(PoseStack pose, MultiBufferSource buffers, int light, Player player, HumanoidModel<?> model) {
-		renderClaws(pose, buffers, light, player, model.rightArm, true, false);
-		renderClaws(pose, buffers, light, player, model.leftArm, false, false);
-	}
-
-	/** One hand's claws; {@code firstPerson} draws the longer blades the player sees on their own hand. */
-	public static void renderClaws(PoseStack pose, MultiBufferSource buffers, int light, Player player, ModelPart arm, boolean right, boolean firstPerson) {
-		pose.pushPose();
-		arm.translateAndRotate(pose);
-		ModelPart blades = claws(right, firstPerson);
-		blades.render(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(NECKLACE)), light, OverlayTexture.NO_OVERLAY);
-		float k = glow(player);
-		if (k > 0.01f) {
-			blades.render(pose, buffers.getBuffer(RenderType.entityTranslucentEmissive(NECKLACE)), LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY,
-					(Mth.clamp(Math.round(150 * k), 0, 255) << 24) | 0xB070FF);
-		}
-		pose.popPose();
 	}
 
 	public static void renderArm(PoseStack pose, MultiBufferSource buffers, int light, Player player, ModelPart arm, boolean right, float progress) {

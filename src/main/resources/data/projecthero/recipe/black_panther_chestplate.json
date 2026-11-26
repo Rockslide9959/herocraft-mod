@@ -2,26 +2,26 @@
   "type": "minecraft:crafting_shaped",
   "category": "equipment",
   "pattern": [
-    "ANA",
+    "B B",
     "VHV",
-    "AVA"
+    "BAB"
   ],
   "key": {
-    "A": {
-      "item": "minecraft:amethyst_shard"
-    },
-    "N": {
-      "item": "minecraft:netherite_ingot"
+    "B": {
+      "item": "minecraft:black_wool"
     },
     "V": {
       "item": "projecthero:vibranium_ingot"
     },
     "H": {
       "item": "projecthero:heart_shaped_herb"
+    },
+    "A": {
+      "item": "minecraft:amethyst_shard"
     }
   },
   "result": {
-    "id": "projecthero:panther_habit",
+    "id": "projecthero:black_panther_chestplate",
     "count": 1
   }
 }

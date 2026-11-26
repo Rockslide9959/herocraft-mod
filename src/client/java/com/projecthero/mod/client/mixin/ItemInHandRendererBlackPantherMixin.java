@@ -9,7 +9,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.projecthero.mod.blackpanther.BlackPanther;
 import com.projecthero.mod.client.blackpanther.BlackPantherPose;
-import com.projecthero.mod.client.blackpanther.BlackPantherRender;
 
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.ItemInHandRenderer;
@@ -20,9 +19,7 @@ import net.minecraft.world.item.ItemStack;
 
 /**
  * v0.17.4, first person: Black Panther's moves play on both empty hands ({@link BlackPantherPose#firstPerson}) -- the strikes,
- * grabs, throws and stances of both kits -- with vanilla's own punch swing and equip dip held off while a move owns them. While
- * the vibranium claws are out the (otherwise hidden) empty off hand is raised too, so the claws show on both hands. Only when the
- * main hand is empty: holding an item, vanilla's hands are left alone.
+ * grabs, throws and stances of both kits -- with vanilla's own punch swing and equip dip held off while a move owns them. Only when the main hand is empty: holding an item, vanilla's hands are left alone.
  */
 @Mixin(ItemInHandRenderer.class)
 public abstract class ItemInHandRendererBlackPantherMixin {
@@ -37,8 +34,7 @@ public abstract class ItemInHandRendererBlackPantherMixin {
 			return;
 		}
 		float w = BlackPantherPose.firstPersonWeight(player, partialTick);
-		boolean claws = BlackPantherRender.clawsShown(player) && BlackPantherRender.progress(player, partialTick) >= 1f;
-		if (w <= 0.001f && !claws) {
+		if (w <= 0.001f) {
 			return;
 		}
 		boolean main = hand == InteractionHand.MAIN_HAND;

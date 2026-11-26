@@ -31,12 +31,8 @@ public class BlackPantherLayer extends RenderLayer<AbstractClientPlayer, PlayerM
 				OverlayStrips.render(pose, buffers, light, player, getParentModel(), (u, v) -> BlackPantherRender.order(u, v) > cover);
 			}
 		}
-		// v0.17.3 tester round: the necklace stays on show over the full suit (drawn after it, proud of it) -- unless it is off
-		if (!BlackPanther.necklaceOff(player) || anim.anything()) { // (taken off while suited: it goes once the suit has drained into it)
-			BlackPantherRender.renderNecklace(pose, buffers, light, player, getParentModel().body);
-		}
-		if (anim.full() && BlackPantherRender.clawsShown(player)) {
-			BlackPantherRender.renderClaws(pose, buffers, light, player, getParentModel());
-		}
+		// v0.17.3 tester round: the necklace stays on show over the full suit (drawn after it, proud of it)
+		BlackPantherRender.renderNecklace(pose, buffers, light, player, getParentModel().body);
+		// v0.17.7 (user: "remove the claw model it looks bad"): no claw blades
 	}
 }

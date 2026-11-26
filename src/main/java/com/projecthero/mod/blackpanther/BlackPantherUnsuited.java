@@ -15,6 +15,7 @@ import com.projecthero.mod.hero.power.AbilityHelpers;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -25,40 +26,39 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
 /**
  * v0.17.4 (user: "he should have a new moveset for when he is out of his suit"): T'Challa without the suit -- a Heart-Shaped
- * Herb fighter. Grounded, hand-to-hand and acrobatic, and clearly weaker than the suited kit ({@link BlackPantherAbilities}):
- * no Kinetic Energy, no claws, no vibranium. The keys hand over the moment the suit comes on or off
- * ({@link BlackPantherAbilityManager}).
+ * Herb fighter: grounded, hand-to-hand and acrobatic, no Kinetic Energy, no claws, no vibranium. The keys hand over the moment
+ * the suit comes on or off ({@link BlackPantherAbilityManager}). v0.17.7: the user's numbers and four new moves.
  *
  * <pre>
- *   R  Warrior's Combo     jab 3, cross 3, spinning kick 5        Shift+R  Leg Sweep      4 round him, trips 1.5 s
- *   G  Takedown            vault over and slam: 7, dazed 2 s      Shift+G  Disarm         2, knocks the weapon out, Weakness II
- *   X  Vault               an acrobatic forward flip              Shift+X  Backflip       back-flip, the next hit in 0.6 s misses
- *   Z  Throwing Knife      5, one target, comes back              Shift+Z  Kimoyo Scan    marks a creature 10 s: outlined, +25%
- *   V  Hunter's Tracking   toggle: outlines + footprints, 24      Shift+V  Shadow Step    sneak to lose mobs over 8 blocks; x2 from behind
- *   C  Parry (hold)        front melee -60%, perfect in 0.3 s     Shift+C  Ancestral Resolve  Regeneration II 4 s + Strength I 6 s
+ *   R  Warrior's Combo     jab 5, cross 7, spinning kick 10       Shift+R  Leg Sweep      7 round him, trips 1.5 s
+ *   G  Takedown            grab within 3, vault and slam: 10      Shift+G  Ground Pound   hop and slam: 9 within 3.5, Slowness II
+ *   X  Vault               an acrobatic forward flip              Shift+X  Flying Kick    dash forward, 10 on the first creature hit
+ *   Z  Throwing Knife      8, one target, comes back              Shift+Z  Kimoyo Scan    marks a creature 10 s: outlined, +25%
+ *   V  Rising Uppercut     9 and launched (bosses: the damage)    Shift+V  Hunter's Tracking  toggle: outlines + footprints, 24
+ *   C  Block (hold)        every hit from the front -60%          Shift+C  Ancestral Resolve  Regeneration II 4 s + Strength I 6 s
  * </pre>
+ * The Warrior's Combo is R in the suit too (8 / 9 / 10 there): {@link #combo} picks the numbers by the suit.
  * Every running move here is dropped by {@link #clear} (suit on / off, death, a world change) and {@link #clearSessionState}.
  */
 public final class BlackPantherUnsuited {
 	public static final String COMBO = "warriors_combo";
 	public static final String SWEEP = "leg_sweep";
 	public static final String TAKEDOWN = "takedown";
-	public static final String DISARM = "disarm";
+	public static final String POUND = "ground_pound";
 	public static final String VAULT = "vault";
-	public static final String BACKFLIP = "backflip";
+	public static final String KICK = "flying_kick";
 	public static final String KNIFE = "throwing_knife";
 	public static final String SCAN = "kimoyo_scan";
+	public static final String UPPERCUT = "rising_uppercut";
 	public static final String TRACKING = "hunters_tracking";
-	public static final String SHADOW = "shadow_step";
-	public static final String PARRY = "parry";
+	public static final String BLOCK = "block";
 	public static final String RESOLVE = "ancestral_resolve";
 
 	private record Mark(UUID owner, long until) {
@@ -68,12 +68,14 @@ public final class BlackPantherUnsuited {
 	private static final Map<UUID, long[]> COMBOS = new ConcurrentHashMap<>();
 	/** Takedown: the grabbed creature's id and the grab time. */
 	private static final Map<UUID, long[]> TAKEDOWNS = new ConcurrentHashMap<>();
-	/** Vault / Backflip in the air: until when the landing is softened. */
+	/** Vault in the air: until when the landing is softened. */
 	private static final Map<UUID, Long> FLIPS = new ConcurrentHashMap<>();
-	/** Backflip: until when the next hit misses. */
-	private static final Map<UUID, Long> EVADES = new ConcurrentHashMap<>();
-	/** Parry: when it was raised. */
-	private static final Map<UUID, Long> PARRIES = new ConcurrentHashMap<>();
+	/** Ground Pound: when he hopped. */
+	private static final Map<UUID, Long> POUNDS = new ConcurrentHashMap<>();
+	/** Flying Kick: when the dash started, and its flat direction (x, z) as raw long bits. */
+	private static final Map<UUID, long[]> KICKS = new ConcurrentHashMap<>();
+	/** Block: when it was raised. */
+	private static final Map<UUID, Long> BLOCKS = new ConcurrentHashMap<>();
 	/** Entity id -> its Kimoyo Scan mark. */
 	private static final Map<Integer, Mark> MARKS = new ConcurrentHashMap<>();
 
@@ -84,8 +86,9 @@ public final class BlackPantherUnsuited {
 		COMBOS.clear();
 		TAKEDOWNS.clear();
 		FLIPS.clear();
-		EVADES.clear();
-		PARRIES.clear();
+		POUNDS.clear();
+		KICKS.clear();
+		BLOCKS.clear();
 		MARKS.clear();
 	}
 
@@ -93,8 +96,9 @@ public final class BlackPantherUnsuited {
 		COMBOS.remove(id);
 		TAKEDOWNS.remove(id);
 		FLIPS.remove(id);
-		EVADES.remove(id);
-		PARRIES.remove(id);
+		POUNDS.remove(id);
+		KICKS.remove(id);
+		BLOCKS.remove(id);
 		MARKS.values().removeIf(m -> m.owner().equals(id));
 	}
 
@@ -103,8 +107,9 @@ public final class BlackPantherUnsuited {
 		UUID id = p.getUUID();
 		COMBOS.remove(id);
 		TAKEDOWNS.remove(id);
-		EVADES.remove(id);
-		PARRIES.remove(id);
+		POUNDS.remove(id);
+		KICKS.remove(id);
+		BLOCKS.remove(id);
 		BlackPantherState s = p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.BLACK_PANTHER_STATE, null);
 		if (s != null && !s.suited && (s.absorbing || s.stalking || s.senses)) {
 			BlackPantherState n = s.copy();
@@ -119,9 +124,10 @@ public final class BlackPantherUnsuited {
 	// ---------------------------------------------------------------- the gate
 
 	private static boolean begin(ServerPlayer p, String id) {
-		if (!BlackPanther.canActBare(p)) {
-			return false;
-		}
+		return BlackPanther.canActBare(p) && ready(p, id);
+	}
+
+	private static boolean ready(ServerPlayer p, String id) {
 		int cd = BlackPanther.cooldownRemaining(p, id);
 		if (cd > 0) {
 			BlackPanther.say(p, "message.projecthero.black_panther.cooldown", ChatFormatting.GRAY,
@@ -181,8 +187,16 @@ public final class BlackPantherUnsuited {
 
 	// ---------------------------------------------------------------- R: hand to hand
 
+	/** R, both kits (v0.17.7: the suited R is the Warrior's Combo too, with its own numbers). */
 	public static void combo(ServerPlayer p) {
-		if (COMBOS.containsKey(p.getUUID()) || !begin(p, COMBO)) {
+		if (COMBOS.containsKey(p.getUUID())) {
+			return;
+		}
+		boolean suited = BlackPanther.suitedKit(p);
+		if (suited ? !BlackPanther.canAct(p) : !BlackPanther.canActBare(p)) {
+			return;
+		}
+		if (!ready(p, COMBO)) {
 			return;
 		}
 		cooldown(p, COMBO, BlackPantherConfig.COMBO_COOLDOWN);
@@ -192,10 +206,18 @@ public final class BlackPantherUnsuited {
 		COMBOS.put(p.getUUID(), new long[] { now, 1L });
 	}
 
+	/** One hit of the Warrior's Combo's damage: 0 the jab, 1 the cross, 2 the spinning kick; suited or not. */
+	public static float comboDamage(int n, boolean suited) {
+		if (suited) {
+			return n == 0 ? BlackPantherConfig.SUITED_COMBO_JAB : n == 1 ? BlackPantherConfig.SUITED_COMBO_CROSS : BlackPantherConfig.SUITED_COMBO_KICK;
+		}
+		return n == 0 ? BlackPantherConfig.COMBO_JAB : n == 1 ? BlackPantherConfig.COMBO_CROSS : BlackPantherConfig.COMBO_KICK;
+	}
+
 	/** One hit of the Warrior's Combo: 0 the jab, 1 the cross, 2 the spinning kick (wider, harder, a shove). */
 	private static void hit(ServerPlayer p, int n) {
 		boolean kick = n == 2;
-		float damage = n == 0 ? BlackPantherConfig.COMBO_JAB : n == 1 ? BlackPantherConfig.COMBO_CROSS : BlackPantherConfig.COMBO_KICK;
+		float damage = comboDamage(n, BlackPanther.suitedKit(p));
 		Vec3 eye = p.getEyePosition();
 		Vec3 c = eye.add(p.getLookAngle().scale(BlackPantherConfig.COMBO_REACH * 0.55)).add(0, kick ? -0.3 : 0, 0);
 		double r = kick ? 1.9 : 1.4;
@@ -239,13 +261,13 @@ public final class BlackPantherUnsuited {
 		sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 1.0f, 0.8f);
 	}
 
-	// ---------------------------------------------------------------- G: grappling
+	// ---------------------------------------------------------------- G: grappling and the slam
 
 	public static void takedown(ServerPlayer p) {
 		if (TAKEDOWNS.containsKey(p.getUUID()) || !begin(p, TAKEDOWN)) {
 			return;
 		}
-		LivingEntity target = inFront(p, BlackPantherConfig.GRAB_RANGE);
+		LivingEntity target = inFront(p, BlackPantherConfig.TAKEDOWN_RANGE);
 		if (target == null) {
 			BlackPanther.say(p, "message.projecthero.black_panther.grab_nothing", ChatFormatting.GRAY);
 			return;
@@ -297,28 +319,58 @@ public final class BlackPantherUnsuited {
 		sound(p, SoundEvents.GENERIC_BIG_FALL, 1.0f, 0.8f);
 	}
 
-	public static void disarm(ServerPlayer p) {
-		if (!begin(p, DISARM)) {
+	/** v0.17.7 Ground Pound (Shift+G, user: "replace this ability with like a ground pound ability"): a short hop... */
+	public static void groundPound(ServerPlayer p) {
+		if (POUNDS.containsKey(p.getUUID()) || !begin(p, POUND)) {
 			return;
 		}
-		LivingEntity target = inFront(p, BlackPantherConfig.GRAB_RANGE);
-		if (target == null) {
-			BlackPanther.say(p, "message.projecthero.black_panther.grab_nothing", ChatFormatting.GRAY);
+		cooldown(p, POUND, BlackPantherConfig.POUND_COOLDOWN);
+		anim(p, BlackPantherState.ANIM_GROUND_POUND);
+		AbilityHelpers.launchSelf(p, new Vec3(0, BlackPantherConfig.POUND_UP, 0).add(flatLook(p).scale(0.15)));
+		POUNDS.put(p.getUUID(), p.level().getGameTime());
+		level(p).sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.1, p.getZ(), 8, 0.3, 0.02, 0.3, 0.02);
+		sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.6f, 0.7f);
+	}
+
+	/** ...then he drives down from the top of it, and the slam lands as he touches down (or once it has run its time). */
+	private static void tickPound(ServerPlayer p, long start, long now) {
+		long age = now - start;
+		p.resetFallDistance();
+		if (age == BlackPantherConfig.POUND_DIVE_AT && !p.onGround()) {
+			AbilityHelpers.launchSelf(p, new Vec3(0, -BlackPantherConfig.POUND_DOWN, 0));
+			sound(p, SoundEvents.PHANTOM_SWOOP, 0.7f, 1.2f);
+		}
+		boolean landed = age >= 3 && (p.onGround() || p.isInWater());
+		if (!landed && age < BlackPantherConfig.POUND_MAX_TICKS) {
 			return;
 		}
-		cooldown(p, DISARM, BlackPantherConfig.DISARM_COOLDOWN);
-		anim(p, BlackPantherState.ANIM_DISARM);
-		BlackPantherCombat.strike(p, target, p.position(), BlackPantherConfig.DISARM_DAMAGE, 0.3, 0.0);
-		ItemStack held = target.getMainHandItem();
-		if (target instanceof Mob && !BlackPantherCombat.isBoss(target) && !held.isEmpty()) {
-			// a creature's weapon is wrenched out of its hand and lands at its feet (a player keeps theirs: Weakness only)
-			ItemStack drop = held.copy();
-			target.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
-			target.spawnAtLocation(drop, 0.5f);
-			sound(p, SoundEvents.ITEM_BREAK, 0.6f, 1.6f);
+		POUNDS.remove(p.getUUID());
+		slam(p);
+	}
+
+	/** The Ground Pound's slam: 9 to everything within 3.5, knocked up and back, Slowness II 1.5 s (bosses: the damage). */
+	static void slam(ServerPlayer p) {
+		Vec3 c = p.position().add(0, 0.3, 0);
+		for (LivingEntity e : BlackPantherCombat.within(p, c, BlackPantherConfig.POUND_RADIUS, e -> BlackPantherCombat.isTarget(p, e))) {
+			if (BlackPantherCombat.strike(p, e, c, BlackPantherConfig.POUND_DAMAGE, 0.8, 0.45) && !BlackPantherCombat.isBoss(e)) {
+				AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, BlackPantherConfig.POUND_SLOW_TICKS, 1);
+			}
 		}
-		target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, BlackPantherConfig.DISARM_WEAKNESS_TICKS, 1, false, true, true));
-		sound(p, SoundEvents.PLAYER_ATTACK_CRIT, 1.0f, 1.3f);
+		BlackPantherState n = BlackPanther.state(p).copy();
+		n.pulseStart = p.level().getGameTime(); // the shockwave ring (BlackPantherEffectsRenderer), and the landing pose
+		n.pulseRadius = (float) BlackPantherConfig.POUND_RADIUS;
+		n.pulsePos = new ArrayList<>(List.of(p.getX(), p.getY() + 0.15, p.getZ()));
+		BlackPanther.save(p, n);
+		ServerLevel level = level(p);
+		BlockState under = level.getBlockState(p.blockPosition().below());
+		if (!under.isAir()) {
+			level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, under), c.x, p.getY() + 0.1, c.z, 40, 1.4, 0.05, 1.4, 0.15);
+		}
+		level.sendParticles(ParticleTypes.EXPLOSION, c.x, c.y, c.z, 2, 0.7, 0.05, 0.7, 0.0);
+		level.sendParticles(ParticleTypes.CLOUD, c.x, p.getY() + 0.1, c.z, 18, 1.4, 0.02, 1.4, 0.06);
+		sound(p, SoundEvents.GENERIC_EXPLODE.value(), 0.55f, 1.4f);
+		sound(p, SoundEvents.ANVIL_LAND, 0.35f, 0.6f);
+		sound(p, SoundEvents.GENERIC_BIG_FALL, 1.0f, 0.7f);
 	}
 
 	// ---------------------------------------------------------------- X: acrobatics
@@ -336,45 +388,73 @@ public final class BlackPantherUnsuited {
 		sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.5f, 1.8f);
 	}
 
-	public static void backflip(ServerPlayer p) {
-		if (!begin(p, BACKFLIP)) {
-			return;
-		}
-		cooldown(p, BACKFLIP, BlackPantherConfig.BACKFLIP_COOLDOWN);
-		anim(p, BlackPantherState.ANIM_BACKFLIP);
-		Vec3 b = flatLook(p).scale(-BlackPantherConfig.BACKFLIP_BACK);
-		AbilityHelpers.launchSelf(p, new Vec3(b.x, BlackPantherConfig.BACKFLIP_UP, b.z));
-		long now = p.level().getGameTime();
-		FLIPS.put(p.getUUID(), now + 60);
-		EVADES.put(p.getUUID(), now + BlackPantherConfig.EVADE_TICKS);
-		level(p).sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.1, p.getZ(), 6, 0.2, 0.02, 0.2, 0.02);
-		sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.5f, 1.5f);
-	}
-
-	/** The Backflip's evade: true (and used up) if a hit landing now should miss him. */
-	static boolean evade(ServerPlayer p) {
-		Long until = EVADES.get(p.getUUID());
-		if (until == null || until < p.level().getGameTime()) {
-			return false;
-		}
-		EVADES.remove(p.getUUID());
-		level(p).sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 1.0, p.getZ(), 8, 0.3, 0.4, 0.3, 0.02);
-		sound(p, SoundEvents.PLAYER_ATTACK_NODAMAGE, 1.0f, 1.4f);
-		return true;
-	}
-
-	/** A Backflip's evade is live right now. */
-	public static boolean evading(ServerPlayer p) {
-		Long until = EVADES.get(p.getUUID());
-		return until != null && until >= p.level().getGameTime();
-	}
-
 	private static void tickFlip(ServerPlayer p, long until, long now) {
 		if (now > until || (p.onGround() && now > until - 56)) {
 			FLIPS.remove(p.getUUID());
 			return;
 		}
 		p.resetFallDistance(); // a flip always lands on its feet
+	}
+
+	/**
+	 * v0.17.7 Flying Kick (Shift+X, user: "change this into a dashing flying kick ability, 10 damage"): he dashes forward, a foot
+	 * out in front, and the first creature he comes within reach of takes the kick (10, knocked back) and ends the dash.
+	 */
+	public static void flyingKick(ServerPlayer p) {
+		if (KICKS.containsKey(p.getUUID()) || !begin(p, KICK)) {
+			return;
+		}
+		cooldown(p, KICK, BlackPantherConfig.KICK_COOLDOWN);
+		anim(p, BlackPantherState.ANIM_FLYING_KICK);
+		Vec3 f = flatLook(p);
+		KICKS.put(p.getUUID(), new long[] { p.level().getGameTime(), Double.doubleToRawLongBits(f.x), Double.doubleToRawLongBits(f.z) });
+		FLIPS.put(p.getUUID(), p.level().getGameTime() + 40);
+		AbilityHelpers.launchSelf(p, new Vec3(f.x * BlackPantherConfig.KICK_SPEED, 0.22, f.z * BlackPantherConfig.KICK_SPEED));
+		sound(p, SoundEvents.PHANTOM_SWOOP, 0.8f, 1.5f);
+		// someone already right in front of him takes it at once
+		kickHit(p, f);
+	}
+
+	private static void tickKick(ServerPlayer p, long[] run, long now) {
+		Vec3 f = new Vec3(Double.longBitsToDouble(run[1]), 0, Double.longBitsToDouble(run[2]));
+		long age = now - run[0];
+		if (!KICKS.containsKey(p.getUUID())) {
+			return;
+		}
+		if (age > BlackPantherConfig.KICK_TICKS) {
+			KICKS.remove(p.getUUID());
+			return;
+		}
+		AbilityHelpers.launchSelf(p, new Vec3(f.x * BlackPantherConfig.KICK_SPEED, Math.max(-0.1, p.getDeltaMovement().y), f.z * BlackPantherConfig.KICK_SPEED));
+		level(p).sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.5, p.getZ(), 1, 0.1, 0.1, 0.1, 0.0);
+		kickHit(p, f);
+	}
+
+	/** The first creature within reach in front of him takes the kick; true (and the dash ends) if one did. */
+	private static boolean kickHit(ServerPlayer p, Vec3 dir) {
+		Vec3 foot = p.position().add(0, 0.8, 0).add(dir.scale(0.6));
+		LivingEntity best = null;
+		double bestSq = Double.MAX_VALUE;
+		for (LivingEntity e : BlackPantherCombat.within(p, foot, BlackPantherConfig.KICK_REACH, e -> BlackPantherCombat.isTarget(p, e))) {
+			double d = e.position().distanceToSqr(p.position());
+			if (d < bestSq) {
+				bestSq = d;
+				best = e;
+			}
+		}
+		if (best == null) {
+			return false;
+		}
+		KICKS.remove(p.getUUID());
+		BlackPantherCombat.strike(p, best, p.position(), BlackPantherConfig.KICK_DAMAGE, 1.1, 0.3);
+		// he rebounds off them
+		AbilityHelpers.launchSelf(p, new Vec3(-dir.x * 0.35, 0.3, -dir.z * 0.35));
+		Vec3 c = best.position().add(0, best.getBbHeight() * 0.6, 0);
+		level(p).sendParticles(ParticleTypes.EXPLOSION, c.x, c.y, c.z, 1, 0, 0, 0, 0);
+		level(p).sendParticles(ParticleTypes.CRIT, c.x, c.y, c.z, 12, 0.3, 0.3, 0.3, 0.3);
+		sound(p, SoundEvents.PLAYER_ATTACK_KNOCKBACK, 1.0f, 0.8f);
+		sound(p, SoundEvents.PLAYER_ATTACK_CRIT, 1.0f, 1.0f);
+		return true;
 	}
 
 	// ---------------------------------------------------------------- Z: the knife and the beads
@@ -415,8 +495,39 @@ public final class BlackPantherUnsuited {
 		return m != null && m.owner().equals(owner.getUUID()) && m.until() >= owner.level().getGameTime();
 	}
 
-	// ---------------------------------------------------------------- V: the hunter
+	// ---------------------------------------------------------------- V: the uppercut and the hunter
 
+	/**
+	 * v0.17.7 Rising Uppercut (V, user: "replace with another combat ability"): he drops low and drives up through the creature in
+	 * front of him (within 3): 9 damage, launched into the air and dazed for 1.5 s. A boss only takes the damage.
+	 */
+	public static void uppercut(ServerPlayer p) {
+		if (!begin(p, UPPERCUT)) {
+			return;
+		}
+		LivingEntity target = inFront(p, BlackPantherConfig.UPPERCUT_RANGE);
+		if (target == null) {
+			BlackPanther.say(p, "message.projecthero.black_panther.grab_nothing", ChatFormatting.GRAY);
+			return;
+		}
+		cooldown(p, UPPERCUT, BlackPantherConfig.UPPERCUT_COOLDOWN);
+		anim(p, BlackPantherState.ANIM_UPPERCUT);
+		boolean boss = BlackPantherCombat.isBoss(target);
+		if (BlackPantherCombat.strike(p, target, p.position(), BlackPantherConfig.UPPERCUT_DAMAGE, 0.2, 0.0) && !boss) {
+			AbilityHelpers.push(target, new Vec3(0, BlackPantherConfig.UPPERCUT_LIFT, 0));
+			AbilityHelpers.applyControl(target, MobEffects.MOVEMENT_SLOWDOWN, BlackPantherConfig.UPPERCUT_STUN_TICKS, 2);
+		}
+		// he rises a little with the blow
+		AbilityHelpers.launchSelf(p, new Vec3(0, 0.3, 0));
+		FLIPS.put(p.getUUID(), p.level().getGameTime() + 30);
+		Vec3 c = target.position().add(0, target.getBbHeight() * 0.4, 0);
+		level(p).sendParticles(ParticleTypes.SWEEP_ATTACK, c.x, c.y, c.z, 1, 0, 0, 0, 0);
+		level(p).sendParticles(ParticleTypes.CRIT, c.x, c.y, c.z, 10, 0.2, 0.5, 0.2, 0.25);
+		sound(p, SoundEvents.PLAYER_ATTACK_KNOCKBACK, 1.0f, 1.1f);
+		sound(p, SoundEvents.PLAYER_ATTACK_STRONG, 0.8f, 0.8f);
+	}
+
+	/** Shift+V (v0.17.7, was V): Hunter's Tracking on or off. */
 	public static void toggleTracking(ServerPlayer p) {
 		BlackPantherState s = BlackPanther.state(p);
 		if (!s.hasPower || s.suited) {
@@ -431,80 +542,42 @@ public final class BlackPantherUnsuited {
 		sound(p, SoundEvents.ENDER_EYE_DEATH, 0.6f, n.senses ? 0.9f : 1.3f);
 	}
 
-	public static void toggleShadow(ServerPlayer p) {
-		BlackPantherState s = BlackPanther.state(p);
-		if (s.stalking && !s.suited) {
-			endShadow(p);
-			return;
-		}
-		if (!begin(p, SHADOW)) {
-			return;
-		}
-		BlackPantherState n = s.copy();
-		n.stalking = true;
-		BlackPanther.save(p, n);
-		sound(p, SoundEvents.WOOL_STEP, 0.6f, 0.8f);
-	}
-
-	public static void endShadow(ServerPlayer p) {
-		BlackPantherState s = BlackPanther.state(p);
-		if (!s.stalking) {
-			return;
-		}
-		BlackPantherState n = s.copy();
-		n.stalking = false;
-		n.abilityReadyAt.put(SHADOW, p.level().getGameTime() + BlackPantherConfig.STALK_COOLDOWN);
-		BlackPanther.save(p, n);
-	}
-
 	// ---------------------------------------------------------------- C: the guard
 
-	public static void raiseParry(ServerPlayer p) {
-		if (PARRIES.containsKey(p.getUUID()) || !begin(p, PARRY)) {
+	/** v0.17.7 Block (hold C, user: "a blocking ability please that reduces incoming damage"): the guard comes up. */
+	public static void raiseBlock(ServerPlayer p) {
+		if (BLOCKS.containsKey(p.getUUID()) || !begin(p, BLOCK)) {
 			return;
 		}
 		BlackPantherState n = BlackPanther.state(p).copy();
 		n.absorbing = true;
 		BlackPanther.save(p, n);
 		BlackPanther.reconcile(p);
-		PARRIES.put(p.getUUID(), p.level().getGameTime());
+		BLOCKS.put(p.getUUID(), p.level().getGameTime());
 		sound(p, SoundEvents.ARMOR_EQUIP_LEATHER.value(), 0.9f, 1.4f);
 	}
 
-	public static void lowerParry(ServerPlayer p) {
-		if (PARRIES.remove(p.getUUID()) == null) {
+	public static void lowerBlock(ServerPlayer p) {
+		if (BLOCKS.remove(p.getUUID()) == null) {
 			return;
 		}
 		BlackPantherState n = BlackPanther.state(p).copy();
 		n.absorbing = false;
-		n.abilityReadyAt.put(PARRY, p.level().getGameTime() + BlackPantherConfig.PARRY_COOLDOWN);
+		n.abilityReadyAt.put(BLOCK, p.level().getGameTime() + BlackPantherConfig.BLOCK_COOLDOWN);
 		BlackPanther.save(p, n);
 		BlackPanther.reconcile(p);
 	}
 
-	/**
-	 * A melee hit from the front met the raised Parry: inside its first 6 ticks it is turned wholly aside, the attacker staggers
-	 * and takes the riposte. False when it was too late for that (the hit is then only cut).
-	 */
-	static boolean perfectParry(ServerPlayer p, LivingEntity attacker) {
-		Long raised = PARRIES.get(p.getUUID());
-		long now = p.level().getGameTime();
-		if (raised == null || now - raised > BlackPantherConfig.PARRY_PERFECT_TICKS) {
-			return false;
-		}
-		anim(p, BlackPantherState.ANIM_RIPOSTE);
-		if (!BlackPantherCombat.isBoss(attacker)) {
-			AbilityHelpers.applyControl(attacker, MobEffects.MOVEMENT_SLOWDOWN, BlackPantherConfig.RIPOSTE_STAGGER_TICKS, 2);
-			AbilityHelpers.applyControl(attacker, MobEffects.WEAKNESS, BlackPantherConfig.RIPOSTE_STAGGER_TICKS, 0);
-		}
-		BlackPantherCombat.strike(p, attacker, p.position(), BlackPantherConfig.RIPOSTE_DAMAGE, 0.7, 0.1);
-		Vec3 c = p.getEyePosition().add(p.getLookAngle().scale(0.8));
-		level(p).sendParticles(ParticleTypes.CRIT, c.x, c.y - 0.3, c.z, 14, 0.25, 0.25, 0.25, 0.25);
-		sound(p, SoundEvents.SHIELD_BLOCK, 1.0f, 1.6f);
-		sound(p, SoundEvents.ANVIL_LAND, 0.3f, 2.0f);
-		// a perfect parry lets him go straight into the next one
-		PARRIES.put(p.getUUID(), now);
-		return true;
+	/** The Block is up right now. */
+	public static boolean blocking(ServerPlayer p) {
+		return BLOCKS.containsKey(p.getUUID());
+	}
+
+	/** A hit from the front met the Block (the damage hook cuts it): the clang and a puff off the forearms. */
+	static void blocked(ServerPlayer p) {
+		Vec3 c = p.getEyePosition().add(p.getLookAngle().scale(0.6));
+		level(p).sendParticles(ParticleTypes.CRIT, c.x, c.y - 0.3, c.z, 8, 0.2, 0.2, 0.2, 0.15);
+		sound(p, SoundEvents.SHIELD_BLOCK, 1.0f, 1.2f);
 	}
 
 	public static void resolve(ServerPlayer p) {
@@ -540,7 +613,7 @@ public final class BlackPantherUnsuited {
 		}
 	}
 
-	/** How many creatures are hunting him right now (the HUD's Hunted tag reads the client's copy). */
+	/** How many creatures are hunting him right now. */
 	public static int hunters(ServerPlayer p) {
 		return BlackPantherCombat.within(p, p.position(), BlackPantherConfig.INSTINCT_RANGE, e -> e instanceof Mob m && m.getTarget() == p).size();
 	}
@@ -561,13 +634,21 @@ public final class BlackPantherUnsuited {
 		if (takedown != null) {
 			tickTakedown(p, takedown, now);
 		}
+		Long pound = POUNDS.get(id);
+		if (pound != null) {
+			tickPound(p, pound, now);
+		}
+		long[] kick = KICKS.get(id);
+		if (kick != null) {
+			tickKick(p, kick, now);
+		}
 		Long flip = FLIPS.get(id);
 		if (flip != null) {
 			tickFlip(p, flip, now);
 		}
-		Long parry = PARRIES.get(id);
-		if (parry != null && now - parry >= BlackPantherConfig.PARRY_MAX_TICKS) {
-			lowerParry(p);
+		Long block = BLOCKS.get(id);
+		if (block != null && now - block >= BlackPantherConfig.BLOCK_MAX_TICKS) {
+			lowerBlock(p);
 		}
 		if (!MARKS.isEmpty() && now % 20 == 0) {
 			for (Iterator<Map.Entry<Integer, Mark>> it = MARKS.entrySet().iterator(); it.hasNext();) {

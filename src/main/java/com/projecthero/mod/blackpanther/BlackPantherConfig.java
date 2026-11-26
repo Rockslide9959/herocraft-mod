@@ -5,7 +5,6 @@ public final class BlackPantherConfig {
 	public static final int VISION_TICKS = 200; // the Ancestral Plane, 10 s
 	public static final int SUIT_UP_TICKS = 40;
 	public static final int SUIT_DOWN_TICKS = 32;
-	public static final int TOGGLE_COOLDOWN = 20;
 
 	public static final float KINETIC_MAX = 100f;
 	/** The suit soaks this share of a hit... */
@@ -16,22 +15,30 @@ public final class BlackPantherConfig {
 	public static final float DRAIN = 2f;
 	public static final int DRAIN_DELAY = 200;
 
-	public static final double SUIT_MELEE = 5.0; // the vibranium claws: only while they are out (N)
+	/** v0.17.7 (user): a bare-handed hit out of the suit deals 5 (the fist's 1 + 4 from the herb)... */
+	public static final double UNSUITED_MELEE = 5.0;
+	/** ...and 10 in it (user: the vibranium claws are always out, there is no claw toggle any more). */
+	public static final double SUITED_MELEE = 10.0;
+	/** The crafted suit's armour over all four pieces (helmet 2, chestplate 5, leggings 3, boots 2) and its toughness (1 a piece). */
 	public static final double SUIT_ARMOR = 12.0; // v0.17.7 Street tier toughness: was 8
 	public static final double SUIT_TOUGHNESS = 4.0; // v0.17.7: was 2
+	/** v0.17.7 (user): Regeneration I out of the suit, Regeneration II in it (effect amplifiers). */
+	public static final int REGEN_UNSUITED = 0;
+	public static final int REGEN_SUITED = 1;
 	/** v0.17.7 (Street tier): no single hit goes over this, whatever stacks (Stalk, Kimoyo Scan, Kinetic Return). */
 	public static final float MAX_HIT = com.projecthero.mod.hero.PowerRank.STREET.ultimateMax;
-	/** Hold H this long to take the necklace off / put it back on. */
-	public static final int NECKLACE_HOLD_TICKS = 30;
 	/** Arrows and bullets below this much damage bounce off (the Iron Man bulletproof rule). */
 	public static final float DEFLECT_LIMIT = 15f;
 
 	public static final float BOSS_HEALTH_THRESHOLD = 300f;
 	public static final float BOSS_MAX_FRACTION_PER_HIT = 0.08f;
 
-	// R
+	// R (v0.17.7: R is the Warrior's Combo in the suit too; Shift+R the Kinetic Pulse, or Kinetic Overload on a full bar)
+	public static final float SUITED_COMBO_JAB = 8f;
+	public static final float SUITED_COMBO_CROSS = 9f;
+	public static final float SUITED_COMBO_KICK = 10f;
 	public static final float PULSE_COST = 30f;
-	public static final float PULSE_DAMAGE = 8f;
+	public static final float PULSE_DAMAGE = 10f; // v0.17.7 (user): was 8
 	public static final double PULSE_RADIUS = 5.0;
 	public static final int PULSE_COOLDOWN = 50; // tester round: was 30
 	public static final float OVERLOAD_DAMAGE = 20f; // v0.17.7 Street ultimate: was 30 (15 at the edge)
@@ -101,53 +108,59 @@ public final class BlackPantherConfig {
 	public static final int RETURN_COOLDOWN = 120;
 
 	// ================================================================ v0.17.4: the passives
-	/** The herb, always: +2 melee damage (the claws' +5 stacks on it in the suit). */
-	public static final double HERB_MELEE = 2.0;
 	/** Out of the suit, falls hurt this much (in it they do nothing). */
 	public static final float CAT_LANDING = 0.5f;
 	/** Night Eyes (out of the suit): night vision while the light at his eyes is at or under this... */
 	public static final int NIGHT_EYES_DARK = 6;
 	/** ...and off again once it is over this. */
 	public static final int NIGHT_EYES_BRIGHT = 9;
-	/** Herb Vitality: 1 health every HEAL_EVERY ticks, after HEAL_DELAY ticks without a hit taken. */
-	public static final int HEAL_EVERY = 60;
-	public static final int HEAL_DELAY = 100;
 	/** Hunter's Instinct: creatures this close that are hunting him are outlined for him. */
 	public static final double INSTINCT_RANGE = 20.0;
 
-	// ================================================================ v0.17.4: the unsuited kit (T'Challa without the suit)
+	// ================================================================ the unsuited kit (T'Challa without the suit; v0.17.7 user numbers)
 	// R
-	public static final float COMBO_JAB = 3f;
-	public static final float COMBO_CROSS = 3f;
-	public static final float COMBO_KICK = 5f;
+	public static final float COMBO_JAB = 5f; // v0.17.7 (user): 5 / 7 / 10, was 3 / 3 / 5
+	public static final float COMBO_CROSS = 7f;
+	public static final float COMBO_KICK = 10f;
 	public static final int COMBO_STEP = 5;
 	public static final double COMBO_REACH = 3.0;
 	public static final int COMBO_COOLDOWN = 30;
-	public static final float SWEEP_DAMAGE = 4f;
+	public static final float SWEEP_DAMAGE = 7f; // v0.17.7 (user): was 4
 	public static final double SWEEP_RADIUS = 2.6;
 	public static final int SWEEP_TRIP_TICKS = 30;
 	public static final int SWEEP_COOLDOWN = 120;
 	// G
-	public static final double GRAB_RANGE = 3.5;
-	public static final float TAKEDOWN_DAMAGE = 7f;
+	public static final double TAKEDOWN_RANGE = 3.0; // v0.17.7 (user): 3 blocks
+	public static final float TAKEDOWN_DAMAGE = 10f; // v0.17.7 (user): was 7
 	public static final int TAKEDOWN_DAZE_TICKS = 40;
 	/** The slam lands this many ticks after the grab (the flip over the shoulder). */
 	public static final int TAKEDOWN_SLAM_AT = 9;
 	public static final int TAKEDOWN_COOLDOWN = 160;
-	public static final float DISARM_DAMAGE = 2f;
-	public static final int DISARM_WEAKNESS_TICKS = 100;
-	public static final int DISARM_COOLDOWN = 200;
+	/** v0.17.7 Ground Pound (Shift+G, was Disarm): a short hop, then he drives down and slams the ground round him. */
+	public static final float POUND_DAMAGE = 9f;
+	public static final double POUND_RADIUS = 3.5;
+	public static final double POUND_UP = 0.62;
+	/** He is driven down this fast from POUND_DIVE_AT ticks after the hop... */
+	public static final double POUND_DOWN = 1.6;
+	public static final int POUND_DIVE_AT = 7;
+	/** ...and the slam lands when he touches down, or at the latest this many ticks after the hop. */
+	public static final int POUND_MAX_TICKS = 24;
+	public static final int POUND_SLOW_TICKS = 30;
+	public static final int POUND_COOLDOWN = 160;
 	// X
 	public static final double VAULT_FORWARD = 0.7;
 	public static final double VAULT_UP = 0.62;
 	public static final int VAULT_COOLDOWN = 50;
-	public static final double BACKFLIP_BACK = 0.6;
-	public static final double BACKFLIP_UP = 0.55;
-	/** After a Backflip the next hit inside this many ticks misses him. */
-	public static final int EVADE_TICKS = 12;
-	public static final int BACKFLIP_COOLDOWN = 100;
+	/** v0.17.7 Flying Kick (Shift+X, was Backflip): a dash forward into a flying kick on the first creature in the way. */
+	public static final float KICK_DAMAGE = 10f;
+	public static final double KICK_SPEED = 1.25;
+	/** The dash lasts at most this many ticks (about 8 blocks)... */
+	public static final int KICK_TICKS = 8;
+	/** ...and the kick lands on the first creature within this of him. */
+	public static final double KICK_REACH = 1.9;
+	public static final int KICK_COOLDOWN = 120;
 	// Z
-	public static final float KNIFE_DAMAGE = 5f;
+	public static final float KNIFE_DAMAGE = 8f; // v0.17.7 (user): was 5
 	public static final double KNIFE_RANGE = 12.0;
 	public static final int KNIFE_COOLDOWN = 80;
 	public static final double SCAN_RANGE = 32.0;
@@ -156,19 +169,21 @@ public final class BlackPantherConfig {
 	public static final float SCAN_BONUS = 1.25f;
 	public static final int SCAN_COOLDOWN = 300;
 	// V
+	/** v0.17.7 Rising Uppercut (V, was Shadow Step): a crouching uppercut that launches the creature in front of him. */
+	public static final float UPPERCUT_DAMAGE = 9f;
+	public static final double UPPERCUT_RANGE = 3.0;
+	public static final double UPPERCUT_LIFT = 0.85;
+	public static final int UPPERCUT_STUN_TICKS = 30;
+	public static final int UPPERCUT_COOLDOWN = 120;
+	/** Hunter's Tracking (Shift+V since v0.17.7). */
 	public static final double TRACKING_RANGE = 24.0;
-	public static final double SHADOW_SEEN_WITHIN = 8.0;
-	public static final float SHADOW_BACKSTAB = 2f;
-	public static final float SHADOW_BACKSTAB_PLAYER = 1.5f;
 	// C
-	/** Parry: a frontal melee hit is cut by this share while it is up... */
-	public static final float PARRY_REDUCTION = 0.6f;
-	/** ...and wholly turned aside inside this many ticks of raising it (a perfect parry). */
-	public static final int PARRY_PERFECT_TICKS = 6;
-	public static final int PARRY_MAX_TICKS = 60;
-	public static final int PARRY_COOLDOWN = 60;
-	public static final float RIPOSTE_DAMAGE = 3f;
-	public static final int RIPOSTE_STAGGER_TICKS = 30;
+	/** v0.17.7 Block (hold C, was Parry): every hit from the front is cut by this share while it is up... */
+	public static final float BLOCK_REDUCTION = 0.6f;
+	/** ...for at most this long a raise. */
+	public static final int BLOCK_MAX_TICKS = 100;
+	public static final int BLOCK_COOLDOWN = 20;
+	public static final double BLOCK_SLOW = -0.35;
 	public static final int RESOLVE_REGEN_TICKS = 80;
 	public static final int RESOLVE_STRENGTH_TICKS = 120;
 	public static final int RESOLVE_COOLDOWN = 600;

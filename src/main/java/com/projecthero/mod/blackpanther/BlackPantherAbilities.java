@@ -34,7 +34,9 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Black Panther's twelve moves (v0.17.3). See {@link BlackPantherAbilityManager} for the keys. The timed moves are small
+ * Black Panther's suited moves (v0.17.3). See {@link BlackPantherAbilityManager} for the keys. v0.17.7: R is the Warrior's Combo
+ * ({@link BlackPantherUnsuited#combo}), Shift+R the Kinetic Pulse (10), or Kinetic Overload when the bar is full; the claws are
+ * always out (no toggle). The timed moves are small
  * per-player runs stepped from {@link #tick}; every map here is dropped by {@link #clear} and {@link #clearSessionState}.
  */
 public final class BlackPantherAbilities {
@@ -206,7 +208,6 @@ public final class BlackPantherAbilities {
 		}
 		cooldown(p, CLAWS, BlackPantherConfig.CLAW_COOLDOWN);
 		anim(p, BlackPantherState.ANIM_CLAW);
-		BlackPanther.setClaws(p, true); // the combo pops the claws out by itself
 		long now = p.level().getGameTime();
 		// slash 1 lands now: the server first steps the run a tick later, so a slash waiting for age 0 never came
 		slash(p, 0, now);
@@ -424,8 +425,7 @@ public final class BlackPantherAbilities {
 		if (!p.isShiftKeyDown()) {
 			return;
 		}
-		// v0.17.4: out of the suit this is Shadow Step -- they have to be further off to lose him
-		double seen = BlackPanther.suited(p) ? BlackPantherConfig.STALK_SEEN_WITHIN : BlackPantherConfig.SHADOW_SEEN_WITHIN;
+		double seen = BlackPantherConfig.STALK_SEEN_WITHIN;
 		for (LivingEntity e : BlackPantherCombat.within(p, p.position(), 32.0, e -> e instanceof Mob m && m.getTarget() == p)) {
 			if (!BlackPantherCombat.isBoss(e) && e.distanceTo(p) > seen) {
 				((Mob) e).setTarget(null);
@@ -581,7 +581,7 @@ public final class BlackPantherAbilities {
 			breakStance(p);
 		}
 		BlackPantherState s = BlackPanther.state(p);
-		if (s.stalking && now % 5 == 0) {
+		if (s.stalking && s.suited && now % 5 == 0) {
 			tickStalk(p);
 		}
 		if (s.senses) { // v0.17.4: out of the suit this is Hunter's Tracking (a shorter reach)

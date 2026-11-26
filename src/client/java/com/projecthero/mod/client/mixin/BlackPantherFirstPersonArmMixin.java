@@ -17,8 +17,7 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.player.PlayerRenderer;
 
 /**
- * v0.17.3: Black Panther's suited arm in first person. v0.17.4: the vibranium claws come out of the fingertips of the hand the
- * player sees, and the third-person pose is kept off the first-person hand (vanilla calls {@code setupAnim} for it).
+ * v0.17.3: Black Panther's suited arm in first person. v0.17.4: the third-person pose is kept off the first-person hand (vanilla calls {@code setupAnim} for it).
  */
 @Mixin(PlayerRenderer.class)
 public abstract class BlackPantherFirstPersonArmMixin {
@@ -45,9 +44,6 @@ public abstract class BlackPantherFirstPersonArmMixin {
 		PlayerModel<AbstractClientPlayer> model = ((PlayerRenderer) (Object) this).getModel();
 		boolean right = arm == model.rightArm;
 		BlackPantherRender.renderArm(pose, buffers, light, player, arm, right, progress);
-		if (progress >= 1f && BlackPantherRender.clawsShown(player)) {
-			// (the suit's arm is always the wide 4 px arm -- BlueBeetleRender.model -- slim wearers included, so the claws sit on it)
-			BlackPantherRender.renderClaws(pose, buffers, light, player, arm, right, true);
-		}
+		// v0.17.7 (user: "remove the claw model it looks bad"): no claw blades drawn any more
 	}
 }
