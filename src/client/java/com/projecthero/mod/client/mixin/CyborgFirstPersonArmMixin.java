@@ -32,7 +32,17 @@ public abstract class CyborgFirstPersonArmMixin {
 			CyborgRender.renderFleshArm(pose, buffers, light, arm, arm == model.rightArm); // v0.16.5: raw flesh first
 		}
 		if (progress > 0f) {
-			CyborgRender.renderArm(pose, buffers, light, arm, arm == model.rightArm, progress);
+			CyborgRender.Anim anim = CyborgRender.anim(player, partial);
+			boolean right = arm == model.rightArm;
+			if (anim.hologramShowing()) {
+				// v0.17.7 (user): both layers of the plated arm go at the hologram's line, the hologram arm over it
+				CyborgRender.renderArmUnderHologram(pose, buffers, light, player, model, right, anim);
+			} else {
+				CyborgRender.renderArm(pose, buffers, light, arm, right, progress, CyborgRender.slim(player));
+				if (!com.projecthero.mod.cyborg.Cyborg.fleshShows(player)) {
+					CyborgRender.renderArmGaps(pose, buffers, light, player, model, right); // v0.17.7: the sleeve between the plates
+				}
+			}
 		}
 		// v0.16.5 (user): the blaster building round the forearm for the Sonic Cannon / Sonic Burst, and the Arm Saw
 		if (com.projecthero.mod.cyborg.Cyborg.hasPower(player)) {

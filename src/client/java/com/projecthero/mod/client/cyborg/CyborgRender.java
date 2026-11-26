@@ -29,10 +29,14 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * v0.16.5: Cyborg's plates drawn over a player -- the user's NovaSkin skin (post 4807583109, 128x128 HD) with Victor
- * Stone's human half of the head cut out ({@code scratchpad/gen_cyborg_v0165.js}), so the wearer's own face and hair show
- * there; on a wide player model a hair larger than the wearer's (the Nova / Ghost Rider technique). The red eye, the chest
- * core and the trims glow ({@code cyborg_glow.png}).
+ * v0.16.5: Cyborg's plates drawn over a player, on a player model a hair larger than the wearer's (the Nova / Ghost Rider
+ * technique). The red eye glows ({@code cyborg_glow.png}).
+ *
+ * <p>v0.17.7 (user): the skin is the Teen Titans Cyborg from PlanetMinecraft
+ * (planetminecraft.com/skin/teen-titans-cyborg-4002965, file {@code cyborg-11202576.png}, a wide-arm 64x64 skin) with Victor
+ * Stone the person cleared out on both layers ({@code scratchpad/v0177/make_cyborg_skin.js}): the wearer's own face, scalp,
+ * neck and upper arms show between the plates. A slim copy ({@code cyborg_slim.png}) goes on slim players, on a slim model.
+ * Where both of Cyborg's layers are clear the wearer's own second layer is drawn too ({@link #gap}).
  *
  * <p><b>The forms</b> ({@link #anim}): the plates spread out from the chest core over the body (texels revealed in order of
  * their distance from the core, a blue edge on the newest ones) -- slowly over 10 s when the Mother Box first fuses, in
@@ -40,6 +44,8 @@ import net.minecraft.world.entity.player.Player;
  */
 public final class CyborgRender {
 	public static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/cyborg/cyborg.png");
+	/** v0.17.7: {@link #SKIN} remapped to the slim (3-pixel arm) layout. */
+	public static final ResourceLocation SKIN_SLIM = ProjectHeroMod.id("textures/entity/cyborg/cyborg_slim.png");
 	public static final ResourceLocation GLOW = ProjectHeroMod.id("textures/entity/cyborg/cyborg_glow.png");
 	/** The metal half of the head alone, drawn on {@link #cover()} just outside the wearer's own hat layer. */
 	public static final ResourceLocation HEAD_COVER = ProjectHeroMod.id("textures/entity/cyborg/cyborg_head_cover.png");
@@ -48,9 +54,12 @@ public final class CyborgRender {
 	/** The farthest texel from the core (the soles). */
 	public static final int STEPS = 21;
 
-	private static PlayerModel<LivingEntity> model;
+	private static PlayerModel<LivingEntity> model, slimModel;
 	private static ModelPart cover;
-	private static ResourceLocation[] frames;
+	/** The spread frames, [0] wide, [1] slim. */
+	private static ResourceLocation[][] frames;
+	/** Which texels of the wide / slim skin are opaque (64x64), for {@link #gap}; null until the skins are read. */
+	private static boolean[][] opaque;
 
 	private CyborgRender() {
 	}
@@ -77,11 +86,53 @@ public final class CyborgRender {
 	}
 
 	public static PlayerModel<LivingEntity> model() {
+		return model(false);
+	}
+
+	/** v0.17.7: the plates' model for a wide or a slim player. */
+	public static PlayerModel<LivingEntity> model(boolean slim) {
+		if (slim) {
+			if (slimModel == null) {
+				MeshDefinition mesh = PlayerModel.createMesh(new CubeDeformation(PLATES), true);
+				slimModel = new PlayerModel<>(LayerDefinition.create(mesh, 64, 64).bakeRoot(), true);
+			}
+			return slimModel;
+		}
 		if (model == null) {
-			MeshDefinition mesh = PlayerModel.createMesh(new CubeDeformation(0.04f), false);
+			MeshDefinition mesh = PlayerModel.createMesh(new CubeDeformation(PLATES), false);
 			model = new PlayerModel<>(LayerDefinition.create(mesh, 64, 64).bakeRoot(), false);
 		}
 		return model;
+	}
+
+	/** How much larger than the wearer's skin the plates are drawn, model pixels. */
+	private static final float PLATES = 0.04f;
+	/** The head cover's inflation: a hair outside the wearer's hat layer (+0.5). */
+	private static final float COVER = 0.52f;
+
+	public static ResourceLocation skin(boolean slim) {
+		return slim ? SKIN_SLIM : SKIN;
+	}
+
+	public static boolean slim(Player player) {
+		return player instanceof net.minecraft.client.player.AbstractClientPlayer p
+				&& p.getSkin().model() == net.minecraft.client.resources.PlayerSkin.Model.SLIM;
+	}
+
+	/**
+	 * v0.17.7: whether both of Cyborg's layers are clear over base texel ({@code u}, {@code v}) (the wearer's own skin shows
+	 * there), so the wearer's second layer is drawn there too.
+	 */
+	public static boolean gap(boolean slim, int u, int v) {
+		if (opaque == null) {
+			build();
+		}
+		boolean[] o = opaque[slim ? 1 : 0];
+		if (o == null) {
+			return false;
+		}
+		int over = com.projecthero.mod.client.render.OverlayStrips.overlayIndex(u, v);
+		return over >= 0 && !o[v * 64 + u] && !o[over];
 	}
 
 	/**
@@ -180,7 +231,12 @@ public final class CyborgRender {
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static PlayerModel<LivingEntity> posed(HumanoidModel<?> parent) {
-		PlayerModel<LivingEntity> m = model();
+		return posed(parent, false);
+	}
+
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public static PlayerModel<LivingEntity> posed(HumanoidModel<?> parent, boolean slim) {
+		PlayerModel<LivingEntity> m = model(slim);
 		((HumanoidModel) parent).copyPropertiesTo(m);
 		m.jacket.copyFrom(m.body);
 		m.leftSleeve.copyFrom(m.leftArm);
@@ -192,13 +248,17 @@ public final class CyborgRender {
 		return m;
 	}
 
-	public static void render(PoseStack pose, MultiBufferSource buffers, int light, HumanoidModel<?> parent, Anim a, float ageInTicks) {
+	public static void render(PoseStack pose, MultiBufferSource buffers, int light, PlayerModel<?> parent, Anim a, float ageInTicks, boolean slim) {
 		if (a.spread() <= 0f) {
 			return;
 		}
-		PlayerModel<LivingEntity> m = posed(parent);
+		if (a.hologramShowing()) {
+			renderUnderHologram(pose, buffers, light, parent, a, ageInTicks, slim);
+			return;
+		}
+		PlayerModel<LivingEntity> m = posed(parent, slim);
 		boolean full = a.spread() >= STEPS - 0.01f;
-		ResourceLocation tex = full ? SKIN : frame(a.spread(), false);
+		ResourceLocation tex = full ? skin(slim) : frame(a.spread(), slim);
 		int color = 0xFFFFFFFF;
 		m.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(tex)), light, OverlayTexture.NO_OVERLAY, color);
 		if (full && a.holo() <= 0f) {
@@ -212,13 +272,69 @@ public final class CyborgRender {
 			m.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucentEmissive(GLOW)), LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY,
 					(g << 24) | 0xFFFFFF);
 		} else if (a.fresh()) {
-			m.renderToBuffer(pose, buffers.getBuffer(RenderType.eyes(frame(a.spread(), true))), light, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
+			m.renderToBuffer(pose, buffers.getBuffer(RenderType.eyes(frame(a.spread(), slim))), light, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
 		}
 	}
 
+	/**
+	 * v0.17.7 (user): while the hologram sweeps over him, BOTH layers of the plates (and the head cover and the eye's glow) go
+	 * texel by texel at the hologram's own line ({@link #holoTint}), not just the base layer -- so once it has passed nothing
+	 * of Cyborg is left, and as it drains away both layers come back behind it. Drawn texel by texel on the parent model's
+	 * parts at the plates' own sizes.
+	 */
+	private static void renderUnderHologram(PoseStack pose, MultiBufferSource buffers, int light, PlayerModel<?> parent, Anim a, float ageInTicks,
+			boolean slim) {
+		float line = a.holo();
+		boolean building = a.building();
+		com.projecthero.mod.client.render.OverlayStrips.Tint plates = (u, v) -> holoTint(u, v, line, building) == 0 ? 0xFFFFFFFF : 0;
+		com.projecthero.mod.client.render.OverlayStrips.renderTexture(pose, buffers.getBuffer(RenderType.entityTranslucent(skin(slim))), light,
+				parent, slim, plates, com.projecthero.mod.client.render.OverlayStrips.ALL, true, true, PLATES);
+		com.projecthero.mod.client.render.OverlayStrips.renderTexture(pose, buffers.getBuffer(RenderType.entityTranslucent(HEAD_COVER)), light,
+				parent, slim, plates, com.projecthero.mod.client.render.OverlayStrips.HEAD, true, false, COVER);
+		int g = Math.round(255 * (0.8f + 0.2f * Mth.sin(ageInTicks * 0.25f)));
+		int glow = (g << 24) | 0xFFFFFF;
+		com.projecthero.mod.client.render.OverlayStrips.renderTexture(pose, buffers.getBuffer(RenderType.entityTranslucentEmissive(GLOW)),
+				LightTexture.FULL_BRIGHT, parent, slim, (u, v) -> plates.argb(u, v) == 0 ? 0 : glow,
+				com.projecthero.mod.client.render.OverlayStrips.HEAD, true, false, PLATES);
+	}
+
+	/**
+	 * First person under the hologram (v0.17.7): the plated arm, both layers, only where the hologram hasn't reached; over it
+	 * the hologram of the wearer's own arm and sleeve where it has (vanilla's bare arm is already drawn under both).
+	 */
+	public static void renderArmUnderHologram(PoseStack pose, MultiBufferSource buffers, int light, net.minecraft.client.player.AbstractClientPlayer player,
+			PlayerModel<?> model, boolean right, Anim a) {
+		boolean slim = slim(player);
+		float line = a.holo();
+		boolean building = a.building();
+		int part = right ? com.projecthero.mod.client.render.OverlayStrips.RIGHT_ARM : com.projecthero.mod.client.render.OverlayStrips.LEFT_ARM;
+		com.projecthero.mod.client.render.OverlayStrips.renderTexture(pose, buffers.getBuffer(RenderType.entityTranslucent(skin(slim))), light,
+				model, slim, (u, v) -> holoTint(u, v, line, building) == 0 ? 0xFFFFFFFF : 0, part, true, true, PLATES);
+		com.projecthero.mod.client.render.OverlayStrips.renderTexture(pose,
+				buffers.getBuffer(RenderType.entityTranslucent(player.getSkin().texture())), light, model, slim, (u, v) -> {
+					int t = holoTint(u, v, line, building);
+					// the hologram where it has reached; ahead of it, the wearer's own sleeve where the plates have a gap
+					return t != 0 ? t : gap(slim, u, v) ? 0xFFFFFFFF : 0;
+				}, part, false, true, 0.07f);
+		com.projecthero.mod.client.render.OverlayStrips.renderTexture(pose,
+				buffers.getBuffer(RenderType.entityTranslucent(player.getSkin().texture())), light, model, slim,
+				(u, v) -> holoTint(u, v, line, building), part, true, false, 0.07f);
+	}
+
+	/** First person (v0.17.7): the wearer's own sleeve where both of the plates' layers have a gap (vanilla hides the sleeve). */
+	public static void renderArmGaps(PoseStack pose, MultiBufferSource buffers, int light, net.minecraft.client.player.AbstractClientPlayer player,
+			PlayerModel<?> model, boolean right) {
+		boolean slim = slim(player);
+		com.projecthero.mod.client.render.OverlayStrips.renderTexture(pose,
+				buffers.getBuffer(RenderType.entityTranslucent(player.getSkin().texture())), light, model, slim,
+				(u, v) -> gap(slim, u, v) ? 0xFFFFFFFF : 0,
+				right ? com.projecthero.mod.client.render.OverlayStrips.RIGHT_ARM : com.projecthero.mod.client.render.OverlayStrips.LEFT_ARM, false,
+				true, 0f);
+	}
+
 	/** First person: the plated arm over the arm vanilla just drew. */
-	public static void renderArm(PoseStack pose, MultiBufferSource buffers, int light, ModelPart arm, boolean right, float progress) {
-		PlayerModel<LivingEntity> m = model();
+	public static void renderArm(PoseStack pose, MultiBufferSource buffers, int light, ModelPart arm, boolean right, float progress, boolean slim) {
+		PlayerModel<LivingEntity> m = model(slim);
 		ModelPart a = right ? m.rightArm : m.leftArm;
 		ModelPart sleeve = right ? m.rightSleeve : m.leftSleeve;
 		a.copyFrom(arm);
@@ -227,7 +343,7 @@ public final class CyborgRender {
 		sleeve.visible = true;
 		float spread = progress * STEPS;
 		boolean full = spread >= STEPS - 0.01f;
-		ResourceLocation tex = full ? SKIN : frame(spread, false);
+		ResourceLocation tex = full ? skin(slim) : frame(spread, slim);
 		a.render(pose, buffers.getBuffer(RenderType.entityTranslucent(tex)), light, OverlayTexture.NO_OVERLAY);
 		sleeve.render(pose, buffers.getBuffer(RenderType.entityTranslucent(tex)), light, OverlayTexture.NO_OVERLAY);
 		if (full) {
@@ -355,15 +471,16 @@ public final class CyborgRender {
 	/** Frames of the conversion. */
 	private static final int CONVERT_FRAMES = 60;
 
-	private static ResourceLocation frame(float spread, boolean edge) {
+	private static ResourceLocation frame(float spread, boolean slim) {
 		if (frames == null) {
 			build();
 		}
-		if (frames.length == 0) {
-			return SKIN;
+		ResourceLocation[] f = frames[slim ? 1 : 0];
+		if (f.length == 0) {
+			return skin(slim);
 		}
 		int k = Math.max(0, Math.min(CONVERT_FRAMES, Math.round(spread / STEPS * CONVERT_FRAMES)));
-		return frames[k];
+		return f[k];
 	}
 
 	/**
@@ -383,10 +500,20 @@ public final class CyborgRender {
 
 	/** Frame {@code k} shows every texel whose {@link #convertOrder} is at most {@code k / CONVERT_FRAMES} -- no glowing edge. */
 	private static void build() {
+		frames = new ResourceLocation[2][];
+		opaque = new boolean[2][];
+		for (int s = 0; s < 2; s++) {
+			build(s == 1);
+		}
+	}
+
+	/** The spread frames and the opaque-texel map of one skin (v0.17.7: wide and slim). */
+	private static void build(boolean slim) {
+		int s = slim ? 1 : 0;
+		frames[s] = new ResourceLocation[0];
 		Minecraft mc = Minecraft.getInstance();
-		Optional<Resource> res = mc.getResourceManager().getResource(SKIN);
+		Optional<Resource> res = mc.getResourceManager().getResource(skin(slim));
 		if (res.isEmpty()) {
-			frames = new ResourceLocation[0];
 			return;
 		}
 		NativeImage src;
@@ -394,12 +521,26 @@ public final class CyborgRender {
 			src = NativeImage.read(in);
 		} catch (Exception e) {
 			ProjectHeroMod.LOGGER.warn("[cyborg] could not read the skin for the plates", e);
-			frames = new ResourceLocation[0];
 			return;
 		}
 		int size = src.getWidth();
 		int scale = Math.max(1, size / 64);
-		frames = new ResourceLocation[CONVERT_FRAMES + 1];
+		boolean[] o = new boolean[64 * 64];
+		for (int y = 0; y < 64; y++) {
+			for (int x = 0; x < 64; x++) {
+				// any opaque pixel in the texel's block (an HD skin has scale x scale pixels per texel)
+				for (int py = 0; py < scale && !o[y * 64 + x]; py++) {
+					for (int px = 0; px < scale; px++) {
+						if (((src.getPixelRGBA(x * scale + px, y * scale + py) >>> 24) & 0xFF) > 25) {
+							o[y * 64 + x] = true;
+							break;
+						}
+					}
+				}
+			}
+		}
+		opaque[s] = o;
+		ResourceLocation[] f = new ResourceLocation[CONVERT_FRAMES + 1];
 		for (int k = 0; k <= CONVERT_FRAMES; k++) {
 			float line = k / (float) CONVERT_FRAMES;
 			NativeImage img = new NativeImage(size, size, true);
@@ -409,8 +550,9 @@ public final class CyborgRender {
 					img.setPixelRGBA(x, y, on ? src.getPixelRGBA(x, y) : 0);
 				}
 			}
-			frames[k] = mc.getTextureManager().register("projecthero_cyborg_spread_" + k, new DynamicTexture(img));
+			f[k] = mc.getTextureManager().register("projecthero_cyborg_spread_" + (slim ? "slim_" : "") + k, new DynamicTexture(img));
 		}
+		frames[s] = f;
 		src.close();
 	}
 }

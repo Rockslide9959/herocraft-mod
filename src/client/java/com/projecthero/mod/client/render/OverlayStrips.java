@@ -108,14 +108,25 @@ public final class OverlayStrips {
 		PlayerSkin skin = player.getSkin();
 		boolean slim = skin.model() == PlayerSkin.Model.SLIM;
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(skin.texture()));
+		if (base) {
+			renderTexture(pose, vc, light, model, slim, tint, ALL, true, false, extra);
+		}
+		renderTexture(pose, vc, light, model, slim, tint, withHat ? ALL : ALL & ~HEAD, false, true, extra);
+	}
+
+	/** Body part bits for {@link #renderTexture}. */
+	public static final int HEAD = 1, BODY = 2, RIGHT_ARM = 4, LEFT_ARM = 8, RIGHT_LEG = 16, LEFT_LEG = 32, ALL = 63;
+
+	/**
+	 * v0.17.7: any 64x64 player-skin-layout texture (the consumer {@code vc} is already bound to it) texel by texel on
+	 * {@code model}'s posed parts: the base layer and / or the second layer of the parts in {@code parts}, every cube
+	 * {@code extra} model pixels larger than vanilla's (base 0, sleeves / jacket / trousers 0.25, hat 0.5). Cyborg's plates
+	 * are drawn this way while his hologram sweeps over them, so both of their layers go texel by texel at its line.
+	 */
+	public static void renderTexture(PoseStack pose, VertexConsumer vc, int light, PlayerModel<?> model, boolean slim, Tint tint, int parts,
+			boolean base, boolean overlay, float extra) {
 		int aw = slim ? 3 : 4;
-		Cube[] cubes = {
-				new Cube(model.head, 32, 0, 0, 0, -4f, -8f, -4f, 8, 8, 8, 0.5f),
-				new Cube(model.body, 16, 32, 16, 16, -4f, 0f, -2f, 8, 12, 4, 0.25f),
-				new Cube(model.rightArm, 40, 32, 40, 16, slim ? -2f : -3f, -2f, -2f, aw, 12, 4, 0.25f),
-				new Cube(model.leftArm, 48, 48, 32, 48, -1f, -2f, -2f, aw, 12, 4, 0.25f),
-				new Cube(model.rightLeg, 0, 32, 0, 16, -2f, 0f, -2f, 4, 12, 4, 0.25f),
-				new Cube(model.leftLeg, 0, 48, 16, 48, -2f, 0f, -2f, 4, 12, 4, 0.25f) };
+		int[] bits = { HEAD, BODY, RIGHT_ARM, LEFT_ARM, RIGHT_LEG, LEFT_LEG };
 		if (base) {
 			Cube[] under = {
 					new Cube(model.head, 0, 0, 0, 0, -4f, -8f, -4f, 8, 8, 8, 0f),
@@ -124,13 +135,43 @@ public final class OverlayStrips {
 					new Cube(model.leftArm, 32, 48, 32, 48, -1f, -2f, -2f, aw, 12, 4, 0f),
 					new Cube(model.rightLeg, 0, 16, 0, 16, -2f, 0f, -2f, 4, 12, 4, 0f),
 					new Cube(model.leftLeg, 16, 48, 16, 48, -2f, 0f, -2f, 4, 12, 4, 0f) };
-			for (Cube c : under) {
-				draw(vc, pose, light, c, tint, extra);
+			for (int i = 0; i < under.length; i++) {
+				if ((parts & bits[i]) != 0) {
+					draw(vc, pose, light, under[i], tint, extra);
+				}
 			}
 		}
-		for (int i = withHat ? 0 : 1; i < cubes.length; i++) {
-			draw(vc, pose, light, cubes[i], tint, extra);
+		if (overlay) {
+			Cube[] cubes = {
+					new Cube(model.head, 32, 0, 0, 0, -4f, -8f, -4f, 8, 8, 8, 0.5f),
+					new Cube(model.body, 16, 32, 16, 16, -4f, 0f, -2f, 8, 12, 4, 0.25f),
+					new Cube(model.rightArm, 40, 32, 40, 16, slim ? -2f : -3f, -2f, -2f, aw, 12, 4, 0.25f),
+					new Cube(model.leftArm, 48, 48, 32, 48, -1f, -2f, -2f, aw, 12, 4, 0.25f),
+					new Cube(model.rightLeg, 0, 32, 0, 16, -2f, 0f, -2f, 4, 12, 4, 0.25f),
+					new Cube(model.leftLeg, 0, 48, 16, 48, -2f, 0f, -2f, 4, 12, 4, 0.25f) };
+			for (int i = 0; i < cubes.length; i++) {
+				if ((parts & bits[i]) != 0) {
+					draw(vc, pose, light, cubes[i], tint, extra);
+				}
+			}
 		}
+	}
+
+	/**
+	 * v0.17.7: the overlay texel over base texel ({@code u}, {@code v}) (hat over head, jacket over body, sleeves over arms,
+	 * trousers over legs), or -1 for a texel that isn't on the base layer of a body part.
+	 */
+	public static int overlayIndex(int u, int v) {
+		if (height(u, v) < 0f) {
+			return -1;
+		}
+		if (v < 16) {
+			return v * 64 + u + 32; // head -> hat
+		}
+		if (v < 32) {
+			return (v + 16) * 64 + u; // body, right arm, right leg
+		}
+		return u >= 32 ? v * 64 + u + 16 : v * 64 + u - 16; // left arm (32,48) -> (48,48); left leg (16,48) -> (0,48)
 	}
 
 	private static void draw(VertexConsumer vc, PoseStack pose, int light, Cube c, Tint tint, float extra) {
