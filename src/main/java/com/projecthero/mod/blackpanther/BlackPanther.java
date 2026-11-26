@@ -24,7 +24,6 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 
@@ -41,11 +40,12 @@ import org.joml.Vector3f;
  * Ancestral Plane ({@link #drink}), then the power and the silver necklace ({@link #grant}).
  *
  * <h2>The suit (v0.17.7)</h2>
- * The user: "make the suit craftable instead please like the flash suit and you need to equip it, when the suit is worn you get
- * the new moveset". The suit is four crafted armour pieces ({@link BlackPantherItems#SUIT_HELMET} and the rest). Wearing all four
- * as the Black Panther runs the suit-up (the texel build, the head last) and the keys switch to the suited kit; taking any piece
- * off runs it back and the keys go back to the unsuited kit ({@link #syncSuit}, every tick). There is no H suit-up, no necklace
- * toggle and no claw toggle any more: the claws are always out in the suit.
+ * The user: "Make the suit just a necklace, player crafts the necklace, equips it and presses H to make it transform into the full
+ * suit". The suit is the crafted Black Panther Necklace ({@link BlackPantherItems#NECKLACE}), worn in the chestplate slot exactly
+ * like the Flash Ring holding the Flash Suit. With it on, H ({@link #toggleSuit}) runs the suit-up (the texel build out of the
+ * necklace, the head last) and the keys switch to the suited kit; H again runs it back. Taking the necklace off while suited draws
+ * the suit back as well ({@link #syncSuit}, every tick). While suited the suit gives 12 armour / 4 toughness as attribute
+ * modifiers ({@link #reconcile}). The claws are always out in the suit.
  *
  * <h2>Kinetic Energy</h2>
  * 0..100. The suit soaks 40% of every hit and stores it (1 damage = 4 Kinetic); it drains slowly out of combat. Shift+R spends
@@ -54,7 +54,7 @@ import org.joml.Vector3f;
 public final class BlackPanther {
 	public static final String KEY = "black_panther";
 
-	/** Legacy modifier ids (the claw toggle, the old suit armour): only ever cleared now. */
+	/** MELEE_ID: legacy (the claw toggle), only ever cleared now. ARMOR_ID / TOUGHNESS_ID: v0.17.7, the suit's armour while suited. */
 	private static final ResourceLocation MELEE_ID = PowerToggles.id("black_panther_melee");
 	private static final ResourceLocation ARMOR_ID = PowerToggles.id("black_panther_armor");
 	private static final ResourceLocation TOUGHNESS_ID = PowerToggles.id("black_panther_toughness");
@@ -249,9 +249,8 @@ public final class BlackPanther {
 		BlackPantherState s = new BlackPantherState();
 		s.hasPower = true;
 		s.v174 = true;
-		s.v177 = true; // v0.17.7: a new Black Panther crafts the suit and wears it
+		s.v177 = true; // v0.17.7: a new Black Panther crafts the necklace
 		save(player, s);
-		syncSuit(player); // already wearing the suit: it runs out at once
 		reconcile(player);
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = player.position().add(0, 1.2, 0);
@@ -297,6 +296,7 @@ public final class BlackPanther {
 
 	public static void onPlayerJoin(ServerPlayer player) {
 		migrate(player);
+		convertLegacyItems(player);
 		syncSuit(player);
 		reconcile(player);
 	}
@@ -307,10 +307,11 @@ public final class BlackPanther {
 	}
 
 	/**
-	 * v0.17.7: the suit became four wearable armour pieces. A Black Panther who already had the suit (the v0.17.4-0.17.6 Panther
-	 * Habit in the necklace, or a 0.17.3 power, which came with it) is handed the four pieces once -- worn straight away if he
-	 * had the suit on and the slot is free, otherwise into the inventory (dropped at his feet if it is full). The old necklace and
-	 * claw toggles are cleared.
+	 * v0.17.7: the suit is a crafted necklace now. A Black Panther who already had the suit before v0.17.7 (the v0.17.4-0.17.6
+	 * Panther Habit in the necklace, or a 0.17.3 power, which came with it) is handed the necklace once -- worn straight away (and
+	 * still suited) if he had the suit on and the chestplate slot is free, otherwise into the inventory (dropped at his feet if it is
+	 * full). The old necklace and claw toggles are cleared. The four armour pieces of the first v0.17.7 build and leftover Panther
+	 * Habits are turned into necklaces separately ({@link #convertLegacyItems}).
 	 */
 	static void migrate(ServerPlayer player) {
 		BlackPantherState s = state(player);
@@ -327,44 +328,133 @@ public final class BlackPanther {
 		n.clawsOut = false;
 		save(player, n);
 		if (hadSuit) {
-			giveSuit(player, wasSuited);
+			giveNecklace(player, wasSuited);
 		}
 	}
 
-	/** The four suit pieces into the armour slots ({@code wear}, where free) or the inventory. */
-	static void giveSuit(ServerPlayer player, boolean wear) {
-		Item[] pieces = { BlackPantherItems.SUIT_HELMET, BlackPantherItems.SUIT_CHESTPLATE, BlackPantherItems.SUIT_LEGGINGS, BlackPantherItems.SUIT_BOOTS };
-		EquipmentSlot[] slots = { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET };
-		for (int i = 0; i < pieces.length; i++) {
-			ItemStack stack = new ItemStack(pieces[i]);
-			if (wear && player.getItemBySlot(slots[i]).isEmpty()) {
-				player.setItemSlot(slots[i], stack);
-			} else if (!player.getInventory().add(stack)) {
-				player.drop(stack, false);
+	/** The necklace into the chestplate slot ({@code wear}, if free) or the inventory (at his feet if it is full). */
+	static void giveNecklace(ServerPlayer player, boolean wear) {
+		ItemStack stack = new ItemStack(BlackPantherItems.NECKLACE);
+		if (wear && player.getItemBySlot(EquipmentSlot.CHEST).isEmpty()) {
+			player.setItemSlot(EquipmentSlot.CHEST, stack);
+		} else if (!player.getInventory().add(stack)) {
+			player.drop(stack, false);
+		}
+	}
+
+	/**
+	 * v0.17.7: the legacy items in this player's inventory and armour slots become necklaces -- the four armour pieces of the first
+	 * v0.17.7 build (one necklace per full set of four, at least one for any pieces, so a set never becomes several) and each old
+	 * Panther Habit (one each). Anyone, power or not. A worn legacy chestplate is replaced by a worn necklace, so a Black Panther who
+	 * was suited in the pieces stays suited. Called by the legacy items' own inventory tick, on join and when a habit is used.
+	 */
+	public static void convertLegacyItems(ServerPlayer player) {
+		var inv = player.getInventory();
+		boolean chestWorn = BlackPantherItems.isLegacyPiece(player.getItemBySlot(EquipmentSlot.CHEST));
+		int pieces = 0;
+		int habits = 0;
+		for (int i = 0; i < inv.getContainerSize(); i++) {
+			ItemStack st = inv.getItem(i);
+			if (BlackPantherItems.isLegacyPiece(st)) {
+				pieces += st.getCount();
+				inv.setItem(i, ItemStack.EMPTY);
+			} else if (st.is(BlackPantherItems.HABIT)) {
+				habits += st.getCount();
+				inv.setItem(i, ItemStack.EMPTY);
 			}
 		}
+		int necklaces = (pieces > 0 ? Math.max(1, pieces / 4) : 0) + habits;
+		if (necklaces == 0) {
+			return;
+		}
+		for (int i = 0; i < necklaces; i++) {
+			giveNecklace(player, i == 0 && chestWorn);
+		}
+		player.level().playSound(null, player.getX(), player.getY() + 1.0, player.getZ(), SoundEvents.ARMOR_EQUIP_NETHERITE.value(),
+				SoundSource.PLAYERS, 0.8f, 1.6f);
+		player.displayClientMessage(Component.translatable("message.projecthero.black_panther.legacy_converted")
+				.withStyle(ChatFormatting.LIGHT_PURPLE), true);
 	}
 
-	// ---------------------------------------------------------------- the suit (worn)
+	// ---------------------------------------------------------------- the suit (the necklace)
 
-	/** All four Black Panther suit pieces are worn (anyone may wear them; only the Black Panther gets the moveset). */
-	public static boolean wearsFullSuit(Player player) {
-		return player.getItemBySlot(EquipmentSlot.HEAD).is(BlackPantherItems.SUIT_HELMET)
-				&& player.getItemBySlot(EquipmentSlot.CHEST).is(BlackPantherItems.SUIT_CHESTPLATE)
-				&& player.getItemBySlot(EquipmentSlot.LEGS).is(BlackPantherItems.SUIT_LEGGINGS)
-				&& player.getItemBySlot(EquipmentSlot.FEET).is(BlackPantherItems.SUIT_BOOTS);
+	/** The Black Panther Necklace is worn (in the chestplate slot, the Flash Ring's slot). Client-safe. */
+	public static boolean wearsNecklace(Player player) {
+		return player.getItemBySlot(EquipmentSlot.CHEST).is(BlackPantherItems.NECKLACE);
 	}
 
-	/** v0.17.7: the suited kit follows the worn suit -- the full set on runs the suit-up, any piece off runs it back. */
+	/**
+	 * v0.17.7 (user: "don't make the player have the necklace model on them all the time, only when theyre wearing the necklace and
+	 * suit"): the necklace model is drawn on the player only now -- the Black Panther, suited, with the necklace worn. Client-safe
+	 * (the state and the chest slot are both synced to every viewer).
+	 */
+	public static boolean showsNecklace(Player player) {
+		return suited(player) && wearsNecklace(player) && !player.isSpectator();
+	}
+
+	/** The suit is running out or draining back right now (one change at a time). */
+	public static boolean transitioning(Player player) {
+		BlackPantherState s = peek(player);
+		if (s == null || !s.hasPower || s.suitChangeAt <= 0L) {
+			return false;
+		}
+		long age = player.level().getGameTime() - s.suitChangeAt;
+		return age >= 0 && age < (s.suited ? BlackPantherConfig.SUIT_UP_TICKS : BlackPantherConfig.SUIT_DOWN_TICKS);
+	}
+
+	/**
+	 * v0.17.7 H (the Flash Ring's toggle, {@code FlashRing.toggle}): suited, the suit drains back into the necklace; otherwise, with
+	 * the necklace worn, the suit runs out of it. A necklace carried in the inventory goes onto the chest first (whatever was in the
+	 * chestplate slot takes its place in the inventory), as the Flash Ring does from the inventory. Without one: a hint, nothing else.
+	 */
+	public static void toggleSuit(ServerPlayer player) {
+		BlackPantherState s = state(player);
+		if (!s.hasPower || !player.isAlive() || player.isSpectator()) {
+			return;
+		}
+		if (transitioning(player)) {
+			return; // one change at a time
+		}
+		if (s.suited) {
+			suitDown(player);
+			return;
+		}
+		if (!wearsNecklace(player) && !equipFromInventory(player)) {
+			say(player, "message.projecthero.black_panther.no_necklace", ChatFormatting.GRAY);
+			return;
+		}
+		suitUp(player);
+	}
+
+	/** A necklace from the inventory into the chestplate slot (swapping with what was there). */
+	private static boolean equipFromInventory(ServerPlayer player) {
+		var inv = player.getInventory();
+		for (int i = 0; i < inv.getContainerSize(); i++) {
+			ItemStack st = inv.getItem(i);
+			if (st.is(BlackPantherItems.NECKLACE) && st != player.getItemBySlot(EquipmentSlot.CHEST)) {
+				ItemStack old = player.getItemBySlot(EquipmentSlot.CHEST).copy();
+				player.setItemSlot(EquipmentSlot.CHEST, st.copyWithCount(1));
+				st.shrink(1);
+				if (!old.isEmpty()) {
+					if (inv.getItem(i).isEmpty()) {
+						inv.setItem(i, old);
+					} else if (!inv.add(old)) {
+						player.drop(old, false);
+					}
+				}
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** v0.17.7: the suit lasts only while the necklace is worn -- taking it off (or turning spectator) draws the suit back. Every tick. */
 	public static void syncSuit(ServerPlayer player) {
 		BlackPantherState s = state(player);
 		if (!s.hasPower) {
 			return;
 		}
-		boolean wearing = wearsFullSuit(player) && !player.isSpectator();
-		if (wearing && !s.suited) {
-			suitUp(player);
-		} else if (!wearing && s.suited) {
+		if (s.suited && (!wearsNecklace(player) || player.isSpectator())) {
 			suitDown(player);
 		}
 	}
@@ -379,7 +469,7 @@ public final class BlackPanther {
 		return age >= 0 && age < BlackPantherConfig.SUIT_UP_TICKS;
 	}
 
-	/** The suited kit takes over (called by {@link #syncSuit} once the full suit is worn). */
+	/** The suited kit takes over: the suit runs out of the necklace (H with the necklace on, {@link #toggleSuit}). */
 	public static void suitUp(ServerPlayer player) {
 		BlackPantherState s = state(player);
 		if (!s.hasPower || s.suited) {
@@ -414,7 +504,7 @@ public final class BlackPanther {
 		return player.position().add(f.x * 0.2, player.getBbHeight() * 0.78, f.z * 0.2);
 	}
 
-	/** Back to the unsuited kit (called by {@link #syncSuit} once a piece comes off). */
+	/** Back to the unsuited kit: the suit drains into the necklace (H again, or the necklace taken off, {@link #syncSuit}). */
 	public static void suitDown(ServerPlayer player) {
 		BlackPantherState s = state(player);
 		if (!s.suited) {
@@ -462,13 +552,19 @@ public final class BlackPanther {
 	// ---------------------------------------------------------------- stats
 
 	public static void reconcile(ServerPlayer player) {
-		// legacy: the claw toggle's +5 and the old suit's armour now live in the herb modifier and the worn suit pieces
+		// legacy: the claw toggle's +5 now lives in the herb modifier
 		PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, MELEE_ID);
-		PowerToggles.clearModifier(player, Attributes.ARMOR, ARMOR_ID);
-		PowerToggles.clearModifier(player, Attributes.ARMOR_TOUGHNESS, TOUGHNESS_ID);
 		BlackPantherState st = peek(player);
 		boolean power = st != null && st.hasPower;
 		boolean suited = power && st.suited;
+		// v0.17.7: the necklace suit's Vibranium Weave -- 12 armour / 4 toughness, only while the suit is on
+		if (suited) {
+			PowerToggles.modifier(player, Attributes.ARMOR, ARMOR_ID, BlackPantherConfig.SUIT_ARMOR, AttributeModifier.Operation.ADD_VALUE);
+			PowerToggles.modifier(player, Attributes.ARMOR_TOUGHNESS, TOUGHNESS_ID, BlackPantherConfig.SUIT_TOUGHNESS, AttributeModifier.Operation.ADD_VALUE);
+		} else {
+			PowerToggles.clearModifier(player, Attributes.ARMOR, ARMOR_ID);
+			PowerToggles.clearModifier(player, Attributes.ARMOR_TOUGHNESS, TOUGHNESS_ID);
+		}
 		if (power) {
 			// v0.17.7 (user): unsuited melee 5, suited 10 (the bare fist's 1 is already there)
 			double melee = (suited ? BlackPantherConfig.SUITED_MELEE : BlackPantherConfig.UNSUITED_MELEE) - 1.0;

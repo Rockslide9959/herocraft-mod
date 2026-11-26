@@ -24,8 +24,8 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * v0.17.3 Black Panther: the soup and the Ancestral Plane, one Primary, the suit, the Kinetic bar, the deflection and Absorb
- * Stance. Mock players are not ticked by the server, so tests over time drive {@link BlackPanther#tick}. v0.17.7: the suit is
- * worn armour ({@link #wearSuit}); the new rules are in {@link BlackPantherV0177GameTests}.
+ * Stance. Mock players are not ticked by the server, so tests over time drive {@link BlackPanther#tick}. v0.17.7: the suit is the
+ * worn necklace plus H ({@link #wearSuit}); the new rules are in {@link BlackPantherV0177GameTests}.
  */
 public class BlackPantherGameTests implements FabricGameTest {
 	private static ServerPlayer mock(GameTestHelper helper) {
@@ -62,18 +62,23 @@ public class BlackPantherGameTests implements FabricGameTest {
 		}
 	}
 
-	/** v0.17.7: puts all four crafted suit pieces on and lets the power see it (what the tick does every tick). */
+	/**
+	 * v0.17.7: puts the necklace on and presses H (the suit forms). A drain still running from a test's earlier suit-down is
+	 * back-dated first, since H waits for one change to end before the next.
+	 */
 	static void wearSuit(ServerPlayer p) {
-		p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(BlackPantherItems.SUIT_HELMET));
-		p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(BlackPantherItems.SUIT_CHESTPLATE));
-		p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(BlackPantherItems.SUIT_LEGGINGS));
-		p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(BlackPantherItems.SUIT_BOOTS));
-		BlackPanther.syncSuit(p);
+		p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(BlackPantherItems.NECKLACE));
+		if (BlackPanther.transitioning(p)) {
+			var s = BlackPanther.state(p).copy();
+			s.suitChangeAt = p.level().getGameTime() - BlackPantherConfig.SUIT_UP_TICKS - 1;
+			p.setAttached(com.projecthero.mod.attachment.ModAttachments.BLACK_PANTHER_STATE, s);
+		}
+		BlackPanther.toggleSuit(p);
 	}
 
-	/** v0.17.7: takes the helmet off (one piece is enough) and lets the power see it. */
+	/** v0.17.7: takes the necklace off and lets the power see it (the suit drains back). */
 	static void takeOffSuit(ServerPlayer p) {
-		p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, ItemStack.EMPTY);
+		p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, ItemStack.EMPTY);
 		BlackPanther.syncSuit(p);
 	}
 

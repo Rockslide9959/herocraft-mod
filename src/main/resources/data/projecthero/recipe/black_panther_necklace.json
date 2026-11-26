@@ -2,26 +2,26 @@
   "type": "minecraft:crafting_shaped",
   "category": "equipment",
   "pattern": [
-    "B B",
-    "VHV",
-    "BAB"
+    "VAV",
+    "VWV",
+    "VHV"
   ],
   "key": {
-    "B": {
-      "item": "minecraft:black_wool"
-    },
     "V": {
       "item": "projecthero:vibranium_ingot"
     },
-    "H": {
-      "item": "projecthero:heart_shaped_herb"
-    },
     "A": {
       "item": "minecraft:amethyst_shard"
+    },
+    "W": {
+      "item": "minecraft:black_wool"
+    },
+    "H": {
+      "item": "projecthero:heart_shaped_herb"
     }
   },
   "result": {
-    "id": "projecthero:black_panther_chestplate",
+    "id": "projecthero:black_panther_necklace",
     "count": 1
   }
 }

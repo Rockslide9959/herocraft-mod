@@ -4,6 +4,7 @@ import com.mojang.brigadier.arguments.FloatArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.projecthero.mod.blackpanther.entity.BlackPantherEntityTypes;
 import com.projecthero.mod.blackpanther.item.BlackPantherItems;
+import com.projecthero.mod.blackpanther.network.BlackPantherSuitPayload;
 import com.projecthero.mod.blackpanther.network.PantherSensesPayload;
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerEntityWorldChangeEvents;
@@ -11,6 +12,7 @@ import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -32,7 +34,13 @@ public final class BlackPantherMod {
 		BlackPantherEntityTypes.initialize();
 		BlackPantherDamage.initialize();
 		PayloadTypeRegistry.playS2C().register(PantherSensesPayload.TYPE, PantherSensesPayload.CODEC);
-		// v0.17.7: no H payload any more (the suit is worn armour, not summoned)
+		// v0.17.7 (user): H with the necklace on lets the suit out / draws it back in (the Flash Ring's pattern)
+		PayloadTypeRegistry.playC2S().register(BlackPantherSuitPayload.TYPE, BlackPantherSuitPayload.CODEC);
+		ServerPlayNetworking.registerGlobalReceiver(BlackPantherSuitPayload.TYPE, (payload, context) -> {
+			if (!com.projecthero.mod.hero.PowerSuppression.refuse(context.player())) {
+				BlackPanther.toggleSuit(context.player());
+			}
+		});
 		ServerPlayerEvents.JOIN.register(BlackPanther::onPlayerJoin);
 		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> BlackPanther.onPlayerRespawn(newPlayer));
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {

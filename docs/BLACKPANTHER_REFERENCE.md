@@ -8,33 +8,53 @@ Hero-Tier Primary power, **Street tier** (melee 7-10, abilities 8-10, ultimate 1
 ## Getting it
 
 Heart-Shaped Herbs grow in jungles. 3 herbs + a bowl = Heart-Shaped Herb Soup. Drinking it runs the 10 s Ancestral Plane, then
-grants the power and the silver necklace (cosmetic, always drawn). It replaces the Primary power.
+grants the power. It replaces the Primary power. The suit is crafted separately (the necklace below).
 
-## The suit (v0.17.7 rework)
+## The suit: the Black Panther Necklace (v0.17.7)
 
-The user: "make the suit craftable instead please like the flash suit and you need to equip it, when the suit is worn you get the
-new moveset". Four armour pieces (`BlackPantherItems.SUIT_HELMET/CHESTPLATE/LEGGINGS/BOOTS`, `PantherSuitItem`, material
-`projecthero:black_panther_suit`): 2/5/3/2 armour, 1 toughness each (12 / 4 over the set), no durability, repair item Vibranium
-Ingot. Anyone can wear them; only the Black Panther wearing all four gets the suited kit.
+The user, first: "make the suit craftable instead please like the flash suit and you need to equip it, when the suit is worn you
+get the new moveset" (built as four armour pieces), then the same day: "Make the suit just a necklace, player crafts the necklace,
+equips it and presses H to make it transform into the full suit" and "Make the necklace model look like the necklace on the suit
+please, don't make the player have the necklace model on them all the time, only when theyre wearing the necklace and suit".
 
-| Piece | Recipe (shaped) |
-|---|---|
-| Helmet | `BVB` / `A A` |
-| Chestplate | `B B` / `VHV` / `BAB` |
-| Leggings | `BVB` / `A A` / `B B` |
-| Boots | `B B` / `V V` |
-
-B = Black Wool, V = Vibranium Ingot, A = Amethyst Shard, H = Heart-Shaped Herb. 6 Vibranium Ingots for the set.
-
-- `BlackPanther.syncSuit` runs every tick (and on join, respawn, grant): the full set on runs `suitUp` (the texel-by-texel build
-  from the necklace, the head last, `SUIT_UP_TICKS`), any piece off runs `suitDown`. Suited moves wait for the build (`changing`).
-- Look: the armour layer texture (`textures/models/armor/black_panther_suit_layer_1/2.png`) is the top half of the suit skin, so
-  a piece worn alone looks like the suit; once suited, `BlackPantherLayer` draws the skin and `HumanoidArmorLayerMixin` hides the
-  armour (`BlackPantherRender.hidesSkinOverlay`). Asset script: `scratchpad/bp_v0177_suit_textures.js` (also the item icons).
-- Removed: H tap suit-up, hold-H necklace off, the Panther Habit recipes, the N claw toggle and the claw model.
-- **Migration** (`BlackPanther.migrate`, flag `v177`): a Black Panther who had the suit before (habit bound in 0.17.4-0.17.6, or
-  any 0.17.3 power) gets the four pieces once: worn if he was suited and the slot is free, otherwise into the inventory (dropped if
-  full). Old `habit`, `necklaceOff`, `clawsOut` flags are cleared. A leftover Panther Habit item unfolds into the four pieces on use.
+- **Item:** `BlackPantherItems.NECKLACE` (`projecthero:black_panther_necklace`, `BlackPantherNecklaceItem`): stack of 1, EPIC,
+  fire resistant, no durability. `Equipable` with slot **CHEST**, exactly like the Flash Ring holding the Flash Suit
+  (`FlashRingItem`): right-click it (only the Black Panther may, others get a refusal), shift-click it or drag it into the
+  chestplate slot. Death / keepInventory / graves treat it like armour. A chestplate cannot be worn with it (the suit gives its own
+  armour).
+- **Recipe** (shaped, `recipe/black_panther_necklace.json`): `VAV` / `VWV` / `VHV`. V = Vibranium Ingot (6, the old set's cost),
+  A = Amethyst Shard, W = Black Wool, H = Heart-Shaped Herb. JEI shows it plus an info page (`projecthero.jei.black_panther_necklace`
+  / `2`).
+- **H** (`BlackPantherSuitPayload` -> `BlackPanther.toggleSuit`, server re-validates, `PowerSuppression` respected): suited -> the
+  suit drains back (`suitDown`, `ANIM_SUIT_DOWN`); not suited + necklace worn -> `suitUp` (the texel build out of the necklace, head
+  last, `SUIT_UP_TICKS`); a necklace only in the inventory is put on first (swapped with whatever was in the chest slot, the Flash
+  Ring's `equipFromInventory`); no necklace -> "Wear the Black Panther Necklace to suit up". One change at a time
+  (`transitioning`). Client: `BlackPantherClient.ownsH` = has the power AND (suited OR necklace worn OR necklace in inventory),
+  checked in `ProjectHeroModClient.handlePowerSelect` right after the Flash Ring and listed in `primaryOwnsPlainH`. Plain H only;
+  Shift+H always opens the wheel; with no necklace in play H falls through to the power selector as before.
+- **Unequip:** `BlackPanther.syncSuit` (every tick, join, respawn) runs `suitDown` when suited without the necklace worn (or as a
+  spectator). Nothing ever suits him up on its own.
+- **Stats while suited:** `reconcile` adds `black_panther_armor` +12 armour and `black_panther_toughness` +4 toughness
+  (`SUIT_ARMOR` / `SUIT_TOUGHNESS`) and Regeneration II; both modifiers are removed when the suit goes.
+- **Necklace model** (`BlackPantherRender.renderNecklace`, drawn by `BlackPantherLayer` only while `BlackPanther.showsNecklace` =
+  suited AND necklace worn AND not spectator): rebuilt from the tooth band painted on the suit skin. On `black_panther.png` the band
+  is row 1 of the body (one texel under the collar): chest and back texels 0, 2, 5, 7 silver `#6E6E76`, 1, 3, 4, 6 black; over each
+  shoulder it runs front to back along the arm top (right arm column 2, left arm column 1), silver / black in turn, with one silver
+  texel down the front and back of the shoulder. The model puts a silver fang (root, middle, bright tip) over each silver texel and
+  a black bead over each black one, at z = +-2.42 and beyond (the jacket layer is at 2.29, so no face is ever coplanar: no
+  z-fighting); the shoulder runs are drawn in each arm's own space so they follow the arms. Texture `necklace.png` (flat swatches)
+  and the item icon come from `scratchpad/bp_v0177_necklace_textures.js`. With Kinetic stored the silver takes the trim's violet
+  glow. The skin is unchanged (its painted band stays under the model).
+- **Migration** (`BlackPanther.migrate`, flag `v177`): a Black Panther who had the suit before v0.17.7 (habit bound in
+  0.17.4-0.17.6, or any 0.17.3 power) gets ONE necklace: worn (and still suited) if he was suited and the chest slot is free,
+  otherwise into the inventory (dropped if full). Old `habit`, `necklaceOff`, `clawsOut` flags are cleared.
+  `BlackPanther.convertLegacyItems` (run by the legacy items' own `inventoryTick`, on join, and when a habit is used) turns the
+  four armour pieces of the first v0.17.7 build into necklaces, one per full set of four (at least one for any pieces) -- a worn
+  legacy chestplate becomes a worn necklace, so a player suited in the pieces stays suited -- and each Panther Habit into one
+  necklace. The legacy items (`black_panther_helmet/_chestplate/_leggings/_boots`, `panther_habit`) stay registered so old stacks
+  load (`PantherLegacySuitItem`, plain items, necklace icon), have no recipe, are not in the creative tab and are hidden from JEI.
+- Removed: the four armour pieces as armour (material, armour-layer textures, item icons, recipes, JEI page), the always-on
+  necklace model. The hold-H necklace toggle and the N claw toggle stay removed.
 
 ## Passives
 
@@ -47,7 +67,7 @@ B = Black Wool, V = Vibranium Ingot, A = Amethyst Shard, H = Heart-Shaped Herb. 
 | Night Eyes | in the dark | always |
 | Hunter's Instinct | creatures hunting him within 20 outlined | same |
 | Kinetic Absorption | -- | 40% of a hit soaked, 1 damage = 4 Kinetic |
-| Vibranium Weave | -- | the pieces' 12 armour / 4 toughness; shots under 15 bounce off |
+| Vibranium Weave | -- | 12 armour / 4 toughness (attribute modifiers while suited); shots under 15 bounce off |
 | Silent Paws | -- | no vibrations |
 
 The melee is one attribute modifier (`black_panther_herb`): `UNSUITED_MELEE - 1` or `SUITED_MELEE - 1`. Regeneration is an
@@ -91,6 +111,7 @@ Disarm, Flying Kick replaces Backflip, Block replaces Parry (no perfect parry / 
 | C (hold) | Absorb Stance | frontal hits into Kinetic, 40 a stance | 4 s |
 | Shift+C | Kinetic Return | max(8, shot x1.25) + 0.25 per Kinetic spent (40 max), max 20 | 6 s |
 | Shift+N | Mask | toggle | -- |
+| H | Suit Up / Away | the necklace worn: the suit forms / drains back (both kits) | one change at a time |
 
 Kinetic Overload lost its own key when the user moved the Kinetic Pulse to Shift+R; it fires from Shift+R when the bar is full.
 
@@ -98,7 +119,7 @@ Kinetic Overload lost its own key when the user moved the Kinetic Pulse to Shift
 
 Bottom-right `VanillaHud.Stack`: title always "Black Panther" (no T'Challa title, no passive status words, user v0.17.7), the
 Kinetic bar in the **Meter** style (suited), the Absorb bar (Hairline) while absorbing, the six key boxes for the live kit. Left Alt
-lists both moves per key, Shift+N Mask and "Shift+R (full)" Kinetic Overload in the suit.
+lists both moves per key, H Suit Up / Away (necklace worn or suited), Shift+N Mask and "Shift+R (full)" Kinetic Overload in the suit.
 
 ## Animations (BlackPantherPose)
 
