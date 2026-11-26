@@ -280,7 +280,11 @@ public final class SpiderPerfectDodge {
 		REENTRANT.set(true);
 		try {
 			target.invulnerableTime = 0;
-			AbilityHelpers.hurt(player, target, taken * (COUNTER_MULTIPLIER - 1.0f));
+			// v0.17.7 City tier: the doubled hit never totals past SpiderManConfig.MAX_HIT
+			float bonus = Math.min(taken * (COUNTER_MULTIPLIER - 1.0f), Math.max(0.0f, SpiderManConfig.MAX_HIT - taken));
+			if (bonus > 0.0f) {
+				AbilityHelpers.hurt(player, target, bonus);
+			}
 		} finally {
 			REENTRANT.set(false);
 		}

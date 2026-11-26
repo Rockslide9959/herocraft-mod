@@ -82,7 +82,7 @@ public final class SpiderAbilities {
 	/** v0.10.11: a flat 75 webbing, no longer the entire reserve. */
 	public static final float BLOSSOM_COST = 75.0f;
 	private static final double BLOSSOM_RADIUS = 20.0;
-	private static final float BLOSSOM_DAMAGE = 40.0f;
+	private static final float BLOSSOM_DAMAGE = 28.0f; // v0.17.7 City tier ultimate: was 40 (the live number is SpiderManConfig webBlossom)
 	/** Targets are cocooned / frozen in place for 20 s. */
 	private static final int BLOSSOM_TRAP_TICKS = 20 * 20;
 

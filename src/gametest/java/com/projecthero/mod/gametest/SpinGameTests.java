@@ -208,12 +208,12 @@ public class SpinGameTests implements FabricGameTest {
 		helper.assertTrue(Math.abs(p.getMaxHealth() - 20f) < 0.01f, "no extra hearts (20), got " + p.getMaxHealth());
 		double speedBase = p.getAttribute(Attributes.MOVEMENT_SPEED).getBaseValue();
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.MOVEMENT_SPEED) - speedBase * 1.15) < 1.0e-4, "+15% speed");
-		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - (p.getAttribute(Attributes.ATTACK_DAMAGE).getBaseValue() + 4)) < 1.0e-4,
-				"+4 melee");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - (p.getAttribute(Attributes.ATTACK_DAMAGE).getBaseValue() + SpinConfig.MELEE_BONUS)) < 1.0e-4,
+				"+11 melee (v0.17.7 City tier)");
 		p.setHealth(20f);
 		p.invulnerableTime = 0;
 		p.hurt(p.damageSources().magic(), 10f);
-		helper.assertTrue(Math.abs(p.getHealth() - (20f - 8.5f)) < 0.05f, "15% off a hit (10 -> 8.5), health " + p.getHealth());
+		helper.assertTrue(Math.abs(p.getHealth() - (20f - 6f)) < 0.05f, "40% off a hit (10 -> 6, v0.17.7 City tier), health " + p.getHealth());
 		Spin.revoke(p);
 		helper.assertTrue(Math.abs(p.getMaxHealth() - 20f) < 0.01f, "still 20 without the power");
 		helper.succeed();
@@ -256,7 +256,7 @@ public class SpinGameTests implements FabricGameTest {
 		helper.assertTrue(p.getMainHandItem().isEmpty() && SpinBalls.inHand(p, InteractionHand.OFF_HAND) == 1, "the throw emptied the main hand");
 		helper.assertTrue(!SpinAbilityManager.ballsAllow(p, SpinAbilityManager.SCAN), "one-ball moves need a ball in the main hand");
 		helper.runAfterDelay(15, () -> {
-			helper.assertTrue(near(ratio(before, z, SpinConfig.BALL_DAMAGE)), "10 damage, lost " + (before - z.getHealth()));
+			helper.assertTrue(near(ratio(before, z, SpinConfig.BALL_DAMAGE)), "12 damage, lost " + (before - z.getHealth()));
 			helper.assertTrue(SpinMarks.spun(z), "the target spins");
 			z.setTarget(p);
 			helper.assertTrue(z.getTarget() == null, "a spun mob can't aim (no target)");
@@ -663,7 +663,7 @@ public class SpinGameTests implements FabricGameTest {
 			helper.assertTrue(SpinAbilityManager.cooldownRemaining(p, SpinAbilityManager.GOLDEN_SPIN) == 0, "no Golden Spin cooldown");
 		});
 		helper.runAfterDelay(12, () -> {
-			helper.assertTrue(near(ratio(a0[0], a, SpinConfig.BALL_DAMAGE)), "the same 10 as R to the first zombie, lost " + (a0[0] - a.getHealth()));
+			helper.assertTrue(near(ratio(a0[0], a, SpinConfig.BALL_DAMAGE)), "the same 12 as R to the first zombie, lost " + (a0[0] - a.getHealth()));
 			// get ready for the Perfect one: the ball home, the bar full, no cooldown
 			helper.getLevel().getEntitiesOfClass(SteelBallEntity.class, p.getBoundingBox().inflate(60)).forEach(SteelBallEntity::discard);
 			Spin.clearCooldowns(p);
@@ -677,7 +677,7 @@ public class SpinGameTests implements FabricGameTest {
 			b.invulnerableTime = 0;
 			look(p, b);
 			helper.assertTrue(SpinMoves.releaseCharge(p, SpinAbilityManager.GOLDEN_SPIN), "released on the close");
-			helper.assertTrue(near(ratio(b1[0], b, SpinConfig.GOLDEN_PERFECT_DAMAGE)), "Perfect: 70 straight through diamond, lost " + (b1[0] - b.getHealth()));
+			helper.assertTrue(near(ratio(b1[0], b, SpinConfig.GOLDEN_PERFECT_DAMAGE)), "Perfect: 24 straight through diamond, lost " + (b1[0] - b.getHealth()));
 			helper.succeed();
 		});
 	}
@@ -723,29 +723,48 @@ public class SpinGameTests implements FabricGameTest {
 		});
 		helper.runAfterDelay(t + SpinConfig.BREAKER_STRIKE_DELAY + 4, () -> {
 			helper.assertTrue(!SpinMoves.strikePending(p), "it struck");
-			helper.assertTrue(near(ratio(before[0], z, SpinConfig.BREAKER_DAMAGE)), "100 damage, lost " + (before[0] - z.getHealth()));
+			helper.assertTrue(near(ratio(before[0], z, SpinConfig.BREAKER_DAMAGE)), "30 damage, lost " + (before[0] - z.getHealth()));
 			helper.assertTrue(SpinMarks.aged(z) && z.hasEffect(MobEffects.WITHER) && z.hasEffect(MobEffects.WEAKNESS)
 					&& z.getEffect(MobEffects.MOVEMENT_SLOWDOWN).getAmplifier() == 2, "aged: Weakness II, Slowness III, Wither");
-			// the aging's bites scale with the strike: vanilla Wither I's own tick is cancelled, the bite deals 1 x 100/60
+			// the aging's bites: vanilla Wither I's own tick is cancelled, the bite deals 1 (v0.17.7 City tier)
 			z.invulnerableTime = 0;
 			float h0 = z.getHealth();
 			z.hurt(z.damageSources().wither(), 1f);
 			helper.assertTrue(z.getHealth() == h0, "the Wither effect's own tick does nothing while aged, lost " + (h0 - z.getHealth()));
 			z.invulnerableTime = 0;
 			SpinMarks.bite(z);
-			helper.assertTrue(near(ratio(h0, z, SpinConfig.AGING_BITE_DAMAGE)), "an aging bite: 1.67, lost " + (h0 - z.getHealth()));
+			helper.assertTrue(near(ratio(h0, z, SpinConfig.AGING_BITE_DAMAGE)), "an aging bite: 1, lost " + (h0 - z.getHealth()));
 			helper.succeed();
 		});
 	}
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void ballBreakerIsAHundredAndItsBitesScale(GameTestHelper helper) {
-		helper.assertTrue(SpinConfig.BREAKER_DAMAGE == 100f, "Ball Breaker strikes for 100, got " + SpinConfig.BREAKER_DAMAGE);
-		float scale = SpinConfig.BREAKER_DAMAGE / 60f; // the old strike was 60
-		helper.assertTrue(Math.abs(SpinConfig.AGING_BITE_DAMAGE - 1f * scale) < 1.0e-4f, "each bite x100/60 (1 -> 1.67), got " + SpinConfig.AGING_BITE_DAMAGE);
+		// v0.17.7 City tier: the ultimate is 30 (was 100) and the bites are vanilla Wither I's 1 (no longer scaled with the strike)
+		helper.assertTrue(SpinConfig.BREAKER_DAMAGE >= 25f && SpinConfig.BREAKER_DAMAGE <= 30f, "Ball Breaker strikes inside City's 25-30, got " + SpinConfig.BREAKER_DAMAGE);
+		helper.assertTrue(Math.abs(SpinConfig.AGING_BITE_DAMAGE - 1f) < 1.0e-4f, "each bite 1, got " + SpinConfig.AGING_BITE_DAMAGE);
 		int bites = SpinConfig.AGING_TICKS / SpinConfig.AGING_BITE_EVERY;
-		helper.assertTrue(bites == 5 && Math.abs(bites * SpinConfig.AGING_BITE_DAMAGE - 5f * scale) < 1.0e-3f,
-				"5 bites over 10 s: 5 -> 8.33 in all");
+		helper.assertTrue(bites == 5 && Math.abs(bites * SpinConfig.AGING_BITE_DAMAGE - 5f) < 1.0e-3f,
+				"5 bites over 10 s: 5 in all");
+		helper.succeed();
+	}
+
+	/** v0.17.7 City tier: a Steel Ball hit sits in City's ability range, and no buff lifts a Spin hit past 30. */
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void cityTierBallHitAndCap(GameTestHelper helper) {
+		helper.assertTrue(SpinConfig.BALL_DAMAGE >= 11f && SpinConfig.BALL_DAMAGE <= 15f, "Steel Ball inside City's 11-15, got " + SpinConfig.BALL_DAMAGE);
+		ServerPlayer p = spin(helper);
+		Zombie z = zombie(helper, 1.5, 4.5, 100);
+		float before = z.getHealth();
+		helper.assertTrue(Spin.hit(p, z, SpinConfig.BALL_DAMAGE, false), "a ball-sized Spin hit lands");
+		float lost = before - z.getHealth();
+		helper.assertTrue(lost >= 11f * 0.85f && lost <= 15f * 1.15f, "lands inside City's ability range, lost " + lost);
+		Horse h = helper.spawnWithNoFreeWill(EntityType.HORSE, new Vec3(1.5, 2.0, 1.5));
+		p.startRiding(h, true);
+		z.invulnerableTime = 0;
+		float b2 = z.getHealth();
+		helper.assertTrue(Spin.hit(p, z, SpinConfig.BREAKER_DAMAGE, true), "a riding ultimate-sized hit lands");
+		helper.assertTrue(b2 - z.getHealth() <= SpinConfig.MAX_HIT + 0.01f, "riding x1.3 is capped at 30, lost " + (b2 - z.getHealth()));
 		helper.succeed();
 	}
 
@@ -758,7 +777,7 @@ public class SpinGameTests implements FabricGameTest {
 		look(p, near);
 		float n0 = near.getHealth();
 		helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.SPIN_TOUCH), "G touches");
-		helper.assertTrue(near(ratio(n0, near, SpinConfig.TOUCH_DAMAGE)) && SpinMarks.locked(near), "6 damage and its joints lock");
+		helper.assertTrue(near(ratio(n0, near, SpinConfig.TOUCH_DAMAGE)) && SpinMarks.locked(near), "11 damage and its joints lock");
 		helper.assertTrue(Math.abs(Spin.spin(p) - 80f) < 0.01f, "20 Spin");
 		Spin.setSpin(p, 100f);
 		float q0 = near.getHealth();
@@ -814,7 +833,7 @@ public class SpinGameTests implements FabricGameTest {
 		helper.assertTrue(SpinMoves.use(p, SpinAbilityManager.STEEL_BALL), "R with only an off-hand ball throws it");
 		helper.assertTrue(p.getOffhandItem().isEmpty() && (Spin.state(p).thrown & 2) != 0, "ball 1 left the off hand");
 		helper.assertTrue(Math.abs(Spin.spin(p) - (100f - SpinConfig.BALL_COST)) < 0.01f, "15 Spin, like any R");
-		helper.runAfterDelay(15, () -> helper.assertTrue(near(ratio(before, z, SpinConfig.BALL_DAMAGE)), "10 damage, lost " + (before - z.getHealth())));
+		helper.runAfterDelay(15, () -> helper.assertTrue(near(ratio(before, z, SpinConfig.BALL_DAMAGE)), "12 damage, lost " + (before - z.getHealth())));
 		helper.runAfterDelay(80, () -> {
 			helper.assertTrue(Spin.state(p).thrown == 0 && SpinBalls.inHand(p, InteractionHand.OFF_HAND) == 1, "it came back into the off hand");
 			helper.assertTrue(p.getMainHandItem().isEmpty(), "the main hand stays empty");

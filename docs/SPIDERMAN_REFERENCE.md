@@ -1212,3 +1212,30 @@ the GeckoLib shell is skipped for this set and `SpiderSuitLayer` is players-only
 
 **Mannequin / Wardrobe** (`com.projecthero.mod.wardrobe`, client `client.wardrobe`): see the Laboratory Devices guidebook
 page. Tests: `WardrobeV0165GameTests`.
+
+## v0.17.7 City tier
+
+Spider-Man is a City-tier power (melee 11-14, abilities 11-15, ultimate 25-30). Numbers live in `SpiderManConfig.Moves`
+(config v13 resets the changed moves) and `SpiderPassives`; the black suit's in `SymbioteBlackSuitAbilities`.
+
+| Hit | Before | After |
+|---|---|---|
+| Bare fist / sprint punch | 10 / 13 | 12 / 14 (`ATTACK_BONUS` 11, `SPRINT_PUNCH_BONUS` 2) |
+| Web Strike combo | 5 / 5 / 9 | 11 / 11 / 14 |
+| Uppercut | 8 | 12 |
+| Spider Counter | 12 | 12 |
+| Zip Kick | 14 | 14 |
+| Web Bomb splash | 3 | 11 |
+| Impact Web (full charge) | 10 (15) | 12 (18) |
+| Web Whip | 7 | 11 |
+| Grab & Hurl (thrown body / block; others hit 60% / 50%) | 10 | 13 |
+| Swing Throw | 6 | 11 |
+| Web Blossom (ultimate) | 40 | 28 |
+| Web Shot sting | 2 | 2 (chip damage on a no-cooldown debuff shot) |
+| Black suit Tendril Lash / Spike Burst | 7 / 8 | 12 / 12 |
+| Black suit Consume | 2.5 every 0.5 s (up to ~10) | 3.5 every 0.5 s (up to ~14), heal 30% |
+| Black suit Symbiote Slam dive / ground | 10 / 6 | 14 / 11 |
+
+`SpiderManConfig.MAX_HIT` = 30: the webbed x1.4 / cocoon x1.6 bonus (`SpiderPassives`), the Perfect Dodge counter (x2) and the
+stealth ambush (+50%) never take one of his hits past 30. Toughness unchanged: Resistance II (40% off) unsuited, Resistance I
+plus the 15-armour black suit with it on. Test: `SpiderManGameTests.cityTierDamageAndCap`.

@@ -75,7 +75,7 @@ public final class SpinMarks {
 	/**
 	 * Ball Breaker's aging: Weakness II, Slowness III, Wither, and the grey cracked look. The Wither is the look (black hearts, the
 	 * icon); while aged, its own ticks are cancelled and {@link #tick} bites for {@link SpinConfig#AGING_BITE_DAMAGE} every
-	 * {@link SpinConfig#AGING_BITE_EVERY} ticks instead (scaled with the strike's 100).
+	 * {@link SpinConfig#AGING_BITE_EVERY} ticks instead (1 a bite since the v0.17.7 City tier pass).
 	 */
 	public static void age(LivingEntity e, int ticks) {
 		set(e, mark(e).withAged(now(e) + ticks));

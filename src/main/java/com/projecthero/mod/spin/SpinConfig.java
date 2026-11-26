@@ -14,10 +14,10 @@ public final class SpinConfig {
 	public static final double HEALTH_BONUS = 0.0;
 	/** +15% movement speed (of the base). */
 	public static final double SPEED_BONUS = 0.15;
-	/** +4 melee damage. */
-	public static final double MELEE_BONUS = 4.0;
-	/** 15% of every incoming hit taken away. */
-	public static final float DAMAGE_RESIST = 0.15f;
+	/** +11 melee damage: a 12 punch (v0.17.7 City tier; was +4, a 5 punch). */
+	public static final double MELEE_BONUS = 11.0;
+	/** 40% of every incoming hit taken away (v0.17.7 City tier; was 15%). */
+	public static final float DAMAGE_RESIST = 0.40f;
 	/** Passive Regeneration I (user, 2026-11-12): 1 health every 50 ticks, the same pace as the vanilla effect. */
 	public static final int REGEN_EVERY_TICKS = 50;
 
@@ -36,6 +36,8 @@ public final class SpinConfig {
 	// ---------------------------------------------------------------- riding
 	/** On a horse every Spin move hits 30% harder... */
 	public static final float RIDING_DAMAGE_MULT = 1.3f;
+	/** v0.17.7 City tier: no single Spin hit goes past this after the riding bonus (boss caps still apply on top). */
+	public static final float MAX_HIT = 30f;
 	/** ...and the Golden Rectangle closes twice as fast. */
 	public static final int RIDING_CHARGE_DIVISOR = 2;
 
@@ -102,9 +104,9 @@ public final class SpinConfig {
 	public static final double CURVE_REACH_MARGIN = 0.85;
 
 	// ---------------------------------------------------------------- R / Shift+R
-	public static final float BALL_DAMAGE = 10f;
+	public static final float BALL_DAMAGE = 12f; // v0.17.7 City tier: was 10
 	/** v0.17.5 (user): the ball hits what it passes through on the way home too, as hard as on the way out (once per creature per throw). */
-	public static final float BALL_RETURN_DAMAGE = 10f;
+	public static final float BALL_RETURN_DAMAGE = 12f; // v0.17.7 City tier: was 10
 	public static final float BALL_COST = 15f;
 	public static final int BALL_COOLDOWN = 10;
 	/** A ball hit spins the target for 3 s. */
@@ -113,8 +115,8 @@ public final class SpinConfig {
 	public static final int TWIN_COOLDOWN = 20;
 
 	// ---------------------------------------------------------------- G
-	/** Spin Touch: the design gives no damage, so a light 6 rides with the lock. */
-	public static final float TOUCH_DAMAGE = 6f;
+	/** Spin Touch: the design gives no damage, so a light hit rides with the lock (v0.17.7 City tier: 11, was 6). */
+	public static final float TOUCH_DAMAGE = 11f;
 	public static final float TOUCH_COST = 20f;
 	public static final double TOUCH_REACH = 4.0;
 	/** Joints locked for 2 s. */
@@ -122,9 +124,9 @@ public final class SpinConfig {
 	public static final int TOUCH_COOLDOWN = 20;
 
 	// ---------------------------------------------------------------- Shift+G (hold)
-	public static final float GOLDEN_DAMAGE = 35f;
-	/** Perfect Spin: double. */
-	public static final float GOLDEN_PERFECT_DAMAGE = 70f;
+	public static final float GOLDEN_DAMAGE = 12f; // v0.17.7 City tier: was 35 (a non-Perfect release throws a plain Steel Ball instead)
+	/** Perfect Spin: double -- 24 through armour (v0.17.7 City tier; was 70), so it stays under the Ball Breaker ultimate. */
+	public static final float GOLDEN_PERFECT_DAMAGE = 2f * GOLDEN_DAMAGE;
 	public static final float GOLDEN_COST = 50f;
 	public static final int GOLDEN_COOLDOWN = 12 * 20;
 	public static final double GOLDEN_RANGE = 40.0;
@@ -146,8 +148,8 @@ public final class SpinConfig {
 	public static final int SCAN_COOLDOWN = 8 * 20;
 
 	// ---------------------------------------------------------------- Shift+Z (hold)
-	/** 100 (user, 2026-11-12; was 60). */
-	public static final float BREAKER_DAMAGE = 100f;
+	/** The ultimate: 30, the top of City's 25-30 (v0.17.7 City tier; was 100, user 2026-11-12, before that 60). */
+	public static final float BREAKER_DAMAGE = 30f;
 	public static final float BREAKER_COST = 100f;
 	public static final int BREAKER_COOLDOWN = 3 * 60 * 20;
 	public static final double BREAKER_RANGE = 30.0;
@@ -158,11 +160,11 @@ public final class SpinConfig {
 	/** Aging: Weakness II, Slowness III, Wither for 10 s. */
 	public static final int AGING_TICKS = 10 * 20;
 	/**
-	 * The aging's withering bites ({@link SpinMarks}): one every 2 s while aged, like vanilla Wither I, but scaled with the strike
-	 * (60 -> 100, x5/3): 1 -> 1.67 a bite, 5 -> 8.33 over the 10 s. The Wither effect itself is shown, not dealt (amplifier kept 0
-	 * for the black hearts; its own damage is cancelled in {@link SpinDamage}).
+	 * The aging's withering bites ({@link SpinMarks}): one every 2 s while aged, like vanilla Wither I: 1 a bite, 5 over the 10 s
+	 * (v0.17.7 City tier: no longer scaled with the strike -- was 1.67 a bite with the 100 strike). The Wither effect itself is shown,
+	 * not dealt (amplifier kept 0 for the black hearts; its own damage is cancelled in {@link SpinDamage}).
 	 */
-	public static final float AGING_BITE_DAMAGE = 1f * (BREAKER_DAMAGE / 60f);
+	public static final float AGING_BITE_DAMAGE = 1f;
 	public static final int AGING_BITE_EVERY = 40;
 
 	// ---------------------------------------------------------------- X
