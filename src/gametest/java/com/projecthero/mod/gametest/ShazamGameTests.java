@@ -229,6 +229,7 @@ public class ShazamGameTests implements FabricGameTest {
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE) - 0.4) < 1e-3, "40% knockback resistance");
 		helper.assertTrue(ShazamDamage.factor(p, dmg.generic()) == 1f, "no flat cut any more (the armour does it)");
 		helper.assertTrue(Math.abs(ShazamDamage.factor(p, dmg.magic()) - 1.5f) < 1e-4, "magic hurts 50% more");
+		helper.assertTrue(ShazamDamage.factor(p, dmg.fall()) == 0f, "v0.17.7: no fall damage at all while transformed (walking, not flying)");
 		helper.assertTrue(ShazamDamage.isMagic(dmg.indirectMagic(p, null)), "potions count as magic");
 		helper.assertTrue(ShazamDamage.factor(p, dmg.genericKill()) == 1f, "/kill still kills");
 		// no hunger drain

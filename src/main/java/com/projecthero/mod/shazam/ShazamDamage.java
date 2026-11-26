@@ -24,7 +24,7 @@ import net.minecraft.world.entity.projectile.EvokerFangs;
  * v0.17.3 Shazam: hits on the champion (and the family), all while transformed.
  * <ul>
  *   <li><b>Magic</b> ({@link #isMagic}: potions, evokers, witches, Doctor Fate, Raven) hurts 50% more.</li>
- *   <li>No fall damage while flying, during the ultimate or just after a dash, leap or slam.</li>
+ *   <li>No fall damage while transformed (v0.17.7; was only while flying, during the ultimate or after a dash, leap or slam).</li>
  *   <li>v0.17.7 Planet: <b>Stamina of Atlas</b> is netherite-level armour ({@link Shazam#reconcile}; was a flat 35% here), and
  *   <b>Courage of Achilles</b> is Resistance II (was Achilles Stand's total immunity and squad shield).</li>
  * </ul>
@@ -82,7 +82,8 @@ public final class ShazamDamage {
 		}
 		float f = 1f;
 		if (Shazam.transformed(victim)) {
-			if (source.is(DamageTypeTags.IS_FALL) && (Shazam.isFlying(victim) || Shazam.eternityAge(victim) >= 0 || ShazamMoves.fallSafe(victim))) {
+			// v0.17.7 (user: "Make shazam take no fall damage"): never, while transformed (was only while flying / after a move)
+			if (source.is(DamageTypeTags.IS_FALL)) {
 				return 0f;
 			}
 			if (isMagic(source)) {
