@@ -130,7 +130,7 @@ Assemble on top; bosses keep the 6% cap and are never launched.
 | Stalk / Scan stacking | uncapped (x3 x1.25) | capped at 20 in `BlackPantherCombat.capped` |
 | Suit armour / toughness | +8 / +2 | +12 / +4 |
 
-### Black Panther v0.17.7 (user's numbers, both kits; the suit is now crafted armour)
+### Black Panther v0.17.7 (user's numbers, both kits; the suit is now a crafted necklace, H to suit up)
 | Hit | Before | After |
 |---|---|---|
 | Bare fist unsuited / suited | 3 (+2 herb) / 8 (+5 claws, N toggle) | 5 / 10 (claws always out) |

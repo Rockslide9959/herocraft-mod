@@ -107,6 +107,10 @@ public final class BlackPantherHud {
 							ids.length > 1 ? Component.translatable("projecthero.black_panther.ability." + ids[1]) : null));
 				}
 			}
+			// v0.17.7: H with the necklace on lets the suit out / draws it back (no HUD box for H, the project rule)
+			if (suited || com.projecthero.mod.blackpanther.BlackPanther.wearsNecklace(p)) {
+				rows.add(MoveListOverlay.Row.of("H", Component.translatable("projecthero.black_panther.ability.suit"), null));
+			}
 			// N has no HUD box (the project rule): the suit's mask (Shift+N) is listed here instead; the claws are always out
 			if (suited) {
 				rows.add(MoveListOverlay.Row.of("Shift+" + MoveListOverlay.key(AbilitySlot.SLOT_8), Component.translatable("projecthero.black_panther.ability.mask"),

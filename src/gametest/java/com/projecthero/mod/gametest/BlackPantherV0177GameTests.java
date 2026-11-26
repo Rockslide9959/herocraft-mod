@@ -25,11 +25,14 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.monster.Vindicator;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.item.ArmorItem;
+import net.minecraft.world.item.Equipable;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 /**
- * v0.17.7 Black Panther rework (user): the crafted, worn suit switches the kit; the claws are always out (no toggle, no model);
+ * v0.17.7 Black Panther rework (user): the crafted necklace plus H forms the suit and switches the kit (H again, or the necklace
+ * off, puts it away; the necklace model only while suited and worn; old suits become one necklace); the claws are always out (no toggle, no model);
  * melee 5 unsuited / 10 suited; Regeneration I / II; the Warrior's Combo 5 / 7 / 10 (8 / 9 / 10 suited, and it is the suited R
  * too); Takedown reaches 3 blocks for 10; Block cuts frontal hits; Shift+R Kinetic Pulse 10; the new Ground Pound, Flying Kick and
  * Rising Uppercut. Vindicators (no natural armour, they do not burn in daylight) with 200 health take the exact numbers. Mock players are not ticked by the
@@ -210,56 +213,121 @@ public class BlackPantherV0177GameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** Back-dates the running suit change (up or down) so the next H is taken. */
+	private static void endChange(ServerPlayer p) {
+		var s = BlackPanther.state(p).copy();
+		s.suitChangeAt = p.level().getGameTime() - BlackPantherConfig.SUIT_UP_TICKS - 1;
+		p.setAttached(ModAttachments.BLACK_PANTHER_STATE, s);
+	}
+
+	private static int necklaces(ServerPlayer p) {
+		return p.getInventory().countItem(BlackPantherItems.NECKLACE); // counts the worn one too
+	}
+
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void wearingTheFullSuitSwitchesTheKit(GameTestHelper helper) {
+	public void hWithTheNecklaceFormsTheSuitAndHAgainPutsItAway(GameTestHelper helper) {
 		ServerPlayer p = BlackPantherGameTests.bare(helper);
-		p.setItemSlot(EquipmentSlot.HEAD, new ItemStack(BlackPantherItems.SUIT_HELMET));
-		p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(BlackPantherItems.SUIT_CHESTPLATE));
-		p.setItemSlot(EquipmentSlot.LEGS, new ItemStack(BlackPantherItems.SUIT_LEGGINGS));
+		double baseArmour = p.getAttributeValue(Attributes.ARMOR);
+		double baseTough = p.getAttributeValue(Attributes.ARMOR_TOUGHNESS);
+		// no necklace: H does nothing to the suit, the unsuited kit stays
+		BlackPanther.toggleSuit(p);
+		helper.assertTrue(!BlackPanther.suited(p) && !BlackPanther.suitedKit(p), "no necklace: no suit");
+		// the necklace on alone does not suit him up
+		p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(BlackPantherItems.NECKLACE));
 		BlackPanther.tick(p);
-		helper.assertTrue(!BlackPanther.suited(p) && !BlackPanther.suitedKit(p), "three pieces are not the suit");
-		p.setItemSlot(EquipmentSlot.FEET, new ItemStack(BlackPantherItems.SUIT_BOOTS));
-		BlackPanther.syncSuit(p);
-		helper.assertTrue(BlackPanther.suited(p) && BlackPanther.suitedKit(p), "the fourth piece: the suit runs out and the suited kit is live");
-		helper.assertTrue(BlackPanther.changing(p), "the suit-up plays first");
+		helper.assertTrue(!BlackPanther.suited(p), "wearing the necklace is not the suit by itself");
+		// H: the suit runs out, the suited kit is live, the armour and Regeneration II come with it
+		BlackPanther.toggleSuit(p);
+		helper.assertTrue(BlackPanther.suited(p) && BlackPanther.suitedKit(p), "H: the suit forms");
+		helper.assertTrue(BlackPanther.changing(p) && BlackPanther.state(p).animId == com.projecthero.mod.blackpanther.data.BlackPantherState.ANIM_SUIT_UP,
+				"the suit-up build plays");
+		helper.assertTrue(p.getAttributeValue(Attributes.ARMOR) - baseArmour >= BlackPantherConfig.SUIT_ARMOR - 1.0e-4, "12 armour while suited");
+		helper.assertTrue(p.getAttributeValue(Attributes.ARMOR_TOUGHNESS) - baseTough >= BlackPantherConfig.SUIT_TOUGHNESS - 1.0e-4, "4 toughness while suited");
+		MobEffectInstance regen = p.getEffect(MobEffects.REGENERATION);
+		helper.assertTrue(regen != null && regen.getAmplifier() == BlackPantherConfig.REGEN_SUITED, "Regeneration II in the suit");
+		BlackPanther.toggleSuit(p);
+		helper.assertTrue(BlackPanther.suited(p), "a second H mid-build is ignored (one change at a time)");
 		BlackPantherGameTests.finishChange(p);
 		press(p, AbilitySlot.SLOT_3, false);
 		helper.assertTrue(BlackPanther.cooldownRemaining(p, BlackPantherAbilities.LEAP) > 0, "suited X: Panther Leap");
-		BlackPantherGameTests.takeOffSuit(p);
-		helper.assertTrue(!BlackPanther.suited(p), "a piece off: the suit drains away");
+		// H again: the suit drains back into the necklace, which stays on
+		BlackPanther.toggleSuit(p);
+		helper.assertTrue(!BlackPanther.suited(p) && BlackPanther.state(p).animId == com.projecthero.mod.blackpanther.data.BlackPantherState.ANIM_SUIT_DOWN,
+				"H again: the suit drains away");
+		helper.assertTrue(BlackPanther.wearsNecklace(p), "the necklace stays on");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ARMOR) - baseArmour) < 1.0e-4, "the suit's armour goes with it");
 		press(p, AbilitySlot.SLOT_2, true);
 		helper.assertTrue(BlackPanther.cooldownRemaining(p, BlackPantherUnsuited.POUND) > 0, "unsuited Shift+G: Ground Pound");
-		// someone without the power can wear it as armour, but gets no kit
+		// suited again, then the necklace comes off: the suit goes too
+		endChange(p);
+		BlackPanther.toggleSuit(p);
+		helper.assertTrue(BlackPanther.suited(p), "H once more: suited");
+		p.setItemSlot(EquipmentSlot.CHEST, ItemStack.EMPTY);
+		BlackPanther.syncSuit(p); // what the tick runs every tick (tick itself runs once a game tick, and this tick it already ran)
+		helper.assertTrue(!BlackPanther.suited(p) && !BlackPanther.suitedKit(p), "necklace off: the suit drains away");
+		// someone without the power: the necklace does nothing
 		ServerPlayer other = helper.makeMockServerPlayerInLevel();
-		BlackPantherGameTests.wearSuit(other);
-		helper.assertTrue(!BlackPanther.suited(other) && BlackPanther.wearsFullSuit(other), "plain armour on anyone else");
+		other.setItemSlot(EquipmentSlot.CHEST, new ItemStack(BlackPantherItems.NECKLACE));
+		BlackPanther.toggleSuit(other);
+		helper.assertTrue(!BlackPanther.suited(other), "no power: no suit");
 		helper.succeed();
 	}
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void theSuitHasFourRecipesAndTheArmour(GameTestHelper helper) {
+	public void hPutsOnANecklaceFromTheInventory(GameTestHelper helper) {
+		ServerPlayer p = BlackPantherGameTests.bare(helper);
+		p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
+		p.getInventory().add(new ItemStack(BlackPantherItems.NECKLACE));
+		BlackPanther.toggleSuit(p);
+		helper.assertTrue(BlackPanther.wearsNecklace(p) && BlackPanther.suited(p), "the necklace goes on and the suit forms");
+		helper.assertTrue(p.getInventory().countItem(Items.IRON_CHESTPLATE) == 1, "the chestplate it replaced is kept");
+		helper.assertTrue(necklaces(p) == 1, "still one necklace");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void theNecklaceHasOneRecipeAndTheArmourPiecesAreGone(GameTestHelper helper) {
 		var recipes = helper.getLevel().getServer().getRecipeManager();
-		Item[] pieces = { BlackPantherItems.SUIT_HELMET, BlackPantherItems.SUIT_CHESTPLATE, BlackPantherItems.SUIT_LEGGINGS, BlackPantherItems.SUIT_BOOTS };
-		String[] ids = { "black_panther_helmet", "black_panther_chestplate", "black_panther_leggings", "black_panther_boots" };
-		int armour = 0;
-		float toughness = 0f;
-		for (int i = 0; i < 4; i++) {
-			var r = recipes.byKey(com.projecthero.mod.ProjectHeroMod.id(ids[i]));
-			helper.assertTrue(r.isPresent(), ids[i] + " loads");
-			helper.assertTrue(r.get().value().getResultItem(helper.getLevel().registryAccess()).is(pieces[i]), ids[i] + " makes the piece");
-			ArmorItem a = (ArmorItem) pieces[i];
-			armour += a.getDefense();
-			toughness += a.getToughness();
-			helper.assertTrue(!new ItemStack(pieces[i]).isDamageableItem(), ids[i] + " never wears out");
+		var r = recipes.byKey(com.projecthero.mod.ProjectHeroMod.id("black_panther_necklace"));
+		helper.assertTrue(r.isPresent(), "the necklace recipe loads");
+		helper.assertTrue(r.get().value().getResultItem(helper.getLevel().registryAccess()).is(BlackPantherItems.NECKLACE), "it makes the necklace");
+		int vibranium = 0;
+		for (var ing : r.get().value().getIngredients()) {
+			if (ing.test(new ItemStack(com.projecthero.mod.ultron.contagion.item.ContagionItems.VIBRANIUM_INGOT))) {
+				vibranium++;
+			}
 		}
-		helper.assertTrue(armour == (int) BlackPantherConfig.SUIT_ARMOR, "12 armour over the set, got " + armour);
-		helper.assertTrue(Math.abs(toughness - BlackPantherConfig.SUIT_TOUGHNESS) < 1.0e-4, "4 toughness over the set, got " + toughness);
-		helper.assertTrue(recipes.byKey(com.projecthero.mod.ProjectHeroMod.id("panther_habit")).isEmpty(), "the old habit recipe is gone");
+		helper.assertTrue(vibranium == 6, "6 Vibranium Ingots, the old set's cost: " + vibranium);
+		for (String id : new String[] { "black_panther_helmet", "black_panther_chestplate", "black_panther_leggings", "black_panther_boots", "panther_habit" }) {
+			helper.assertTrue(recipes.byKey(com.projecthero.mod.ProjectHeroMod.id(id)).isEmpty(), "no recipe for " + id);
+		}
+		ItemStack necklace = new ItemStack(BlackPantherItems.NECKLACE);
+		helper.assertTrue(!necklace.isDamageableItem(), "the necklace never wears out");
+		helper.assertTrue(BlackPantherItems.NECKLACE instanceof Equipable e && e.getEquipmentSlot() == EquipmentSlot.CHEST,
+				"worn in the chestplate slot, like the Flash Ring");
+		helper.assertTrue(!(BlackPantherItems.SUIT_HELMET instanceof ArmorItem), "the old pieces are not armour any more");
 		helper.succeed();
 	}
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void aSuitHeldBeforeIsHandedBackOnce(GameTestHelper helper) {
+	public void theNecklaceShowsOnlyWhileSuitedAndWorn(GameTestHelper helper) {
+		ServerPlayer p = BlackPantherGameTests.bare(helper);
+		helper.assertTrue(!BlackPanther.showsNecklace(p), "no necklace, no suit: not drawn");
+		p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(BlackPantherItems.NECKLACE));
+		helper.assertTrue(!BlackPanther.showsNecklace(p), "necklace worn but no suit: not drawn");
+		BlackPanther.toggleSuit(p);
+		helper.assertTrue(BlackPanther.showsNecklace(p), "suited with the necklace: drawn");
+		BlackPantherGameTests.finishChange(p);
+		BlackPanther.toggleSuit(p);
+		helper.assertTrue(!BlackPanther.showsNecklace(p), "suit put away: not drawn");
+		ServerPlayer other = helper.makeMockServerPlayerInLevel();
+		other.setItemSlot(EquipmentSlot.CHEST, new ItemStack(BlackPantherItems.NECKLACE));
+		helper.assertTrue(!BlackPanther.showsNecklace(other), "no power: never drawn");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void oldSuitsBecomeOneNecklace(GameTestHelper helper) {
 		// 0.17.4-0.17.6: the habit in the necklace, suited at the time
 		ServerPlayer p = BlackPantherGameTests.bare(helper);
 		var old = BlackPanther.state(p).copy();
@@ -269,27 +337,51 @@ public class BlackPantherV0177GameTests implements FabricGameTest {
 		old.necklaceOff = true;
 		p.setAttached(ModAttachments.BLACK_PANTHER_STATE, old);
 		BlackPanther.onPlayerJoin(p);
-		helper.assertTrue(BlackPanther.wearsFullSuit(p), "it was on: the four pieces are worn");
+		helper.assertTrue(BlackPanther.wearsNecklace(p), "it was on: the necklace is worn");
 		helper.assertTrue(BlackPanther.suited(p), "and the suit stays on");
 		helper.assertTrue(BlackPanther.state(p).v177 && !BlackPanther.state(p).habit && !BlackPanther.state(p).necklaceOff, "migrated once");
 		BlackPanther.onPlayerJoin(p);
-		helper.assertTrue(p.getInventory().countItem(BlackPantherItems.SUIT_HELMET) == 1, "not handed out twice (countItem counts the worn one)");
-		// 0.17.3: no habit flag, not migrated at all, suit off: the pieces go into the inventory
+		helper.assertTrue(necklaces(p) == 1, "not handed out twice");
+		// 0.17.3: no habit flag, not migrated at all, suit off: the necklace goes into the inventory
 		ServerPlayer o = BlackPantherGameTests.bare(helper);
 		var older = new com.projecthero.mod.blackpanther.data.BlackPantherState();
 		older.hasPower = true;
 		o.setAttached(ModAttachments.BLACK_PANTHER_STATE, older);
 		BlackPanther.onPlayerJoin(o);
-		helper.assertTrue(o.getInventory().countItem(BlackPantherItems.SUIT_CHESTPLATE) == 1 && !BlackPanther.suited(o), "into the inventory");
+		helper.assertTrue(necklaces(o) == 1 && !BlackPanther.wearsNecklace(o) && !BlackPanther.suited(o), "into the inventory");
 		// a new Black Panther gets nothing for free
 		ServerPlayer fresh = BlackPantherGameTests.bare(helper);
 		BlackPanther.onPlayerJoin(fresh);
-		helper.assertTrue(fresh.getInventory().countItem(BlackPantherItems.SUIT_HELMET) == 0, "a new power is not given one");
-		// an old habit item unfolds into the pieces
+		helper.assertTrue(necklaces(fresh) == 0, "a new power is not given one");
+		// today's first build: the four armour pieces worn (suited in them) -> one necklace, worn, still suited
+		ServerPlayer dev = BlackPantherGameTests.bare(helper);
+		dev.setItemSlot(EquipmentSlot.HEAD, new ItemStack(BlackPantherItems.SUIT_HELMET));
+		dev.setItemSlot(EquipmentSlot.CHEST, new ItemStack(BlackPantherItems.SUIT_CHESTPLATE));
+		dev.setItemSlot(EquipmentSlot.LEGS, new ItemStack(BlackPantherItems.SUIT_LEGGINGS));
+		dev.setItemSlot(EquipmentSlot.FEET, new ItemStack(BlackPantherItems.SUIT_BOOTS));
+		var was = BlackPanther.state(dev).copy();
+		was.suited = true;
+		dev.setAttached(ModAttachments.BLACK_PANTHER_STATE, was);
+		BlackPanther.convertLegacyItems(dev);
+		BlackPanther.tick(dev);
+		helper.assertTrue(necklaces(dev) == 1 && BlackPanther.wearsNecklace(dev), "one necklace for the set, worn where the chestplate was");
+		helper.assertTrue(dev.getItemBySlot(EquipmentSlot.HEAD).isEmpty() && dev.getItemBySlot(EquipmentSlot.FEET).isEmpty(), "the pieces are gone");
+		helper.assertTrue(BlackPanther.suited(dev), "and he stays suited");
+		BlackPanther.convertLegacyItems(dev);
+		helper.assertTrue(necklaces(dev) == 1, "never twice");
+		// loose pieces (anyone): a set and a spare piece is still one necklace
+		ServerPlayer loose = helper.makeMockServerPlayerInLevel();
+		for (Item piece : new Item[] { BlackPantherItems.SUIT_HELMET, BlackPantherItems.SUIT_CHESTPLATE, BlackPantherItems.SUIT_LEGGINGS,
+				BlackPantherItems.SUIT_BOOTS, BlackPantherItems.SUIT_BOOTS }) {
+			loose.getInventory().add(new ItemStack(piece));
+		}
+		BlackPanther.convertLegacyItems(loose);
+		helper.assertTrue(necklaces(loose) == 1 && loose.getInventory().countItem(BlackPantherItems.SUIT_BOOTS) == 0, "five pieces: one necklace");
+		// an old Panther Habit item becomes a necklace
 		ItemStack habit = new ItemStack(BlackPantherItems.HABIT);
 		fresh.setItemInHand(InteractionHand.MAIN_HAND, habit);
 		habit.use(fresh.level(), fresh, InteractionHand.MAIN_HAND);
-		helper.assertTrue(fresh.getInventory().countItem(BlackPantherItems.SUIT_BOOTS) == 1, "the habit unfolds into the suit");
+		helper.assertTrue(necklaces(fresh) == 1 && fresh.getInventory().countItem(BlackPantherItems.HABIT) == 0, "the habit becomes the necklace");
 		helper.succeed();
 	}
 

@@ -136,12 +136,10 @@ public final class ProjectHeroJeiPlugin implements IModPlugin {
 				new ItemStack(com.projecthero.mod.symbiote.item.SymbioteHostItems.BOOTS)),
 				net.minecraft.network.chat.Component.translatable("projecthero.jei.symbiote_host_suit"),
 				net.minecraft.network.chat.Component.translatable("projecthero.jei.symbiote_host_moves")); // v0.17.5: moveset v2
-		// v0.17.7: the crafted Black Panther suit (its recipes show in the crafting category on their own)
-		registration.addItemStackInfo(java.util.List.of(new ItemStack(com.projecthero.mod.blackpanther.item.BlackPantherItems.SUIT_HELMET),
-				new ItemStack(com.projecthero.mod.blackpanther.item.BlackPantherItems.SUIT_CHESTPLATE),
-				new ItemStack(com.projecthero.mod.blackpanther.item.BlackPantherItems.SUIT_LEGGINGS),
-				new ItemStack(com.projecthero.mod.blackpanther.item.BlackPantherItems.SUIT_BOOTS)),
-				net.minecraft.network.chat.Component.translatable("projecthero.jei.black_panther_suit"));
+		// v0.17.7: the crafted Black Panther Necklace -- the whole suit (its recipe shows in the crafting category on its own)
+		registration.addItemStackInfo(new ItemStack(com.projecthero.mod.blackpanther.item.BlackPantherItems.NECKLACE),
+				net.minecraft.network.chat.Component.translatable("projecthero.jei.black_panther_necklace"),
+				net.minecraft.network.chat.Component.translatable("projecthero.jei.black_panther_necklace2"));
 		// v0.17.5: the villain-hideout artifacts and the core
 		for (com.projecthero.mod.hideout.HideoutFaction f : com.projecthero.mod.hideout.HideoutFaction.values()) {
 			net.minecraft.world.item.Item artifact = switch (f) {
@@ -240,6 +238,13 @@ public final class ProjectHeroJeiPlugin implements IModPlugin {
 	@Override
 	public void onRuntimeAvailable(mezz.jei.api.runtime.IJeiRuntime jeiRuntime) {
 		runtime = jeiRuntime;
+		// v0.17.7: the Black Panther's legacy suit items (the four armour pieces of the first v0.17.7 build, the Panther Habit) have
+		// no recipe and turn into the necklace -- they stay out of JEI's list
+		java.util.List<ItemStack> legacy = new java.util.ArrayList<>();
+		for (net.minecraft.world.item.Item i : com.projecthero.mod.blackpanther.item.BlackPantherItems.legacyItems()) {
+			legacy.add(new ItemStack(i));
+		}
+		jeiRuntime.getIngredientManager().removeIngredientsAtRuntime(mezz.jei.api.constants.VanillaTypes.ITEM_STACK, legacy);
 		if (!com.projecthero.mod.omnitrix.OmnitrixFeature.enabled()) {
 			// v0.17.1: the Omnitrix is not public yet -- its items stay out of JEI's list
 			java.util.List<ItemStack> hidden = new java.util.ArrayList<>();

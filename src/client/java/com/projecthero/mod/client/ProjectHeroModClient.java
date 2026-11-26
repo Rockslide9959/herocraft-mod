@@ -968,6 +968,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				|| com.projecthero.mod.client.saiyan.SaiyanClient.ownsH(p)
 				|| com.projecthero.mod.client.bluebeetle.BlueBeetleClient.ownsH(p)
 				|| com.projecthero.mod.client.flash.FlashClient.ownsH(p)
+				|| com.projecthero.mod.client.blackpanther.BlackPantherClient.ownsH(p) // v0.17.7: the necklace
 				|| wearingAnyIronMan(p)
 				|| com.projecthero.mod.maxsteel.MaxSteel.hasPower(p)
 				|| com.projecthero.mod.wolverine.Wolverine.hasPower(p)
@@ -1104,6 +1105,11 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.flash.FlashClient.ownsH(client.player)) {
 				// v0.14.11: H as a speedster with the Flash Suit -- the suit into the ring / out of it (Shift+H still opens the wheel).
 				com.projecthero.mod.client.flash.FlashClient.pressH();
+			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.blackpanther.BlackPantherClient.ownsH(client.player)) {
+				// v0.17.7 (user: "equips it and presses H to make it transform into the full suit"): H as the Black Panther with the
+				// necklace -- the suit out of it / back in, the Flash Ring's pattern (Shift+H still opens the wheel; no necklace, H
+				// falls through to the power selector).
+				com.projecthero.mod.client.blackpanther.BlackPantherClient.pressH();
 			} else if (client.player != null && wearingAnyIronMan(client.player)) {
 				ClientPlayNetworking.send(new com.projecthero.mod.network.IronManActionPayload(
 						com.projecthero.mod.network.IronManActionPayload.Action.TOGGLE_FACEPLATE));

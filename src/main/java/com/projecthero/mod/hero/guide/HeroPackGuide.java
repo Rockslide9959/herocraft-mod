@@ -2080,7 +2080,7 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide.black_panther.tier").withStyle(ChatFormatting.GOLD));
 			para(lines, "projecthero.guide.black_panther.body");
 			blank(lines);
-			// v0.17.7: the crafted, worn suit, the two movesets and the passives
+			// v0.17.7: the crafted necklace (the suit), the two movesets and the passives
 			for (String section : new String[]{"origin", "suit", "movesets", "kinetic", "passives"}) {
 				head(lines, "projecthero.guide.black_panther." + section);
 				para(lines, "projecthero.guide.black_panther." + section + ".body");
@@ -2093,7 +2093,7 @@ public final class HeroPackGuide {
 				blank(lines);
 			}
 			head(lines, "projecthero.guide.black_panther.unsuited_controls");
-			for (String[] row : new String[][] { { "R", "warriors_combo" }, { "Shift+R", "leg_sweep" }, { "G", "takedown" }, { "Shift+G", "ground_pound" },
+			for (String[] row : new String[][] { { "H", "suit" }, { "R", "warriors_combo" }, { "Shift+R", "leg_sweep" }, { "G", "takedown" }, { "Shift+G", "ground_pound" },
 					{ "X", "vault" }, { "Shift+X", "flying_kick" }, { "Z", "throwing_knife" }, { "Shift+Z", "kimoyo_scan" }, { "V", "rising_uppercut" },
 					{ "Shift+V", "hunters_tracking" }, { "C", "block" }, { "Shift+C", "ancestral_resolve" } }) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
@@ -2102,7 +2102,7 @@ public final class HeroPackGuide {
 			}
 			blank(lines);
 			head(lines, "projecthero.guide.black_panther.suited_controls");
-			for (String[] row : new String[][] { { "R", "warriors_combo_suited" }, { "Shift+R", "kinetic_pulse" }, { "Shift+R (full bar)", "kinetic_overload" },
+			for (String[] row : new String[][] { { "H", "suit" }, { "R", "warriors_combo_suited" }, { "Shift+R", "kinetic_pulse" }, { "Shift+R (full bar)", "kinetic_overload" },
 					{ "G", "claw_combo" },
 					{ "Shift+G", "pounce" }, { "X", "panther_leap" }, { "Shift+X", "drop_strike" }, { "Z", "vibranium_dagger" },
 					{ "Shift+Z", "kimoyo_flash" }, { "V", "stalk" }, { "Shift+V", "panther_senses" }, { "C", "absorb_stance" },
@@ -2813,7 +2813,7 @@ public final class HeroPackGuide {
 		icon(CH_MULTIMOUSE, "mouse_pendant"); // v0.17.1
 		icon(CH_QUEEN_BEE, "bee_comb"); // v0.17.2
 		icon(CH_RYUKO, "dragon_choker"); // v0.17.3
-		icon(CH_BLACK_PANTHER, "black_panther_helmet"); // v0.17.3 (v0.17.7: the crafted suit helmet)
+		icon(CH_BLACK_PANTHER, "black_panther_necklace"); // v0.17.3 (v0.17.7: the crafted necklace, the whole suit)
 		icon(CH_UNDEAD, "undead_card"); // v0.17.3
 		icon(CH_SAIYAN, "saiyan_blood"); // v0.17.3
 		icon(CH_POWER_ARMOUR, "power_armour_frame_diamond"); // v0.17.5
