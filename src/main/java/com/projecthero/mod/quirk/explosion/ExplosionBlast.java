@@ -113,6 +113,7 @@ public final class ExplosionBlast {
 			return false;
 		}
 		boolean boss = isBoss(target);
+		damage = com.projecthero.mod.quirk.QuirkConfig.capHit(damage); // v0.17.7 City tier
 		float dmg = boss ? Math.min(damage, target.getMaxHealth() * ExplosionConfig.BOSS_MAX_FRACTION_PER_HIT) : damage;
 		boolean landed = AbilityHelpers.hurtBurst(owner, target, source(owner), Math.max(0.5f, dmg));
 		if (!landed && !AbilityHelpers.hurtLands(owner, target, dmg)) {

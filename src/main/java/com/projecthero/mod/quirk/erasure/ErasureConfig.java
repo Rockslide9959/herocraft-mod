@@ -152,7 +152,7 @@ public final class ErasureConfig {
 	public static final int BIND_COOLDOWN = 160;
 	public static final double LASH_RANGE = 16.0;
 	/** v0.17.1: buffed from 3 (and it sets up a free follow-up). */
-	public static final float LASH_DAMAGE = 6f;
+	public static final float LASH_DAMAGE = 11f;
 	/** Speed the pulled creature is yanked in at, blocks a tick. */
 	public static final double LASH_PULL = 1.25;
 	public static final int LASH_COOLDOWN = 50;
@@ -165,8 +165,8 @@ public final class ErasureConfig {
 	public static final int HOLD_TICKS = 6;
 	/** Strung up this far above where it stood. */
 	public static final double REEL_LIFT = 1.2;
-	/** 2 a second, as two 1-damage tugs. */
-	public static final float REEL_DAMAGE = 1f;
+	/** v0.17.7 City tier: 4 a second, as two 2-damage tugs. */
+	public static final float REEL_DAMAGE = 2f;
 	public static final int REEL_DAMAGE_EVERY = 10;
 	/** Dry Eyes a tick while he holds it (raw: 5 a second), paced like the stare. */
 	public static final float REEL_DRY = 0.25f;
@@ -182,15 +182,15 @@ public final class ErasureConfig {
 	public static final double COMBO_RANGE = 3.6;
 	/** The four strikes: when (ticks after the press) and how hard. */
 	public static final int[] COMBO_AT = { 2, 6, 10, 16 };
-	/** v0.17.1: buffed from 3 / 3 / 4 / 7. */
-	public static final float[] COMBO_DAMAGE = { 5f, 5f, 6f, 10f };
+	/** v0.17.1: buffed from 3 / 3 / 4 / 7; v0.17.7 City tier: from 5 / 5 / 6 / 10. */
+	public static final float[] COMBO_DAMAGE = { 11f, 11f, 12f, 14f };
 	public static final int COMBO_TICKS = 22;
 	public static final int COMBO_COOLDOWN = 50;
 	/** The parry window. */
 	public static final int COUNTER_WINDOW = 12;
 	public static final int COUNTER_COOLDOWN = 80;
-	/** v0.17.1: from 8. */
-	public static final float COUNTER_DAMAGE = 10f;
+	/** v0.17.1: from 8; v0.17.7 City tier: from 10. */
+	public static final float COUNTER_DAMAGE = 13f;
 	/** The riposte reaches attackers this close (a shooter further off is only blocked). */
 	public static final double COUNTER_REACH = 5.0;
 	public static final int COUNTER_BIND_TICKS = 40;
@@ -203,8 +203,8 @@ public final class ErasureConfig {
 	public static final double ZIP_SPEED = 1.35;
 	public static final double ZIP_ARRIVE = 2.2;
 	public static final int ZIP_MAX_TICKS = 34;
-	/** v0.17.1: 6 on arrival (from 4). */
-	public static final float ZIP_KICK_DAMAGE = 6f;
+	/** v0.17.7 City tier: 11 on arrival (6 in v0.17.1). */
+	public static final float ZIP_KICK_DAMAGE = 11f;
 	public static final int ZIP_COOLDOWN = 50;
 	/** v0.17.1: hold X this long and the tap (Scarf Pull) becomes the Scarf Swing. */
 	public static final int SWING_HOLD_TICKS = 5;
@@ -221,11 +221,11 @@ public final class ErasureConfig {
 	public static final int SPIN_TICKS = 30;
 	public static final double SPIN_RADIUS = 3.0;
 	/** ...hitting what it swings into (once each)... */
-	/** v0.17.1: 8 a hit (from 6)... */
-	public static final float SPIN_HIT_DAMAGE = 8f;
+	/** v0.17.7 City tier: 12 a hit (8 in v0.17.1)... */
+	public static final float SPIN_HIT_DAMAGE = 12f;
 	/** ...then flung the way he looks. */
-	/** ...10 on the fling (from 6). */
-	public static final float SPIN_THROW_DAMAGE = 10f;
+	/** ...14 on the fling (10 in v0.17.1). */
+	public static final float SPIN_THROW_DAMAGE = 14f;
 	public static final double SPIN_THROW_SPEED = 1.6;
 	public static final int SPIN_COOLDOWN = 200;
 	public static final double DISARM_RANGE = 14.0;
@@ -233,8 +233,8 @@ public final class ErasureConfig {
 
 	// ---------------------------------------------------------------- C: Scarf Whip / Shift+C: Goggles
 	public static final double WHIP_RANGE = 10.0;
-	/** v0.17.1: 7 and a stagger (from 5). */
-	public static final float WHIP_DAMAGE = 7f;
+	/** v0.17.7 City tier: 12 and a stagger (7 in v0.17.1). */
+	public static final float WHIP_DAMAGE = 12f;
 	public static final int WHIP_STAGGER_TICKS = 20;
 	public static final int WHIP_COOLDOWN = 25;
 	/** v0.17.1 Shift+C Multi-Bind: the scarf fans out in a cone and ties up to three for 2.5 s. */
@@ -260,7 +260,7 @@ public final class ErasureConfig {
 	public static final int TD_TARGETS = 6;
 	public static final int TD_STARTUP_TICKS = 10;
 	public static final int TD_STEP_TICKS = 7;
-	public static final float TD_KICK_DAMAGE = 10f;
+	public static final float TD_KICK_DAMAGE = 25f;
 	/** It ends with all of them strung up this long (bosses are never bound). */
 	public static final int TD_HANG_TICKS = 40;
 

@@ -101,7 +101,7 @@ public final class ExplosionConfig {
 
 	// ---------------------------------------------------------------- R: AP Shot / Shift+R: Auto-Cannon / hold R: Pierce
 	public static final double AP_RANGE = 32.0;
-	public static final float AP_DAMAGE = 10f;
+	public static final float AP_DAMAGE = 12f;
 	public static final double AP_RADIUS = 2.0;
 	public static final double AP_KNOCKBACK = 1.0;
 	public static final float AP_SWEAT = 6f;
@@ -110,7 +110,7 @@ public final class ExplosionConfig {
 	public static final int AUTO_SHOTS = 8;
 	public static final int AUTO_INTERVAL = 2;
 	public static final double AUTO_RANGE = 28.0;
-	public static final float AUTO_DAMAGE = 4f;
+	public static final float AUTO_DAMAGE = 11f;
 	public static final double AUTO_RADIUS = 1.4;
 	public static final double AUTO_SPREAD_DEGREES = 2.5;
 	public static final float AUTO_SWEAT = 1.5f;
@@ -120,8 +120,8 @@ public final class ExplosionConfig {
 	public static final int PIERCE_CHARGE_TICKS = 30;
 	public static final double PIERCE_RANGE = 48.0;
 	/** Damage from a bare charge to a full one. */
-	public static final float PIERCE_MIN_DAMAGE = 8f;
-	public static final float PIERCE_MAX_DAMAGE = 22f;
+	public static final float PIERCE_MIN_DAMAGE = 11f;
+	public static final float PIERCE_MAX_DAMAGE = 15f;
 	public static final double PIERCE_RADIUS = 0.7;
 	public static final float PIERCE_SWEAT = 10f;
 	public static final float PIERCE_STRAIN = 14f;
@@ -144,7 +144,7 @@ public final class ExplosionConfig {
 	public static final int PROPEL_MAX_TICKS = 1200;
 	/** The Dash: a back-blast toward the WASD direction (the look when no key is held), about 12 blocks. */
 	public static final double DASH_DISTANCE = 12.0;
-	public static final float DASH_DAMAGE = 4f;
+	public static final float DASH_DAMAGE = 11f;
 	public static final double DASH_RADIUS = 2.0;
 	public static final float DASH_SWEAT = 5f;
 	public static final float DASH_STRAIN = 5f;
@@ -184,16 +184,16 @@ public final class ExplosionConfig {
 	public static final int BLAST_RUSH_INTERVAL = 2;
 	public static final double BLAST_RUSH_START = 2.0;
 	public static final double BLAST_RUSH_STEP = 2.5;
-	public static final float BLAST_RUSH_DAMAGE = 8f;
+	public static final float BLAST_RUSH_DAMAGE = 11f;
 	public static final double BLAST_RUSH_RADIUS = 2.0;
 	public static final double BLAST_RUSH_KNOCKBACK = 0.9;
 	public static final float BLAST_RUSH_SWEAT = 10f;
 	public static final float BLAST_RUSH_STRAIN = 14f;
 	public static final int BLAST_RUSH_COOLDOWN = 100;
-	/** Crush Grip: grab the face in reach, three detonations (6 / 6 / 12) at these ticks, then the throw. Bosses: hits, no grab. */
+	/** Crush Grip: grab the face in reach, three detonations (11 / 11 / 14) at these ticks, then the throw. Bosses: hits, no grab. */
 	public static final double GRIP_REACH = 3.5;
 	public static final int[] GRIP_BEATS = { 4, 10, 18 };
-	public static final float[] GRIP_DAMAGE = { 6f, 6f, 12f };
+	public static final float[] GRIP_DAMAGE = { 11f, 11f, 14f };
 	public static final int GRIP_THROW_AT = 22;
 	public static final double GRIP_THROW = 1.6;
 	public static final float GRIP_SWEAT = 12f;
@@ -205,7 +205,7 @@ public final class ExplosionConfig {
 	// ---------------------------------------------------------------- Z: Cluster / Shift+Z: Explosive Uppercut
 	public static final double CLUSTER_INNER = 3.0;
 	public static final double CLUSTER_OUTER = 5.5;
-	public static final float CLUSTER_DAMAGE = 9f;
+	public static final float CLUSTER_DAMAGE = 12f;
 	public static final double CLUSTER_KNOCKBACK = 1.4;
 	public static final int CLUSTER_RING_COUNT = 8;
 	public static final int CLUSTER_RING_DELAY = 3;
@@ -214,7 +214,7 @@ public final class ExplosionConfig {
 	public static final int CLUSTER_COOLDOWN = 80;
 	/** The Uppercut: a rising blast into the target in reach, launching it, and him after it for an air follow-up. */
 	public static final double UPPERCUT_REACH = 3.5;
-	public static final float UPPERCUT_DAMAGE = 12f;
+	public static final float UPPERCUT_DAMAGE = 13f;
 	public static final double UPPERCUT_LIFT = 1.25;
 	public static final double UPPERCUT_SELF_LIFT = 1.05;
 	public static final float UPPERCUT_SWEAT = 8f;
@@ -233,7 +233,7 @@ public final class ExplosionConfig {
 	public static final float HOWITZER_VORTEX_DAMAGE = 3f;
 	public static final double HOWITZER_VORTEX_RADIUS = 3.0;
 	public static final double HOWITZER_ARRIVE = 2.5;
-	public static final float HOWITZER_DAMAGE = 30f;
+	public static final float HOWITZER_DAMAGE = 15f;
 	public static final double HOWITZER_RADIUS = 6.0;
 	public static final double HOWITZER_KNOCKBACK = 2.5;
 	public static final float HOWITZER_SPIN_DEGREES = 60f;
@@ -242,7 +242,7 @@ public final class ExplosionConfig {
 	public static final float GAUNTLET_MIN_SWEAT = 50f;
 	public static final int GAUNTLET_CHARGE = 14;
 	public static final double GAUNTLET_RANGE = 40.0;
-	public static final float GAUNTLET_DAMAGE = 28f;
+	public static final float GAUNTLET_DAMAGE = 15f;
 	public static final double GAUNTLET_STEP = 3.0;
 	public static final double GAUNTLET_RADIUS = 3.0;
 	public static final double GAUNTLET_KNOCKBACK = 2.0;
@@ -259,10 +259,10 @@ public final class ExplosionConfig {
 	/** The chain-dive: this fast between targets, 15 at each, at most this long a leg. */
 	public static final double ULT_DIVE_SPEED = 1.7;
 	public static final int ULT_LEG_TICKS = 24;
-	public static final float ULT_TARGET_DAMAGE = 15f;
+	public static final float ULT_TARGET_DAMAGE = 25f;
 	public static final double ULT_TARGET_RADIUS = 3.0;
 	/** The finishing blast. */
-	public static final float ULT_FINAL_DAMAGE = 40f;
+	public static final float ULT_FINAL_DAMAGE = 30f;
 	public static final double ULT_FINAL_RADIUS = 8.0;
 
 	// ---------------------------------------------------------------- passives / survival

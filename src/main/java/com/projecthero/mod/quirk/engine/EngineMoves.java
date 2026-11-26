@@ -1241,7 +1241,7 @@ public final class EngineMoves {
 		Session s = session(p);
 		double bps = bps(s);
 		float mult = 1f + (EngineConfig.CHARGE_DAMAGE_MULT - 1f) * Mth.clamp(f, 0f, 1f);
-		float dmg = Math.min(EngineConfig.KICK_DAMAGE_MAX * EngineConfig.CHARGE_DAMAGE_MULT, kickDamage(bps) * mult);
+		float dmg = Math.min(EngineConfig.CHARGED_KICK_DAMAGE_MAX, kickDamage(bps) * mult);
 		Vec3 look = flatLook(p);
 		int n = 0;
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position().add(0, 0.8, 0).add(look.scale(1.4)), EngineConfig.KICK_REACH + 1.0)) {

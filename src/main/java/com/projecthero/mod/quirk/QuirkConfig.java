@@ -13,4 +13,15 @@ public final class QuirkConfig {
 	public static final int REPEAT_WINDOW = 25;
 	/** v0.16.7 (user): the first-spawn calling -- 5% a random Quirk (rolled after the ring and the Miraculous). */
 	public static final double SPAWN_CHANCE = 0.05;
+	/**
+	 * v0.17.7 City tier (user: Quirks are City): no single Quirk hit lands for more than this, after every multiplier (the
+	 * meter band, darkness, Recipro Turbo, Fusion, Germophobe, marks, combo routes). Each kit's strike funnel applies it
+	 * before its boss cap.
+	 */
+	public static final float MAX_HIT = 30f;
+
+	/** {@code damage} capped at {@link #MAX_HIT}. */
+	public static float capHit(float damage) {
+		return Math.min(damage, MAX_HIT);
+	}
 }

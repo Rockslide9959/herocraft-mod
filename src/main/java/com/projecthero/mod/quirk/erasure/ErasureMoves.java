@@ -215,6 +215,7 @@ public final class ErasureMoves {
 			return false;
 		}
 		boolean boss = isBoss(t);
+		damage = com.projecthero.mod.quirk.QuirkConfig.capHit(damage); // v0.17.7 City tier
 		float dmg = boss ? Math.min(damage, t.getMaxHealth() * ErasureConfig.BOSS_MAX_FRACTION_PER_HIT) : damage;
 		if (!AbilityHelpers.hurtBurst(p, t, p.level().damageSources().playerAttack(p), Math.max(1f, dmg))
 				&& !AbilityHelpers.hurtLands(p, t, 0f)) {
