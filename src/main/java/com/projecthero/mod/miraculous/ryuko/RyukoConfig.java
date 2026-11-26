@@ -19,41 +19,41 @@ public final class RyukoConfig {
 	public static final float BOSS_MAX_FRACTION_PER_HIT = 0.08f;
 
 	// R
-	public static final float STRIKE_DAMAGE = 8f;
-	public static final float STRIKE_FINISHER_DAMAGE = 11f;
+	public static final float STRIKE_DAMAGE = 12f; // v0.17.7 City tier (was 8)
+	public static final float STRIKE_FINISHER_DAMAGE = 14f; // v0.17.7 City tier (was 11)
 	public static final double STRIKE_REACH = 3.6;
 	public static final int STRIKE_WINDOW = 24;
 	public static final int STRIKE_STEP_COOLDOWN = 6;
 	public static final int STRIKE_COOLDOWN = 24;
-	public static final float LUNGE_DAMAGE = 12f;
+	public static final float LUNGE_DAMAGE = 13f; // v0.17.7 City tier (was 12)
 	public static final int LUNGE_TICKS = 6;
 	public static final double LUNGE_SPEED = 1.5;
 	public static final int LUNGE_COOLDOWN = 100;
 
 	// G
-	public static final float WIND_STRIKE_DAMAGE = 8f;
+	public static final float WIND_STRIKE_DAMAGE = 11f; // v0.17.7 City tier (was 8)
 	public static final double WIND_STRIKE_RANGE = 8.0;
-	public static final float WATER_STRIKE_DAMAGE = 10f;
+	public static final float WATER_STRIKE_DAMAGE = 12f; // v0.17.7 City tier (was 10)
 	public static final double WATER_STRIKE_RANGE = 6.0;
 	public static final int WATER_SLOW_TICKS = 60;
-	public static final float LIGHTNING_STRIKE_DAMAGE = 12f;
-	public static final float LIGHTNING_CHAIN_DAMAGE = 8f;
+	public static final float LIGHTNING_STRIKE_DAMAGE = 14f; // v0.17.7 City tier (was 12)
+	public static final float LIGHTNING_CHAIN_DAMAGE = 11f; // v0.17.7 City tier (was 8)
 	public static final double LIGHTNING_RANGE = 24.0;
 	public static final double LIGHTNING_CHAIN_RANGE = 6.0;
 	public static final int STRIKE_ELEMENT_COOLDOWN = 80;
 	public static final double BURST_RADIUS = 6.0;
-	public static final float WIND_BURST_DAMAGE = 10f;
+	public static final float WIND_BURST_DAMAGE = 12f; // v0.17.7 City tier (was 10)
 	public static final int WHIRL_TICKS = 40;
-	public static final float WATER_BURST_DAMAGE = 8f;
-	public static final float LIGHTNING_BURST_DAMAGE = 12f;
+	public static final float WATER_BURST_DAMAGE = 11f; // v0.17.7 City tier (was 8)
+	public static final float LIGHTNING_BURST_DAMAGE = 14f; // v0.17.7 City tier (was 12)
 	public static final int BURST_COOLDOWN = 200;
 
 	// X
 	public static final int DASH_COOLDOWN = 60;
 	public static final int SLIDE_TICKS = 12;
-	public static final float SLIDE_DAMAGE = 4f;
+	public static final float SLIDE_DAMAGE = 11f; // v0.17.7 City tier (was 4)
 	public static final double BLINK_RANGE = 8.0;
-	public static final float BLINK_DAMAGE = 6f;
+	public static final float BLINK_DAMAGE = 11f; // v0.17.7 City tier (was 6)
 	public static final double RISE_SPEED = 1.4;
 	public static final int GLIDE_TICKS = 120;
 	public static final double GLIDE_FALL_SPEED = 0.14;
@@ -75,7 +75,7 @@ public final class RyukoConfig {
 	public static final int SWITCH_COOLDOWN = 10;
 	public static final int GUARD_TICKS = 6 * 20;
 	public static final double GUARD_RADIUS = 3.0;
-	public static final float GUARD_SHOCK_DAMAGE = 6f;
+	public static final float GUARD_SHOCK_DAMAGE = 11f; // v0.17.7 City tier (was 6)
 	public static final int GUARD_COOLDOWN = 300;
 
 	// C (v0.17.3 tester: Parry cooldown 40 -> 120, the Riposte window 60 -> 30, damage 22 -> 15, cooldown 20 -> 100 -- too spammable)

@@ -341,54 +341,78 @@ public class CatNoirGameTests implements FabricGameTest {
 	public void cataclysmOnAMobKillsAndShattersItsArmour(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = cat(helper, 3.5, 2.0, 1.5);
-		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 3.0, 200); // v0.17.2: 2000 damage: anything under boss health dies
+		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 3.0, 20); // v0.17.7 City tier: 30 on the touch kills a plain zombie
 		z.setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
 		z.setItemSlot(EquipmentSlot.FEET, new ItemStack(Items.DIAMOND_BOOTS));
 		pump(helper, p);
 		CatNoirCataclysm.call(p);
 		InteractionResult r = AttackEntityCallback.EVENT.invoker().interact(p, helper.getLevel(), InteractionHand.MAIN_HAND, z, null);
 		helper.assertTrue(r == InteractionResult.SUCCESS, "the blow is the touch");
-		helper.assertTrue(CatNoirConfig.CATACLYSM_DAMAGE == 2000f, "2000 on the touch");
+		helper.assertTrue(CatNoirConfig.CATACLYSM_DAMAGE == 30f, "30 on the touch (City ultimate)");
 		helper.assertTrue(z.isDeadOrDying(), "dead on the touch");
 		helper.assertTrue(z.getItemBySlot(EquipmentSlot.CHEST).isEmpty() && z.getItemBySlot(EquipmentSlot.FEET).isEmpty(), "its armour shattered");
 		helper.assertTrue(CatNoir.spent(p) && !CatNoir.rotted(p) && !CatNoir.charged(p), "spent, the baton not rotted");
 		helper.succeed();
 	}
 
-	/** v0.17.2: a boss big enough for the full burn: the capped touch, then 100 a second for 10 s, no vanilla Wither on top. */
+	/** v0.17.7 City tier: a huge boss takes the 30 touch, then 2 a second for 10 s, no vanilla Wither on top. */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 280)
-	public void cataclysmBurnsAHugeBossAHundredASecondForTenSeconds(GameTestHelper helper) {
+	public void cataclysmBurnsAHugeBossTenTimesAfterTheTouch(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = cat(helper, 3.5, 2.0, 1.5);
 		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 3.0, 10000);
 		pump(helper, p);
 		CatNoirCataclysm.call(p);
 		AttackEntityCallback.EVENT.invoker().interact(p, helper.getLevel(), InteractionHand.MAIN_HAND, z, null);
+		float touch = CatNoirConfig.CATACLYSM_DAMAGE;
+		float burn = CatNoirConfig.CATACLYSM_BURN_DAMAGE;
 		helper.assertTrue(z.getEffect(MobEffects.WITHER) == null, "no vanilla Wither");
-		helper.assertTrue(Math.abs(10000f - z.getHealth() - 1500f) < EPS, "the touch caps at 15% of a boss, took " + (10000f - z.getHealth()));
+		helper.assertTrue(Math.abs(10000f - z.getHealth() - touch) < EPS, "the touch: 30, took " + (10000f - z.getHealth()));
 		helper.runAfterDelay(CatNoirConfig.CATACLYSM_BURN_INTERVAL_TICKS * 5 + 5, () -> {
 			float taken = 10000f - z.getHealth();
-			helper.assertTrue(Math.abs(taken - 2000f) < EPS, "five seconds of burn, took " + taken);
+			helper.assertTrue(Math.abs(taken - (touch + 5 * burn)) < EPS, "five seconds of burn, took " + taken);
 		});
 		helper.runAfterDelay(CatNoirConfig.CATACLYSM_BURN_INTERVAL_TICKS * 13, () -> {
 			float taken = 10000f - z.getHealth();
-			helper.assertTrue(Math.abs(taken - 2500f) < EPS, "ten hits of 100 and no more, took " + taken);
+			helper.assertTrue(Math.abs(taken - (touch + CatNoirConfig.CATACLYSM_BURN_HITS * burn)) < EPS, "ten burn hits and no more, took " + taken);
 			helper.succeed();
 		});
 	}
 
-	/** v0.17.2: a smaller boss takes at most 15% + 10 x 3%. */
+	/** v0.17.7 City tier: a baton hit lands in the City ability range, and nothing a move deals goes past MAX_HIT (30). */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void batonHitsSitInTheCityTier(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = cat(helper, 3.5, 2.0, 1.5);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 3.0, 100);
+		pump(helper, p);
+		helper.assertTrue(com.projecthero.mod.miraculous.catnoir.CatNoirCombat.strike(p, z, p.position(), CatNoirConfig.EXTEND_DAMAGE, 0.0, 0.0), "the hit lands");
+		float taken = 100f - z.getHealth();
+		helper.assertTrue(taken >= 11f - EPS && taken <= 15f + EPS, "Baton Extend sits in 11-15, took " + taken);
+		z.invulnerableTime = 0;
+		float before = z.getHealth();
+		com.projecthero.mod.miraculous.catnoir.CatNoirCombat.strike(p, z, p.position(), 500f, 0.0, 0.0);
+		float big = before - z.getHealth();
+		helper.assertTrue(Math.abs(big - com.projecthero.mod.miraculous.MiraculousConfig.MAX_HIT) < EPS, "a 500 hit is capped at 30, took " + big);
+		helper.assertTrue(1.0 + com.projecthero.mod.miraculous.MiraculousConfig.MELEE_BONUS >= 11.0
+				&& 1.0 + com.projecthero.mod.miraculous.MiraculousConfig.MELEE_BONUS <= 14.0, "a bare fist hits 11-14");
+		helper.succeed();
+	}
+
+	/** v0.17.7 City tier: the touch is the ultimate's 30 (never past MAX_HIT), the whole Cataclysm 50 on a 1000-health boss. */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 280)
-	public void cataclysmNeverTakesMoreThanFortyFivePercentOfABoss(GameTestHelper helper) {
+	public void cataclysmStaysInsideTheCityTierOnABoss(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = cat(helper, 3.5, 2.0, 1.5);
 		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 3.0, 1000);
 		pump(helper, p);
 		CatNoirCataclysm.call(p);
 		AttackEntityCallback.EVENT.invoker().interact(p, helper.getLevel(), InteractionHand.MAIN_HAND, z, null);
+		float touch = 1000f - z.getHealth();
+		helper.assertTrue(touch >= 25f - EPS && touch <= com.projecthero.mod.miraculous.MiraculousConfig.MAX_HIT + EPS, "the touch sits in 25-30, took " + touch);
 		helper.runAfterDelay(CatNoirConfig.CATACLYSM_BURN_INTERVAL_TICKS * 13, () -> {
 			float taken = 1000f - z.getHealth();
-			helper.assertTrue(Math.abs(taken - 450f) < EPS, "45% of a 1000-health boss, took " + taken);
+			helper.assertTrue(Math.abs(taken - 50f) < EPS, "30 + 10 x 2 on a 1000-health boss, took " + taken);
 			helper.succeed();
 		});
 	}

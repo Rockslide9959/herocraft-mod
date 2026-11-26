@@ -34,13 +34,13 @@ public final class CarapaceConfig {
 	public static final double BASH_DISTANCE = 6.0;
 	/** Blocks a tick while charging (the charge lasts distance / speed ticks). */
 	public static final double BASH_SPEED = 1.0;
-	public static final float BASH_DAMAGE = 12f;
+	public static final float BASH_DAMAGE = 13f; // v0.17.7 City tier (was 12)
 	public static final double BASH_KNOCKBACK = 2.2;
 	public static final double BASH_LIFT = 0.45;
 	/** The first thing within this of the shield's face ends the charge. */
 	public static final double BASH_REACH = 1.6;
 	public static final int BASH_COOLDOWN = 100;
-	public static final float THROW_DAMAGE = 10f;
+	public static final float THROW_DAMAGE = 11f; // v0.17.7 City tier (was 10)
 	/** Targets the spinning shield bounces between before it comes home. */
 	public static final int THROW_BOUNCES = 3;
 	/** The first target: under the crosshair (aim assist this many degrees) within this range. */
@@ -57,7 +57,7 @@ public final class CarapaceConfig {
 
 	// ---------------------------------------------------------------- G: Shield Slam / Shift+G: Taunt
 	public static final double SLAM_RADIUS = 5.0;
-	public static final float SLAM_DAMAGE = 10f;
+	public static final float SLAM_DAMAGE = 12f; // v0.17.7 City tier (was 10)
 	public static final int SLAM_STUN_TICKS = 30;
 	public static final double SLAM_LIFT = 0.35;
 	public static final int SLAM_COOLDOWN = 160;

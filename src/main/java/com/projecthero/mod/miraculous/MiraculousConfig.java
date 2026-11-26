@@ -64,10 +64,21 @@ public final class MiraculousConfig {
 	public static final int INTRO_LINE_GAP = 50;
 
 	// shared transformed stats (MiraculousStats)
-	public static final double ARMOR_BONUS = 12.0;
-	public static final double TOUGHNESS_BONUS = 6.0;
-	public static final double MAX_HEALTH_BONUS = 10.0;
-	public static final double MELEE_BONUS = 7.0; // v0.16.6 (user): +7 melee -- they are strong (was 5)
+	public static final double ARMOR_BONUS = 14.0; // v0.17.7 City tier (was 12): with toughness 8, ~46% off a 10-damage hit
+	public static final double TOUGHNESS_BONUS = 8.0; // v0.17.7 City tier (was 6)
+	public static final double MAX_HEALTH_BONUS = 12.0; // v0.17.7 City tier (was 10)
+	public static final double MELEE_BONUS = 11.0; // v0.17.7 City tier: bare fist 12 (was +7, v0.16.6 user: was 5)
+	/**
+	 * v0.17.7 City tier: no single Miraculous move hit goes past the City ultimate ceiling, whatever stacks on it (applied
+	 * in every kit's hit helper before the boss cap).
+	 */
+	public static final float MAX_HIT = 30f;
+
+	/** {@code damage}, never more than {@link #MAX_HIT}. */
+	public static float capHit(float damage) {
+		return Math.min(damage, MAX_HIT);
+	}
+
 	/** Multiplied total. */
 	public static final double SPEED_BONUS = 0.25;
 	/** Multiplied total. */

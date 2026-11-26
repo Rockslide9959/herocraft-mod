@@ -15,11 +15,11 @@ public final class CatNoirConfig {
 	public static final float BOSS_MAX_FRACTION_PER_HIT = 0.08f;
 	/** ... and at most this much from Cataclysm's touch. */
 	public static final float BOSS_MAX_FRACTION_CATACLYSM = 0.15f;
-	/** ... and this much from each second of its burn (ten of them: a boss loses at most 45% to one Cataclysm). */
+	/** ... and this much from each second of its burn (ten of them; v0.17.7: the touch and burn damage are smaller than these caps on any big boss). */
 	public static final float BOSS_MAX_FRACTION_CATACLYSM_BURN = 0.03f;
 
 	// ---------------------------------------------------------------- R: Baton Strike (3-hit combo)
-	public static final float STRIKE_DAMAGE = 9f;
+	public static final float STRIKE_DAMAGE = 12f; // v0.17.7 City tier (was 9)
 	/** Ticks (from the press) the three swings land on. */
 	public static final int[] STRIKE_HITS = { 3, 8, 13 };
 	public static final int STRIKE_TICKS = 18;
@@ -32,7 +32,7 @@ public final class CatNoirConfig {
 	public static final int STRIKE_COOLDOWN = 30;
 
 	// ---------------------------------------------------------------- Shift+R: Low Sweep
-	public static final float SWEEP_DAMAGE = 6f;
+	public static final float SWEEP_DAMAGE = 11f; // v0.17.7 City tier (was 6)
 	public static final double SWEEP_RADIUS = 3.0;
 	/** The arc in front: cosine of its half-angle (about 100 degrees either side -- a wide sweep). */
 	public static final double SWEEP_CONE = -0.2;
@@ -55,7 +55,7 @@ public final class CatNoirConfig {
 	public static final int EXTEND_COOLDOWN = 80;
 
 	// ---------------------------------------------------------------- Shift+G: Baton Throw
-	public static final float THROW_DAMAGE = 12f;
+	public static final float THROW_DAMAGE = 13f; // v0.17.7 City tier (was 12)
 	/** Blocks a tick, out and back. */
 	public static final double THROW_SPEED = 1.5;
 	public static final double THROW_RANGE = 22.0;
@@ -98,7 +98,7 @@ public final class CatNoirConfig {
 	public static final int ROOFTOP_TOGGLE_COOLDOWN = 20;
 
 	// ---------------------------------------------------------------- Z: Baton Spin
-	public static final float SPIN_DAMAGE = 8f;
+	public static final float SPIN_DAMAGE = 11f; // v0.17.7 City tier (was 8)
 	public static final double SPIN_RADIUS = 4.0;
 	public static final int SPIN_TICKS = 40;
 	/** A creature can be hit by one spin again after this many ticks (so about 3 hits in a full spin). */
@@ -112,9 +112,9 @@ public final class CatNoirConfig {
 	/** The hand crackles this long waiting for a touch. */
 	public static final int CATACLYSM_CHARGE_TICKS = 200;
 	/** v0.17.2 (user): 2000 (was 100). */
-	public static final float CATACLYSM_DAMAGE = 2000f;
+	public static final float CATACLYSM_DAMAGE = 30f; // v0.17.7 City tier: the ultimate (was 2000)
 	/** v0.17.2 (user): after the touch, 100 damage a second for 10 s (replaces Wither V for 7 s). */
-	public static final float CATACLYSM_BURN_DAMAGE = 100f;
+	public static final float CATACLYSM_BURN_DAMAGE = 2f; // v0.17.7 City tier: 2 a second x10 = 20 more (was 100)
 	public static final int CATACLYSM_BURN_HITS = 10;
 	public static final int CATACLYSM_BURN_INTERVAL_TICKS = 20;
 	/** A touched block and everything joined to it within this radius crumbles. */
@@ -135,7 +135,7 @@ public final class CatNoirConfig {
 	public static final int LEAP_COOLDOWN = 60;
 
 	// ---------------------------------------------------------------- Shift+V: Pounce Strike
-	public static final float POUNCE_DAMAGE = 12f;
+	public static final float POUNCE_DAMAGE = 13f; // v0.17.7 City tier (was 12)
 	public static final double POUNCE_RANGE = 24.0;
 	/** The landing hits when Cat Noir comes within this distance of the target's box. */
 	public static final double POUNCE_HIT_DISTANCE = 2.2;

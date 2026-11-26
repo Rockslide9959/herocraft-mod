@@ -106,19 +106,19 @@ public class HawkMothGameTests implements FabricGameTest {
 	// ---------------------------------------------------------------- R
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
-	public void caneComboDealsNineEachThreeTimes(GameTestHelper helper) {
+	public void caneComboDealsTwelveEachThreeTimes(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer hm = hawkMoth(helper, 3.5, 2.0, 1.5);
 		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 3.5, 100, false);
 		HawkMothKit.caneStrike(hm);
-		helper.assertTrue(near(z.getHealth(), 91f), "blow 1: 9 damage, health " + z.getHealth());
+		helper.assertTrue(near(z.getHealth(), 100f - HawkMothConfig.STRIKE_DAMAGE), "blow 1: 12 damage, health " + z.getHealth());
 		helper.runAfterDelay(HawkMothConfig.STRIKE_GAP + 1, () -> {
 			HawkMothKit.caneStrike(hm);
-			helper.assertTrue(near(z.getHealth(), 82f), "blow 2: 9 damage, health " + z.getHealth());
+			helper.assertTrue(near(z.getHealth(), 100f - 2 * HawkMothConfig.STRIKE_DAMAGE), "blow 2: 12 damage, health " + z.getHealth());
 		});
 		helper.runAfterDelay(2 * (HawkMothConfig.STRIKE_GAP + 1), () -> {
 			HawkMothKit.caneStrike(hm);
-			helper.assertTrue(near(z.getHealth(), 73f), "blow 3: 9 damage, health " + z.getHealth());
+			helper.assertTrue(near(z.getHealth(), 100f - 3 * HawkMothConfig.STRIKE_DAMAGE), "blow 3: 12 damage, health " + z.getHealth());
 			helper.assertTrue(Miraculous.cooldownRemaining(hm, HawkMothKit.CANE_STRIKE) > 0, "a rest after the third blow");
 			helper.succeed();
 		});

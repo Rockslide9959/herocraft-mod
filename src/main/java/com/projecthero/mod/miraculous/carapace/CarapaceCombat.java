@@ -43,6 +43,7 @@ public final class CarapaceCombat {
 			return false;
 		}
 		boolean boss = isBoss(target);
+		damage = com.projecthero.mod.miraculous.MiraculousConfig.capHit(damage); // v0.17.7 City tier
 		float dmg = boss ? Math.min(damage, target.getMaxHealth() * CarapaceConfig.BOSS_MAX_FRACTION_PER_HIT) : damage;
 		if (!AbilityHelpers.hurtBurst(owner, target, owner.level().damageSources().playerAttack(owner), Math.max(1f, dmg))) {
 			return false;

@@ -11,7 +11,7 @@ public final class LadybugConfig {
 	// ---------------------------------------------------------------- R: Yo-yo Strike / Ricochet
 	/** How far the Yo-yo whips out along the look. */
 	public static final double STRIKE_RANGE = 12.0;
-	public static final float STRIKE_DAMAGE = 10f;
+	public static final float STRIKE_DAMAGE = 13f; // v0.17.7 City tier (was 10)
 	/** v0.16.7 (user): the strike's slight auto-aim -- up to ~15 degrees off the crosshair (the cosine)... */
 	public static final double STRIKE_ASSIST_COS = 0.966;
 	/** ...or within this many blocks of the aim line. */
@@ -23,7 +23,7 @@ public final class LadybugConfig {
 	public static final int RICOCHET_TARGETS = 4;
 	/** Each bounce finds the next mob within this of the last one. */
 	public static final double RICOCHET_HOP = 8.0;
-	public static final float RICOCHET_DAMAGE = 7f;
+	public static final float RICOCHET_DAMAGE = 11f; // v0.17.7 City tier (was 7)
 	public static final int RICOCHET_COOLDOWN = 60;
 	/** Ticks per bounce on the client. */
 	public static final int RICOCHET_HOP_TICKS = 3;
@@ -40,7 +40,7 @@ public final class LadybugConfig {
 	public static final float FLING_SPEED = 2.2f;
 	public static final float FLING_LIFT = 0.55f;
 	/** Landing (or a wall) after a fling: this, on top of any vanilla fall damage. */
-	public static final float FLING_IMPACT_DAMAGE = 8f;
+	public static final float FLING_IMPACT_DAMAGE = 11f; // v0.17.7 City tier (was 8)
 	/** A fling that never lands is forgotten after this. */
 	public static final int FLING_MAX_TICKS = 80;
 	public static final int FLING_COOLDOWN = 140;
@@ -93,7 +93,7 @@ public final class LadybugConfig {
 	/** v0.16.7 (user): the spotted bow's arrows hit like Power V (base 2 x 2.5 = 5). */
 	public static final double CHARM_ARROW_DAMAGE = 5.0;
 	/** v0.16.7 (user): the TNT is as strong as 10 TNT blocks -- 100 at the centre, half at the edge, 12 blocks round. */
-	public static final float CHARM_TNT_DAMAGE = 100f;
+	public static final float CHARM_TNT_DAMAGE = 30f; // v0.17.7 City tier: the ultimate, 30 at the centre -> 15 at the edge (was 100, v0.16.7 user)
 	public static final double CHARM_TNT_RADIUS = 12.0;
 	public static final double CHARM_TNT_KNOCKBACK = 2.5;
 	/** v0.16.7 (user): the apple -- Regeneration II for a minute, Absorption V. */

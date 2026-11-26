@@ -129,23 +129,23 @@ public class MultimouseGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void theApprovedNumbers(GameTestHelper helper) {
-		helper.assertTrue(MultimouseConfig.LASH_DAMAGE == 8f && MultimouseConfig.LASH_REACH == 5.0 && MultimouseConfig.LASH_HITS == 3, "Rope Lash 8 x3, 5 blocks");
-		helper.assertTrue(MultimouseConfig.LASSO_RANGE == 16.0 && MultimouseConfig.LASSO_DAMAGE == 6f && MultimouseConfig.LASSO_STUN_TICKS == 30
-				&& MultimouseConfig.LASSO_COOLDOWN == 160, "Lasso Yank 16 blocks, 6 + 1.5 s stun, 8 s");
-		helper.assertTrue(MultimouseConfig.TWIRL_TICKS == 80 && MultimouseConfig.TWIRL_RADIUS == 3.5 && MultimouseConfig.TWIRL_DAMAGE == 4f
-				&& MultimouseConfig.TWIRL_EVERY == 10 && MultimouseConfig.TWIRL_COOLDOWN == 200, "Rope Twirl 4 s, 3.5, 4 every 0.5 s, 10 s");
-		helper.assertTrue(MultimouseConfig.TRIP_RADIUS == 6.0 && MultimouseConfig.TRIP_DAMAGE == 6f && MultimouseConfig.TRIP_TICKS == 40
-				&& MultimouseConfig.TRIP_COOLDOWN == 160, "Skipping Trip 6, 6 damage, 2 s, 8 s");
+		helper.assertTrue(MultimouseConfig.LASH_DAMAGE == 12f && MultimouseConfig.LASH_REACH == 5.0 && MultimouseConfig.LASH_HITS == 3, "Rope Lash 12 x3, 5 blocks");
+		helper.assertTrue(MultimouseConfig.LASSO_RANGE == 16.0 && MultimouseConfig.LASSO_DAMAGE == 11f && MultimouseConfig.LASSO_STUN_TICKS == 30
+				&& MultimouseConfig.LASSO_COOLDOWN == 160, "Lasso Yank 16 blocks, 11 + 1.5 s stun, 8 s");
+		helper.assertTrue(MultimouseConfig.TWIRL_TICKS == 80 && MultimouseConfig.TWIRL_RADIUS == 3.5 && MultimouseConfig.TWIRL_DAMAGE == 5f
+				&& MultimouseConfig.TWIRL_EVERY == 10 && MultimouseConfig.TWIRL_COOLDOWN == 200, "Rope Twirl 4 s, 3.5, 5 every 0.5 s, 10 s");
+		helper.assertTrue(MultimouseConfig.TRIP_RADIUS == 6.0 && MultimouseConfig.TRIP_DAMAGE == 11f && MultimouseConfig.TRIP_TICKS == 40
+				&& MultimouseConfig.TRIP_COOLDOWN == 160, "Skipping Trip 6, 11 damage, 2 s, 8 s");
 		helper.assertTrue(MultimouseConfig.SWING_RANGE == 50.0 && MultimouseConfig.SWING_COOLDOWN == 60, "Rope Swing 50 blocks, 3 s");
 		helper.assertTrue(MultimouseConfig.SCURRY_TICKS == 400 && MultimouseConfig.SCURRY_SPEED == 0.4, "Scurry 20 s, 40% faster");
 		helper.assertTrue(MultimouseConfig.SWARM_COUNT == 3 && MultimouseConfig.SWARM_TICKS == 120 && MultimouseConfig.SWARM_BITE == 2f
 				&& MultimouseConfig.SWARM_COOLDOWN == 280, "Mouse Swarm 3, 6 s, 2 a bite, 14 s");
 		helper.assertTrue(MultimouseConfig.MULTITUDE_COPIES == 10 && MultimouseConfig.MULTITUDE_TICKS == 1200 && MultimouseConfig.MINI_BITE == 3f
 				&& MultimouseConfig.MINI_HEALTH == 6.0 && MultimouseConfig.MINI_DAMAGE_FACTOR == 0.5f && MultimouseConfig.RECOMBINE_RADIUS == 6.0
-				&& MultimouseConfig.RECOMBINE_DAMAGE_PER_COPY == 2f, "Multitude: 10 copies, 60 s, 3 a bite, 6 HP, half damage, 6-block shockwave, 2 a copy");
+				&& MultimouseConfig.RECOMBINE_DAMAGE_PER_COPY == 2.5f, "Multitude: 10 copies, 60 s, 3 a bite, 6 HP, half damage, 6-block shockwave, 2.5 a copy");
 		helper.assertTrue(MultimouseConfig.HEARING_RANGE == 32.0 && MultimouseConfig.GNAW_DEPTH == 3 && MultimouseConfig.GNAW_COOLDOWN == 20, "Hearing 32, Gnaw 3 deep, 1 s");
 		helper.assertTrue(MultimouseConfig.BIND_RANGE == 14.0 && MultimouseConfig.BIND_TICKS == 80 && MultimouseConfig.BIND_COOLDOWN == 240, "Rope Bind 14, 4 s, 12 s");
-		helper.assertTrue(MultimouseConfig.TRAP_MAX == 3 && MultimouseConfig.TRAP_SNARE_TICKS == 100 && MultimouseConfig.TRAP_DAMAGE == 8f, "Mouse Trap 3, 5 s, 8");
+		helper.assertTrue(MultimouseConfig.TRAP_MAX == 3 && MultimouseConfig.TRAP_SNARE_TICKS == 100 && MultimouseConfig.TRAP_DAMAGE == 11f, "Mouse Trap 3, 5 s, 11");
 		helper.assertTrue(MultimouseConfig.FALL_DAMAGE_FACTOR == 0.25f && MultimouseConfig.QUIET_RANGE == 6.0, "75% less fall damage, quiet past 6 blocks");
 		helper.assertTrue(MiraculousConfig.SAFE_LANDING_MOVES.contains(MultimouseConfig.SWING), "the swing's landing is free");
 		helper.succeed();

@@ -29,21 +29,21 @@ public final class RenaRougeConfig {
 	public static final float BOSS_MAX_FRACTION_PER_HIT = 0.08f;
 
 	// ---------------------------------------------------------------- R: Flute Strike / Shift+R: Flute Sweep
-	public static final float STRIKE_DAMAGE = 9f;
+	public static final float STRIKE_DAMAGE = 12f; // v0.17.7 City tier (was 9)
 	public static final double STRIKE_REACH = 4.0;
 	/** The combo's third hit knocks back this far. */
 	public static final double STRIKE_FINISHER_KNOCKBACK = 0.8;
 	public static final int STRIKE_COOLDOWN = 10;
 	/** A press within this long of the last hit carries the combo on (forehand, backhand, overhead). */
 	public static final int STRIKE_COMBO_WINDOW = 30;
-	public static final float SWEEP_DAMAGE = 7f;
+	public static final float SWEEP_DAMAGE = 11f; // v0.17.7 City tier (was 7)
 	public static final double SWEEP_RADIUS = 4.0;
 	public static final double SWEEP_KNOCKBACK = 1.3;
 	public static final double SWEEP_LIFT = 0.25;
 	public static final int SWEEP_COOLDOWN = 60;
 
 	// ---------------------------------------------------------------- G: Flute Throw / Shift+G: Melody Lure
-	public static final float THROW_DAMAGE = 10f;
+	public static final float THROW_DAMAGE = 12f; // v0.17.7 City tier (was 10)
 	/** How far out the flute flies before it turns back. */
 	public static final double THROW_RANGE = 16.0;
 	/** Ticks of the outbound arc. */

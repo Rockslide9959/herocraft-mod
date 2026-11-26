@@ -492,8 +492,8 @@ public class LadybugGameTests implements FabricGameTest {
 		});
 		helper.assertTrue(Math.abs(1.0 + dmg[0] - 11.0) < 1e-6, "sword hits 11 like Sharpness V netherite, got " + (1.0 + dmg[0]));
 		helper.assertTrue(com.projecthero.mod.miraculous.ladybug.LadybugConfig.CHARM_ARROW_DAMAGE == 5.0, "Power V arrows (base 5)");
-		helper.assertTrue(com.projecthero.mod.miraculous.ladybug.LadybugConfig.CHARM_TNT_DAMAGE == 100f
-				&& com.projecthero.mod.miraculous.ladybug.LadybugConfig.CHARM_TNT_RADIUS == 12.0, "10-TNT blast");
+		helper.assertTrue(com.projecthero.mod.miraculous.ladybug.LadybugConfig.CHARM_TNT_DAMAGE == 30f
+				&& com.projecthero.mod.miraculous.ladybug.LadybugConfig.CHARM_TNT_RADIUS == 12.0, "City ultimate blast: 30 at the centre");
 		var food = new net.minecraft.world.item.ItemStack(com.projecthero.mod.miraculous.ladybug.item.LadybugItems.LUCKY_APPLE)
 				.get(net.minecraft.core.component.DataComponents.FOOD);
 		helper.assertTrue(food != null && food.nutrition() == 20 && Math.abs(food.saturation() - 20f) < 1e-3, "apple fills hunger and saturation");

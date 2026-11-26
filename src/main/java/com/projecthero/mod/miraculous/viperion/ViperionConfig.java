@@ -42,7 +42,7 @@ public final class ViperionConfig {
 	public static final int STRIKE_WINDOW = 20;
 	/** One swing's pose (ticks). */
 	public static final int STRIKE_SWING_TICKS = 10;
-	public static final float STRIKE_DAMAGE = 9f;
+	public static final float STRIKE_DAMAGE = 12f; // v0.17.7 City tier (was 9)
 	public static final double STRIKE_REACH = 4.0;
 	/** Cosine of the half-angle of each swing's cone (about 60 degrees either side), as Cat Noir's. */
 	public static final double STRIKE_CONE = 0.5;
@@ -61,12 +61,12 @@ public final class ViperionConfig {
 	public static final double CHORD_RANGE = 12.0;
 	/** The cone: within this dot of his look (about 32 degrees either side). */
 	public static final double CHORD_DOT = 0.85;
-	public static final float CHORD_DAMAGE = 10f;
+	public static final float CHORD_DAMAGE = 12f; // v0.17.7 City tier (was 10)
 	public static final double CHORD_KNOCKBACK = 1.8;
 	public static final double CHORD_LIFT = 0.3;
 	public static final int CHORD_COOLDOWN = 120;
 	public static final double RESONANCE_RADIUS = 6.0;
-	public static final float RESONANCE_DAMAGE = 4f;
+	public static final float RESONANCE_DAMAGE = 11f; // v0.17.7 City tier (was 4)
 	public static final int RESONANCE_STUN_TICKS = 40;
 	public static final int RESONANCE_COOLDOWN = 300;
 
@@ -88,7 +88,7 @@ public final class ViperionConfig {
 
 	// ---------------------------------------------------------------- Z: Venom Strike / Shift+Z: Second Chance
 	public static final double VENOM_REACH = 4.5;
-	public static final float VENOM_DAMAGE = 6f;
+	public static final float VENOM_DAMAGE = 11f; // v0.17.7 City tier (was 6)
 	/** Strong Poison: Poison III for 8 s (bosses too -- the damage is the effect's own). */
 	public static final int VENOM_POISON_TICKS = 160;
 	public static final int VENOM_POISON_AMP = 2;
@@ -116,7 +116,7 @@ public final class ViperionConfig {
 	public static final int CONSTRICT_TICKS = 80;
 	/** A squeeze this often, this hard (bosses: capped like every hit, and never rooted -- slowed instead). */
 	public static final int CONSTRICT_SQUEEZE_EVERY = 10;
-	public static final float CONSTRICT_SQUEEZE_DAMAGE = 2.5f;
+	public static final float CONSTRICT_SQUEEZE_DAMAGE = 3.5f; // v0.17.7 City tier (was 2.5)
 	public static final int CONSTRICT_COOLDOWN = 240;
 	public static final int SHIELD_TICKS = 6 * 20;
 	/** Projectiles within this of his chest, in front, bounce off the strings. */

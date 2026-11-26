@@ -62,7 +62,7 @@ public final class RenaRougeCombat {
 			return false;
 		}
 		boolean boss = isBoss(target);
-		float dmg = damage;
+		float dmg = com.projecthero.mod.miraculous.MiraculousConfig.capHit(damage); // v0.17.7 City tier
 		if (boss) {
 			dmg = Math.min(dmg, target.getMaxHealth() * RenaRougeConfig.BOSS_MAX_FRACTION_PER_HIT);
 		}

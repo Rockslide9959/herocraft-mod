@@ -10,7 +10,7 @@ public final class HawkMothConfig {
 
 	// ---------------------------------------------------------------- R: Cane Strike / Cane Sword
 	/** Damage of each of the three cane blows. */
-	public static final float STRIKE_DAMAGE = 9.0f;
+	public static final float STRIKE_DAMAGE = 12.0f; // v0.17.7 City tier (was 9)
 	/** Reach of a cane blow, blocks. */
 	public static final double STRIKE_REACH = 3.6;
 	/** Gap between two blows of the combo. */
