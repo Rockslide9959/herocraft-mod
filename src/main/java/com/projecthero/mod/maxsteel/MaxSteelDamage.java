@@ -40,6 +40,13 @@ public final class MaxSteelDamage {
 	}
 
 	private static boolean onAllowDamage(LivingEntity entity, DamageSource source, float amount) {
+		// v0.17.7 City tier: no hit FROM a suited Max Steel over MAX_HIT (a held weapon on top of the melee bonuses, a crit...).
+		// Re-applied capped; the capped call passes straight through this check.
+		if (!REENTRANT.get() && amount > MaxSteelConfig.MAX_HIT && source.getEntity() instanceof ServerPlayer attacker
+				&& attacker != entity && MaxSteel.isTransformed(attacker)) {
+			entity.hurt(source, MaxSteelConfig.MAX_HIT);
+			return false;
+		}
 		if (REENTRANT.get() || !(entity instanceof ServerPlayer player)) {
 			return true;
 		}

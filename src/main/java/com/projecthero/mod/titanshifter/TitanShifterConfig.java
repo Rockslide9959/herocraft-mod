@@ -22,6 +22,13 @@ public final class TitanShifterConfig {
 	 */
 	public Integer configVersion;
 
+	/**
+	 * v0.17.7 City tier (melee 11-14, abilities 11-15, ultimate 25-30): no single Titan hit lands for more than this, whatever
+	 * multiplies it (Rage, Crystal Fists); applied in {@link TitanCombat#scaled} before the player factor and the boss cap.
+	 * Static, so it is not a config key.
+	 */
+	public static final float MAX_HIT = com.projecthero.mod.hero.PowerRank.CITY.ultimateMax;
+
 	public Stats stats = new Stats();
 	public Damage damage = new Damage();
 	public Abilities abilities = new Abilities();
@@ -55,9 +62,10 @@ public final class TitanShifterConfig {
 		public double heightBlocks = 15.0;
 		/** A player's 0.6 x 1.8 hit-box scaled to 15 blocks keeps its proportions: 0.6 * 15 / 1.8 = 5.0. */
 		public double widthBlocks = 5.0;
-		public double maxHealth = 500.0;
-		public double armor = 25.0;
-		public double armorToughness = 8.0;
+		/** v0.17.7 City tier: 500 / 25 / 8 -> 400 / 16 / 6 -- still a tank, but a player's 14 hit loses about half to the armour, not 80%. */
+		public double maxHealth = 400.0;
+		public double armor = 16.0;
+		public double armorToughness = 6.0;
 		public double knockbackResistance = 1.0;
 		/** The MOVEMENT_SPEED attribute (spec: ~0.45). */
 		public double movementSpeed = 0.45;
@@ -73,13 +81,14 @@ public final class TitanShifterConfig {
 	}
 
 	public static final class Damage {
-		public double punch = 20.0;
-		public double heavyPunch = 35.0;
-		public double kick = 30.0;
-		public double stomp = 25.0;
+		// v0.17.7 City tier: the R combo is melee (11-14), the rest abilities (11-15); was 20 / 35 / 30 / 25 / 50 / 20
+		public double punch = 13.0;
+		public double heavyPunch = 14.0;
+		public double kick = 14.0;
+		public double stomp = 13.0;
 		/** Heavy Smash (Ability 2). */
-		public double heavySmash = 50.0;
-		public double leapLanding = 20.0;
+		public double heavySmash = 15.0;
+		public double leapLanding = 12.0;
 		/** Multipliers on every Titan hit by target type. */
 		public double playerFactor = 0.6;
 		public double mobFactor = 1.0;
@@ -126,7 +135,7 @@ public final class TitanShifterConfig {
 		public int hardenCooldown = 600;      // 30 s
 		/** v0.12.34: N in Titan form grabs the mob you look at, N again bites it, Shift+N sets it down gently. */
 		public double grabReach = 24.0;
-		public double biteDamage = 26.0;
+		public double biteDamage = 15.0; // v0.17.7 City tier: was 26
 		public int biteCooldown = 200;        // 10 s
 		/** v0.12.36: eating the grabbed mob feeds the shifter and heals the Titan biteRegenPerSecond HP/s for biteRegenTicks. */
 		public double biteRegenPerSecond = 5.0;
@@ -284,7 +293,7 @@ public final class TitanShifterConfig {
 
 	/** v0.16.7 (user): Partial Shifting -- R Titan Arm, Shift+R Crystal Blade, G Steam Burst, Shift+G Bite Shift, X Crystal Wall, Shift+X Crystal Cocoon. */
 	public static final class Human {
-		public double titanArmDamage = 16.0;
+		public double titanArmDamage = 13.0; // v0.17.7 City tier: was 16
 		public double titanArmReach = 6.0;
 		public int titanArmCooldown = 60;
 		public double titanArmSteam = 4.0;
@@ -292,7 +301,7 @@ public final class TitanShifterConfig {
 		public double bladeReach = 3.5;
 		public int bladeCooldown = 30;
 		public double bladeSteam = 2.0;
-		public double steamBurstDamage = 4.0;
+		public double steamBurstDamage = 11.0; // v0.17.7 City tier: was 4
 		public double steamBurstRadius = 5.0;
 		public int steamBurstCooldown = 120;
 		public double steamBurstSteam = 3.0;
@@ -318,7 +327,7 @@ public final class TitanShifterConfig {
 	/** v0.16.7 (user, Titan fixes): the Attack Titan's moves. */
 	public static final class AttackTitan {
 		public int uppercutCooldown = 120;
-		public double uppercutDamage = 38.0;
+		public double uppercutDamage = 15.0; // v0.17.7 City tier: was 38
 		/** Reach past the front of the body, and the radius round the fist. */
 		public double uppercutReach = 8.0;
 		public double uppercutRadius = 5.0;
@@ -331,7 +340,7 @@ public final class TitanShifterConfig {
 		public double rageDamageBonus = 0.5;
 		public double rageComboSpeedup = 0.4;
 		public int dropkickCooldown = 180;
-		public double dropkickDamage = 32.0;
+		public double dropkickDamage = 15.0; // v0.17.7 City tier: was 32
 		/** Launch speed (blocks a tick) and lift, and how many ticks of the flight hit things. */
 		public double dropkickSpeed = 2.0;
 		public double dropkickLift = 0.45;
@@ -342,15 +351,15 @@ public final class TitanShifterConfig {
 	/** v0.16.7 (user, Titan fixes): the Armoured Titan's moves. */
 	public static final class ArmoredTitan {
 		public int elbowCooldown = 60;
-		public double elbowDamage = 30.0;
+		public double elbowDamage = 14.0; // v0.17.7 City tier: was 30
 		public double elbowReach = 3.0;
 		public double elbowKnockback = 2.4;
 		public int groundPoundCooldown = 240;
-		public double groundPoundDamage = 55.0;
+		public double groundPoundDamage = 15.0; // v0.17.7 City tier: was 55
 		public double groundPoundRadius = 7.0;
 		public double groundPoundKnockback = 2.8;
 		public int shoulderChargeCooldown = 240;
-		public double shoulderChargeDamage = 40.0;
+		public double shoulderChargeDamage = 28.0; // v0.17.7 City tier: was 40 (a signature: ultimate range)
 		/** The charge lasts this long (1.5 s) at this speed (blocks a tick). */
 		public int shoulderChargeTicks = 30;
 		public double shoulderChargeSpeed = 0.9;
@@ -368,14 +377,14 @@ public final class TitanShifterConfig {
 	/** v0.16.7 (user, Titan fixes): the Female Titan's moves. */
 	public static final class FemaleTitan {
 		public int roundhouseCooldown = 50;
-		public double roundhouseDamage = 34.0;
+		public double roundhouseDamage = 14.0; // v0.17.7 City tier: was 34
 		public double roundhouseRadius = 4.0;
 		public double roundhouseKnockback = 2.4;
 		public int axeKickCooldown = 140;
-		public double axeKickDamage = 42.0;
+		public double axeKickDamage = 15.0; // v0.17.7 City tier: was 42
 		public double axeKickRadius = 3.0;
 		public int sweepKickCooldown = 160;
-		public double sweepKickDamage = 24.0;
+		public double sweepKickDamage = 12.0; // v0.17.7 City tier: was 24
 		public double sweepKickRadius = 6.0;
 		/** Slowness III on what the sweep hits, this long. */
 		public int sweepKickSlowTicks = 60;
@@ -393,24 +402,24 @@ public final class TitanShifterConfig {
 	public static final class BeastTitan {
 		public int fastballCooldown = 160;
 		/** Pitcher's Fastball: damage a stone, stones in the spray, at most this many of one pitch on one target. */
-		public double fastballDamage = 9.0;
+		public double fastballDamage = 11.0; // v0.17.7 City tier: was 9 (at most 3 stones on one target)
 		public int fastballStones = 14;
 		public int fastballPerTarget = 3;
 		/** Stone speed (blocks a tick) and life (ticks) -- about 80 blocks. */
 		public double fastballSpeed = 3.1;
 		public int fastballLife = 28;
 		public int rockScatterCooldown = 160;
-		public double rockScatterDamage = 18.0;
+		public double rockScatterDamage = 12.0; // v0.17.7 City tier: was 18
 		/** Rock Scatter: chunks flung, reach of the cone (blocks), cos of its half-angle. */
 		public int scatterChunks = 18;
 		public double scatterRange = 12.0;
 		public double scatterCone = 0.7;
 		public int boulderThrowCooldown = 200;
 		/** Full damage within boulderThrowRadius of the impact, half (shrapnel) out to twice that. */
-		public double boulderThrowDamage = 45.0;
+		public double boulderThrowDamage = 28.0; // v0.17.7 City tier: was 45 (a signature: ultimate range; shrapnel half, 14)
 		public double boulderThrowRadius = 4.0;
 		public int boulderVolleyCooldown = 280;
-		public double boulderVolleyDamage = 20.0;
+		public double boulderVolleyDamage = 13.0; // v0.17.7 City tier: was 20
 		public double boulderVolleyRadius = 2.5;
 		/** The most rocks in flight at once (every Beast together); a damaging rock always flies. */
 		public int maxRocksInFlight = 180;
@@ -521,6 +530,14 @@ public final class TitanShifterConfig {
 			// the Crystal Wall's length)
 			.reset(6, "v0.16.7 Titan move numbers in the config", "sharedMoves", "attackTitan", "armoredTitan", "femaleTitan",
 					"beastTitan", "emergency.transformTicks", "limbs.chunkTicks", "limbs.maxChunks", "human.wallTicks")
+			// v0.17.7 City tier: every damage number into the City ranges, and the Attack Titan's health / armour trimmed
+			.reset(7, "v0.17.7 City tier damage and Titan toughness", "stats.maxHealth", "stats.armor", "stats.armorToughness",
+					"damage.punch", "damage.heavyPunch", "damage.kick", "damage.stomp", "damage.heavySmash", "damage.leapLanding",
+					"abilities.biteDamage", "human.titanArmDamage", "human.steamBurstDamage", "attackTitan.uppercutDamage",
+					"attackTitan.dropkickDamage", "armoredTitan.elbowDamage", "armoredTitan.groundPoundDamage",
+					"armoredTitan.shoulderChargeDamage", "femaleTitan.roundhouseDamage", "femaleTitan.axeKickDamage",
+					"femaleTitan.sweepKickDamage", "beastTitan.fastballDamage", "beastTitan.rockScatterDamage",
+					"beastTitan.boulderThrowDamage", "beastTitan.boulderVolleyDamage")
 			.build();
 
 	public static void load() {

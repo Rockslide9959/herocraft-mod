@@ -10,11 +10,11 @@ public final class UndeadBulletConfig {
 
 	// ---------------------------------------------------------------- R: Parts Bullet (Finger / Hand / Arm)
 	/** "Parts Bullet: Finger ... 7 damage, no cooldown, 60 block range" (tap R). */
-	public static final float FINGER_DAMAGE = 7f;
+	public static final float FINGER_DAMAGE = 11f; // v0.17.7 City tier: was 7
 	/** "Parts Bullet: Hand ... 12 damage, no cooldown, 60 block range" (Shift+R): the whole hand flies and regrows. */
-	public static final float HAND_DAMAGE = 12f;
+	public static final float HAND_DAMAGE = 13f; // v0.17.7 City tier: was 12
 	/** "Parts Bullet: Arm ... 20 damage, no cooldown, 60 block range" (hold R for a second). */
-	public static final float ARM_DAMAGE = 20f;
+	public static final float ARM_DAMAGE = 15f; // v0.17.7 City tier: was 20
 	/** Every R bullet flies dead straight (no gravity, so it lands on the crosshair) and is gone after this many blocks. */
 	public static final double RANGE = 60.0;
 	public static final double FINGER_SPEED = 3.2;
@@ -47,7 +47,7 @@ public final class UndeadBulletConfig {
 	// ---------------------------------------------------------------- Shift+C: Division Bullet
 	/** "the clone lives for 20 seconds", "clones deal 8 damage per hit", "10 second cooldown", "has 30hp". */
 	public static final int CLONE_LIFE = 400;
-	public static final float CLONE_DAMAGE = 8f;
+	public static final float CLONE_DAMAGE = 11f; // v0.17.7 City tier: was 8
 	public static final int DIVISION_COOLDOWN = 200;
 	public static final float CLONE_HEALTH = 30f;
 	/** The finger itself does a scratch (it is a seed, not a bullet). */

@@ -1,5 +1,25 @@
 # Titan Shifter — reference (v0.12.32)
 
+> **v0.17.7 -- City tier:** every Titan hit into the City ranges (melee 11-14, abilities 11-15, signatures 25-30) and
+> `TitanShifterConfig.MAX_HIT` 30 applied in `TitanCombat.scaled` after the type scale, Emergency factor and Rage / Crystal Fists,
+> before the 0.6 player factor and the 6% boss cap (the N bite is capped too). Config v7 resets the changed keys.
+>
+> | Hit | Before | After |
+> |---|---|---|
+> | R punch / jab / heavy punch | 20 / 17 / 35 | 13 / 11 / 14 |
+> | Shift+R Kick / Elbow / Roundhouse / Fastball stone | 30 / 30 / 34 / 9 (x3 max) | 14 / 14 / 14 / 11 (x3 max) |
+> | G Heavy Smash / Uppercut / Ground Pound / Axe Kick / Sweep Kick / Rock Scatter | 50 / 38 / 55 / 42 / 24 / 18 | 15 / 15 / 15 / 15 / 12 / 12 |
+> | X Leap landing | 20 | 12 |
+> | Z Stomp / Dropkick / Boulder Volley | 25 / 32 / 20 | 13 / 15 / 13 (shrapnel half) |
+> | Shift+X Shoulder Charge / Boulder Throw (signatures) | 40 / 45 | 28 / 28 (shrapnel 14) |
+> | N bite | 26 | 15 |
+> | Human: Titan Arm / Crystal Blade / Steam Burst | 16 / 12 / 4 | 13 / 12 / 11 |
+>
+> Damage scale is 1.0 for every type now (Armoured was 1.1, Female 0.95). Toughness: health x0.8 (Attack 400, Armoured 640,
+> Female 360, Beast 480); armour / toughness 16/6, 18/8, 14/4, 15/4 (was 25/8, 35/14, 20/6, 22/6), Armoured plates 35% -> 25%.
+> A 14-damage player hit now loses roughly 40-50% to the armour (Armoured about 68% with its plates) instead of the old flat 80%;
+> ordinary mobs still ignore the armour. Rage / Crystal Fists +50% still apply, capped at 30. The Emergency Titan stays at 0.6 of all of it.
+
 > **v0.17.5 -- Titan charges (user):** `TitanCharges` (pure helpers) + `TitanShifterState.charges` / `chargeProgress` (codec keys
 > `charges`, default -1 = "never set, read as full", and `charge_progress`; they share an inline `Extras` MapCodec with `emergency_until`
 > and `flags` because the record codec was at its 16-field limit -- the NBT stays flat, old saves load unchanged).

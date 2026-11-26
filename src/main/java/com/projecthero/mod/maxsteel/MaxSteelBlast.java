@@ -30,7 +30,7 @@ public final class MaxSteelBlast {
 		fire(player, 0f);
 	}
 
-	/** Released after a hold: {@code chargeFrac} 0..1 scales damage 15..34 and cost 4..16 (v0.14.2). */
+	/** Released after a hold: {@code chargeFrac} 0..1 scales damage 12..22 (v0.17.7 City tier; was 15..34) and cost 4..16 (v0.14.2). */
 	public static void charged(ServerPlayer player, float chargeFrac) {
 		fire(player, Math.max(0f, Math.min(1f, chargeFrac)));
 	}

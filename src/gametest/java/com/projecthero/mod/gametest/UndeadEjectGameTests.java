@@ -212,7 +212,7 @@ public class UndeadEjectGameTests implements FabricGameTest {
 		helper.runAfterDelay(2, () -> helper.assertTrue(u.getDeltaMovement().y > 0.0, "the feet's blast lifts him: " + u.getDeltaMovement()));
 		helper.runAfterDelay(UndeadEjectConfig.WHIRL_TICKS + 2, () -> {
 			for (Zombie z : new Zombie[] { front, back, left }) {
-				helper.assertTrue(z.getHealth() < 200f - UndeadEjectConfig.WHIRL_DAMAGE * 0.95f && z.getHealth() > 200f - UndeadEjectConfig.WHIRL_DAMAGE * 1.05f, "hit once for 25: " + z.getHealth());
+				helper.assertTrue(z.getHealth() < 200f - UndeadEjectConfig.WHIRL_DAMAGE * 0.95f && z.getHealth() > 200f - UndeadEjectConfig.WHIRL_DAMAGE * 1.05f, "hit once for 15: " + z.getHealth());
 			}
 			helper.assertTrue(Undead.cooldownRemaining(u, UndeadBloodMoves.WHIRL) > 0, "on cooldown");
 			helper.assertTrue(!UndeadEject.holding(u), "over: the ends may regrow");
@@ -292,7 +292,7 @@ public class UndeadEjectGameTests implements FabricGameTest {
 		// arrive (the mock player does not move itself)
 		p.teleportTo(z.getX(), z.getY(), z.getZ() - 0.7);
 		UndeadLaunch.tick(p);
-		helper.assertTrue(z.getHealth() < 200f - UndeadEjectConfig.COMBUSTION_DAMAGE * 0.95f && z.getHealth() > 200f - UndeadEjectConfig.COMBUSTION_DAMAGE * 1.05f, "the punch hits for 22: " + z.getHealth());
+		helper.assertTrue(z.getHealth() < 200f - UndeadEjectConfig.COMBUSTION_DAMAGE * 0.95f && z.getHealth() > 200f - UndeadEjectConfig.COMBUSTION_DAMAGE * 1.05f, "the punch hits for 15: " + z.getHealth());
 		helper.assertTrue(z.getDeltaMovement().z > 0.3, "and knocks it back: " + z.getDeltaMovement());
 		helper.assertTrue(Undead.state(p).animId == UndeadState.ANIM_COMBUSTION_PUNCH, "the punch pose");
 		helper.onEachTick(() -> Undead.tick(p));

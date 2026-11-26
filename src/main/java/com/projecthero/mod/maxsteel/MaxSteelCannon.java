@@ -277,7 +277,7 @@ public final class MaxSteelCannon {
 		BlockHitResult wall = level.clip(new ClipContext(muzzle, far, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
 		Vec3 end = wall.getType() == HitResult.Type.MISS ? far : wall.getLocation();
 		double width = lerp((float) MaxSteelConfig.CANNON_BEAM_WIDTH_MIN, (float) MaxSteelConfig.CANNON_BEAM_WIDTH_MAX, frac);
-		float damage = lerp(MaxSteelConfig.CANNON_MIN_DAMAGE, MaxSteelConfig.CANNON_FULL_DAMAGE, frac);
+		float damage = Math.min(MaxSteelConfig.MAX_HIT, lerp(MaxSteelConfig.CANNON_MIN_DAMAGE, MaxSteelConfig.CANNON_FULL_DAMAGE, frac));
 
 		// everything the beam passes through, nearest first; the beam stops early only at a wall
 		List<LivingEntity> struck = new ArrayList<>();
@@ -300,7 +300,7 @@ public final class MaxSteelCannon {
 
 		// the detonation where it stops: entity-only, no terrain damage
 		double radius = lerp((float) MaxSteelConfig.CANNON_AOE_RADIUS_MIN, (float) MaxSteelConfig.CANNON_AOE_RADIUS_MAX, frac);
-		float aoe = damage * MaxSteelConfig.CANNON_AOE_FRACTION;
+		float aoe = Math.max(MaxSteelConfig.CANNON_AOE_MIN_DAMAGE, damage * MaxSteelConfig.CANNON_AOE_FRACTION);
 		for (LivingEntity e : AbilityHelpers.enemiesAround(player, end, radius)) {
 			if (struck.contains(e)) {
 				continue;

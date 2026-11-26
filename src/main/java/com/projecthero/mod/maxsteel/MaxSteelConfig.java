@@ -13,6 +13,15 @@ public final class MaxSteelConfig {
 	private MaxSteelConfig() {
 	}
 
+	// ---------------- v0.17.7 City tier ----------------
+
+	/**
+	 * v0.17.7 City tier (melee 11-14, abilities 11-15, top hits up to 30): no single hit from a suited Max Steel lands for more
+	 * than this, whatever stacks on it (a held weapon plus the melee bonuses, a crit, a charge). Enforced in
+	 * {@link MaxSteelDamage}; boss caps still apply on top.
+	 */
+	public static final float MAX_HIT = com.projecthero.mod.hero.PowerRank.CITY.ultimateMax;
+
 	// ---------------- T.U.R.B.O. Energy ----------------
 
 	/** v0.6.20: lowered from 500 to 250 -- with the Turbo Modes no longer time-capped, the pool size is
@@ -64,7 +73,8 @@ public final class MaxSteelConfig {
 
 	// ---------------- base mode passives ----------------
 
-	public static final float BASE_MELEE_BONUS = 4f;
+	/** v0.17.7 City tier: 4 -> 10, a bare fist hits for 11 (Strength Mode adds {@link #STRENGTH_MELEE_BONUS} for 14). */
+	public static final float BASE_MELEE_BONUS = 10f;
 	public static final float BASE_KNOCKBACK_RESIST = 0.25f;
 	/** v0.9.2: removed -- Base Mode no longer has a flat incoming-damage reduction, only the suit's
 	 *  raw (diamond-tier) armour. Kept as 0 so anything still referencing it is a no-op. */
@@ -76,8 +86,8 @@ public final class MaxSteelConfig {
 
 	// ---------------- Ability 1: Turbo Blast ----------------
 
-	/** v0.14.2: 10 -> 15 per tap. */
-	public static final float BLAST_DAMAGE = 15f;
+	/** v0.14.2: 10 -> 15 per tap. v0.17.7 City tier: 15 -> 12 (it has a 0.45 s recharge). */
+	public static final float BLAST_DAMAGE = 12f;
 	public static final float BLAST_COST = 4f;
 	public static final int BLAST_COOLDOWN_TICKS = 9; // 0.45 s
 	/** v0.14.2: a 2 s charge in three stages (see {@link #BLAST_STAGES}); held this long it is fully charged. */
@@ -87,7 +97,8 @@ public final class MaxSteelConfig {
 	/** Charge stages -- each one crossed plays a rising cue and grows the orb in the hand (fractions of a full charge). */
 	public static final float[] BLAST_STAGES = { 0.34f, 0.67f, 1.0f };
 	/** v0.14.2: 22 -> 34 at a full charge (damage climbs from {@link #BLAST_DAMAGE} with the charge). */
-	public static final float CHARGED_BLAST_MAX_DAMAGE = 34f;
+	/** v0.17.7 City tier: 34 -> 22 (the charge lifts it past the ability range; the burst is half: 11). */
+	public static final float CHARGED_BLAST_MAX_DAMAGE = 22f;
 	public static final float CHARGED_BLAST_MAX_COST = 16f;
 	/** v0.14.2: 2.5 -> 3.5; a full charge detonates for half its damage on everything around the hit. */
 	public static final double CHARGED_BLAST_BURST_RADIUS = 3.5;
@@ -114,7 +125,8 @@ public final class MaxSteelConfig {
 	public static final float STRENGTH_ACTIVATION_COST = 12f;
 	public static final float STRENGTH_DRAIN_PER_SEC = 2f;
 	/** v0.9.2: +4 on top of the +4 Base Mode bonus -> +8 total unarmed melee in Strength Mode (was +10 -> +14). */
-	public static final float STRENGTH_MELEE_BONUS = 4f;
+	/** v0.17.7 City tier: 4 -> 3 on top of the Base 10 -- a bare fist in Strength Mode hits for 14, the top of the City melee range. */
+	public static final float STRENGTH_MELEE_BONUS = 3f;
 	public static final float STRENGTH_KNOCKBACK_DEALT_BONUS = 0.50f;
 	public static final float STRENGTH_KNOCKBACK_RESIST_BONUS = 0.40f;
 	/**
@@ -132,7 +144,10 @@ public final class MaxSteelConfig {
 	public static final float STRENGTH_SPRINT_PENALTY = 0.20f;
 	/** v0.6.21: and swings 20% slower while in Strength Mode. */
 	public static final float STRENGTH_ATTACK_SPEED_PENALTY = 0.20f;
-	public static final float HEAVY_PUNCH_BONUS_DAMAGE = 8f;
+	/** v0.17.7 City tier: 8 -> 11 (the extra hit on the punched target). */
+	public static final float HEAVY_PUNCH_BONUS_DAMAGE = 11f;
+	/** v0.17.7 City tier: the shockwave on everything else around it (was half the bonus, 4). */
+	public static final float HEAVY_PUNCH_SHOCKWAVE_DAMAGE = 11f;
 	public static final double HEAVY_PUNCH_SHOCKWAVE_RADIUS = 3.0;
 	public static final int HEAVY_PUNCH_COOLDOWN_TICKS = 80; // 4 s
 
@@ -143,7 +158,8 @@ public final class MaxSteelConfig {
 	public static final double SPEED_GROUND_SPEED = 0.42; // blocks/tick target
 	public static final float SPEED_FALL_DAMAGE_REDUCTION = 0.60f;
 	public static final double TURBO_DASH_DISTANCE = 6.0;
-	public static final float TURBO_DASH_DAMAGE = 8f;
+	/** v0.17.7 City tier: 8 -> 12. */
+	public static final float TURBO_DASH_DAMAGE = 12f;
 	public static final float TURBO_DASH_COST = 6f;
 	public static final int TURBO_DASH_COOLDOWN_TICKS = 30; // 1.5 s
 
@@ -179,10 +195,13 @@ public final class MaxSteelConfig {
 	public static final int CANNON_OVERHOLD_TICKS = 30;
 	public static final float CANNON_MIN_COST = 18f;
 	public static final float CANNON_FULL_COST = 60f;
-	public static final float CANNON_MIN_DAMAGE = 16f;
-	public static final float CANNON_FULL_DAMAGE = 45f;
+	/** v0.17.7 City tier: 16-45 -> 15-28 (its biggest hit: a full 3 s charge sits just under {@link #MAX_HIT}). */
+	public static final float CANNON_MIN_DAMAGE = 15f;
+	public static final float CANNON_FULL_DAMAGE = 28f;
 	/** Fraction of the beam damage dealt to everything caught in the detonation at its end. */
 	public static final float CANNON_AOE_FRACTION = 0.45f;
+	/** v0.17.7 City tier: the detonation never hits for less than this (the ability floor). */
+	public static final float CANNON_AOE_MIN_DAMAGE = 11f;
 	public static final double CANNON_AOE_RADIUS_MIN = 2.5;
 	public static final double CANNON_AOE_RADIUS_MAX = 5.0;
 	public static final double CANNON_RANGE = 48.0;

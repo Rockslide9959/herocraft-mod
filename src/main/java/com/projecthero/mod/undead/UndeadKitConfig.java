@@ -41,7 +41,7 @@ public final class UndeadKitConfig {
 	/** The wind-up: ten twists of the arm before it flies. */
 	public static final int VORTEX_WINDUP = 12;
 	public static final int VORTEX_TWISTS = 10;
-	public static final float VORTEX_DAMAGE = 18f;
+	public static final float VORTEX_DAMAGE = 15f; // v0.17.7 City tier: was 18
 	/** Blocks a tick (52 b/s): it crosses its range in under a second. */
 	public static final double VORTEX_SPEED = 2.6;
 	public static final double VORTEX_RANGE = 30.0;
@@ -52,7 +52,7 @@ public final class UndeadKitConfig {
 	public static final double VORTEX_LIFT = 0.25;
 	/** The burst where it stops (range, wall): everything within this radius is blown away. */
 	public static final double VORTEX_BURST_RADIUS = 4.0;
-	public static final float VORTEX_BURST_DAMAGE = 6f;
+	public static final float VORTEX_BURST_DAMAGE = 11f; // v0.17.7 City tier: was 6
 	public static final double VORTEX_BURST_KNOCK = 2.2;
 	public static final double VORTEX_BURST_LIFT = 0.55;
 	public static final int VORTEX_COOLDOWN = 160;
@@ -67,9 +67,9 @@ public final class UndeadKitConfig {
 	/** Where it starts: this high above the target and this far back toward the caster. */
 	public static final double METEOR_HEIGHT = 70.0;
 	public static final double METEOR_BACK = 26.0;
-	public static final float METEOR_DAMAGE = 40f;
-	/** At the edge of the blast the damage is this share of the centre's. */
-	public static final float METEOR_EDGE_SHARE = 0.2f;
+	public static final float METEOR_DAMAGE = 30f; // v0.17.7 City tier: was 40 (the ultimate: 25-30)
+	/** At the edge of the blast the damage is this share of the centre's. v0.17.7 City tier: 0.2 -> 25/30, so 30 falling to 25. */
+	public static final float METEOR_EDGE_SHARE = 25f / 30f;
 	public static final double METEOR_RADIUS = 10.0;
 	public static final double METEOR_KNOCK = 2.6;
 	public static final double METEOR_LIFT = 0.9;
@@ -87,7 +87,7 @@ public final class UndeadKitConfig {
 	public static final int RIB_SHOT_COUNT = 7;
 	/** The cone's half-angle in degrees (a 30 degree spread). */
 	public static final double RIB_SHOT_CONE = 15.0;
-	public static final float RIB_SHOT_DAMAGE = 6f;
+	public static final float RIB_SHOT_DAMAGE = 2f; // v0.17.7 City tier: was 6 -- seven spikes, so a target taking all of them up close gets 14 (the Punisher shotgun rule)
 	/** Blocks a tick (40 b/s): across the range in half a second. */
 	public static final double RIB_SHOT_SPEED = 2.0;
 	public static final double RIB_SHOT_RANGE = 20.0;
@@ -144,7 +144,7 @@ public final class UndeadKitConfig {
 	public static final double K_CRESCENT_WIDTH = 1.9;
 	public static final int K_CRESCENT_COOLDOWN = 30;
 	/** G: Great Deep-Crimson Crescent Moon -- a huge one, two-handed from overhead. */
-	public static final float K_GREAT_DAMAGE = 24f;
+	public static final float K_GREAT_DAMAGE = 15f; // v0.17.7 City tier: was 24
 	public static final double K_GREAT_RANGE = 26.0;
 	public static final double K_GREAT_SPEED = 1.3;
 	public static final double K_GREAT_WIDTH = 4.2;
@@ -152,7 +152,7 @@ public final class UndeadKitConfig {
 	public static final int K_GREAT_WINDUP = 7;
 	public static final int K_GREAT_COOLDOWN = 300;
 	/** Z: Crimson Flash -- an iaido draw: he blurs forward, cutting everything he passes, and drinks the blood he draws. */
-	public static final float K_FLASH_DAMAGE = 16f;
+	public static final float K_FLASH_DAMAGE = 15f; // v0.17.7 City tier: was 16
 	public static final double K_FLASH_DISTANCE = 8.0;
 	public static final int K_FLASH_TICKS = 3;
 	public static final double K_FLASH_WIDTH = 1.4;
@@ -162,7 +162,7 @@ public final class UndeadKitConfig {
 	public static final int K_FLASH_DELAY = 6;
 	public static final int K_FLASH_COOLDOWN = 120;
 	/** C: Blood Whirl -- two full turns with a blood-coated blade, all round him. */
-	public static final float K_WHIRL_DAMAGE = 10f;
+	public static final float K_WHIRL_DAMAGE = 11f; // v0.17.7 City tier: was 10
 	public static final double K_WHIRL_RADIUS = 4.5;
 	/** The two hits land on these ticks of the spin. */
 	public static final int K_WHIRL_HIT1 = 2, K_WHIRL_HIT2 = 7;

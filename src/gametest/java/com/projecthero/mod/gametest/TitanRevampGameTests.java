@@ -126,22 +126,22 @@ public class TitanRevampGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void theAttackTitanIs15Blocks(GameTestHelper helper) {
-		sizeTest(helper, TitanType.GENERIC_TITAN, 15.0f, 500.0f);
+		sizeTest(helper, TitanType.GENERIC_TITAN, 15.0f, 400.0f); // v0.17.7 City tier: health x0.8
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void theArmouredTitanIs15Blocks(GameTestHelper helper) {
-		sizeTest(helper, TitanType.ARMORED_TITAN, 15.0f, 800.0f);
+		sizeTest(helper, TitanType.ARMORED_TITAN, 15.0f, 640.0f);
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void theFemaleTitanIs12Blocks(GameTestHelper helper) {
-		sizeTest(helper, TitanType.FEMALE_TITAN, 12.0f, 450.0f);
+		sizeTest(helper, TitanType.FEMALE_TITAN, 12.0f, 360.0f);
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void theBeastTitanIs14Blocks(GameTestHelper helper) {
-		sizeTest(helper, TitanType.BEAST_TITAN, 14.0f, 600.0f);
+		sizeTest(helper, TitanType.BEAST_TITAN, 14.0f, 480.0f);
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)

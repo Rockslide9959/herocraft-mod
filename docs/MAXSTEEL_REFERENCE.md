@@ -4,6 +4,24 @@ Added across **v0.6.7 – v0.6.13** (Phases 1–8). Package `com.projecthero.mod
 Power id `max_steel`. A Hero Tier power, peer of Thor / Tony Stark / Spider-Man: its own attachment,
 granted server-authoritatively when Steel bonds, permanent, survives death / relog / restart.
 
+## v0.17.7 City tier
+
+Max Steel's numbers moved into the City tier (melee 11-14, abilities 11-15, top hits up to 30). `MaxSteelConfig.MAX_HIT` 30:
+`MaxSteelDamage` re-applies any hit from a suited Max Steel above 30 at 30 (a held weapon on top of the fist bonuses, a crit), and the
+Cannon clamps its own beam. Max Steel has no Shift+Z ultimate; a full Turbo Cannon charge is its top hit.
+
+| Hit | Before | After |
+|---|---|---|
+| Fist (Base / Strength) | 5 / 9 (+4, +4 more) | 11 / 14 (+10, +3 more) |
+| Turbo Blast tap / full charge / charge burst | 15 / 34 / 17 | 12 / 22 / 11 |
+| Heavy Punch extra / shockwave | 8 / 4 | 11 / 11 |
+| Turbo Slam | 15 | 15 |
+| Turbo Dash | 8 | 12 |
+| Turbo Cannon beam / end blast | 16-45 / 45% | 15-28 / 45%, at least 11 |
+
+Toughness: suit toughness 2 -> 3 (netherite's; armour stays 20); Strength Mode Resistance I and the crouch block unchanged. No extra
+max health (it never had any). Visuals untouched (still blue).
+
 ## v0.14.4
 
 User requests: go straight into any Turbo mode without first transforming into Base; regenerate Turbo energy in

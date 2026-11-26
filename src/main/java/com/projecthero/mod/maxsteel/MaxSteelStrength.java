@@ -80,7 +80,7 @@ public final class MaxSteelStrength {
 			if (e == primary) {
 				continue;
 			}
-			AbilityHelpers.hurt(player, e, MaxSteelConfig.HEAVY_PUNCH_BONUS_DAMAGE * 0.5f);
+			AbilityHelpers.hurt(player, e, MaxSteelConfig.HEAVY_PUNCH_SHOCKWAVE_DAMAGE);
 			AbilityHelpers.knockbackFrom(e, player.position(), 1.1);
 		}
 		AbilityHelpers.knockbackFrom(primary, player.position(), 1.4);

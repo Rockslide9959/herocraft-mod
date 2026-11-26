@@ -85,7 +85,7 @@ public class TitanShifterGameTests implements FabricGameTest {
 		helper.assertTrue(TitanShifter.phase(p) == TitanPhase.TRANSFORMING, "TRANSFORMING first");
 		TitanFormEntity form = TitanShifter.formOf(p);
 		helper.assertTrue(form != null, "the player rides a Titan form entity");
-		helper.assertTrue(form.getMaxHealth() == 500.0f, "500 HP, got " + form.getMaxHealth());
+		helper.assertTrue(form.getMaxHealth() == 400.0f, "400 HP (v0.17.7 City tier), got " + form.getMaxHealth());
 		helper.assertTrue(Math.abs(form.getBbHeight() - TitanShifterConfig.stats().heightBlocks) < 1e-3, "15 blocks tall");
 		helper.assertFalse(TitanShifter.transform(p), "cannot transform twice");
 		helper.runAfterDelay(SETTLE, () -> {
@@ -541,7 +541,7 @@ public class TitanShifterGameTests implements FabricGameTest {
 			helper.assertTrue(form.isEmergency() && TitanShifter.state(p).inEmergency(), "it is the Emergency Titan");
 			// v0.16.7: ~60% of the selected type's height (the Attack Titan's 15 -> 9)
 			helper.assertTrue(Math.abs(form.getBbHeight() - 15.0f * 0.6f) < 0.05f, "9 blocks tall, got " + form.getBbHeight());
-			helper.assertTrue(Math.abs(form.getMaxHealth() - 300.0f) < 0.5f, "40% less health (300), got " + form.getMaxHealth());
+			helper.assertTrue(Math.abs(form.getMaxHealth() - 240.0f) < 0.5f, "40% less health (240), got " + form.getMaxHealth());
 			helper.assertTrue(Math.abs(form.strengthFactor() - 0.6f) < 1e-4f, "40% weaker hits");
 			helper.succeed();
 		});

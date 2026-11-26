@@ -37,26 +37,27 @@ public enum TitanMove {
 	REGEN("regeneration", "regeneration", -1, 0, 0),
 	HARDEN("hardening", "hardening", -1, 0, 0),
 	// ---- Attack Titan ----
-	UPPERCUT("uppercut", "uppercut", 120, 38, 8),
+	// v0.17.7 City tier: the built-in damage defaults follow the config (was 38 / 32 / 30 / 55 / 40 / 34 / 42 / 24 / 9 / 18 / 45 / 20)
+	UPPERCUT("uppercut", "uppercut", 120, 15, 8),
 	RAGE("rage", "rage", 600, 0, 10),
-	DROPKICK("dropkick", "dropkick", 180, 32, 8),
+	DROPKICK("dropkick", "dropkick", 180, 15, 8),
 	// ---- Armoured Titan ----
-	ELBOW("elbow", "elbow", 60, 30, 7),
-	GROUND_POUND("ground_pound", "ground_pound", 240, 55, 26),
-	SHOULDER_CHARGE("shoulder_charge", "shoulder_charge", 240, 40, 8),
+	ELBOW("elbow", "elbow", 60, 14, 7),
+	GROUND_POUND("ground_pound", "ground_pound", 240, 15, 26),
+	SHOULDER_CHARGE("shoulder_charge", "shoulder_charge", 240, 28, 8),
 	BRACE("brace", "brace", 300, 0, 4),
 	// ---- Female Titan ----
-	ROUNDHOUSE("roundhouse", "roundhouse", 50, 34, 8),
-	AXE_KICK("axe_kick", "axe_kick", 140, 42, 12),
-	SWEEP_KICK("sweep_kick", "sweep_kick", 160, 24, 9),
+	ROUNDHOUSE("roundhouse", "roundhouse", 50, 14, 8),
+	AXE_KICK("axe_kick", "axe_kick", 140, 15, 12),
+	SWEEP_KICK("sweep_kick", "sweep_kick", 160, 12, 9),
 	CRYSTAL_FISTS("crystal_fists", "crystal_fists", 600, 0, 6),
 	SCREAM("scream", "scream", 500, 0, 12),
 	// ---- Beast Titan ----
 	// v0.16.7 (user): Pitcher's Fastball replaced the Backhand on Shift+R -- 9 a stone, at most 3 stones on one target
-	FASTBALL("fastball", "fastball", 160, 9, 22),
-	ROCK_SCATTER("rock_scatter", "rock_scatter", 160, 18, 12),
-	BOULDER_THROW("boulder_throw", "boulder_throw", 200, 45, 16),
-	BOULDER_VOLLEY("boulder_volley", "boulder_volley", 280, 20, 14),
+	FASTBALL("fastball", "fastball", 160, 11, 22),
+	ROCK_SCATTER("rock_scatter", "rock_scatter", 160, 12, 12),
+	BOULDER_THROW("boulder_throw", "boulder_throw", 200, 28, 16),
+	BOULDER_VOLLEY("boulder_volley", "boulder_volley", 280, 13, 14),
 	// ---- human form: Partial Shifting (player poses, see TitanShifterPose on the client) ----
 	TITAN_ARM("titan_arm", null, -1, -1, 6),
 	CRYSTAL_BLADE("crystal_blade", null, -1, -1, 3),

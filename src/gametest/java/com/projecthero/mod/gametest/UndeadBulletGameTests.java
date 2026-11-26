@@ -75,16 +75,17 @@ public class UndeadBulletGameTests implements FabricGameTest {
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void bulletNumbers(GameTestHelper helper) {
-		helper.assertTrue(UndeadBulletConfig.FINGER_DAMAGE == 7f && UndeadBulletConfig.HAND_DAMAGE == 12f && UndeadBulletConfig.ARM_DAMAGE == 20f,
-				"Finger 7, Hand 12, Arm 20");
+		// v0.17.7 City tier: was 7 / 12 / 20
+		helper.assertTrue(UndeadBulletConfig.FINGER_DAMAGE == 11f && UndeadBulletConfig.HAND_DAMAGE == 13f && UndeadBulletConfig.ARM_DAMAGE == 15f,
+				"Finger 11, Hand 13, Arm 15");
 		helper.assertTrue(UndeadBulletConfig.RANGE == 60.0, "60 block range");
 		helper.assertTrue(UndeadBulletConfig.ARM_HOLD == 20, "hold R one second for the arm");
 		for (String id : new String[] { UndeadAbilities.PARTS_BULLET, UndeadAbilities.PARTS_BULLET_HAND, UndeadAbilities.PUNCH }) {
 			helper.assertTrue(UndeadAbilityManager.maxCooldown(id) == 0, "no cooldown: " + id);
 		}
 		helper.assertTrue(UndeadAbilityManager.maxCooldown(UndeadAbilities.DIVISION) == 200, "Division Bullet: 10 s");
-		helper.assertTrue(UndeadBulletConfig.CLONE_LIFE == 400 && UndeadBulletConfig.CLONE_DAMAGE == 8f && UndeadBulletConfig.CLONE_HEALTH == 30f,
-				"clone: 20 s, 8 a hit, 30 HP");
+		helper.assertTrue(UndeadBulletConfig.CLONE_LIFE == 400 && UndeadBulletConfig.CLONE_DAMAGE == 11f && UndeadBulletConfig.CLONE_HEALTH == 30f,
+				"clone: 20 s, 11 a hit, 30 HP");
 		// v0.17.3 (user: "Make the player able to throw their head up to 30 blocks please"): 45 degrees over flat ground, let go
 		// from behind the shoulder (the held head's middle 1.9 up, landing with it a quarter block up), lands about 30 blocks out
 		Vec3 pos = Vec3.ZERO;
@@ -158,17 +159,17 @@ public class UndeadBulletGameTests implements FabricGameTest {
 		// each bullet stepped by hand (the test world may not tick the chunk it crosses)
 		UndeadAbilities.partsBullet(p);
 		fly(helper, p, UndeadPartEntity.STYLE_FINGER);
-		helper.assertTrue(Math.abs(z.getHealth() - (200f - UndeadBulletConfig.FINGER_DAMAGE)) < 0.01f, "the finger: 7 (" + z.getHealth() + ")");
+		helper.assertTrue(Math.abs(z.getHealth() - (200f - UndeadBulletConfig.FINGER_DAMAGE)) < 0.01f, "the finger: 11 (" + z.getHealth() + ")");
 		z.invulnerableTime = 0;
 		UndeadAbilities.handBullet(p);
 		fly(helper, p, UndeadPartEntity.STYLE_HAND);
-		helper.assertTrue(Math.abs(z.getHealth() - (200f - 19f)) < 0.01f, "the hand: 12 (" + z.getHealth() + ")");
+		helper.assertTrue(Math.abs(z.getHealth() - (200f - 24f)) < 0.01f, "the hand: 13 (" + z.getHealth() + ")");
 		z.invulnerableTime = 0;
 		Undead.restore(p);
 		UndeadAbilities.startPunch(p);
 		UndeadAbilities.throwPunch(p);
 		fly(helper, p, UndeadPartEntity.STYLE_PUNCH);
-		helper.assertTrue(Math.abs(z.getHealth() - (200f - 39f)) < 0.01f, "the arm: 20 (" + z.getHealth() + ")");
+		helper.assertTrue(Math.abs(z.getHealth() - (200f - 39f)) < 0.01f, "the arm: 15 (" + z.getHealth() + ")");
 		helper.succeed();
 	}
 
@@ -386,7 +387,7 @@ public class UndeadBulletGameTests implements FabricGameTest {
 			float before = z.getHealth();
 			z.invulnerableTime = 0;
 			c.doHurtTarget(z);
-			helper.assertTrue(Math.abs(before - z.getHealth() - UndeadBulletConfig.CLONE_DAMAGE) < 0.01f, "8 a hit: " + (before - z.getHealth()));
+			helper.assertTrue(Math.abs(before - z.getHealth() - UndeadBulletConfig.CLONE_DAMAGE) < 0.01f, "11 a hit: " + (before - z.getHealth()));
 			c.discard();
 			helper.succeed();
 		});

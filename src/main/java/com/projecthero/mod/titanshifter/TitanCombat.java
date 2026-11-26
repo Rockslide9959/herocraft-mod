@@ -89,6 +89,7 @@ public final class TitanCombat {
 		var d = TitanShifterConfig.damage();
 		// v0.16.7: x Rage (Attack Titan) / crystal fists (Female Titan); the boss cap below still applies on top
 		float dmg = base * form.titanType().damageScale * form.strengthFactor() * form.outgoingDamageFactor();
+		dmg = Math.min(dmg, TitanShifterConfig.MAX_HIT); // v0.17.7 City tier: no Titan hit over 30, Rage / crystal included
 		dmg *= (float) (target instanceof Player ? d.playerFactor : d.mobFactor);
 		if (isBoss(target)) {
 			dmg = Math.min(dmg, (float) (target.getMaxHealth() * d.bossMaxFractionPerHit));
