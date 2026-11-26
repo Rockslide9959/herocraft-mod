@@ -56,6 +56,37 @@ please, don't make the player have the necklace model on them all the time, only
 - Removed: the four armour pieces as armour (material, armour-layer textures, item icons, recipes, JEI page), the always-on
   necklace model. The hold-H necklace toggle and the N claw toggle stay removed.
 
+## Suit look: comics skin, cape and high collar (v0.17.7)
+
+The user: "make this the new black panther suit: https://www.planetminecraft.com/skin/black-panther-marvel-comics-6828688/ Remove the
+cape and and high collar from the skin and make it a model that reacts with the players movement, make it look cool".
+
+- **Skin**: "Black Panther [Marvel Comics]" (PlanetMinecraft file 19479117, Steve / wide arms; borrowed, ships publicly). Original kept
+  untouched at `scratchpad/v0177/bp_skin_original.png`; `node scratchpad/v0177/make_bp_suit_skin.js` writes `black_panther.png`,
+  `black_panther_glow.png`, `black_panther_cape.png`, `black_panther_collar.png` (all in `textures/entity/black_panther/`) and the
+  previews in `docs/screenshots/v0177/bp_suit/`. One wide texture for every wearer (the suit model is always wide).
+- Black suit with gold trims: gold eye lenses, a gold neck band with four hanging claw-teeth and a centre point on the upper chest
+  (rows 20-22 of the body front, plus the front half of the shoulders' top), a gold V belt at the waist, gold clawed bracers on both
+  forearms. Cat-ear tips on the mask's top corners.
+- **Removed from the paint**: the purple-grey cape (body back, back of the shoulders, body sides' back columns, the legs' backs, the
+  cape fold highlights on the second layer) and the high collar (the light texels round the back / sides of the head's lower five rows,
+  the underside ring, the hat layer's copies).
+- **Filled**: the back is the front seen from behind without the hanging teeth, so the gold neck band and the V belt run all the way
+  round; sides and leg backs mirror their own fronts (boots included); a vibranium spine + shoulder-blade seam (a Y) on the back; the
+  bracers' gap on the inner back of each forearm closed; the mask's sides / back repainted as a dark hood. Every base texel is opaque.
+- **Glow map** (Kinetic bar): the gold trims and the back seams, violet.
+- **Cape** (`BlackPantherCapeLayer`, on the shared cloth `FlowingCapeLayer`): full length (1.25 blocks, to the shins, as painted),
+  purple-grey with folds, a dark-gold hem, violet-black lining. Swings with walking / sprinting / crouching like the Thor and Shazam
+  capes; streams up behind him while falling faster than 0.45 blocks/tick (or elytra gliding). Unrolls from the collar over the last
+  45% of the texel build, rolls up first on the way back.
+- **High collar** (`BlackPantherCollarLayer`): a curved standing wall round the back and sides of the neck (110 deg either side of
+  straight behind, open at the front), 5 px tall behind the head down to 2 px at the front ends, flaring out 14 deg, on a yoke over the
+  shoulders, with a short skirt behind that runs down over the cape's top. Radius 6.35 px so its inside clears the suit head's corners
+  however the head turns. Body frame (torso turn, crouch); turns 30% with the head (max 20 deg), leans back with 60% of an upward look
+  (max 35 deg), flares with the cape's lagging swing (+ side sway twist) and opens 10 deg more in a fast drop. Rises over build share
+  0.45-0.75, sinks first on the way back. Purple-grey ribs, lining inside, gold top edge.
+- Both layers draw only while `BlackPantherRender.anim(player).anything()` (the suit is out or building), never in first person.
+
 ## Passives
 
 | Passive | Unsuited | Suited |
