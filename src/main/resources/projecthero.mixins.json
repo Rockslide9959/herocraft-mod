@@ -25,6 +25,7 @@
 		"StandTimeStopMoveMixin",
 		"StandMiningMixin",
 		"SpeedsterHungerMoveMixin",
+		"ThorThrownDeathMixin",
 		"SuggestModIdsByPathMixin",
 		"ServerLevelGunkMixin",
 		"MiraculousIdentityMixin",

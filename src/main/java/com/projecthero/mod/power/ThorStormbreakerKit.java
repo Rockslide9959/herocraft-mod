@@ -51,6 +51,7 @@ public final class ThorStormbreakerKit {
 				pl.setItemInHand(hand, ItemStack.EMPTY);
 				StormbreakerEntity e = new StormbreakerEntity(level, pl);
 				e.setItem(thrown);
+				e.setThrownFrom(hand); // v0.17.7: it comes back to this hand
 				e.launch(pl, pl.getLookAngle());
 				e.setSpecialThrow(ThorKit.HURL_DAMAGE, ThorKit.HURL_PIERCE, true);
 				level.addFreshEntity(e);

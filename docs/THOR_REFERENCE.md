@@ -88,7 +88,8 @@ Twin Thunder 20 / ring 8 -> 30 / 22, Thunder Field 4 every 10 ticks -> 22 every 
 - **Stormbreaker grip** (v0.17.7 user): held like a greataxe a third of the way up the haft; a move's re-grip only takes
   `ThorKitPose.AXE_GRIP` of the -90 degree turn, so the head stands up out of the fist and the haft never runs back through him.
 - **Spectral weapons**: Twin Throw, Stormbreaker's Judgement and Ragnarok fly item-model copies (`ThorKitFxRenderer`, drawn last in their
-  own pass); `ItemInHandLayerThorHideMixin` hides the real one in hand while its copy flies.
+  own pass). Since the "weapons really leave the hand" pass (below) the real stack is out of the hand for the flight
+  (`power/ThorThrown`), so the copy flies out AND back to the hand it left; `ItemInHandLayerThorHideMixin` / `hidesHeld` are gone.
 - **Effects per state**: Unarmed -- fist charge ball + arcs up the arm, punch shock discs facing the blow, Static Burst's shell of
   rings and bolts, Incarnate's cage of arcs + ground strikes; Mjolnir -- the whirling strap ring, the dash's burnt bolt trail, the
   meteor streak + falling-star flare, shockwaves with ground lightning and cracks, the Wrath vortex and its colossal bolt; Stormbreaker
@@ -196,12 +197,60 @@ Lang: `scratchpad/v0177/lang_bifrost_travel.js`. Films: `docs/screenshots/v0177/
 State badge first in the tags (Unarmed / Mjolnir / Stormbreaker / Twin Gods), then Storm-Charged, God of Thunder, Lightning
 Incarnate. The boxes show the state's cooldowns (Shift swaps to the Shift moves, the other on the durability bar); a narrow
 wrapped line above them names the six moves the boxes hold right now. A Charge meter while Thunder Fist charges.
+**Storm Energy is a Meter row** (user: "make thors bar the meter style bar please"): `ThorHud.stormBar` -> `VanillaHud.Stack.meter(...,
+MutationMeters.Style.METER)` -- "Storm", the plain blue boss bar (`COLOR_ENERGY` 0x1E96FF maps to vanilla's blue), the percentage
+right-aligned (`#8FC8FF`, `#6F8FD8` under 20%, flicking to `#9FD8FF` when full). Replaces the v0.17.7-polish blue XP bar
+(`SentryHud.xpBar` is still the Sentry's).
+
+### Weapons really leave the hand; dual wielding by calling (v0.17.7)
+User: "for the dual throw ability make the weapons actually leave the players hands and then return after, make sure this happens
+for all the abilities where the weapons are thrown" and "if player calls a weapon to themself while having a weapon in their
+inventory then the second weapon goes into the offhand ... make player lift the correct hand when calling the weapon".
+- **Every move that sends a weapon away now empties that hand:**
+  - real entities (were already off the hand; now come back to the SAME hand -- `MjolnirEntity` / `StormbreakerEntity`
+    `setThrownFrom(hand)`, saved as `ProjectHeroThrownFrom` / `ThrownFrom`): right-click Mjolnir throw and Stormbreaker throw (main),
+    Whirlwind Throw, Storm Hurl, Thunder Field, Storm Anchor (both, each its own hand);
+  - scripted moves that used to fly only a spectral copy while the item stayed in hand -- **Twin Throw** (both), **Stormbreaker's
+    Judgement** and **Ragnarok** (the axe) -- now take the real stack out of the hand into `power/ThorThrown` (attachment
+    `THOR_THROWN`: main / off stack + return game time; persistent, copyOnDeath, synced to all). Timeline: Twin Throw out at
+    `THROW_WINDUP` 6, hangs crossed at the meeting point to `THROW_RETURN` 18, flies back `THROW_BACK` 10, caught at `THROW_HOME`
+    28; Judgement out at `JUDGE_THROW` 8, stands in the target to `JUDGE_RETURN` 40, home at `JUDGE_HOME` 50; Ragnarok out at
+    `RAG_HURL` 62, stands in the crater to `RAG_RETURN` 84, home at `RAG_HOME` 94. The client (`ThorKitFxRenderer.flyHome`) draws
+    the leg home to the live hand position.
+- **`ThorThrown` safety:** `tick` (from `ThorPowers.serverTick`) hands back whatever is due, overdue, or saved with a return time more
+  than `MAX_OUT_TICKS` (10 s) away; `returnAll` runs at the HEAD of `ServerPlayer.die` (`mixin/ThorThrownDeathMixin`, before drops
+  or keepInventory) and in `revokePower`; a logout / server stop saves it with the player and the first tick back returns it; a
+  dimension change keeps the same player. `MjolnirRecall` treats a weapon in here as with the player (`isWithPlayer`, step 0 of
+  `callWeapon`), so R never rebuilds a second copy. While out, `ThorState.of` still counts it held (state, perks, `hit`'s armour
+  cut, HUD, flight -- `wieldsThorWeapon` / the flight `holding` check include it), `hasKit` too. No static collections.
+- **Landing rule -- `hammer/ThorWeaponHands`** (`plan` is pure, `place` does it and notes the registry): (1) back into the hand it was
+  thrown from while that hand is empty; (2) on a call (`announceArrival` / `recalled`): the other Thor weapon in the main hand ->
+  the off hand (the off-hand item goes to the pack, or drops at his feet if full -- never deleted); the other in the off hand ->
+  the main hand (an empty hotbar slot is selected first, else the held item steps into the pack); the other in the pack -> a hotbar
+  slot is selected / a backpack slot swapped into the held slot, and the called one takes the off hand; (3) otherwise as before
+  (empty main hand, else pack, a call with a full pack forces the main hand). v0.15.1's `stowOtherWeapon` ("the held weapon steps
+  back into the pack") is gone. A thrown weapon whose hand got filled meanwhile goes to the pack, never over the item.
+- **R with both already on him** (`chooseWeapon` null): `ThorWeaponHands.arrangeDual` -- the Thor weapon in the main hand stays,
+  else one in the off hand decides, else the one on the hotbar (Mjolnir if both) takes the main hand; the other comes into the off
+  hand. Swaps / hotbar selection only. Message `message.projecthero.recall.dual_ready`. `equipFromInventory` (only one weapon
+  callable) puts it in the off hand when the other is in the main hand.
+- **Catch pose -- client `thor/ThorCatchClient`:** the returning entities sync `DATA_CATCH_HAND` (`ThorWeaponHands.plan` each tick
+  home) and steer for that hand's side; the owner's arm for that hand (`HumanoidArm` of the hand, so left-handed players mirror)
+  lifts toward the incoming weapon from 11 blocks out (full at 3), and over the last 7 ticks of a `ThorThrown` return; it lowers
+  over ~5 ticks after the catch. Third person `applyPose` right after `ThorPose.apply` (`HumanoidModelMixin`); first person
+  `ItemInHandRendererThorMixin` draws the empty hand raised (the off hand too, which vanilla never draws empty), then vanilla's
+  equip rise brings the weapon in.
 
 ### Tests -- `ThorRevampV0177GameTests`
 State from the hands; 23 key routes across the states (each fires its move's cooldown and matches the HUD table); Lightning
 Strike 26, cap 60 (also with Storm Call's +30%), melee 24 / 24 / 26 / 27; Sunder +20%; Executioner's Drop 28 / 30; Twin pays x2;
 no unarmed flight + speed order; Unarmed cooldowns x0.75; each ultimate fires and lands. `StormbreakerGameTests` sneak-click test
-now opens the Bifrost through Shift+X.
+now opens the Bifrost through Shift+X. `ThorThrowHandsV0177GameTests` (one batch each, `thor_hands_v0177_*`): Twin Throw empties
+both hands, stays TWIN, returns each to its own hand, one of each throughout; a thrown Mjolnir / Stormbreaker returns to the off
+hand it left; a called weapon takes the off hand (torch to the pack / dropped with a full pack), the other weapon on the hotbar is
+selected / in the backpack is swapped in; no other weapon = old landing; `arrangeDual`; codec round trip + overdue return; a hand
+filled mid-throw sends it to the pack; dying mid-throw leaves exactly one; R never rebuilds a weapon out on a throw.
+`ThorRecallV0151GameTests` now expects the off-hand landing and both-in-hand on R.
 
 Films: `docs/screenshots/v0177/thor_revamp/`.
 ## v0.17.7: how players get Thor and Stormbreaker -- `com.projecthero.mod.thoracquire`
@@ -635,7 +684,7 @@ films with `thor_polish_film.js`). No gameplay number changed.
   fills from the collar to the hem (v runs down the cloth); on H it empties hem first. Complete = the shipped textures untouched, so
   the finished look is unchanged. Bolts, crackle, clinks, final bolt + flash and the part windows are unchanged. Frames are built
   lazily on the render thread and cached (texture ids only).
-- **Storm Energy as a blue XP bar** (user: "Can you make thors bar look like a blue xp bar please"): `ThorHud.stormBar` replaces the
+- **Storm Energy as a blue XP bar** -- *superseded later in v0.17.7 by the Meter row, see "HUD" under the Cosmic revamp* (user: "Can you make thors bar look like a blue xp bar please"): `ThorHud.stormBar` replaced the
   Hairline meter row: the vanilla experience bar's own background + progress sprites via `SentryHud.xpBar` (now public; the Sentry's
   Sun / Void bars use it), progress tinted `#3DA5FF` (`#2A4E9A` under 20%, top row breathing softly when full), across the column
   (at most 182 px, right-aligned), the percentage centred above it in the XP level's black-outlined digits (`#8FC8FF`, `#6F8FD8` low)

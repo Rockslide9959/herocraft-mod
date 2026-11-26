@@ -45,6 +45,7 @@ public final class ThorFxRenderer {
 
 	public static void initialize() {
 		WorldRenderEvents.AFTER_ENTITIES.register(ThorFxRenderer::render);
+		ThorCatchClient.initialize(); // v0.17.7: the arm a returning weapon is about to land in comes up for the catch
 		ThorFlightTrail.initialize(); // v0.17.7 polish: the faint streak behind a flying Thor (replaces the flight particles)
 	}
 

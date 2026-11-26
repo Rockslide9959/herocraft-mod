@@ -59,6 +59,7 @@ public final class ThorMjolnirKit {
 			pl.setItemInHand(hand, ItemStack.EMPTY);
 			MjolnirEntity e = new MjolnirEntity(level, pl);
 			e.setItem(thrown);
+			e.setThrownFrom(hand); // v0.17.7: it comes back to this hand (the off hand too, so Twin Gods stay Twin Gods)
 			e.throwFromPlayer(pl, pl.getLookAngle());
 			e.setDeltaMovement(e.getDeltaMovement().scale(1.25));
 			e.setSpecialThrow(ThorKit.WHIRLWIND_DAMAGE, ThorKit.WHIRLWIND_PIERCE);

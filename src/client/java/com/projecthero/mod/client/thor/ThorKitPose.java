@@ -6,8 +6,6 @@ import com.projecthero.mod.client.blackpanther.BlackPantherPose;
 import com.projecthero.mod.item.ModItems;
 import com.projecthero.mod.power.ThorFx;
 import com.projecthero.mod.power.ThorKit;
-import com.projecthero.mod.power.ThorState;
-import com.projecthero.mod.power.ThorTwinKit;
 import com.projecthero.mod.power.ThorUltimates;
 
 import net.minecraft.client.Minecraft;
@@ -16,6 +14,7 @@ import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * v0.17.7 Cosmic revamp: the body animations of Thor's new moves, keyed off the synced {@link ThorFx} (anim id + start tick,
@@ -351,11 +350,14 @@ public final class ThorKitPose {
 		boolean axeLeads = anim == ThorFx.ANIM_RAGNAROK;
 		var first = axeLeads ? ModItems.STORMBREAKER : ModItems.MJOLNIR;
 		var second = axeLeads ? ModItems.MJOLNIR : ModItems.STORMBREAKER;
-		if (p.getMainHandItem().is(first)) {
+		// v0.17.7: a weapon out on a scripted throw still leads from the hand it left
+		ItemStack mainItem = com.projecthero.mod.power.ThorThrown.inHand(p, net.minecraft.world.InteractionHand.MAIN_HAND);
+		ItemStack offItem = com.projecthero.mod.power.ThorThrown.inHand(p, net.minecraft.world.InteractionHand.OFF_HAND);
+		if (mainItem.is(first)) {
 			arm = main;
-		} else if (p.getOffhandItem().is(first)) {
+		} else if (offItem.is(first)) {
 			arm = main.getOpposite();
-		} else if (!p.getMainHandItem().is(second) && p.getOffhandItem().is(second)) {
+		} else if (!mainItem.is(second) && offItem.is(second)) {
 			arm = main.getOpposite();
 		}
 		return arm == HumanoidArm.RIGHT;
@@ -611,18 +613,6 @@ public final class ThorKitPose {
 		return fr[fr.length - 1];
 	}
 
-	/** Twin Throw / Stormbreaker's Judgement / Ragnarok throw a spectral copy of the weapon: the held one is hidden while it flies. */
-	public static boolean hidesHeld(Player p, boolean mjolnir) {
-		ThorFx fx = p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.THOR_FX, null);
-		if (fx == null) {
-			return false;
-		}
-		float t = p.level().getGameTime() - fx.animStart();
-		return switch (fx.anim()) {
-			case ThorFx.ANIM_TWIN_THROW -> t >= ThorTwinKit.THROW_WINDUP && t < ThorTwinKit.THROW_WINDUP + ThorTwinKit.THROW_FLIGHT + 4;
-			case ThorFx.ANIM_JUDGEMENT -> !mjolnir && t >= ThorUltimates.JUDGE_THROW && t < ThorUltimates.JUDGE_BURST + 2;
-			case ThorFx.ANIM_RAGNAROK -> !mjolnir && t >= ThorUltimates.RAG_HURL && t < ThorUltimates.RAG_IMPACT + 10;
-			default -> false;
-		} && ThorState.of(p) != ThorState.UNARMED;
-	}
+	// (v0.17.7: hidesHeld -- hiding the held weapon while a spectral copy flew -- is gone: Twin Throw, Judgement and Ragnarok now
+	// really take the weapon out of the hand, com.projecthero.mod.power.ThorThrown)
 }

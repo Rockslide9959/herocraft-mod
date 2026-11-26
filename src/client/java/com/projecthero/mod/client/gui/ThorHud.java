@@ -30,8 +30,7 @@ import net.minecraft.world.entity.player.Player;
  *   THOR                                               title
  *   Combo  [Meter ===----]  2/4                        dual-wield combo (Twin Gods), the Twin Thunder recharge
  *   Charge [Hairline =====---]  60%                    Thunder Fist charge (Unarmed, Shift+R held)
- *   Storm          84%                                 Storm Energy: the vanilla XP bar in blue, the number over its middle
- *   [XP bar =========|=========-------]                (v0.17.7 polish)
+ *   Storm  [Meter =========-----]  84%                 Storm Energy in the Meter style, Thor blue
  *   R Call Weapon  G Lightning Strike  ...             the boxes' move names, wrapped (only while Left-Alt is held)
  *   | R| G| Z| X| C| V|
  * </pre>
@@ -41,9 +40,6 @@ public final class ThorHud {
 	private static final int COLOR_ENERGY = 0xFF1E96FF;
 	private static final int COLOR_ENERGY_TEXT = 0xFF8FC8FF;
 	private static final int COLOR_ENERGY_LOW_TEXT = 0xFF6F8FD8;
-	/** v0.17.7 polish: the XP bar's fill, in Thor blue (the vanilla green's brightness), and its darker low-energy shade. */
-	private static final int XP_BLUE = 0x3DA5FF;
-	private static final int XP_LOW = 0x2A4E9A;
 	private static final int COLOR_GOLD = 0xFFF2C24E;
 	private static final int COLOR_STORM = 0xFF9FD8FF;
 	/** The state badge colours: Unarmed pale blue, Mjolnir storm blue, Stormbreaker Bifrost violet, Twin Gods gold. */
@@ -150,36 +146,22 @@ public final class ThorHud {
 	}
 
 	/**
-	 * v0.17.7 polish (user: "Can you make thors bar look like a blue xp bar please"): Storm Energy as the vanilla experience bar -- its
-	 * own background and progress sprites (the notches, highlight row and end caps), the progress tinted Thor blue by
-	 * {@link com.projecthero.mod.client.sentry.SentryHud#xpBar} (the Sentry's Sun / Void bars use the same call) -- across the column's
-	 * width (182 px at most, like the real one), with the percentage centred over it in the XP level's outlined digits and the label at
-	 * the left (cut to fit). Darker blue under 20%, the top row breathing softly when full.
+	 * Storm Energy in the <b>Meter</b> style (user: "make thors bar the meter style bar please"): the shared Meter row -- "Storm",
+	 * the plain blue boss bar, the percentage right-aligned -- exactly like the other powers' Meter rows
+	 * ({@link VanillaHud.Stack#meter}, which fits the label to the column so nothing sprawls). Replaces the v0.17.7 blue XP bar. The
+	 * bar stays Thor blue (vanilla's blue boss bar); the number dims under 20% and breathes white-blue when full.
 	 */
 	private static void stormBar(VanillaHud.Stack s, float ratio, long gameTime) {
-		GuiGraphics g = s.g;
-		s.reserve(17);
-		int top = s.top();
-		int w = Math.min(182, s.width);
-		int x = s.x0 + s.width - w;
-		float brighten = ratio >= 0.999f ? 1.0f + 0.12f * (0.5f + 0.5f * net.minecraft.util.Mth.sin(gameTime * 0.15f)) : 1.0f;
-		com.projecthero.mod.client.sentry.SentryHud.xpBar(g, x, top + 11, w, ratio, ratio < 0.2f ? XP_LOW : XP_BLUE, brighten, new float[0]);
-		String pct = Math.round(ratio * 100.0f) + "%";
-		int pw = s.font.width(pct);
-		int tx = x + (w - pw) / 2;
-		int ty = top + 2;
-		// the XP level's look: black outline on four sides, then the colour
-		g.drawString(s.font, pct, tx + 1, ty, 0xFF000000, false);
-		g.drawString(s.font, pct, tx - 1, ty, 0xFF000000, false);
-		g.drawString(s.font, pct, tx, ty + 1, 0xFF000000, false);
-		g.drawString(s.font, pct, tx, ty - 1, 0xFF000000, false);
-		g.drawString(s.font, pct, tx, ty, ratio < 0.2f ? COLOR_ENERGY_LOW_TEXT : COLOR_ENERGY_TEXT, false);
-		String label = Component.translatable("hud.projecthero.vanilla.thor.storm").getString();
-		int room = Math.max(0, tx - s.x0 - 4);
-		if (s.font.width(label) > room) {
-			label = s.font.plainSubstrByWidth(label, Math.max(0, room - s.font.width("."))) + ".";
+		int text;
+		if (ratio < 0.2f) {
+			text = COLOR_ENERGY_LOW_TEXT;
+		} else if (ratio >= 0.999f && (gameTime / 10L) % 2L == 0L) {
+			text = COLOR_STORM;
+		} else {
+			text = COLOR_ENERGY_TEXT;
 		}
-		g.drawString(s.font, label, s.x0, ty, VanillaHud.WHITE, true);
+		s.meter(Component.translatable("hud.projecthero.vanilla.thor.storm"), ratio, COLOR_ENERGY, Math.round(ratio * 100.0f) + "%", text,
+				MutationMeters.Style.METER);
 	}
 
 	private static int remaining(CooldownState cds, ThorAbility a, long now) {

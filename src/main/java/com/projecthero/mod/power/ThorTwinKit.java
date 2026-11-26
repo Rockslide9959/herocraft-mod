@@ -3,6 +3,7 @@ package com.projecthero.mod.power;
 import java.util.HashSet;
 import java.util.Set;
 
+import com.projecthero.mod.hammer.ThorWeapon;
 import com.projecthero.mod.power.ThorKit.Kind;
 
 import net.minecraft.core.particles.ParticleTypes;
@@ -21,6 +22,12 @@ import net.minecraft.world.phys.Vec3;
 public final class ThorTwinKit {
 	/** Twin Throw's timeline: the wind-up, then the two weapons' flight to the meeting point (client draws the same). */
 	public static final int THROW_WINDUP = 6, THROW_FLIGHT = 10;
+	/**
+	 * v0.17.7 (user: "make the weapons actually leave the players hands and then return after"): both weapons really leave his
+	 * hands at {@link #THROW_WINDUP} ({@link ThorThrown}), hang at the meeting point until {@link #THROW_RETURN}, fly back for
+	 * {@link #THROW_BACK} ticks and land in the hands they left at {@link #THROW_HOME}.
+	 */
+	public static final int THROW_RETURN = THROW_WINDUP + THROW_FLIGHT + 2, THROW_BACK = 10, THROW_HOME = THROW_RETURN + THROW_BACK;
 	/** Thunderstruck Cleave: lightning flows hammer to axe until the slash, then the wave runs {@link #WAVE_LENGTH} blocks. */
 	public static final int CLEAVE_SLASH = 10, CLEAVE_WAVE_TICKS = 8;
 	public static final double WAVE_LENGTH = 13.0;
@@ -45,6 +52,9 @@ public final class ThorTwinKit {
 		ThorSequences.start(p, (pl, t) -> {
 			ServerLevel lv = pl.serverLevel();
 			if (t == THROW_WINDUP) {
+				// both weapons leave his hands for real and come back to the same hands at THROW_HOME
+				ThorThrown.launch(pl, ThorWeapon.MJOLNIR, THROW_HOME - THROW_WINDUP);
+				ThorThrown.launch(pl, ThorWeapon.STORMBREAKER, THROW_HOME - THROW_WINDUP);
 				ThorKit.sound(lv, pl.position(), SoundEvents.WIND_CHARGE_BURST, 0.9f, 0.6f);
 				ThorKit.sound(lv, pl.position(), SoundEvents.TRIDENT_THROW, 1.0f, 0.7f);
 			}

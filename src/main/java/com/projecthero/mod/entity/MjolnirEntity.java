@@ -168,6 +168,38 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 	private static final String TAG_PICKUP_DELAY = "ProjectHeroPickupDelay";
 	private static final String TAG_PICKUP_ARMED = "ProjectHeroPickupArmed";
 	private static final String TAG_IMPACT_TICKS = "ProjectHeroImpactTicks";
+	private static final String TAG_THROWN_FROM = "ProjectHeroThrownFrom";
+
+	/**
+	 * v0.17.7: the hand it was thrown from (null: not thrown from a hand -- a drop, a crater, a rebuilt recall). It comes back
+	 * to that hand ({@link com.projecthero.mod.hammer.ThorWeaponHands}). Server, saved.
+	 */
+	private InteractionHand thrownFrom;
+
+	/** v0.17.7: the hand it will land in on the way home ({@code ThorWeaponHands.HAND_*}), so every client raises that arm. */
+	private static final EntityDataAccessor<Byte> DATA_CATCH_HAND =
+			SynchedEntityData.defineId(MjolnirEntity.class, EntityDataSerializers.BYTE);
+
+	/** v0.17.7: which hand threw it -- it lands back in that hand when it returns, if the hand is still free. */
+	public void setThrownFrom(InteractionHand hand) {
+		this.thrownFrom = hand;
+	}
+
+	public InteractionHand thrownFrom() {
+		return thrownFrom;
+	}
+
+	/** v0.17.7: the hand the returning hammer will land in, or null (the pack, or not returning). Both sides. */
+	public InteractionHand catchHand() {
+		SynchedEntityData data = this.getEntityData();
+		return data == null || getState() != State.RETURNING ? null
+				: com.projecthero.mod.hammer.ThorWeaponHands.decode(data.get(DATA_CATCH_HAND));
+	}
+
+	/** v0.17.7: who the returning hammer is flying to (both sides), or null. */
+	public Player catchOwner() {
+		return getState() == State.RETURNING ? resolveOwner() : null;
+	}
 
 	/**
 	 * What the hammer is currently doing -- the single switch the rest of the class reads. Mirrored
@@ -271,6 +303,7 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 		builder.define(DATA_VOLLEY_TARGET_ID, -1);
 		builder.define(DATA_VOLLEY_ORBITING, false);
 		builder.define(DATA_PINNED, false);
+		builder.define(DATA_CATCH_HAND, com.projecthero.mod.hammer.ThorWeaponHands.HAND_NONE);
 	}
 
 	/**
@@ -604,6 +637,12 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 			return false;
 		}
 
+		if (!level().isClientSide()) {
+			// v0.17.7: which hand it will land in (the hand it left, or the call key's dual-wield rule) -- synced for the catch pose
+			this.entityData.set(DATA_CATCH_HAND, com.projecthero.mod.hammer.ThorWeaponHands.encode(
+					com.projecthero.mod.hammer.ThorWeaponHands.plan(owner, com.projecthero.mod.hammer.ThorWeapon.MJOLNIR, thrownFrom,
+							announceArrival)));
+		}
 		Vec3 target = catchTarget(owner);
 		Vec3 toTarget = target.subtract(this.position());
 		double distance = toTarget.length();
@@ -817,9 +856,11 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 		} else {
 			forward = forward.normalize();
 		}
-		// Perpendicular in the horizontal plane, on the side the main hand is on.
+		// Perpendicular in the horizontal plane, on the side of the hand it will land in (v0.17.7: the off hand too).
 		Vec3 side = new Vec3(-forward.z, 0.0, forward.x);
-		double sideSign = owner.getMainArm() == net.minecraft.world.entity.HumanoidArm.RIGHT ? 1.0 : -1.0;
+		net.minecraft.world.entity.HumanoidArm arm = catchHand() == InteractionHand.OFF_HAND ? owner.getMainArm().getOpposite()
+				: owner.getMainArm();
+		double sideSign = arm == net.minecraft.world.entity.HumanoidArm.RIGHT ? 1.0 : -1.0;
 		return owner.position()
 				.add(0.0, owner.getBbHeight() * 0.72, 0.0)
 				.add(side.scale(0.45 * sideSign))
@@ -1035,7 +1076,7 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 			return net.minecraft.world.InteractionResult.PASS;
 		}
 		if (Worthiness.canLift(player)) {
-			if (giveTo(player, false)) {
+			if (giveTo(player, null, false)) {
 				level().playSound(null, player.blockPosition(), SoundEvents.ITEM_PICKUP, SoundSource.PLAYERS, 1.0f, 1.2f);
 				this.discard();
 			}
@@ -1055,7 +1096,7 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 		// hand-and-backpack forces it into the main hand and drops whatever was displaced instead of
 		// leaving the hammer uncollected at the owner's feet -- a walk-over/manual pickup (announceArrival
 		// false, via #interact) keeps the old gentle "stays on the ground" behaviour.
-		if (!giveTo(player, announceArrival)) {
+		if (!giveTo(player, thrownFrom, announceArrival)) {
 			// Inventory full: the hammer still comes home, it just waits at the owner's feet rather
 			// than being deleted. It stays a MjolnirEntity, so it is still callable.
 			ThorFeedback.recallInventoryFull(player);
@@ -1082,38 +1123,26 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 	}
 
 	/**
-	 * Puts the hammer where a returning Mjolnir should go, in order of preference: the empty main
-	 * hand, then the next free inventory slot -- v0.11.12, explicit user request: the off hand is no
-	 * longer a landing spot at all, so a returning Mjolnir never bumps whatever the player deliberately
-	 * has equipped there. Carries over the entity's actual held stack (not a fresh plain one) so the
-	 * bound owner, the hammer id and the generation all survive the round trip.
+	 * Puts the hammer where a returning Mjolnir should go: the empty main hand, then the next free
+	 * inventory slot (v0.11.12). v0.17.7: back into the hand it was thrown from first, and on a call
+	 * the off hand when the player wields Stormbreaker (see {@link com.projecthero.mod.hammer.ThorWeaponHands}
+	 * -- the only case the off hand's item is moved, into the pack). Carries over the entity's actual held
+	 * stack (not a fresh plain one) so the bound owner, the hammer id and the generation all survive the round trip.
 	 *
+	 * @param from          the hand it was thrown from, or null
+
 	 * @param forceIntoHand v0.14.0: if true and there is nowhere free to put it (main hand occupied,
 	 *        backpack full), the hammer still goes into the main hand and whatever was held is dropped
 	 *        on the ground instead of this method returning false -- used for a deliberate recall
 	 *        ({@link #catchBy}, {@code announceArrival}), never for a passive walk-over/manual pickup.
 	 * @return false if there was nowhere to put it -- the caller must not delete the hammer.
 	 */
-	private boolean giveTo(Player player, boolean forceIntoHand) {
+	private boolean giveTo(Player player, InteractionHand from, boolean forceIntoHand) {
+		// v0.17.7: one rule for every arrival (ThorWeaponHands) -- back to the hand it was thrown from; on a call, the off hand
+		// when he holds Stormbreaker (dual wielding, replacing v0.15.1's "the axe steps back into the pack"); else as before
 		ItemStack stack = this.getItem().copy();
-		if (forceIntoHand) {
-			// v0.15.1: called while holding Stormbreaker, the hammer takes the hand and the axe steps back into the pack
-			com.projecthero.mod.hammer.MjolnirRecall.stowOtherWeapon(player, com.projecthero.mod.hammer.ThorWeapon.MJOLNIR);
-		}
-		ItemStack currentMainHand = player.getMainHandItem();
-		if (currentMainHand.isEmpty()) {
-			player.setItemInHand(InteractionHand.MAIN_HAND, stack);
-		} else if (!player.getInventory().add(stack)) {
-			if (!forceIntoHand) {
-				return false;
-			}
-			player.setItemInHand(InteractionHand.MAIN_HAND, stack);
-			player.drop(currentMainHand, false);
-		}
-		if (level() instanceof ServerLevel serverLevel) {
-			MjolnirRegistry.get(serverLevel).noteCarried(stack, player, true);
-		}
-		return true;
+		return com.projecthero.mod.hammer.ThorWeaponHands.place(player, stack, com.projecthero.mod.hammer.ThorWeapon.MJOLNIR, from,
+				forceIntoHand) != com.projecthero.mod.hammer.ThorWeaponHands.Landing.NOWHERE;
 	}
 
 	/**
@@ -1227,6 +1256,7 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 		tag.putInt(TAG_IMPACT_TICKS, impactTicks);
 		tag.putInt(TAG_PICKUP_DELAY, pickupDelay);
 		tag.putBoolean(TAG_PICKUP_ARMED, pickupArmed);
+		tag.putByte(TAG_THROWN_FROM, com.projecthero.mod.hammer.ThorWeaponHands.encode(thrownFrom));
 	}
 
 	@Override
@@ -1239,6 +1269,7 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 		// Default true (rather than false) so a hammer saved mid-flight does not come back
 		// permanently uncollectable if nobody ever steps away from it.
 		pickupArmed = !tag.contains(TAG_PICKUP_ARMED) || tag.getBoolean(TAG_PICKUP_ARMED);
+		thrownFrom = tag.contains(TAG_THROWN_FROM) ? com.projecthero.mod.hammer.ThorWeaponHands.decode(tag.getByte(TAG_THROWN_FROM)) : null;
 	}
 
 	/**

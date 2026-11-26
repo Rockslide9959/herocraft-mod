@@ -66,6 +66,12 @@ public final class ThorFeedback {
 		actionBar(player, "message.projecthero.recall.both_with", ChatFormatting.GRAY);
 	}
 
+	/** v0.17.7: both weapons were on him and R put them in both hands (Twin Gods). */
+	public static void recallDualReady(Player player) {
+		actionBar(player, "message.projecthero.recall.dual_ready", ChatFormatting.AQUA);
+		thunderCue(player, 0.6f);
+	}
+
 	/** v0.15.3: both weapons are switched off on the N screen -- R calls nothing. */
 	public static void recallNoneActive(Player player) {
 		actionBar(player, "message.projecthero.recall.none_active", ChatFormatting.YELLOW);

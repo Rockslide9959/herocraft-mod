@@ -177,7 +177,6 @@
 		"ItemInHandRendererThorMixin",
 		"ItemInHandRendererShazamMixin",
 		"ShazamPoseMixin",
-		"ItemInHandLayerThorHideMixin",
 		"SuperSoldierBodyMixin",
 		"BeamClashInputMixin",
 		"BeamClashKeyMixin",
