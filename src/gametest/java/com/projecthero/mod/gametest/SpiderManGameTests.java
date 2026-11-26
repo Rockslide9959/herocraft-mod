@@ -535,6 +535,42 @@ public class SpiderManGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	// ---------------- v0.17.7 City tier ----------------
+
+	/** Every damaging move's number sits in City's ranges, a real Uppercut-sized hit lands as one, and a webbed bonus stops at 30. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void cityTierDamageAndCap(GameTestHelper helper) {
+		var m = com.projecthero.mod.spider.SpiderManConfig.moves();
+		float[] abilities = {m.webBomb.damage, m.impactWeb.damage, m.zipKick.damage, m.uppercut.damage, m.spiderCounter.damage,
+				m.webWhip.damage, m.grabHurl.damage, m.swingThrow.damage};
+		for (float d : abilities) {
+			helper.assertTrue(d >= 11f && d <= 15f, "a Spider-Man ability inside City's 11-15, got " + d);
+		}
+		helper.assertTrue(m.webStrike.damage >= 11f && m.webStrikeFinisher <= 14f, "Web Strike combo inside City's melee 11-14");
+		helper.assertTrue(m.webBlossom.damage >= 25f && m.webBlossom.damage <= 30f, "Web Blossom (ultimate) inside 25-30, got " + m.webBlossom.damage);
+
+		ServerPlayer player = survivalMockPlayer(helper);
+		ExperimentalPowers.grant(player, adhesion());
+		SpiderMan.evolveFromAdhesion(player);
+		player.removeAllEffects();
+		Zombie z = helper.spawnWithNoFreeWill(EntityType.ZOMBIE, new Vec3(1.5, 2.0, 3.5));
+		z.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(100.0);
+		z.setHealth(100f);
+		float before = z.getHealth();
+		com.projecthero.mod.hero.power.AbilityHelpers.hurt(player, z, m.uppercut.damage);
+		float lost = before - z.getHealth();
+		helper.assertTrue(lost >= 11f * 0.9f && lost <= 15f, "an Uppercut-sized hit lands inside City's range, lost " + lost);
+		// standing in a cobweb: +40%, but never past MAX_HIT
+		helper.setBlock(new BlockPos(1, 2, 3), net.minecraft.world.level.block.Blocks.COBWEB);
+		z.invulnerableTime = 0;
+		float b2 = z.getHealth();
+		com.projecthero.mod.hero.power.AbilityHelpers.hurt(player, z, m.webBlossom.damage);
+		float lost2 = b2 - z.getHealth();
+		helper.assertTrue(lost2 > m.webBlossom.damage * 0.95f && lost2 <= com.projecthero.mod.spider.SpiderManConfig.MAX_HIT + 0.01f,
+				"webbed x1.4 is capped at 30, lost " + lost2);
+		helper.succeed();
+	}
+
 	// ---------------- passives ----------------
 
 	@GameTest(template = EMPTY_STRUCTURE)
@@ -550,8 +586,8 @@ public class SpiderManGameTests implements FabricGameTest {
 		player.removeAllEffects();
 		double withPower = player.getAttributeValue(
 				net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE);
-		helper.assertTrue(withPower > baseAttack + 8.5,
-				"Spider-Man's melee bonus is +9 -> 10-damage unarmed (v0.9.4), got " + (withPower - baseAttack));
+		helper.assertTrue(Math.abs(withPower - baseAttack - com.projecthero.mod.spider.SpiderPassives.ATTACK_BONUS) < 0.001,
+				"Spider-Man's melee bonus is +11 -> 12-damage unarmed (v0.17.7 City tier), got " + (withPower - baseAttack));
 
 		SpiderMan.revoke(player);
 		helper.assertTrue(Math.abs(player.getAttributeValue(

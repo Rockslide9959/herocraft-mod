@@ -39,7 +39,7 @@ import net.minecraft.world.phys.Vec3;
 public final class SpiderCombat {
 	public static final String IMPACT_WEB = "impact_web";
 
-	public static final float IMPACT_DAMAGE = 10.0f;
+	public static final float IMPACT_DAMAGE = 12.0f; // v0.17.7 City tier: was 10 (the live number is SpiderManConfig impactWeb)
 	public static final double IMPACT_KNOCKBACK = 1.6;
 	public static final double IMPACT_SPEED = 2.2;
 	public static final int IMPACT_LIFE_TICKS = 30;

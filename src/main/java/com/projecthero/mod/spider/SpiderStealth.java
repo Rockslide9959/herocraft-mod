@@ -161,7 +161,11 @@ public final class SpiderStealth {
 		REENTRANT.set(true);
 		try {
 			target.invulnerableTime = 0;
-			AbilityHelpers.hurt(p, target, taken * AMBUSH_BONUS);
+			// v0.17.7 City tier: the ambush never totals past SpiderManConfig.MAX_HIT
+			float bonus = Math.min(taken * AMBUSH_BONUS, Math.max(0.0f, SpiderManConfig.MAX_HIT - taken));
+			if (bonus > 0.0f) {
+				AbilityHelpers.hurt(p, target, bonus);
+			}
 		} finally {
 			REENTRANT.set(false);
 		}

@@ -21,13 +21,13 @@ import net.minecraft.world.phys.Vec3;
  * moves (dispatched from {@code SpiderMoves} while {@link SymbioteHostType#SPIDER_MAN} is active):
  *
  * <ul>
- *   <li><b>X tap</b> (Web Strike) -- Tendril Lash: an 8-block whip, 7 damage and a short pull in.</li>
- *   <li><b>Shift + X</b> (Uppercut) -- Spike Burst: spikes erupt from the whole body, 8 damage to everything within 3.</li>
- *   <li><b>Shift + Z, held</b> (Grab &amp; Hurl) -- Consume: seize a target within 6 blocks and squeeze it for 5 damage
+ *   <li><b>X tap</b> (Web Strike) -- Tendril Lash: an 8-block whip, 12 damage and a short pull in.</li>
+ *   <li><b>Shift + X</b> (Uppercut) -- Spike Burst: spikes erupt from the whole body, 12 damage to everything within 3.</li>
+ *   <li><b>Shift + Z, held</b> (Grab &amp; Hurl) -- Consume: seize a target within 6 blocks and squeeze it for 7 damage
  *       a second for up to 2 seconds, healing for 30% of what it deals.</li>
  *   <li><b>Shift + V</b> (Web Pin) -- Ink Shroud: a black cloud that blinds and slows enemies within 5 blocks.</li>
  *   <li><b>Hold V</b> (Web Blossom) -- Let It Take Over, at a full Hunger meter ({@link SymbioteHunger}).</li>
- *   <li><b>Shift + C</b> (Web Wall) -- Symbiote Slam: a dive for a 10-damage shockwave (6 from the ground).</li>
+ *   <li><b>Shift + C</b> (Web Wall) -- Symbiote Slam: a dive for a 14-damage shockwave (11 from the ground).</li>
  * </ul>
  * Every hit they land feeds the Hunger meter like any other hit does ({@link SymbioteHunger}).
  */
@@ -57,18 +57,19 @@ public final class SymbioteBlackSuitAbilities {
 	};
 
 	private static final double LASH_RANGE = 8.0;
-	private static final float LASH_DAMAGE = 7.0f;
+	// v0.17.7 City tier (Spider-Man's kit): Lash 7 -> 12, Spike 8 -> 12, Consume 2.5 -> 3.5 a bite, Slam 10 / 6 -> 14 / 11
+	public static final float LASH_DAMAGE = 12.0f;
 	private static final double SPIKE_RADIUS = 3.0;
-	private static final float SPIKE_DAMAGE = 8.0f;
+	public static final float SPIKE_DAMAGE = 12.0f;
 	private static final double CONSUME_RANGE = 6.0;
 	private static final int CONSUME_MAX_TICKS = 40;
 	private static final int CONSUME_INTERVAL = 10;
-	private static final float CONSUME_PER_INTERVAL = 2.5f; // 5 a second
+	public static final float CONSUME_PER_INTERVAL = 3.5f; // 7 a second (was 2.5, 5 a second)
 	private static final float CONSUME_HEAL_FRACTION = 0.3f;
 	private static final double SHROUD_RADIUS = 5.0;
 	private static final int SHROUD_TICKS = 80;
-	private static final float SLAM_DAMAGE = 10.0f;
-	private static final float SLAM_GROUND_DAMAGE = 6.0f;
+	public static final float SLAM_DAMAGE = 14.0f;
+	public static final float SLAM_GROUND_DAMAGE = 11.0f;
 	private static final double SLAM_RADIUS = 4.0;
 	private static final double SLAM_DIVE_SPEED = 2.4;
 	private static final int SLAM_LAND_DEADLINE_TICKS = 40;

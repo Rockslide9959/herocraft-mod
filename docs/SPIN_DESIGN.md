@@ -93,3 +93,22 @@ the strike, faint golden afterimages, fades at the end).
 - **Spin bar refill** +30% in the suit, +30% on a horse; they add up (x1.6). HUD tag "Suit +30% Spin".
 - **Side-hold stance** (`client/spin/SpinHoldPose`): only a ball actually in a hand hangs at the hip (an empty hand over the holsters hangs normally), arm
   a little out; the stance fades over the throw swing. Shots: `docs/screenshots/v0174/misc_models/spin_*`, `gyro_suit_*`.
+
+## v0.17.7 City tier
+
+The Spin is a City-tier power (melee 11-14, abilities 11-15, ultimate 25-30). All numbers in `SpinConfig`; every move hit goes
+through `Spin.hit`, which applies the riding x1.3 and then `SpinConfig.MAX_HIT` (30). Boss caps still apply on top.
+
+| Hit | Before | After |
+|---|---|---|
+| Bare fist | 5 (+4) | 12 (+11) |
+| Steel Ball / return hit / Twin Balls | 10 / 10 / 10 each | 12 / 12 / 12 each |
+| Spin Touch | 6 | 11 |
+| Golden Spin, Perfect (through armour) | 70 | 24 (x2 of 12; a missed timing is a plain 12 ball) |
+| Spin Quake | 14 | 14 |
+| Spin Shield | 4 every 10 ticks (4 s) | 4 every 10 ticks (unchanged tick damage) |
+| Ball Breaker (ultimate, through armour) | 100 | 30 |
+| Aging bite | 1.67 every 2 s (8.3) | 1 every 2 s (5), no longer scaled with the strike |
+| Riding bonus | x1.3, no ceiling | x1.3, capped at 30 |
+
+Toughness: 40% off every hit (was 15%). Health stays 20 (user). Test: `SpinGameTests.cityTierBallHitAndCap`.

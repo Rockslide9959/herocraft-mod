@@ -454,8 +454,8 @@ public final class SpinMoves {
 	}
 
 	/**
-	 * Shift+G released. A Perfect Spin: 70 through armour to everything on a 40-block line, walls or not. Not Perfect (user,
-	 * 2026-11-12): the ball just goes as a plain Steel Ball throw (10 damage, curving), paid like R (15 Spin, R's cooldown, no
+	 * Shift+G released. A Perfect Spin: 24 through armour to everything on a 40-block line, walls or not (v0.17.7 City tier; was 70).
+	 * Not Perfect (user, 2026-11-12): the ball just goes as a plain Steel Ball throw (12 damage, curving), paid like R (15 Spin, R's cooldown, no
 	 * Golden Spin cooldown).
 	 */
 	static boolean goldenSpin(ServerPlayer p, boolean perfect) {

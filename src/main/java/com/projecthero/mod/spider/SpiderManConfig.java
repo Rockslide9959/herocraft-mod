@@ -13,6 +13,12 @@ import com.projecthero.mod.config.VersionedConfig;
 public final class SpiderManConfig {
 	private static SpiderManConfig instance = new SpiderManConfig();
 
+	/**
+	 * v0.17.7 City tier: no single Spider-Man hit (a move or a punch, after the webbed x1.4 / cocoon x1.6 bonus, the
+	 * Perfect Dodge counter and the stealth ambush bonus) goes past this. Boss caps still apply on top.
+	 */
+	public static final float MAX_HIT = 30.0f;
+
 	public Integer configVersion;
 
 	public Webs webs = new Webs();
@@ -109,10 +115,10 @@ public final class SpiderManConfig {
 		public int impactPinTicks = 360;
 		public int blossomTrapTicks = 360;
 		public Move webShot = new Move(0, 2.0f, 2.0f); // v0.16.2 (user): no cooldown
-		public Move webBomb = new Move(0, 15.0f, 3.0f); // v0.16.2 (user): no cooldown
+		public Move webBomb = new Move(0, 15.0f, 11.0f); // v0.17.7 City tier: was 3 // v0.16.2 (user): no cooldown
 		public double webBombRadius = 6.0; // v0.16.2 (user): bigger splash (was 4)
 		public int webBombRootTicks = 360;
-		public Move impactWeb = new Move(30, 12.0f, 10.0f);
+		public Move impactWeb = new Move(30, 12.0f, 12.0f); // v0.17.7 City tier: was 10 (full charge 18, was 15)
 		/** A full Impact Web charge (ticks of holding past the hold threshold) adds half the damage again. */
 		public int impactChargeTicks = 10; // v0.16.2 (user): full charge in 0.5 s
 		// G -- zip
@@ -121,22 +127,22 @@ public final class SpiderManConfig {
 		public Move zipKick = new Move(100, 10.0f, 14.0f);
 		public double zipKickRange = 30.0;
 		// X -- melee
-		public Move webStrike = new Move(50, 8.0f, 5.0f);
+		public Move webStrike = new Move(50, 8.0f, 11.0f); // v0.17.7 City tier: was 5
 		/** The third Web Strike punch lands this much instead. */
-		public float webStrikeFinisher = 9.0f;
+		public float webStrikeFinisher = 14.0f; // v0.17.7 City tier: was 9
 		public double webStrikeRange = 30.0;
-		public Move uppercut = new Move(120, 6.0f, 8.0f);
+		public Move uppercut = new Move(120, 6.0f, 12.0f); // v0.17.7 City tier: was 8
 		/** After an uppercut, your hits keep the enemy in the air for this long. */
 		public int airComboTicks = 60;
 		public Move spiderCounter = new Move(160, 4.0f, 12.0f);
 		/** How long the counter stance waits for a hit. */
 		public int counterStanceTicks = 20;
 		// Z -- throws
-		public Move webWhip = new Move(80, 10.0f, 7.0f);
+		public Move webWhip = new Move(80, 10.0f, 11.0f); // v0.17.7 City tier: was 7
 		public double webWhipRadius = 4.0;
-		public Move grabHurl = new Move(100, 10.0f, 10.0f);
+		public Move grabHurl = new Move(100, 10.0f, 13.0f); // v0.17.7 City tier: was 10
 		public double grabRange = 16.0;
-		public Move swingThrow = new Move(60, 10.0f, 6.0f);
+		public Move swingThrow = new Move(60, 10.0f, 11.0f); // v0.17.7 City tier: was 6
 		// C -- web building
 		public Move tightrope = new Move(10, 10.0f, 0.0f);
 		public Move webWall = new Move(200, 25.0f, 0.0f);
@@ -153,7 +159,7 @@ public final class SpiderManConfig {
 		public int webCocoonTicks = 600;
 		/** Cocooned enemies take this much more damage from Spider-Man and his squad. */
 		public float cocoonDamageMultiplier = 1.6f;
-		public Move webBlossom = new Move(400, 75.0f, 40.0f);
+		public Move webBlossom = new Move(400, 75.0f, 28.0f); // v0.17.7 City tier ultimate: was 40
 		public int blossomChargeTicks = 40;
 		// passive traversal
 		public Move zipBoost = new Move(16, 3.0f, 0.0f);
@@ -225,6 +231,9 @@ public final class SpiderManConfig {
 			// v0.17.1 (user): web swinging 25% slower -- with no air drag since v0.16.4 the faster swing was too fast
 			.reset(12, "v0.17.1 web swinging 25% slower", "moves.swingForwardAccel", "moves.swingBottomPush", "moves.swingMaxSpeed",
 					"moves.swingReleaseBoost", "moves.swingChainBoost")
+			// v0.17.7: City tier damage pass -- every damaging move takes its new number
+			.reset(13, "v0.17.7 City tier damage", "moves.webBomb", "moves.impactWeb", "moves.webStrike", "moves.webStrikeFinisher",
+					"moves.uppercut", "moves.webWhip", "moves.grabHurl", "moves.swingThrow", "moves.webBlossom")
 			.build();
 
 	public static void load() {

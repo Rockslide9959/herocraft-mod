@@ -319,7 +319,7 @@ public final class Spin {
 		if (target == null || target == player || !HeroTargets.canHarm(player, target)) {
 			return false;
 		}
-		float dmg = amount * damageMult(player);
+		float dmg = Math.min(amount * damageMult(player), Math.max(amount, SpinConfig.MAX_HIT)); // v0.17.7 City tier cap
 		DamageSource source = ignoreArmour ? player.damageSources().source(GOLDEN_SPIN, player) : player.damageSources().playerAttack(player);
 		float before = target.getHealth();
 		boolean landed = com.projecthero.mod.hero.power.AbilityHelpers.hurtBurst(player, target, source, dmg);

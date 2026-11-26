@@ -42,6 +42,11 @@ public final class SpiderPassives {
 	/** Guards {@link #onSpiderOutgoingDamage}'s re-applied hit from recursing into itself. */
 	private static final ThreadLocal<Boolean> REENTRANT_ATTACK = ThreadLocal.withInitial(() -> false);
 
+	/** v0.17.7 City tier: the bare-fist bonus (vanilla 1 + 11 = a 12 punch; was +9 -> 10). */
+	public static final double ATTACK_BONUS = 11.0;
+	/** v0.17.7 City tier: a sprinting hit adds this on top (12 + 2 = 14; was +3 -> 13). */
+	public static final float SPRINT_PUNCH_BONUS = 2.0f;
+
 	public static void initialize() {
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register(SpiderPassives::onAllowDamage);
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register(SpiderPassives::onSpiderOutgoingDamage);
@@ -52,8 +57,8 @@ public final class SpiderPassives {
 	 * <ul>
 	 *   <li><b>+40% damage</b> to any target that is webbed, cocooned, or standing in a cobweb
 	 *       ({@link SpiderWebs#isWebImpaired}).</li>
-	 *   <li><b>Sprint punch (v0.9.4).</b> An unarmed hit is +9 (lands as 10); an unarmed sprinting hit
-	 *       gets a flat +3 more, so it lands as 13 -- a "+12" punch.</li>
+	 *   <li><b>Sprint punch (v0.9.4; v0.17.7 City tier).</b> An unarmed hit is +11 (lands as 12); an unarmed
+	 *       sprinting hit gets a flat +2 more, so it lands as 14.</li>
 	 * </ul>
 	 *
 	 * <p>Fabric's {@code ALLOW_DAMAGE} is a yes/no veto with no "raise the amount", so a boosted hit
@@ -74,8 +79,12 @@ public final class SpiderPassives {
 			return true;
 		}
 		float multiplier = deep ? SpiderManConfig.moves().cocoonDamageMultiplier : SpiderWebs.isWebImpaired(victim) ? 1.4f : 1.0f;
-		float addend = spider && (source.is(DamageTypes.PLAYER_ATTACK) && attacker.isSprinting()) /* v0.14.11: with or without an item in hand */ ? 3.0f : 0.0f;
+		float addend = spider && (source.is(DamageTypes.PLAYER_ATTACK) && attacker.isSprinting()) /* v0.14.11: with or without an item in hand */ ? SPRINT_PUNCH_BONUS : 0.0f;
 		float boosted = amount * multiplier + addend;
+		if (spider) {
+			// v0.17.7 City tier: the webbed / cocoon bonus never lifts one of his hits past the cap (a hit already over it stays as it was)
+			boosted = Math.min(boosted, Math.max(amount, SpiderManConfig.MAX_HIT));
+		}
 		if (boosted <= amount + 0.001f) {
 			return true;
 		}
@@ -91,9 +100,9 @@ public final class SpiderPassives {
 	/** Put the modifiers in the state the player's current power says they should be in. */
 	public static void reconcile(ServerPlayer player) {
 		if (SpiderMan.hasPower(player)) {
-			// v0.9.4: unarmed hit is a flat 10 damage (vanilla base 1.0 + 9.0). Sprint punch adds +3 more
-			// -> 13, a "+12" punch (see onSpiderOutgoingDamage).
-			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, ATTACK, 9.0,
+			// v0.17.7 City tier: unarmed hit is a flat 12 damage (vanilla base 1.0 + 11.0; was 10). Sprint punch adds +2
+			// more -> 14 (was 13; see onSpiderOutgoingDamage).
+			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, ATTACK, ATTACK_BONUS,
 					AttributeModifier.Operation.ADD_VALUE);
 			PowerToggles.modifier(player, Attributes.MOVEMENT_SPEED, SPEED, 0.18,
 					AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
