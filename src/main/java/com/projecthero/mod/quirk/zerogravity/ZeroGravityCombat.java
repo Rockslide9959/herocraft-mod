@@ -46,6 +46,7 @@ public final class ZeroGravityCombat {
 			return false;
 		}
 		boolean boss = isBoss(target);
+		damage = com.projecthero.mod.quirk.QuirkConfig.capHit(damage); // v0.17.7 City tier
 		float dmg = boss ? Math.min(damage, target.getMaxHealth() * ZeroGravityConfig.BOSS_MAX_FRACTION_PER_HIT) : damage;
 		if (!AbilityHelpers.hurtBurst(owner, target, owner.level().damageSources().playerAttack(owner), Math.max(0.5f, dmg))) {
 			return false;

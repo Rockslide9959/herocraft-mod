@@ -50,6 +50,7 @@ public final class HellflameCombat {
 
 	/** The damage a hit of {@code damage} really does to {@code target} (the boss cap). */
 	public static float capped(LivingEntity target, float damage) {
+		damage = com.projecthero.mod.quirk.QuirkConfig.capHit(damage); // v0.17.7 City tier
 		return isBoss(target) ? Math.min(damage, target.getMaxHealth() * HellflameConfig.BOSS_MAX_FRACTION_PER_HIT) : damage;
 	}
 

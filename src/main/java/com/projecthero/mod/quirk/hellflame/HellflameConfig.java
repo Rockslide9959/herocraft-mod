@@ -132,7 +132,7 @@ public final class HellflameConfig {
 	public static final double JET_DASH_SPEED = 2.0;
 	public static final int JET_DASH_TICKS = 7;
 	public static final double JET_REACH = 2.0;
-	public static final float JET_DAMAGE = 16f;
+	public static final float JET_DAMAGE = 15f;
 	public static final double JET_KNOCKBACK = 1.4;
 	public static final int JET_BURN_SECONDS = 5;
 	public static final float JET_HEAT = 12f;
@@ -153,7 +153,7 @@ public final class HellflameConfig {
 	public static final int SPIDER_DRAW_TICKS = 12;
 	public static final int SPIDER_SWEEP_TICKS = 4;
 	public static final double SPIDER_THREAD_RADIUS = 0.6;
-	public static final float SPIDER_DAMAGE = 9f;
+	public static final float SPIDER_DAMAGE = 12f;
 	public static final int SPIDER_BURN_SECONDS = 4;
 	public static final float SPIDER_HEAT = 10f;
 	public static final int SPIDER_COOLDOWN = 30;
@@ -161,14 +161,14 @@ public final class HellflameConfig {
 	public static final double MESH_RANGE = 24.0;
 	public static final double MESH_RADIUS = 3.5;
 	public static final int MESH_TICKS = 80;
-	public static final float MESH_BURN_DAMAGE = 2.5f;
+	public static final float MESH_BURN_DAMAGE = 3f;
 	public static final int MESH_BURN_INTERVAL = 10;
 	public static final float MESH_HEAT = 18f;
 	public static final int MESH_COOLDOWN = 240;
 
 	// ---------------------------------------------------------------- G: Flashfire Fist / Shift+G: Vanishing Fist / hold G: Hellblast
 	/** Flashfire Fist: jab, cross, then a jet-assisted straight (each G tap is the next punch while the chain is open). */
-	public static final float[] FIST_DAMAGE = { 6f, 6f, 10f };
+	public static final float[] FIST_DAMAGE = { 11f, 11f, 14f };
 	public static final double FIST_REACH = 3.4;
 	public static final double FIST_FINISH_REACH = 4.6;
 	public static final double FIST_HALF_ANGLE = 40.0;
@@ -186,7 +186,7 @@ public final class HellflameConfig {
 	public static final int HELLBLAST_BASE_TICKS = 20;
 	public static final double HELLBLAST_RANGE = 48.0;
 	public static final double HELLBLAST_RADIUS = 1.6;
-	public static final float HELLBLAST_DAMAGE = 7f;
+	public static final float HELLBLAST_DAMAGE = 9f;
 	public static final int HELLBLAST_HIT_INTERVAL = 5;
 	public static final double HELLBLAST_PUSH = 0.35;
 	public static final int HELLBLAST_BURN_SECONDS = 6;
@@ -196,7 +196,7 @@ public final class HellflameConfig {
 	public static final double VANISH_RANGE = 16.0;
 	public static final int VANISH_DECOY_TICKS = 40;
 	public static final int VANISH_STRIKE_DELAY = 3;
-	public static final float VANISH_DAMAGE = 16f;
+	public static final float VANISH_DAMAGE = 15f;
 	public static final double VANISH_KNOCKBACK = 1.4;
 	public static final int VANISH_BURN_SECONDS = 5;
 	public static final float VANISH_HEAT = 20f;
@@ -207,7 +207,7 @@ public final class HellflameConfig {
 	public static final int BARRAGE_INTERVAL = 4;
 	public static final double BARRAGE_RANGE = 5.5;
 	public static final double BARRAGE_HALF_ANGLE = 22.0;
-	public static final float BARRAGE_DAMAGE = 3.5f;
+	public static final float BARRAGE_DAMAGE = 11f;
 	public static final int BARRAGE_BURN_SECONDS = 2;
 	public static final double BARRAGE_PUSH = 0.25;
 	/** The last jab launches. */
@@ -218,13 +218,13 @@ public final class HellflameConfig {
 
 	public static final double PILLAR_RANGE = 24.0;
 	public static final int PILLAR_WARN_TICKS = 14;
-	/** The column keeps burning this long after the eruption (2 a second). */
+	/** The column keeps burning this long after the eruption (4 a second). */
 	public static final int PILLAR_BURN_TICKS = 60;
 	public static final int PILLAR_LINGER_INTERVAL = 10;
 	public static final double PILLAR_RADIUS = 2.0;
 	public static final double PILLAR_HEIGHT = 9.0;
 	public static final float PILLAR_DAMAGE = 14f;
-	public static final float PILLAR_LINGER_DAMAGE = 1f;
+	public static final float PILLAR_LINGER_DAMAGE = 2f;
 	public static final double PILLAR_LIFT = 1.1;
 	public static final int PILLAR_BURN_SECONDS = 6;
 	public static final float PILLAR_HEAT = 18f;
@@ -233,16 +233,16 @@ public final class HellflameConfig {
 	// ---------------------------------------------------------------- C: Flame Wave / Shift+C: Flame Cloak
 	public static final double WAVE_RANGE = 10.0;
 	public static final double WAVE_HALF_ANGLE = 45.0;
-	public static final float WAVE_DAMAGE = 11f;
+	public static final float WAVE_DAMAGE = 13f;
 	public static final int WAVE_BURN_SECONDS = 4;
 	public static final double WAVE_KNOCKBACK = 1.2;
 	public static final float WAVE_HEAT = 14f;
 	public static final int WAVE_COOLDOWN = 120;
 
-	/** The Cloak: 12 s, everything this close burns ({@link #CLOAK_AURA_DAMAGE} every {@link #CLOAK_AURA_INTERVAL}: 3 a second). */
+	/** The Cloak: 12 s, everything this close burns ({@link #CLOAK_AURA_DAMAGE} every {@link #CLOAK_AURA_INTERVAL}: 4 a second). */
 	public static final int CLOAK_TICKS = 240;
 	public static final double CLOAK_RADIUS = 3.0;
-	public static final float CLOAK_AURA_DAMAGE = 1.5f;
+	public static final float CLOAK_AURA_DAMAGE = 2f;
 	public static final int CLOAK_AURA_INTERVAL = 10;
 	public static final int CLOAK_IGNITE_SECONDS = 3;
 	public static final double CLOAK_ARMOR = 2.0;
@@ -251,8 +251,8 @@ public final class HellflameConfig {
 	// ---------------------------------------------------------------- V: Heat Vent / Shift+V: Fire Wall
 	/** Heat Vent dumps up to this much Heat. */
 	public static final float COOL_MAX_VENT = 60f;
-	public static final float COOL_BASE_DAMAGE = 4f;
-	public static final float COOL_DAMAGE_PER_HEAT = 0.18f;
+	public static final float COOL_BASE_DAMAGE = 6f;
+	public static final float COOL_DAMAGE_PER_HEAT = 0.15f;
 	/** Radius 3, growing to 4 with a full vent. */
 	public static final double COOL_BASE_RADIUS = 3.0;
 	public static final double COOL_RADIUS_PER_HEAT = 1.0 / 60.0;
@@ -269,7 +269,7 @@ public final class HellflameConfig {
 	public static final double WALL_DISTANCE = 3.0;
 	public static final double WALL_THICKNESS = 0.9;
 	public static final int WALL_TICKS = 160;
-	public static final float WALL_DAMAGE = 4f;
+	public static final float WALL_DAMAGE = 5f;
 	public static final int WALL_HIT_INTERVAL = 10;
 	public static final int WALL_BURN_SECONDS = 5;
 	public static final float WALL_HEAT = 15f;
@@ -282,8 +282,8 @@ public final class HellflameConfig {
 	public static final double PROM_SPEED = 2.0;
 	public static final int PROM_MAX_TICKS = 20;
 	public static final double PROM_HIT_RADIUS = 2.6;
-	public static final float PROM_PASS_DAMAGE = 20f;
-	public static final float PROM_BLAST_DAMAGE = 45f;
+	public static final float PROM_PASS_DAMAGE = 15f;
+	public static final float PROM_BLAST_DAMAGE = 23f;
 	public static final double PROM_BLAST_RADIUS = 8.0;
 
 	// ---------------------------------------------------------------- survival: the Forge Hand

@@ -41,6 +41,10 @@ public final class DarkShadowConfig {
 			.introduce(1, "v0.16.7 Dark Shadow revamp -- the living shadow (light / darkness, Berserk until light, 12 new moves)")
 			.resetBalance(2, "v0.17.1 Dark Shadow revamp -- Abyssal Rampage, Shadow Lunge / Toss, Unleash, the fall catch, Abyssal Black Body; "
 					+ "Dark Fang bites for 4")
+			.reset(3, "v0.17.7 City tier -- hits retuned to City's ranges in the pitch dark (x1.7), Black Ankh armour 6-14 / toughness 8",
+					"moves.fangDamage", "moves.grabSlamDamage", "moves.grabSplashDamage", "moves.novaDamage", "moves.ankhArmorMin",
+					"moves.ankhArmorMax", "moves.ankhToughness", "moves.ankhDamage", "moves.tossDamage", "moves.tossSplashDamage",
+					"moves.rampageDamage3", "moves.diveDamage")
 			.build();
 
 	private static DarkShadowConfig instance = new DarkShadowConfig();
@@ -153,7 +157,7 @@ public final class DarkShadowConfig {
 		public double fangRangeMax = 8.0;
 		public int fangBites = 4;
 		public int fangInterval = 4;
-		public float fangDamage = 4f;
+		public float fangDamage = 6.5f;
 		public int fangCooldown = 80;
 		// G: Shadow Grab (lift + slam) / Shift+G: Shadow Shield (held)
 		public double grabRangeMin = 6.0;
@@ -163,9 +167,9 @@ public final class DarkShadowConfig {
 		public double grabHoldDistance = 2.4;
 		public double grabLift = 2.5;
 		public float grabDamage = 2f;
-		public float grabSlamDamage = 9f;
+		public float grabSlamDamage = 8.5f;
 		public double grabSplashRadius = 2.5;
-		public float grabSplashDamage = 4f;
+		public float grabSplashDamage = 6.5f;
 		public int grabCooldown = 80;
 		public float shieldBlockMin = 0.55f;
 		public float shieldBlockMax = 0.95f;
@@ -194,14 +198,14 @@ public final class DarkShadowConfig {
 		public int scoutCooldown = 200;
 		public double novaRadiusMin = 4.0;
 		public double novaRadiusMax = 8.0;
-		public float novaDamage = 10f;
+		public float novaDamage = 8.5f;
 		public double novaKnockback = 1.3;
 		public int novaCooldown = 300;
 		// V: Black Ankh (mode) / Shift+V: Recall
-		public double ankhArmorMin = 4.0;
-		public double ankhArmorMax = 10.0;
-		public double ankhToughness = 3.0;
-		public double ankhDamage = 3.0;
+		public double ankhArmorMin = 6.0;
+		public double ankhArmorMax = 14.0;
+		public double ankhToughness = 8.0;
+		public double ankhDamage = 6.5;
 		public double ankhReach = 1.0;
 		public int ankhRefresh = 20;
 		public int ankhCooldown = 30;
@@ -224,15 +228,15 @@ public final class DarkShadowConfig {
 		// G held past the grab: Shadow Toss
 		public int tossMaxCarry = 100;
 		public double tossSpeed = 1.7;
-		public float tossDamage = 12f;
+		public float tossDamage = 8f;
 		public double tossSplashRadius = 2.5;
-		public float tossSplashDamage = 5f;
+		public float tossSplashDamage = 6.5f;
 		/** The thrown body lands (or hits a wall) within this long, or is let go. */
 		public int tossFlightTicks = 30;
 		// C: Abyssal Rampage -- three sweeping claw arcs in front
 		public float rampageDamage1 = 7f;
 		public float rampageDamage2 = 7f;
-		public float rampageDamage3 = 11f;
+		public float rampageDamage3 = 8.5f;
 		public double rampageReach = 5.0;
 		/** The arcs' contact ticks (matching the creature's rampage clip). */
 		public int rampageHit1 = 3;
@@ -252,7 +256,7 @@ public final class DarkShadowConfig {
 		public double blackBodyScale = 0.6;
 		public double blackBodyBoost = 0.13;
 		public double blackBodyMaxSpeed = 2.4;
-		public float diveDamage = 14f;
+		public float diveDamage = 18f;
 		public double diveSpeed = 2.2;
 		public int diveTicks = 8;
 		public double diveRadius = 2.2;

@@ -141,6 +141,7 @@ public final class DarkShadowCombat {
 		if (DarkShadow.marked(owner, target)) {
 			damage *= cfg().moves.markBonus;
 		}
+		damage = com.projecthero.mod.quirk.QuirkConfig.capHit(damage); // v0.17.7 City tier
 		float dmg = boss ? Math.min(damage, target.getMaxHealth() * cfg().berserk.bossMaxFractionPerHit) : damage;
 		if (!AbilityHelpers.hurtBurst(owner, target, owner.level().damageSources().playerAttack(owner), Math.max(1f, dmg))) {
 			return false;

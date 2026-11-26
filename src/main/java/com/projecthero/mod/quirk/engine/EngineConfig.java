@@ -118,14 +118,14 @@ public final class EngineConfig {
 	public static final int BOWL_MIN_GEAR = 2;
 	public static final float BOWL_MIN_MOMENTUM = 0.45f;
 	/** Bowling damage: this + this much per block-a-second of his speed. */
-	public static final float BOWL_DAMAGE = 3f;
-	public static final float BOWL_DAMAGE_PER_SPEED = 0.35f;
+	public static final float BOWL_DAMAGE = 8f;
+	public static final float BOWL_DAMAGE_PER_SPEED = 0.15f;
 	public static final double BOWL_KNOCKBACK = 1.3;
 	public static final double BOWL_LIFT = 0.45;
 	/** The same mob isn't bowled again for this long. */
 	public static final int BOWL_REHIT = 15;
 	public static final float BOWL_MOMENTUM_LOSS = 0.08f;
-	public static final float BOWL_DAMAGE_MAX = 20f;
+	public static final float BOWL_DAMAGE_MAX = 14f;
 	/** Speed-scaled damage counts his speed only up to this (blocks a second): a Gear 3 run already hits as hard as it gets. */
 	public static final double DAMAGE_BPS_CAP = 40.0;
 
@@ -158,26 +158,26 @@ public final class EngineConfig {
 	// ---------------------------------------------------------------- Shift+X: Rising Kick
 	/** An engine uppercut kick that launches the target straight up. */
 	public static final double RISING_REACH = 3.5;
-	public static final float RISING_DAMAGE = 10f;
-	public static final float RISING_DAMAGE_PER_SPEED = 0.4f;
+	public static final float RISING_DAMAGE = 11f;
+	public static final float RISING_DAMAGE_PER_SPEED = 0.1f;
 	public static final double RISING_LAUNCH = 1.4;
 	public static final double RISING_SELF_HOP = 0.45;
 	public static final float RISING_HEAT = 6f;
 	public static final int RISING_COOLDOWN = 100;
 
 	// ---------------------------------------------------------------- R: Recipro Kick / Shift+R: Spin Kick
-	/** Recipro Kick: this + this much per block-a-second of his speed (standing 5, Gear 3 flat out ~12, Recipro ~20). */
-	public static final float KICK_DAMAGE = 5f;
-	public static final float KICK_DAMAGE_PER_SPEED = 0.55f;
-	public static final float KICK_DAMAGE_MAX = 28f;
+	/** Recipro Kick: this + this much per block-a-second of his speed (v0.17.7 City tier: standing 11, 14 at 40 b/s and up). */
+	public static final float KICK_DAMAGE = 11f;
+	public static final float KICK_DAMAGE_PER_SPEED = 0.075f;
+	public static final float KICK_DAMAGE_MAX = 14f;
 	public static final double KICK_REACH = 3.5;
 	public static final double KICK_KNOCKBACK = 0.9;
 	public static final double KICK_KNOCKBACK_PER_SPEED = 0.06;
 	public static final float KICK_HEAT = 3f;
 	public static final int KICK_COOLDOWN = 16;
 
-	public static final float SPIN_DAMAGE = 7f;
-	public static final float SPIN_DAMAGE_PER_SPEED = 0.3f;
+	public static final float SPIN_DAMAGE = 11f;
+	public static final float SPIN_DAMAGE_PER_SPEED = 0.1f;
 	public static final double SPIN_RADIUS = 3.5;
 	public static final double SPIN_KNOCKBACK = 1.5;
 	public static final double SPIN_LIFT = 0.3;
@@ -188,8 +188,8 @@ public final class EngineConfig {
 	public static final int BARRAGE_HITS = 6;
 	public static final int BARRAGE_INTERVAL = 3;
 	public static final double BARRAGE_REACH = 3.2;
-	public static final float BARRAGE_DAMAGE = 3.5f;
-	public static final float BARRAGE_DAMAGE_PER_SPEED = 0.15f;
+	public static final float BARRAGE_DAMAGE = 11f;
+	public static final float BARRAGE_DAMAGE_PER_SPEED = 0.075f;
 	public static final double BARRAGE_KNOCKBACK = 0.15;
 	public static final double BARRAGE_FINAL_KNOCKBACK = 1.1;
 	public static final float BARRAGE_HEAT = 8f;
@@ -198,9 +198,9 @@ public final class EngineConfig {
 	/** The engines wind up for this long (he slows), then one heavy kick in front. */
 	public static final int EXTEND_KICK_CHARGE = 10;
 	public static final double EXTEND_KICK_REACH = 4.0;
-	public static final float EXTEND_KICK_DAMAGE = 14f;
-	public static final float EXTEND_KICK_DAMAGE_PER_SPEED = 0.5f;
-	public static final float EXTEND_KICK_DAMAGE_MAX = 32f;
+	public static final float EXTEND_KICK_DAMAGE = 12f;
+	public static final float EXTEND_KICK_DAMAGE_PER_SPEED = 0.075f;
+	public static final float EXTEND_KICK_DAMAGE_MAX = 15f;
 	public static final double EXTEND_KICK_KNOCKBACK = 2.2;
 	public static final double EXTEND_KICK_LIFT = 0.4;
 	public static final float EXTEND_KICK_HEAT = 10f;
@@ -211,8 +211,8 @@ public final class EngineConfig {
 	public static final int AXE_DELAY = 6;
 	public static final double AXE_REACH = 4.0;
 	public static final double AXE_RADIUS = 2.0;
-	public static final float AXE_DAMAGE = 12f;
-	public static final float AXE_DAMAGE_PER_SPEED = 0.3f;
+	public static final float AXE_DAMAGE = 11f;
+	public static final float AXE_DAMAGE_PER_SPEED = 0.1f;
 	/** Slammed into the ground: pushed down, Slowness II. */
 	public static final double AXE_SLAM = 0.8;
 	public static final int AXE_SLOW_TICKS = 40;
@@ -221,8 +221,8 @@ public final class EngineConfig {
 
 	/** Sweep Kick: a low sweep through a half circle in front; everything caught is tripped (lifted, slowed). */
 	public static final double SWEEP_RADIUS = 3.5;
-	public static final float SWEEP_DAMAGE = 7f;
-	public static final float SWEEP_DAMAGE_PER_SPEED = 0.3f;
+	public static final float SWEEP_DAMAGE = 11f;
+	public static final float SWEEP_DAMAGE_PER_SPEED = 0.075f;
 	public static final double SWEEP_LIFT = 0.55;
 	public static final double SWEEP_KNOCKBACK = 0.3;
 	public static final int SWEEP_SLOW_TICKS = 30;
@@ -237,7 +237,7 @@ public final class EngineConfig {
 	public static final double STRIKE_DISTANCE = 28.0;
 	public static final int STRIKE_TICKS = 7;
 	public static final double STRIKE_WIDTH = 1.6;
-	public static final float STRIKE_DAMAGE = 18f;
+	public static final float STRIKE_DAMAGE = 10f;
 	public static final double STRIKE_KNOCKBACK = 1.4;
 	public static final double STRIKE_LIFT = 0.4;
 	/** The dash key's cooldown after a Turbo Strike. */
@@ -246,10 +246,10 @@ public final class EngineConfig {
 	/** The finishing combo: a Recipro Kick, a spin kick, then an afterburner launch (at these ticks). */
 	public static final int FINISHER_SPIN_AT = 7;
 	public static final int FINISHER_LAUNCH_AT = 14;
-	public static final float FINISHER_KICK_DAMAGE = 6f;
-	public static final float FINISHER_SPIN_DAMAGE = 7f;
-	public static final float FINISHER_LAUNCH_DAMAGE = 12f;
-	public static final float FINISHER_DAMAGE_PER_SPEED = 0.5f;
+	public static final float FINISHER_KICK_DAMAGE = 11f;
+	public static final float FINISHER_SPIN_DAMAGE = 11f;
+	public static final float FINISHER_LAUNCH_DAMAGE = 13f;
+	public static final float FINISHER_DAMAGE_PER_SPEED = 0.05f;
 	public static final double FINISHER_LAUNCH = 2.4;
 	public static final double FINISHER_LIFT = 0.6;
 	public static final double FINISHER_REACH = 4.0;
@@ -263,6 +263,8 @@ public final class EngineConfig {
 	public static final int CHARGE_FULL_TICKS = 20;
 	/** ...for x1.5 damage at full... */
 	public static final float CHARGE_DAMAGE_MULT = 1.5f;
+	/** v0.17.7 City tier: a fully charged kick tops out at the top of City's ability range (before Turbo / Redline). */
+	public static final float CHARGED_KICK_DAMAGE_MAX = 15f;
 	/** ...and a launch along the kick. */
 	public static final double CHARGE_LAUNCH = 1.5;
 	public static final double CHARGE_LIFT = 0.55;
@@ -304,9 +306,9 @@ public final class EngineConfig {
 	public static final double CHAIN_RANGE = 10.0;
 	/** ...each this + this a block-a-second (speed counts up to {@link #DAMAGE_BPS_CAP}) ... */
 	public static final float CHAIN_DAMAGE = 12f;
-	public static final float CHAIN_DAMAGE_PER_SPEED = 0.4f;
+	public static final float CHAIN_DAMAGE_PER_SPEED = 0.075f;
 	/** ...finishing with the mach kick. */
-	public static final float MACH_DAMAGE = 35f;
+	public static final float MACH_DAMAGE = 26f;
 	public static final double MACH_LAUNCH = 2.6;
 	/** Then the engines seize: 30 s. */
 	public static final int BURST_STALL_TICKS = 600;

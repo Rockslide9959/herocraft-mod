@@ -70,7 +70,7 @@ public final class OverhaulConfig {
 	/** A move tugs the gloves off for this long (8 s): bare-hand punches disassemble meanwhile. */
 	public static final int BARE_TICKS = 160;
 	/** A bare-handed melee hit with the gloves off disassembles a little too: extra damage (free). */
-	public static final float TOUCH_PASSIVE_DAMAGE = 4f;
+	public static final float TOUCH_PASSIVE_DAMAGE = 10f;
 	/** Germophobe: after a mob hits him, his next move within this long hits harder... */
 	public static final int GERMOPHOBE_TICKS = 60;
 	/** ...by this much. */
@@ -89,11 +89,11 @@ public final class OverhaulConfig {
 	public static final float DISASSEMBLE_GAIN = 5f;
 	/** v0.17.1: 1 s (it gains Matter now, so the cooldown is what paces it). */
 	public static final int DISASSEMBLE_COOLDOWN = 20;
-	public static final float DISASSEMBLE_DAMAGE = 18f;
+	public static final float DISASSEMBLE_DAMAGE = 15f;
 	public static final double DISASSEMBLE_KNOCKBACK = 0.6;
 	/** A body Disassemble kills bursts: shards to everything this close... */
 	public static final double DISASSEMBLE_BURST_RADIUS = 3.5;
-	public static final float DISASSEMBLE_BURST_DAMAGE = 6f;
+	public static final float DISASSEMBLE_BURST_DAMAGE = 11f;
 	/** The victim cracks (red lines) for this long before it bursts. */
 	public static final int DISASSEMBLE_CRACK_TICKS = 4;
 
@@ -106,7 +106,7 @@ public final class OverhaulConfig {
 	public static final float SPIKE_WAVE_COST = 12f;
 	public static final int SPIKE_WAVE_COOLDOWN = 16;
 	public static final int SPIKE_WAVE_LENGTH = 14;
-	public static final float SPIKE_WAVE_DAMAGE = 10f;
+	public static final float SPIKE_WAVE_DAMAGE = 12f;
 	/** How far either side of a spike a creature is still caught. */
 	public static final double SPIKE_HIT_RADIUS = 1.1;
 	public static final double SPIKE_LIFT = 0.65;
@@ -117,7 +117,7 @@ public final class OverhaulConfig {
 	public static final int SPIKE_FIELD_COOLDOWN = 30;
 	public static final double SPIKE_FIELD_INNER = 2.5;
 	public static final double SPIKE_FIELD_OUTER = 4.5;
-	public static final float SPIKE_FIELD_DAMAGE = 9f;
+	public static final float SPIKE_FIELD_DAMAGE = 12f;
 
 	/** Hold G this long (ticks) and the tap becomes the Thorn Forest aim. */
 	public static final int HOLD_TICKS = 7;
@@ -127,7 +127,7 @@ public final class OverhaulConfig {
 	/** A 7x7 forest: cells this far either side of the centre. */
 	public static final int THORN_HALF = 3;
 	public static final float THORN_HEIGHT = 6f;
-	public static final float THORN_DAMAGE = 16f;
+	public static final float THORN_DAMAGE = 15f;
 	public static final double THORN_LIFT = 0.85;
 	/** It stands this long as cover (what walks in is pushed out, arrows break on it). */
 	public static final int THORN_STAND_TICKS = 80;
@@ -153,7 +153,7 @@ public final class OverhaulConfig {
 	public static final int WALL_DISTANCE = 2;
 	public static final int WALL_TTL = 200;
 	/** Anything standing where the wall bursts up is shoved back and takes this. */
-	public static final float WALL_BURST_DAMAGE = 5f;
+	public static final float WALL_BURST_DAMAGE = 11f;
 
 	// ---------------------------------------------------------------- Z: Overhaul Strike / Shift+Z: Disassemble Terrain
 	/** v0.17.1: free (a touch); a touch that lands gains this. */
@@ -177,7 +177,7 @@ public final class OverhaulConfig {
 	/** How long the pits hold their prisoners under the lids before the ground closes back up (pushing them out). */
 	public static final int PIT_TICKS = 80;
 	public static final int PIT_DEPTH = 2;
-	public static final float PIT_DAMAGE = 6f;
+	public static final float PIT_DAMAGE = 11f;
 	/** Only creatures that fit a 1x1x2 hole. */
 	public static final double PIT_MAX_WIDTH = 1.0;
 	public static final double PIT_MAX_HEIGHT = 2.0;
@@ -199,8 +199,8 @@ public final class OverhaulConfig {
 	public static final int FUSION_GROW_TICKS = 12;
 	public static final double FUSION_REACH_BONUS = 2.5;
 	public static final double FUSION_ATTACK_BONUS = 8.0;
-	public static final double FUSION_ARMOR = 12.0;
-	public static final double FUSION_TOUGHNESS = 6.0;
+	public static final double FUSION_ARMOR = 14.0;
+	public static final double FUSION_TOUGHNESS = 8.0;
 	public static final double FUSION_KNOCKBACK_RESIST = 0.6;
 	public static final double FUSION_SPEED = -0.1;
 	public static final double FUSION_ABSORB_RADIUS = 5.0;
@@ -245,7 +245,7 @@ public final class OverhaulConfig {
 	/** The wave of earth rising behind him stands this long. */
 	public static final int SURF_WAKE_TTL = 16;
 	/** What it runs over is thrown aside... */
-	public static final float SURF_DAMAGE = 5f;
+	public static final float SURF_DAMAGE = 11f;
 	/** ...at most once in this long per creature (a long ride can run the same one over again). */
 	public static final int SURF_REHIT_TICKS = 20;
 	/** No fall damage while surfing and this long after it ends. */
@@ -270,7 +270,7 @@ public final class OverhaulConfig {
 	public static final int[] ULT_WAVES = { 6, 24, 42 };
 	/** ...each rolls from the centre to the edge in this long. */
 	public static final int ULT_WAVE_TICKS = 14;
-	public static final float ULT_DAMAGE = 12f;
+	public static final float ULT_DAMAGE = 22f;
 	public static final double ULT_LIFT = 0.75;
 	/** How long the lifted ground stays apart before it reassembles behind the wave. */
 	public static final int ULT_REASSEMBLE_TICKS = 10;

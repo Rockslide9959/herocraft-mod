@@ -145,7 +145,7 @@ public final class ZeroGravityConfig {
 	public static final int BLOCK_SAFETY_TICKS = 1200;
 	public static final int RELEASE_COOLDOWN = 10;
 	/** A dropped block hits for this (and a little less round it). */
-	public static final float BLOCK_FALL_DAMAGE = 5f;
+	public static final float BLOCK_FALL_DAMAGE = 12f;
 	public static final double BLOCK_SPLASH = 1.3;
 	/** v0.17.1 survival "Crane": Release sets a touched block down where she points, this far at most (placed, never broken). */
 	public static final double CRANE_RANGE = 24.0;
@@ -162,7 +162,7 @@ public final class ZeroGravityConfig {
 	public static final double CLOUD_RADIUS = 3.0;
 	/** The cloud rains by itself after this long. */
 	public static final int CLOUD_MAX_TICKS = 400;
-	public static final float SHOWER_DAMAGE = 6f;
+	public static final float SHOWER_DAMAGE = 11f;
 	public static final double SHOWER_SPLASH = 1.6;
 	public static final int SHOWER_COOLDOWN = 200;
 
@@ -183,13 +183,13 @@ public final class ZeroGravityConfig {
 	public static final double COMET_PICK_RANGE = 24.0;
 	public static final double COMET_SPEED = 2.2;
 	public static final double COMET_BLOCK_SPEED = 1.8;
-	/** A thrown creature (or block) hits what it smashes into for this (v0.17.1: 10, from 8), and what is round it for {@link #COMET_SPLASH_DAMAGE}. */
-	public static final float COMET_DAMAGE = 10f;
-	public static final float COMET_SPLASH_DAMAGE = 4f;
+	/** A thrown creature (or block) hits what it smashes into for this (v0.17.7 City tier: 13), and what is round it for {@link #COMET_SPLASH_DAMAGE}. */
+	public static final float COMET_DAMAGE = 13f;
+	public static final float COMET_SPLASH_DAMAGE = 11f;
 	/** v0.17.1: Comet Toss with nothing afloat rips up a chunk of the ground under her and throws that. */
 	public static final float COMET_CHUNK_SCALE = 1.0f;
 	/** v0.17.1 Shift+R Debris Barrage: every piece of orbiting / hanging debris fires along her aim as a shotgun. */
-	public static final float BARRAGE_DAMAGE = 4f;
+	public static final float BARRAGE_DAMAGE = 5f;
 	public static final double BARRAGE_SPEED = 2.1;
 	public static final double BARRAGE_SPREAD_DEGREES = 7.0;
 	public static final int BARRAGE_COOLDOWN = 100;
@@ -203,9 +203,9 @@ public final class ZeroGravityConfig {
 	public static final double SLAM_RISE_SPEED = 0.6;
 	public static final int SLAM_LIFT_TICKS = 16;
 	public static final double SLAM_SPEED = 1.6;
-	public static final float SLAM_DAMAGE = 8f;
+	public static final float SLAM_DAMAGE = 14f;
 	public static final double SLAM_SPLASH_RADIUS = 2.0;
-	public static final float SLAM_SPLASH_DAMAGE = 4f;
+	public static final float SLAM_SPLASH_DAMAGE = 11f;
 	public static final int SLAM_WATCH_TICKS = 60;
 	public static final int SLAM_COOLDOWN = 160;
 
@@ -233,9 +233,9 @@ public final class ZeroGravityConfig {
 
 	// ---------------------------------------------------------------- Z: Gunhead Martial Arts / Shift+Z: Field
 	public static final double GUNHEAD_REACH = 3.5;
-	/** Palm strike, the touch, then the arm-lock throw, this many ticks apart (v0.17.1: 4 / 4 / 8, the throw floats it). */
+	/** Palm strike, the touch, then the arm-lock throw, this many ticks apart (v0.17.7 City tier: 11 / 11 / 14, the throw floats it). */
 	public static final int GUNHEAD_GAP = 6;
-	public static final float[] GUNHEAD_DAMAGE = { 4f, 4f, 8f };
+	public static final float[] GUNHEAD_DAMAGE = { 11f, 11f, 14f };
 	/** The throw sends it over her shoulder (behind her): back this fast, up this fast; a floating target much further. */
 	public static final double GUNHEAD_THROW_BACK = 1.0;
 	public static final double GUNHEAD_THROW_UP = 0.6;
@@ -255,10 +255,10 @@ public final class ZeroGravityConfig {
 	public static final int BOMB_DEPTH = 3;
 	public static final double BOMB_AHEAD = 4.5;
 	public static final double BOMB_HEIGHT = 7.0;
-	/** ...hangs at most this long (Shift+C again drops it sooner), then falls on her aim: 20 in radius 4 (x the band). */
+	/** ...hangs at most this long (Shift+C again drops it sooner), then falls on her aim: 15 in radius 4 (x the band). */
 	public static final int BOMB_HOLD_TICKS = 100;
 	public static final double BOMB_AIM_RANGE = 28.0;
-	public static final float BOMB_DAMAGE = 20f;
+	public static final float BOMB_DAMAGE = 15f;
 	public static final double BOMB_RADIUS = 4.0;
 	public static final int BOMB_COOLDOWN = 400;
 	/** Its Nausea sting, x the touch's ({@code perFloat}): the whole slab's weight in one go. */
@@ -286,7 +286,7 @@ public final class ZeroGravityConfig {
 	public static final int FR_FLOAT_TICKS = 80;
 	public static final double FR_BOSS_LIFT = 3.0;
 	/** ..."Release!": everything crashes down -- a hit by height on landing plus the rubble's Meteor Shower -- */
-	public static final float FR_SLAM_DAMAGE = 6f;
+	public static final float FR_SLAM_DAMAGE = 25f;
 	public static final double FR_SLAM_SPEED = 1.8;
 	/** ...and this long after the clap she is sick (Nausea 100). */
 	public static final int FR_SICK_DELAY = 30;

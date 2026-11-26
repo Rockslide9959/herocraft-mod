@@ -469,7 +469,8 @@ public class QuirkEngineGameTests implements FabricGameTest {
 		EngineMoves.setSpeed(p, 20.0);
 		EngineMoves.kick(p);
 		float running = taken(fast, 100);
-		helper.assertTrue(Math.abs(running - EngineMoves.kickDamage(20.0)) < EPS && running > 15f, "about 16 at 20 b/s, took " + running);
+		// v0.17.7 City tier: 11 standing, +0.075 a b/s (12.5 at 20 b/s), 14 at most
+		helper.assertTrue(Math.abs(running - EngineMoves.kickDamage(20.0)) < EPS && running > standing + 1f, "more at 20 b/s, took " + running);
 		helper.succeed();
 	}
 
@@ -623,8 +624,8 @@ public class QuirkEngineGameTests implements FabricGameTest {
 		helper.runAfterDelay(1 + EngineConfig.CHARGE_FULL_TICKS + 2, () -> {
 			helper.assertTrue(EngineMoves.charge(p) >= 0.99f, "fully charged");
 			kit.handle(p, AbilitySlot.SLOT_1, false, false);
-			float want = EngineMoves.kickDamage(0.0) * EngineConfig.CHARGE_DAMAGE_MULT;
-			helper.assertTrue(Math.abs(taken(tap, 100) - want) < EPS, "x1.5: " + want + ", took " + taken(tap, 100));
+			float want = Math.min(EngineConfig.CHARGED_KICK_DAMAGE_MAX, EngineMoves.kickDamage(0.0) * EngineConfig.CHARGE_DAMAGE_MULT);
+			helper.assertTrue(Math.abs(taken(tap, 100) - want) < EPS, "x1.5, capped at 15: " + want + ", took " + taken(tap, 100));
 			helper.assertTrue(tap.getDeltaMovement().z > 0.5, "launched along the kick: " + tap.getDeltaMovement());
 			helper.succeed();
 		});
