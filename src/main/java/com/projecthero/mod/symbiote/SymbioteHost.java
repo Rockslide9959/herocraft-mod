@@ -105,7 +105,10 @@ public final class SymbioteHost {
 
 		mob.setCustomName(Component.translatable("entity.projecthero.symbiote_host")
 				.withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
-		mob.setPersistenceRequired();
+		// v0.17.7: no longer forced persistent. Natural hosts (and mobs a free Symbiote took over) now follow vanilla's
+		// despawn rules like any other monster; before, every host lived forever and each death freed another
+		// indestructible Symbiote, so the population only ever grew. Structure guards (HideoutGuards / SiteGuards) set
+		// persistence themselves, and a name tag still makes a host stay like any mob.
 	}
 
 	/** Per-tick upkeep, from the {@code Mob#aiStep} mixin. A no-op unless this mob is a host. */
@@ -150,11 +153,17 @@ public final class SymbioteHost {
 		if (!(entity instanceof Mob mob) || !(mob.level() instanceof ServerLevel level) || !is(mob)) {
 			return;
 		}
-		SymbioteEntity dropped = SymbioteEntity.spawn(level,
+		// v0.17.7: capped -- with 3 wild Symbiotes already within 32 blocks this one dies with its host
+		SymbioteEntity dropped = SymbioteEntity.spawnReleased(level,
 				mob.getX(), mob.getY() + mob.getBbHeight() * 0.5 + 0.2, mob.getZ());
 		level.sendParticles(ParticleTypes.SQUID_INK, mob.getX(), mob.getY() + 0.6, mob.getZ(),
 				50, 0.5, 0.5, 0.5, 0.15);
-		if (dropped != null) {
+		if (dropped == null) {
+			for (Player p : level.getEntitiesOfClass(Player.class, mob.getBoundingBox().inflate(28.0))) {
+				p.displayClientMessage(Component.translatable("message.projecthero.symbiote.host_withered")
+						.withStyle(ChatFormatting.DARK_GRAY), true);
+			}
+		} else {
 			// v0.13.19: it is a real creature now and will go looking for a new host on its own -- give
 			// whoever killed the old one five seconds to reach it first.
 			dropped.setHuntDelay(100);

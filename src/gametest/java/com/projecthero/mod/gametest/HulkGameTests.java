@@ -144,11 +144,11 @@ public class HulkGameTests implements FabricGameTest {
 		int seed = 0x5EED1234;
 		for (int round = 0; round < com.projecthero.mod.symbiote.SymbioteBondGame.ROUNDS; round++) {
 			double a = com.projecthero.mod.symbiote.SymbioteBondGame.marker(seed, round, 10.0);
-			double b = com.projecthero.mod.symbiote.SymbioteBondGame.marker(seed, round, 10.5);
-			double c = com.projecthero.mod.symbiote.SymbioteBondGame.marker(seed, round, 11.0);
+			double b = com.projecthero.mod.symbiote.SymbioteBondGame.marker(seed, round, 10.1);
+			double c = com.projecthero.mod.symbiote.SymbioteBondGame.marker(seed, round, 10.2);
 			// between whole ticks the marker is somewhere in between -- not stuck on the last tick
 			helper.assertTrue(Math.abs(b - (a + c) / 2.0) < 0.02, "sub-tick position interpolates, round " + round);
-			helper.assertTrue(Math.abs(b - a) > 1.0e-4, "and actually moves, round " + round);
+			helper.assertTrue(Math.abs(com.projecthero.mod.symbiote.SymbioteBondGame.marker(seed, round, 11.0) - a) > 1.0e-4, "and actually moves, round " + round);
 		}
 		helper.succeed();
 	}

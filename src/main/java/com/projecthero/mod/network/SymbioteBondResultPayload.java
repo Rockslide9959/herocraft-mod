@@ -13,7 +13,8 @@ import net.minecraft.resources.ResourceLocation;
 /**
  * Client &rarr; server (v0.12.25): the time (since the minigame opened -- v0.13.15: in hundredths of a tick,
  * {@code SymbioteBondGame.SUBTICKS}) at which the player pressed, one per
- * round played; empty = backed out. The server replays them against its own seed and re-checks the timing --
+ * strike made (v0.17.7: up to {@code SymbioteBondGame.MAX_PRESSES}, plus a trailing {@code GAVE_UP} = -1 when the
+ * client lost or let go); empty = backed out. The server replays them against its own seed and re-checks the timing --
  * a claimed win is never trusted (and an unprompted packet is ignored).
  */
 public record SymbioteBondResultPayload(List<Integer> presses) implements CustomPacketPayload {
@@ -21,7 +22,7 @@ public record SymbioteBondResultPayload(List<Integer> presses) implements Custom
 			ResourceLocation.fromNamespaceAndPath(ProjectHeroMod.MOD_ID, "symbiote_bond_result"));
 
 	public static final StreamCodec<RegistryFriendlyByteBuf, SymbioteBondResultPayload> CODEC = StreamCodec.composite(
-			ByteBufCodecs.VAR_INT.apply(ByteBufCodecs.list(8)), SymbioteBondResultPayload::presses,
+			ByteBufCodecs.VAR_INT.apply(ByteBufCodecs.list(com.projecthero.mod.symbiote.SymbioteBondGame.MAX_PRESSES + 1)), SymbioteBondResultPayload::presses,
 			SymbioteBondResultPayload::new);
 
 	@Override

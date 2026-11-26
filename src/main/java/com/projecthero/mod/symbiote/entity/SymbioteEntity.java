@@ -81,9 +81,19 @@ import net.minecraft.world.phys.Vec3;
  * current, a knock) carries it out. A free one roams anywhere.
  *
  * <h2>Indestructible until it bonds</h2>
- * Ignores every damage source, does not burn, drown, take fall damage or despawn. It only leaves the
- * world when it bonds (with a player via {@link SymbioteBonding}, or with a mob as above), is bottled
- * with a Symbiote Vial, or an operator removes it.
+ * Ignores every damage source, does not burn, drown or take fall damage. It leaves the world when it
+ * bonds (with a player via {@link SymbioteBonding}, or with a mob as above), is bottled with a Symbiote
+ * Vial, is burned with flint and steel, or an operator removes it.
+ *
+ * <h2>v0.17.7: wild ones despawn</h2>
+ * User: "make symbiote entities disappear after a while please, a lot spawn sometimes". A <b>wild</b> one
+ * (not confined to a lab, not named, not {@link #setPersistent persistent}, not mid-bond or mid-Carnage-call)
+ * dissolves once it has gone {@code HeroConfig.freeSymbioteDespawnTicks} (5 minutes) without a player within
+ * {@code freeSymbioteDespawnRange} (32) blocks; a player coming close restarts the clock, which is saved with
+ * the entity. It is a plain {@link Entity}, not a {@link Mob}, so vanilla's {@code removeWhenFarAway} never
+ * applied -- this clock is its equivalent. New free Symbiotes from dying hosts go through
+ * {@link #spawnReleased}, which refuses when {@code freeSymbioteMaxNearby} (3) wild ones already roam within
+ * 32 blocks.
  *
  * <h2>Save compatibility</h2>
  * Pre-0.13.19 saves carry only {@code HoverY}. They load as a free Symbiote that simply drops to the
@@ -132,6 +142,10 @@ public class SymbioteEntity extends Entity {
 	private int huntDelay;
 	/** Set when loading a pre-0.13.19 save (HoverY only): {@link #adoptLegacyHome} runs on the first tick. */
 	private boolean legacy;
+	/** v0.17.7: never despawns (an operator's /spiderman symbiote spawn, or set by a quest / structure). */
+	private boolean persistent;
+	/** v0.17.7: ticks spent with no player near; at {@code HeroConfig.freeSymbioteDespawnTicks} a wild one dissolves. */
+	private int idleTicks;
 
 	// ---- transient brain ----
 	private UUID bondingPlayer;
@@ -202,6 +216,8 @@ public class SymbioteEntity extends Entity {
 		huntDelay = tag.getInt("HuntDelay");
 		burnTicks = tag.getInt("BurnTicks");
 		consumeTicks = tag.getInt("ConsumeTicks"); // v0.15.15
+		persistent = tag.getBoolean("Persistent"); // v0.17.7
+		idleTicks = tag.getInt("IdleTicks");
 		// Pre-0.13.19 save: only the hover height was stored. Work out what it was on the first tick.
 		legacy = tag.contains("HoverY") && !tag.contains("HomeX");
 	}
@@ -223,6 +239,12 @@ public class SymbioteEntity extends Entity {
 		}
 		if (consumeTicks > 0) {
 			tag.putInt("ConsumeTicks", consumeTicks);
+		}
+		if (persistent) {
+			tag.putBoolean("Persistent", true);
+		}
+		if (idleTicks > 0) {
+			tag.putInt("IdleTicks", idleTicks);
 		}
 	}
 
@@ -305,8 +327,17 @@ public class SymbioteEntity extends Entity {
 			tickConsumed(server);
 			return;
 		}
+		// v0.17.7: a wild one with nobody around dissolves after a while
+		if ((tickCount + getId()) % DESPAWN_CHECK == 0) {
+			var cfg = com.projecthero.mod.hero.HeroConfig.get();
+			boolean near = server.hasNearbyAlivePlayer(getX(), getY(), getZ(), cfg.freeSymbioteDespawnRange);
+			if (tickDespawnClock(near, DESPAWN_CHECK, cfg.freeSymbioteDespawnTicks)) {
+				dissolveAway(server);
+				return;
+			}
+		}
 		if (carnageCaller != null) {
-			float p = com.projecthero.mod.symbiote.SymbioteCarnageCall.tickChannel(server, this, carnageCaller, carnageCallStart,
+			float p =com.projecthero.mod.symbiote.SymbioteCarnageCall.tickChannel(server, this, carnageCaller, carnageCallStart,
 					carnageCallPing);
 			if (p >= 0.0f) {
 				entityData.set(DATA_CRIMSON, 0.65f * p);
@@ -981,6 +1012,82 @@ public class SymbioteEntity extends Entity {
 
 	public void releaseBond() {
 		bondingPlayer = null;
+	}
+
+	// ---------------- v0.17.7: despawning ----------------
+
+	/** How often (ticks) the despawn clock looks for a player. */
+	public static final int DESPAWN_CHECK = 20;
+	/** Radius (blocks) {@link #spawnReleased} counts wild Symbiotes in. */
+	public static final double CROWD_RANGE = 32.0;
+
+	/** Never despawns: lab (confined), named, flagged persistent, or someone is bonding with / channelling it. */
+	public boolean mustPersist() {
+		return confined || persistent || hasCustomName() || bondingPlayer != null || carnageCaller != null;
+	}
+
+	/** Flag this one as one that must stay (an operator's spawn, a quest or structure piece). */
+	public void setPersistent(boolean persistent) {
+		this.persistent = persistent;
+		if (persistent) {
+			idleTicks = 0;
+		}
+	}
+
+	public boolean isPersistent() {
+		return persistent;
+	}
+
+	/** Ticks it has gone with no player near (saved). */
+	public int idleTicks() {
+		return idleTicks;
+	}
+
+	/**
+	 * One step of the despawn clock: {@code step} more ticks, with or without a player near. Returns true when this wild
+	 * Symbiote should go now. Persistent ones (and a limit of 0 or less) never tick; a player near resets it.
+	 */
+	public boolean tickDespawnClock(boolean playerNear, int step, int limit) {
+		if (limit <= 0 || mustPersist() || playerNear) {
+			idleTicks = 0;
+			return false;
+		}
+		idleTicks += step;
+		return idleTicks >= limit;
+	}
+
+	/** It gives up waiting and seeps into the ground (nobody is near to see it, but the particles are cheap). */
+	public void dissolveAway(ServerLevel server) {
+		server.sendParticles(ICHOR, getX(), getY() + 0.2, getZ(), 16, 0.3, 0.1, 0.3, 0.0);
+		server.sendParticles(ParticleTypes.SQUID_INK, getX(), getY() + 0.2, getZ(), 6, 0.25, 0.1, 0.25, 0.01);
+		discard();
+	}
+
+	/** Wild (despawnable, unconfined) free Symbiotes within {@code r} blocks. */
+	public static int countWild(ServerLevel level, double x, double y, double z, double r) {
+		int n = 0;
+		for (SymbioteEntity e : near(level, x, y, z, r)) {
+			if (!e.isRemoved() && !e.confined && !e.isConsumed() && !e.isBurning()) {
+				n++;
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * v0.17.7: a free Symbiote released by a dying host or a wild pet Symbiote tearing free -- unless
+	 * {@code HeroConfig.freeSymbioteMaxNearby} wild ones already roam within {@link #CROWD_RANGE}; then nothing spawns
+	 * and this returns null (the caller shows the "shrivels away" line). This cap is what stops a host chain
+	 * (free Symbiote -> takes a mob -> host dies -> free Symbiote ...) and a cleared Symbiote hive from piling them up.
+	 */
+	public static SymbioteEntity spawnReleased(ServerLevel level, double x, double y, double z) {
+		int cap = com.projecthero.mod.hero.HeroConfig.get().freeSymbioteMaxNearby;
+		if (cap > 0 && countWild(level, x, y, z, CROWD_RANGE) >= cap) {
+			level.sendParticles(ICHOR, x, y, z, 20, 0.35, 0.25, 0.35, 0.0);
+			level.sendParticles(ParticleTypes.SMOKE, x, y, z, 8, 0.3, 0.2, 0.3, 0.01);
+			return null;
+		}
+		return spawn(level, x, y, z);
 	}
 
 	public boolean isHeld() {
