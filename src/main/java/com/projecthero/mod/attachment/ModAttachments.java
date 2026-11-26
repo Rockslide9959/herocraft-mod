@@ -879,6 +879,18 @@ public final class ModAttachments {
 					builder -> builder.initializer(() -> com.projecthero.mod.power.ThorFx.EMPTY)
 							.syncWith(com.projecthero.mod.power.ThorFx.STREAM_CODEC, AttachmentSyncPredicate.all()));
 
+	/**
+	 * v0.17.7: a Thor weapon out on a scripted throw (Twin Throw, Stormbreaker's Judgement, Ragnarok) -- the real stack, off the
+	 * hand until it comes back ({@link com.projecthero.mod.power.ThorThrown}). Persistent and copyOnDeath so it can never be
+	 * lost; synced to every viewer (their view of his hands is empty while it flies).
+	 */
+	public static final AttachmentType<com.projecthero.mod.power.ThorThrown> THOR_THROWN =
+			AttachmentRegistry.create(ProjectHeroMod.id("thor_thrown"),
+					builder -> builder.persistent(com.projecthero.mod.power.ThorThrown.CODEC)
+							.copyOnDeath()
+							.initializer(() -> com.projecthero.mod.power.ThorThrown.EMPTY)
+							.syncWith(com.projecthero.mod.power.ThorThrown.STREAM_CODEC, AttachmentSyncPredicate.all()));
+
 	/** v0.14.20: the Mjolnir / Stormbreaker melee combo's last counted step, for every viewer's swing pose. Never persisted. */
 	public static final AttachmentType<com.projecthero.mod.power.WeaponComboState> WEAPON_COMBO =
 			AttachmentRegistry.create(ProjectHeroMod.id("weapon_combo"),

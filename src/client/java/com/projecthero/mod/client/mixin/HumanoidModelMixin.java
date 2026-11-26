@@ -499,6 +499,8 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 			// v0.14.20: the Mjolnir / Stormbreaker melee combo swings -- before ThorPose so a Thor move wins over them
 			com.projecthero.mod.client.thor.WeaponComboPose.apply(player, (HumanoidModel<?>) (Object) this);
 			com.projecthero.mod.client.thor.ThorPose.apply(player, (HumanoidModel<?>) (Object) this);
+			// v0.17.7: a returning Mjolnir / Stormbreaker -- the hand it lands in comes up for the catch
+			com.projecthero.mod.client.thor.ThorCatchClient.applyPose(player, (HumanoidModel<?>) (Object) this);
 			// v0.14.11: the Flash Ring suit-up / suit-down
 			com.projecthero.mod.client.flash.FlashPose.apply(player, (HumanoidModel<?>) (Object) this);
 		}

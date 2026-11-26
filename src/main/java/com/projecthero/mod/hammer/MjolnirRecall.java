@@ -136,7 +136,13 @@ public final class MjolnirRecall {
 		MjolnirRegistry registry = MjolnirRegistry.get(player.serverLevel());
 		ThorWeapon weapon = chooseWeapon(player);
 		if (weapon == null) {
-			ThorFeedback.recallBothWithYou(player);
+			// v0.17.7: both already on him -- R puts them in both hands (Twin Gods without the inventory juggling); a weapon
+			// still out on a throw comes back to its hand by itself, so nothing is moved then
+			if (!com.projecthero.mod.power.ThorThrown.any(player) && ThorWeaponHands.arrangeDual(player)) {
+				ThorFeedback.recallDualReady(player);
+			} else {
+				ThorFeedback.recallBothWithYou(player);
+			}
 			return true;
 		}
 		return callWeapon(player, registry, weapon, boundId(player, weapon));
@@ -197,7 +203,9 @@ public final class MjolnirRecall {
 
 	/** v0.15.1: in the inventory (any slot, hands and off hand included) or on the cursor. */
 	static boolean isWithPlayer(ServerPlayer player, MjolnirRegistry registry, ThorWeapon weapon, UUID id) {
-		return findInInventory(player, registry, weapon, id) >= 0
+		// v0.17.7: out on a scripted throw counts as with him -- it is his and comes straight back
+		return com.projecthero.mod.power.ThorThrown.of(player).has(weapon)
+				|| findInInventory(player, registry, weapon, id) >= 0
 				|| matches(registry, player.containerMenu.getCarried(), weapon, player.getUUID(), id);
 	}
 
@@ -239,6 +247,12 @@ public final class MjolnirRecall {
 	 * Stormbreaker's is the same resolution with its own entity and return flight.
 	 */
 	private static boolean callWeapon(ServerPlayer player, MjolnirRegistry registry, ThorWeapon weapon, UUID hammerId) {
+		// 0. v0.17.7: out on a scripted throw (Twin Throw, Judgement, Ragnarok) -- already flying back to its hand; never
+		// rebuilt elsewhere (that would leave two)
+		if (com.projecthero.mod.power.ThorThrown.of(player).has(weapon)) {
+			ThorFeedback.recallStartedNear(player, weapon);
+			return true;
+		}
 		// 1. Already ours.
 		int ownSlot = findInInventory(player, registry, weapon, hammerId);
 		if (ownSlot >= 0) {
@@ -339,24 +353,8 @@ public final class MjolnirRecall {
 		return moving;
 	}
 
-	/**
-	 * v0.15.1: a weapon called home while the player holds the OTHER Thor weapon in the main hand takes the hand --
-	 * the held one steps back into the first free backpack slot. Does nothing if the hand holds anything else or the
-	 * pack is full (the weapon then lands by the old rules).
-	 */
-	public static void stowOtherWeapon(Player player, ThorWeapon arriving) {
-		ItemStack held = player.getMainHandItem();
-		if (ThorWeapon.of(held) != arriving.other()) {
-			return;
-		}
-		Inventory inventory = player.getInventory();
-		int free = inventory.getFreeSlot();
-		if (free < 0 || free == inventory.selected) {
-			return;
-		}
-		inventory.setItem(free, held);
-		player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
-	}
+	// (v0.15.1's stowOtherWeapon -- "the held weapon steps back into the pack" -- is gone: v0.17.7 a called weapon takes the
+	// OFF hand next to the other one instead, see ThorWeaponHands)
 
 	/**
 	 * v0.13.5: force-unbinds {@code hammerId} from {@code player} wherever the physical hammer actually
@@ -432,6 +430,14 @@ public final class MjolnirRecall {
 			return;
 		}
 		ItemStack hammer = inventory.getItem(slot);
+		if (ThorWeapon.of(inventory.getItem(mainHandSlot)) == weapon.other()) {
+			// v0.17.7: he already wields the other Thor weapon -- this one takes the OFF hand (whatever was there takes its slot)
+			ItemStack off = player.getOffhandItem();
+			player.setItemInHand(InteractionHand.OFF_HAND, hammer);
+			inventory.setItem(slot, off);
+			ThorFeedback.recallEquipped(player, weapon);
+			return;
+		}
 		ItemStack heldItem = inventory.getItem(mainHandSlot);
 		inventory.setItem(mainHandSlot, hammer);
 		inventory.setItem(slot, heldItem);

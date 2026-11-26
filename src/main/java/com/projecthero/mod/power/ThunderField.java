@@ -149,6 +149,7 @@ public final class ThunderField {
 		if (stack.is(ModItems.MJOLNIR)) {
 			MjolnirEntity e = new MjolnirEntity(player.level(), player);
 			e.setItem(thrown);
+			e.setThrownFrom(hand); // v0.17.7: each weapon comes back to the hand it left
 			e.throwFromPlayer(player, dir);
 			// throwFromPlayer starts it a block out in front of the eyes: re-aim from there so it lands on the spot
 			e.setDeltaMovement(aim.subtract(e.position()).normalize().scale(e.getDeltaMovement().length()));
@@ -156,6 +157,7 @@ public final class ThunderField {
 		} else {
 			StormbreakerEntity e = new StormbreakerEntity(player.level(), player);
 			e.setItem(thrown);
+			e.setThrownFrom(hand);
 			e.launch(player, dir);
 			e.setDeltaMovement(aim.subtract(e.position()).normalize().scale(StormbreakerEntity.THROW_SPEED));
 			weapon = e;

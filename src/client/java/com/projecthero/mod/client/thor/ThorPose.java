@@ -199,7 +199,9 @@ public final class ThorPose {
 	/** Which hand the pose treats as the hammer hand: wherever Mjolnir is, else the main hand. */
 	private static boolean hammerOnLeft(Player player) {
 		HumanoidArm arm = player.getMainArm();
-		if (!player.getMainHandItem().is(ModItems.MJOLNIR) && player.getOffhandItem().is(ModItems.MJOLNIR)) {
+		// v0.17.7: a weapon out on a scripted throw still counts for the hand it left
+		if (!com.projecthero.mod.power.ThorThrown.inHand(player, net.minecraft.world.InteractionHand.MAIN_HAND).is(ModItems.MJOLNIR)
+				&& com.projecthero.mod.power.ThorThrown.inHand(player, net.minecraft.world.InteractionHand.OFF_HAND).is(ModItems.MJOLNIR)) {
 			arm = arm.getOpposite();
 		}
 		return arm == HumanoidArm.LEFT;

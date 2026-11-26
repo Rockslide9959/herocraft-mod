@@ -1101,6 +1101,9 @@ public final class HeroPackGuide {
 			blank(lines);
 			head(lines, "projecthero.guide.thor.dual");
 			para(lines, "projecthero.guide.thor.dual.body");
+			// v0.17.7: R puts the called weapon in the off hand (dual wielding without the juggling); thrown weapons leave the hand
+			para(lines, "projecthero.guide.thor.dual.call");
+			para(lines, "projecthero.guide.thor.dual.thrown");
 			para(lines, "projecthero.guide.thor.dual.twin_thunder");
 			// v0.16.1: the thunderstorm buff
 			blank(lines);

@@ -11,6 +11,7 @@ import com.projecthero.mod.item.ModItems;
 import com.projecthero.mod.power.ThorFx;
 import com.projecthero.mod.power.ThorKit;
 import com.projecthero.mod.power.ThorState;
+import com.projecthero.mod.power.ThorThrown;
 import com.projecthero.mod.power.ThorTwinKit;
 import com.projecthero.mod.power.ThorUltimates;
 
@@ -22,6 +23,7 @@ import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.player.Player;
@@ -150,10 +152,39 @@ public final class ThorKitFxRenderer {
 		return feet.add(0, y, 0).add(r).add(forward(p, partial).scale(0.2 + reach));
 	}
 
-	/** The hand holding {@code mjolnir} (true) / Stormbreaker (false); the main hand when neither is there. */
+	/**
+	 * The hand holding {@code mjolnir} (true) / Stormbreaker (false); the main hand when neither is there. v0.17.7: a weapon out on a
+	 * scripted throw ({@link ThorThrown}) counts for the hand it left, so its flight starts from and comes back to that hand.
+	 */
 	private static boolean weaponInMain(Player p, boolean mjolnir) {
 		var item = mjolnir ? ModItems.MJOLNIR : ModItems.STORMBREAKER;
-		return p.getMainHandItem().is(item) || !p.getOffhandItem().is(item);
+		return ThorThrown.inHand(p, InteractionHand.MAIN_HAND).is(item) || !ThorThrown.inHand(p, InteractionHand.OFF_HAND).is(item);
+	}
+
+	/**
+	 * v0.17.7: the leg home of a thrown weapon -- from {@code from} to the live hand position over {@code k} 0..1, easing into the
+	 * hand on a curve that rises a little and swings out to that hand's side, spinning, with the weapon's lightning trailing it.
+	 */
+	private static void flyHome(VertexConsumer vc, PoseStack.Pose pose, Player p, Vec3 feetW, Vec3 cam, double t, double k, Vec3 from,
+			boolean mjolnir, float scale, double now, double seed, float partial, List<Spectral> spectral) {
+		boolean inMain = weaponInMain(p, mjolnir);
+		Vec3 to = hand(p, feetW, inMain, 0.85f, 0.25f, partial);
+		Vec3 side = right(p, partial).scale((inMain == (p.getMainArm() == HumanoidArm.RIGHT) ? 1 : -1) * 1.5);
+		Vec3 ctrl = from.lerp(to, 0.5).add(side).add(0, 1.2, 0);
+		double e = 1 - (1 - k) * (1 - k); // fast off the mark, easing into the catch
+		Vec3 pos = bezier(from, ctrl, to, e);
+		Vec3 prev = bezier(from, ctrl, to, Math.max(0, e - 0.2));
+		Vec3 dir = to.subtract(pos);
+		float yaw = (float) Math.toDegrees(Math.atan2(-dir.x, dir.z));
+		float spin = (float) (t * (mjolnir ? -50 : 50));
+		spectral.add(new Spectral(new ItemStack(mjolnir ? ModItems.MJOLNIR : ModItems.STORMBREAKER), pos, yaw, spin, 0, scale));
+		float fadeIn = (float) Math.min(1, (1 - k) * 4);
+		if (mjolnir) {
+			ThorDraw.bolt(vc, pose, ThorDraw.jagged(pos.subtract(cam), prev.subtract(cam), 6, 0.2, seed + Math.floor(now * 0.6) * 7), 0.6f,
+					0.8f * fadeIn);
+		} else {
+			lightningStreak(vc, pose, pos.subtract(cam), prev.subtract(cam), 0.6f, 0.8f * fadeIn, now, seed + 3);
+		}
 	}
 
 	private static float fade(double t, double start, double len) {
@@ -616,6 +647,16 @@ public final class ThorKitFxRenderer {
 				}
 			}
 		}
+		// v0.17.7: the weapons really left his hands -- a beat crossed at the meeting point, then each flies back to its own hand
+		if (t >= wind + fly && t < ThorTwinKit.THROW_RETURN) {
+			Vec3 side = right(p, partial).scale(0.35);
+			spectral.add(new Spectral(new ItemStack(ModItems.MJOLNIR), at.add(side), 0, (float) (t * 55), 0, 0.9f));
+			spectral.add(new Spectral(new ItemStack(ModItems.STORMBREAKER), at.subtract(side), 0, (float) (t * -55), 0, 1.0f));
+		} else if (t >= ThorTwinKit.THROW_RETURN && t < ThorTwinKit.THROW_HOME) {
+			double k = (t - ThorTwinKit.THROW_RETURN) / ThorTwinKit.THROW_BACK;
+			flyHome(vc, pose, p, feetW, cam, t, k, at, true, 0.9f, now, seed, partial, spectral);
+			flyHome(vc, pose, p, feetW, cam, t, k, at, false, 1.0f, now, seed + 11, partial, spectral);
+		}
 		double ti = t - (wind + fly);
 		if (ti >= 0 && ti < 18) {
 			Vec3 c = at.subtract(cam);
@@ -735,7 +776,7 @@ public final class ThorKitFxRenderer {
 			sparkBurst(vc, pose, hand(p, feetW, weaponInMain(p, false), 1f, -0.2f, partial).subtract(cam), 0.7, 6, seed + Math.floor(now * 0.5), 0.8f);
 		} else if (t < ji) {
 			double k = (t - jt) / (ji - jt);
-			Vec3 from = hand(p, feetW, true, 1f, 0.2f, partial);
+			Vec3 from = hand(p, feetW, weaponInMain(p, false), 1f, 0.2f, partial); // v0.17.7: from the hand it really left
 			Vec3 pos = from.lerp(target, k).add(0, Math.sin(Math.PI * k) * 1.5, 0);
 			Vec3 dir = target.subtract(from);
 			float yaw = (float) Math.toDegrees(Math.atan2(-dir.x, dir.z));
@@ -759,6 +800,10 @@ public final class ThorKitFxRenderer {
 				axeBolt(vc, pose, ThorDraw.jagged(sky, c.add(0, 1.0, 0), 14, 1.2, seed + frame * 9 + i * 5), (float) (0.6 + 1.2 * k), (float) (0.5 + 0.5 * k));
 			}
 			ThorDraw.flare(vc, ps, c, 0.5f + 0.4f * (float) k, (float) now * 40f, 0.9f);
+		} else if (t >= ThorUltimates.JUDGE_RETURN && t < ThorUltimates.JUDGE_HOME) {
+			// v0.17.7: the axe tears free of the target and flies back to the hand it left
+			double k = (t - ThorUltimates.JUDGE_RETURN) / (ThorUltimates.JUDGE_HOME - ThorUltimates.JUDGE_RETURN);
+			flyHome(vc, pose, p, feetW, cam, t, k, target.add(0, 0.6, 0), false, 1.15f, now, seed, partial, spectral);
 		}
 		double tb = t - jb;
 		if (tb >= 0 && tb < 18) {
@@ -813,8 +858,12 @@ public final class ThorKitFxRenderer {
 		}
 		double ti = t - ThorUltimates.RAG_IMPACT;
 		if (ti >= 0 && ti < 30) {
-			if (ti < 14) {
+			if (t < ThorUltimates.RAG_RETURN) {
 				spectral.add(new Spectral(new ItemStack(ModItems.STORMBREAKER), at.add(0, 0.9, 0), 0, 180, 0, 1.4f));
+			} else if (t < ThorUltimates.RAG_HOME) {
+				// v0.17.7: the axe rips out of the crater and flies back up to the hand it left
+				double k = (t - ThorUltimates.RAG_RETURN) / (ThorUltimates.RAG_HOME - ThorUltimates.RAG_RETURN);
+				flyHome(vc, pose, p, feetW, cam, t, k, at.add(0, 0.9, 0), false, 1.4f, now, seed, partial, spectral);
 			}
 			float f = fade(ti, 0, 30);
 			shockwave(vc, ps, c0.add(0, 0.08, 0), ti, 14f, seed, true);

@@ -202,8 +202,9 @@ public class ThorRecallV0151GameTests implements FabricGameTest {
 			helper.assertTrue(copies.size() == 1 && copies.get(0) instanceof StormbreakerEntity axe && axe.isReturning(),
 					"exactly one axe is flying home, got " + copies);
 			helper.succeedWhen(() -> {
-				helper.assertTrue(isId(p.getMainHandItem(), id), "Stormbreaker arrives in the main hand");
-				helper.assertTrue(inventoryCopies(p, hammerId(p)) == 1, "Mjolnir stepped back into the pack");
+				// v0.17.7: dual wielding without the juggling -- the called axe takes the off hand, Mjolnir stays in the main hand
+				helper.assertTrue(isId(p.getOffhandItem(), id), "Stormbreaker arrives in the off hand");
+				helper.assertTrue(isId(p.getMainHandItem(), hammerId(p)), "Mjolnir stays in the main hand");
 				helper.assertTrue(worldCopies(helper, id).isEmpty() && inventoryCopies(p, id) == 1, "one axe, never two");
 				cleanUp(helper, id, p);
 			});
@@ -221,8 +222,9 @@ public class ThorRecallV0151GameTests implements FabricGameTest {
 			helper.assertTrue(MjolnirRecall.call(p), "the call is answered");
 			helper.assertTrue(resting.getState() == MjolnirEntity.State.RETURNING, "the hammer turns for home");
 			helper.succeedWhen(() -> {
-				helper.assertTrue(isId(p.getMainHandItem(), hammer), "Mjolnir arrives in the main hand");
-				helper.assertTrue(inventoryCopies(p, axeId(p)) == 1, "Stormbreaker stepped back into the pack");
+				// v0.17.7: the called hammer takes the off hand next to the axe
+				helper.assertTrue(isId(p.getOffhandItem(), hammer), "Mjolnir arrives in the off hand");
+				helper.assertTrue(isId(p.getMainHandItem(), axeId(p)), "Stormbreaker stays in the main hand");
 				helper.assertTrue(worldCopies(helper, hammer).isEmpty(), "no hammer left in the world");
 				cleanUp(helper, hammer, p);
 			});
@@ -330,17 +332,18 @@ public class ThorRecallV0151GameTests implements FabricGameTest {
 		});
 	}
 
-	// ---------------- rule 4: both with you -> nothing ----------------
+	// ---------------- rule 4: both with you -> v0.17.7: into both hands ----------------
 
 	@GameTest(template = EMPTY_STRUCTURE, batch = BATCH)
-	public void withBothAlreadyOnYouNothingMoves(GameTestHelper helper) {
+	public void withBothAlreadyOnYouRPutsThemInBothHands(GameTestHelper helper) {
 		ServerPlayer p = thor(helper, new Vec3(1.5, 2, 1.5), true, true);
 		UUID hammer = hammerId(p);
 		UUID axe = axeId(p);
 		helper.assertTrue(MjolnirRecall.chooseWeapon(p) == null, "both are with the player");
 		helper.assertTrue(MjolnirRecall.call(p), "the call is acknowledged");
-		helper.assertTrue(isId(p.getMainHandItem(), hammer), "Mjolnir stays in the hand");
-		helper.assertTrue(isId(p.getInventory().getItem(8), axe), "Stormbreaker stays in its slot");
+		helper.assertTrue(isId(p.getMainHandItem(), hammer), "Mjolnir stays in the main hand");
+		helper.assertTrue(isId(p.getOffhandItem(), axe), "Stormbreaker comes out of its slot into the off hand");
+		helper.assertTrue(inventoryCopies(p, axe) == 1 && inventoryCopies(p, hammer) == 1, "one of each, nothing copied");
 		helper.assertTrue(worldCopies(helper, hammer).isEmpty() && worldCopies(helper, axe).isEmpty(), "nothing is spawned");
 		cleanUp(helper, hammer, p);
 		helper.succeed();

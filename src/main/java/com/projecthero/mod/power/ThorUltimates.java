@@ -40,6 +40,12 @@ public final class ThorUltimates {
 	// Ragnarok
 	public static final int RAG_RISE_END = 18, RAG_RAIN_START = 20, RAG_RAIN_END = 60, RAG_HURL = 62, RAG_IMPACT = 70, RAG_END = 96;
 	public static final double RAG_RAIN_RADIUS = 14.0, RAG_FINAL_RADIUS = 8.0;
+	/**
+	 * v0.17.7: Stormbreaker really leaves his hand for Judgement / Ragnarok ({@link ThorThrown}): it stands in the target / the
+	 * crater until {@code *_RETURN}, flies back to the hand it left and is caught at {@code *_HOME}.
+	 */
+	public static final int JUDGE_RETURN = JUDGE_BURST + 2, JUDGE_HOME = JUDGE_RETURN + 10;
+	public static final int RAG_RETURN = RAG_IMPACT + 14, RAG_HOME = RAG_RETURN + 10;
 	/** A target is struck by the rain at most once per this many ticks. */
 	private static final int RAIN_GAP = 10;
 
@@ -183,6 +189,7 @@ public final class ThorUltimates {
 					ThorKit.storm(lv, pl.position().add(0, 2.4, 0), 4, 0.4, 0.4);
 				}
 				if (t == JUDGE_THROW) {
+					ThorThrown.launch(pl, com.projecthero.mod.hammer.ThorWeapon.STORMBREAKER, JUDGE_HOME - JUDGE_THROW);
 					ThorKit.sound(lv, pl.position(), SoundEvents.TRIDENT_THROW, 1.2f, 0.6f);
 					ThorKit.sound(lv, pl.position(), SoundEvents.WIND_CHARGE_BURST, 1.0f, 0.5f);
 				}
@@ -277,6 +284,7 @@ public final class ThorUltimates {
 					}
 				}
 				if (t == RAG_HURL) {
+					ThorThrown.launch(pl, com.projecthero.mod.hammer.ThorWeapon.STORMBREAKER, RAG_HOME - RAG_HURL);
 					ThorKit.sound(lv, c, SoundEvents.TRIDENT_THROW, 1.4f, 0.5f);
 					ThorKit.sound(lv, c, SoundEvents.WIND_CHARGE_BURST, 1.2f, 0.5f);
 				}

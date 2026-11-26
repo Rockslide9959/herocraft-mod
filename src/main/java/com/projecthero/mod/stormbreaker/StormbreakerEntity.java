@@ -8,10 +8,10 @@ import java.util.Set;
 import java.util.UUID;
 
 import com.projecthero.mod.entity.ModEntityTypes;
-import com.projecthero.mod.hammer.MjolnirRecall;
 import com.projecthero.mod.hammer.MjolnirRegistry;
 import com.projecthero.mod.hammer.MjolnirStatus;
 import com.projecthero.mod.hammer.ThorWeapon;
+import com.projecthero.mod.hammer.ThorWeaponHands;
 import com.projecthero.mod.item.ModDataComponents;
 import com.projecthero.mod.item.ModItems;
 import com.projecthero.mod.power.ThorFeedback;
@@ -122,6 +122,33 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 	private int maxPierce = MAX_PIERCE;
 	private boolean sunders;
 
+	private static final String TAG_THROWN_FROM = "ThrownFrom";
+	/** v0.17.7: the hand it was thrown from (null: not thrown from a hand) -- it comes back to that hand. Saved. */
+	private InteractionHand thrownFrom;
+	/** v0.17.7: the hand it will land in on the way home ({@code ThorWeaponHands.HAND_*}), so every client raises that arm. */
+	private static final EntityDataAccessor<Byte> DATA_CATCH_HAND =
+			SynchedEntityData.defineId(StormbreakerEntity.class, EntityDataSerializers.BYTE);
+
+	/** v0.17.7: which hand threw it -- it lands back in that hand when it returns, if the hand is still free. */
+	public void setThrownFrom(InteractionHand hand) {
+		this.thrownFrom = hand;
+	}
+
+	public InteractionHand thrownFrom() {
+		return thrownFrom;
+	}
+
+	/** v0.17.7: the hand the returning axe will land in, or null (the pack, or not returning). Both sides. */
+	public InteractionHand catchHand() {
+		SynchedEntityData data = this.getEntityData();
+		return data == null || !isReturning() ? null : ThorWeaponHands.decode(data.get(DATA_CATCH_HAND));
+	}
+
+	/** v0.17.7: who the returning axe is flying to (both sides), or null. */
+	public Player catchOwner() {
+		return isReturning() ? resolveOwner() : null;
+	}
+
 	/** v0.17.7: a special throw -- {@code damage} per pierce, {@code pierce} pierces, each victim Sundered if asked. */
 	public void setSpecialThrow(float damage, int pierce, boolean sunder) {
 		this.throwDamage = damage;
@@ -146,6 +173,7 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 		builder.define(DATA_OWNER_ID, -1);
 		builder.define(DATA_RESTING, false);
 		builder.define(DATA_PINNED, false);
+		builder.define(DATA_CATCH_HAND, ThorWeaponHands.HAND_NONE);
 	}
 
 	// ---------------- v0.16.1: pinned in the ground (Thunder Field) ----------------
@@ -208,6 +236,7 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 
 		StormbreakerEntity entity = new StormbreakerEntity(player.level(), player);
 		entity.setItem(thrown);
+		entity.setThrownFrom(InteractionHand.MAIN_HAND);
 		entity.launch(player, player.getLookAngle());
 		player.level().addFreshEntity(entity);
 
@@ -466,7 +495,21 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 			}
 			return !server;
 		}
+		if (server) {
+			// v0.17.7: which hand it will land in (the hand it left, or the call key's dual-wield rule) -- synced for the catch pose
+			this.entityData.set(DATA_CATCH_HAND, ThorWeaponHands.encode(ThorWeaponHands.plan(owner, ThorWeapon.STORMBREAKER, thrownFrom, recalled)));
+		}
 		Vec3 target = owner.getEyePosition().subtract(0.0, 0.4, 0.0);
+		InteractionHand catchHand = catchHand();
+		if (catchHand != null) {
+			// v0.17.7: home on that hand's side, so it visibly flies into the raised hand
+			Vec3 look = owner.getLookAngle();
+			Vec3 flat = new Vec3(look.x, 0.0, look.z);
+			flat = flat.lengthSqr() < 1.0E-6 ? new Vec3(0.0, 0.0, 1.0) : flat.normalize();
+			net.minecraft.world.entity.HumanoidArm arm = catchHand == InteractionHand.MAIN_HAND ? owner.getMainArm()
+					: owner.getMainArm().getOpposite();
+			target = target.add(new Vec3(-flat.z, 0.0, flat.x).scale(arm == net.minecraft.world.entity.HumanoidArm.RIGHT ? 0.4 : -0.4));
+		}
 		Vec3 toTarget = target.subtract(this.position());
 		double distance = toTarget.length();
 		if (distance < CATCH_DISTANCE) {
@@ -617,28 +660,15 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 
 	private void catchBy(Player player) {
 		ItemStack stack = this.getItem().copy();
-		if (recalled) {
-			// v0.15.1: called while holding Mjolnir, the axe takes the hand and the hammer steps back into the pack
-			MjolnirRecall.stowOtherWeapon(player, ThorWeapon.STORMBREAKER);
-		}
-		if (player.getMainHandItem().isEmpty()) {
-			player.setItemInHand(InteractionHand.MAIN_HAND, stack);
-		} else if (!player.getInventory().add(stack)) {
-			if (recalled) {
-				// a deliberate call: like Mjolnir, it goes into the hand anyway and what was held is dropped
-				ItemStack displaced = player.getMainHandItem();
-				player.setItemInHand(InteractionHand.MAIN_HAND, stack);
-				player.drop(displaced, false);
-			} else {
-				// v0.15.3: it waits at their feet as a resting axe (still tracked and callable), not as an item
-				ThorFeedback.recallInventoryFull(player, ThorWeapon.STORMBREAKER);
-				this.setPos(player.getX(), player.getY(), player.getZ());
-				settleAsResting(Vec3.ZERO);
-				return;
-			}
-		}
-		if (level() instanceof ServerLevel serverLevel && stack.get(ModDataComponents.HAMMER_ID) != null) {
-			MjolnirRegistry.get(serverLevel).noteCarried(stack, player, player.getMainHandItem() == stack);
+		// v0.17.7: one rule for every arrival (ThorWeaponHands) -- back to the hand it was thrown from; on a call, the off hand
+		// when he holds Mjolnir (dual wielding, replacing v0.15.1's "the hammer steps back into the pack"); a deliberate call
+		// with a full pack still forces the main hand and drops what was held; the registry is noted there
+		if (ThorWeaponHands.place(player, stack, ThorWeapon.STORMBREAKER, thrownFrom, recalled) == ThorWeaponHands.Landing.NOWHERE) {
+			// v0.15.3: it waits at their feet as a resting axe (still tracked and callable), not as an item
+			ThorFeedback.recallInventoryFull(player, ThorWeapon.STORMBREAKER);
+			this.setPos(player.getX(), player.getY(), player.getZ());
+			settleAsResting(Vec3.ZERO);
+			return;
 		}
 		if (recalled) {
 			ThorFeedback.recallArrived(player, ThorWeapon.STORMBREAKER);
@@ -773,6 +803,7 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 		tag.putBoolean(TAG_RECALLED, recalled);
 		tag.putBoolean(TAG_RESTING, isResting());
 		tag.putInt(TAG_PICKUP_DELAY, pickupDelay);
+		tag.putByte(TAG_THROWN_FROM, ThorWeaponHands.encode(thrownFrom));
 	}
 
 	@Override
@@ -785,5 +816,6 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 		recalled = tag.getBoolean(TAG_RECALLED);
 		this.entityData.set(DATA_RESTING, tag.getBoolean(TAG_RESTING));
 		pickupDelay = tag.getInt(TAG_PICKUP_DELAY);
+		thrownFrom = tag.contains(TAG_THROWN_FROM) ? ThorWeaponHands.decode(tag.getByte(TAG_THROWN_FROM)) : null;
 	}
 }

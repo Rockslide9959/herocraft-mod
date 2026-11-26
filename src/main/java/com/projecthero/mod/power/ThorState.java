@@ -45,6 +45,13 @@ public enum ThorState {
 
 	/** The state {@code player}'s hands put him in (hands only; whether he has Thor's kit at all is {@link #hasKit}). */
 	public static ThorState of(Player player) {
+		ThorThrown out = ThorThrown.of(player);
+		if (!out.isEmpty()) {
+			// v0.17.7: a weapon out on a scripted throw still counts as in his hand (the move, its perks and flight carry on)
+			boolean mj = ThorThrown.holds(player, com.projecthero.mod.hammer.ThorWeapon.MJOLNIR);
+			boolean sb = ThorThrown.holds(player, com.projecthero.mod.hammer.ThorWeapon.STORMBREAKER);
+			return mj && sb ? TWIN : mj ? MJOLNIR : sb ? STORMBREAKER : UNARMED;
+		}
 		if (WeaponCombo.isDualWielding(player)) {
 			return TWIN;
 		}
@@ -62,7 +69,8 @@ public enum ThorState {
 	 * Power of Thor) or to a Stormbreaker -- the binding API the acquisition code plugs into is unchanged.
 	 */
 	public static boolean hasKit(Player player) {
-		return Worthiness.isWorthy(player) && (ThorPowers.isHoldingThorWeapon(player) || ThorPassives.hasPowerOfThor(player)
+		return Worthiness.isWorthy(player) && (ThorPowers.isHoldingThorWeapon(player) || ThorThrown.any(player)
+				|| ThorPassives.hasPowerOfThor(player)
 				|| player.getAttachedOrElse(ModAttachments.BOUND_STORMBREAKER_ID, null) != null);
 	}
 

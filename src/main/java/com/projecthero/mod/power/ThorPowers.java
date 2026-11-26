@@ -184,7 +184,9 @@ public final class ThorPowers {
 	 * carrying Stormbreaker must keep their own mutation keys and HUD. Worthiness is synced to the owning client.
 	 */
 	public static boolean wieldsThorWeapon(Player player) {
-		return isHoldingMjolnir(player) || (isHoldingStormbreaker(player) && Worthiness.isWorthy(player));
+		// v0.17.7: and while a weapon is out on a scripted throw (Twin Throw, Judgement, Ragnarok), so keys and HUD stay Thor's
+		return isHoldingMjolnir(player) || (isHoldingStormbreaker(player) && Worthiness.isWorthy(player))
+				|| (ThorThrown.any(player) && Worthiness.isWorthy(player));
 	}
 
 	/**
@@ -243,6 +245,7 @@ public final class ThorPowers {
 
 		MjolnirEntity entity = new MjolnirEntity(player.level(), player);
 		entity.setItem(thrown);
+		entity.setThrownFrom(InteractionHand.MAIN_HAND); // v0.17.7: back into the hand it left
 		entity.throwFromPlayer(player, player.getLookAngle());
 		player.level().addFreshEntity(entity);
 		playThrowSound(player);
@@ -389,6 +392,7 @@ public final class ThorPowers {
 	 * (the admin command), replacing their old bare worthiness reset.
 	 */
 	public static void revokePower(ServerPlayer player) {
+		ThorThrown.returnAll(player); // v0.17.7: a weapon mid-throw comes back first, so the unbind below can find it
 		UUID hammerId = ThorPassives.boundHammerId(player);
 		if (hammerId != null) {
 			MjolnirRecall.forceUnbind(player, hammerId);
@@ -488,6 +492,7 @@ public final class ThorPowers {
 		WorthinessEnforcer.serverTick(player);
 		ThorPassives.serverTick(player);
 		ThorStorm.tick(player); // v0.16.1: the thunderstorm buff's synced flag + sparks
+		ThorThrown.tick(player); // v0.17.7: a weapon out on a scripted throw lands back in its hand when due
 		ThorKit.tick(player); // v0.17.7: melee per weapon state, God of Thunder / Storm Sprint / Lightning Incarnate
 
 		if (isFlying(player)) {
@@ -497,7 +502,7 @@ public final class ThorPowers {
 				// its own instabuild guard for why it never touches their creative mayfly/flying.
 				setFlying(player, false);
 			} else {
-				boolean holding = isHoldingThorWeapon(player);
+				boolean holding = isHoldingThorWeapon(player) || ThorThrown.any(player); // v0.17.7: a scripted throw keeps him up
 				if (holding && player.getAttachedOrElse(ModAttachments.HAMMERLESS_FLIGHT_TICKS, 0) != 0) {
 					// Caught it back mid-grace: resume ordinary flight seamlessly, no sudden fall --
 					// requirement 25. The grace ticks reset to 0 (via the branch below not firing
