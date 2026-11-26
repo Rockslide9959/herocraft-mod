@@ -35,7 +35,7 @@ public class BlackPantherLayer extends RenderLayer<AbstractClientPlayer, PlayerM
 		// suit"): drawn over the suit only while it is on and the necklace is worn
 		if (BlackPanther.showsNecklace(player)) {
 			PlayerModel<AbstractClientPlayer> m = getParentModel();
-			BlackPantherRender.renderNecklace(pose, buffers, light, player, m.body, m.rightArm, m.leftArm);
+			BlackPantherRender.renderNecklace(pose, buffers, light, player, m.body);
 		}
 		// v0.17.7 (user: "remove the claw model it looks bad"): no claw blades
 	}

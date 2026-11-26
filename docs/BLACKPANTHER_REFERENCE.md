@@ -37,14 +37,19 @@ please, don't make the player have the necklace model on them all the time, only
 - **Stats while suited:** `reconcile` adds `black_panther_armor` +12 armour and `black_panther_toughness` +4 toughness
   (`SUIT_ARMOR` / `SUIT_TOUGHNESS`) and Regeneration II; both modifiers are removed when the suit goes.
 - **Necklace model** (`BlackPantherRender.renderNecklace`, drawn by `BlackPantherLayer` only while `BlackPanther.showsNecklace` =
-  suited AND necklace worn AND not spectator): rebuilt from the tooth band painted on the suit skin. On `black_panther.png` the band
-  is row 1 of the body (one texel under the collar): chest and back texels 0, 2, 5, 7 silver `#6E6E76`, 1, 3, 4, 6 black; over each
-  shoulder it runs front to back along the arm top (right arm column 2, left arm column 1), silver / black in turn, with one silver
-  texel down the front and back of the shoulder. The model puts a silver fang (root, middle, bright tip) over each silver texel and
-  a black bead over each black one, at z = +-2.42 and beyond (the jacket layer is at 2.29, so no face is ever coplanar: no
-  z-fighting); the shoulder runs are drawn in each arm's own space so they follow the arms. Texture `necklace.png` (flat swatches)
-  and the item icon come from `scratchpad/bp_v0177_necklace_textures.js`. With Kinetic stored the silver takes the trim's violet
-  glow. The skin is unchanged (its painted band stays under the model).
+  suited AND necklace worn AND not spectator): the gold necklace painted on the comics skin, in 3D (rebuilt for the comics skin, user:
+  "Make the necklace model look like the necklace on the suit please"). On `black_panther.png` body row 20 is a gold band all the way
+  round (chest texels 20 / 22-25 / 27 gold, near-black gaps at 21 and 26; sides solid; back mirrored), with claw-teeth at 21, 23, 24, 26
+  on row 21 and a centre point at 23-24 on row 22; the jacket layer raises gold over rows 0-2 of the chest; the arms carry no gold. The
+  model, all in the body's space: a band at y 0.08-1.18 of gold links (bright top bevel, mid face, darker lower lip, each tier a step
+  further in), links at x -4.68..-3.04 / 3.04..4.68 (wrapping round the corners to a solid side run) and a bolder centre plate at
+  -1.96..1.96, dark cord set back in the gaps at x = +-2.5, chest and back alike; on the chest four teeth (x +-2.5 hanging from the gap
+  cords, x +-1.2 under the plate) and the long centre fang at 0 down to y 3.4, each root / middle / bright tip curling forward. Inside
+  faces at 2.36 (chest / back) and 4.36 (sides), outside up to 2.88: never coplanar with the skin, the jacket (2.29) or the sleeves;
+  clear of the high collar (its yoke is at y -0.73, its wall 6.35 px round the neck and open at the front, its back skirt 3.7 px+ behind).
+  Texture `necklace.png` (64x64 flat gold swatches: #E7C76E, #D19C4C, #C18039, #11101C gap, #EACC71 tips, #DAAD59 plate) and the gold
+  item icon (band, plate, four teeth and the fang, no gem) come from `scratchpad/bp_v0177_necklace_textures.js`. With Kinetic stored the
+  gold takes the trims' violet glow (`necklace_glow.png`, same swatches in violet, alpha = the Kinetic bar). The skin is unchanged (its painted band stays under the model).
 - **Migration** (`BlackPanther.migrate`, flag `v177`): a Black Panther who had the suit before v0.17.7 (habit bound in
   0.17.4-0.17.6, or any 0.17.3 power) gets ONE necklace: worn (and still suited) if he was suited and the chest slot is free,
   otherwise into the inventory (dropped if full). Old `habit`, `necklaceOff`, `clawsOut` flags are cleared.

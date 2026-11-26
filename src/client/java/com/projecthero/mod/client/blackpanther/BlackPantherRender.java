@@ -36,8 +36,8 @@ import net.minecraft.world.entity.player.Player;
  *
  * <p>The user: "Make the suit retract into a necklace". v0.17.7: the suit IS the crafted necklace -- H with it worn runs the suit
  * out texel by texel across the skin (the Blue Beetle geodesic, seeded at the necklace), the head last, behind a glowing violet
- * edge; H again (or taking the necklace off) plays it backwards. The necklace model matches the tooth band painted on the suit
- * skin and is drawn only while the suit is on and the necklace worn ({@link #renderNecklace}). v0.17.7: the claw model
+ * edge; H again (or taking the necklace off) plays it backwards. The necklace model matches the gold necklace painted on the
+ * suit skin and is drawn only while the suit is on and the necklace worn ({@link #renderNecklace}). v0.17.7: the claw model
  * is gone (user: "remove the claw model it looks bad please"). Shift+N hides the suit's head. The trim glows purple with the Kinetic bar.
  */
 public final class BlackPantherRender {
@@ -49,6 +49,8 @@ public final class BlackPantherRender {
 	public static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/black_panther/black_panther.png");
 	public static final ResourceLocation GLOW = ProjectHeroMod.id("textures/entity/black_panther/black_panther_glow.png");
 	public static final ResourceLocation NECKLACE = ProjectHeroMod.id("textures/entity/black_panther/necklace.png");
+	/** The necklace's Kinetic glow map: the same swatches, gold ones violet like {@link #GLOW}, the gaps dark. */
+	public static final ResourceLocation NECKLACE_GLOW = ProjectHeroMod.id("textures/entity/black_panther/necklace_glow.png");
 	public static final int FRAMES = 64;
 	/** The body takes this share of the build; the head takes the rest, so the mask closes last. */
 	private static final float BODY_SHARE = 0.74f;
@@ -171,121 +173,139 @@ public final class BlackPantherRender {
 
 	// ---------------------------------------------------------------- the necklace
 
-	/** The parts of the necklace: the chest-and-back band (body space) and the run over each shoulder (arm space). */
-	private static ModelPart necklaceBody;
-	private static ModelPart necklaceRightShoulder;
-	private static ModelPart necklaceLeftShoulder;
-
-	/** Texture swatches in {@code necklace.png} (32 x 32, each an 8 x 8 flat colour): silver, the bright fang tip, black bead. */
-	private static final int SILVER_U = 0, TIP_U = 8, BEAD_U = 16;
-
-	/** How far proud of the body the necklace sits: the suit's jacket layer is at 2.29 (0.04 + 0.25), so nothing is ever coplanar. */
-	private static final float FACE = 2.42f;
+	/** The necklace: a gold collar band round the top of the torso with its teeth on the chest, all in the body's space. */
+	private static ModelPart necklace;
 
 	/**
-	 * One vibranium fang hanging from the band at ({@code x}, {@code y}): a broad root, a narrower middle and a fine tip that hooks a
-	 * little forward ({@code dir} -1 = the chest side, +1 = the back), about one skin texel wide and a little over one tall -- the same
-	 * size as the silver texels painted on the suit.
+	 * Texture swatches in {@code necklace.png} (64 x 64, each a 16 x 16 flat colour, from {@code scratchpad/bp_v0177_necklace_textures.js}),
+	 * the golds painted on the suit skin: highlight, mid, shadow, the near-black gap, the bright tips, the lighter centre plate.
 	 */
-	private static void fang(CubeListBuilder silver, CubeListBuilder tip, float x, float y, int dir) {
-		float z = dir < 0 ? -FACE : FACE;
-		silver.addBox(x - 0.42f, y, dir < 0 ? z - 0.36f : z, 0.84f, 0.55f, 0.36f);
-		silver.addBox(x - 0.3f, y + 0.5f, dir < 0 ? z - 0.42f : z + 0.02f, 0.6f, 0.45f, 0.4f);
-		tip.addBox(x - 0.16f, y + 0.9f, dir < 0 ? z - 0.48f : z + 0.06f, 0.32f, 0.4f, 0.42f);
+	private static final int[] HI = { 0, 0 }, MID = { 16, 0 }, SHADE = { 32, 0 }, GAP = { 48, 0 }, TIP = { 0, 16 }, PLATE = { 16, 16 };
+
+	/**
+	 * How far out from the body's centre the band's inside sits (px): the suit's jacket layer is at 2.29 front / back and 4.29 at the
+	 * sides (0.04 + 0.25), so no face of the necklace is ever coplanar with the skin, the jacket or the sleeves (also at +-2.29).
+	 */
+	private static final float IN_Z = 2.36f, IN_X = 4.36f;
+	/** The band's three tiers, top to bottom: y range (px, down from the top of the torso) and how far out each face stands. */
+	private static final float HI_Y0 = 0.08f, HI_Y1 = 0.40f, HI_OUT = 0.32f;
+	private static final float MID_Y0 = 0.36f, MID_Y1 = 0.98f, MID_OUT = 0.28f;
+	private static final float SH_Y0 = 0.94f, SH_Y1 = 1.18f, SH_OUT = 0.22f;
+
+	/** A box from x0..x1 on the chest ({@code dir} -1) or the back (+1), {@code out} px proud of the band's inside. */
+	private static void zBox(CubeListBuilder b, int[] tex, float x0, float x1, float y0, float y1, float in, float out, int dir) {
+		b.texOffs(tex[0], tex[1]);
+		b.addBox(x0, y0, dir < 0 ? -(in + out) : in, x1 - x0, y1 - y0, out);
 	}
 
-	/** A black bead of the cord between two fangs (the black texels between the silver ones on the suit). */
-	private static void bead(CubeListBuilder beads, float x, float y, int dir) {
-		float z = dir < 0 ? -FACE - 0.3f : FACE;
-		beads.addBox(x - 0.36f, y + 0.12f, z, 0.72f, 0.56f, 0.3f);
+	/** One gold link of the band from x0..x1, chest or back: bright top bevel, mid face, darker lower lip (each a step further in). */
+	private static void link(CubeListBuilder b, float x0, float x1, int dir) {
+		zBox(b, HI, x0, x1, HI_Y0, HI_Y1, IN_Z, HI_OUT, dir);
+		zBox(b, MID, x0 + 0.02f, x1 - 0.02f, MID_Y0, MID_Y1, IN_Z, MID_OUT, dir);
+		zBox(b, SHADE, x0 + 0.04f, x1 - 0.04f, SH_Y0, SH_Y1, IN_Z, SH_OUT, dir);
+	}
+
+	/** The end links reach round the corner to the side band, so each tier's outer face lines up with the side band's. */
+	private static void endLink(CubeListBuilder b, float inner, int side, int dir) {
+		float[][] tiers = { { HI_Y0, HI_Y1, HI_OUT }, { MID_Y0, MID_Y1, MID_OUT }, { SH_Y0, SH_Y1, SH_OUT } };
+		int[][] tex = { HI, MID, SHADE };
+		for (int t = 0; t < 3; t++) {
+			float outer = IN_X + tiers[t][2];
+			float x0 = side < 0 ? -outer : inner, x1 = side < 0 ? -inner : outer;
+			zBox(b, tex[t], x0, x1, tiers[t][0], tiers[t][1], IN_Z, tiers[t][2], dir);
+		}
+	}
+
+	/** The dark cord showing in a gap between two links (the skin's near-black gap texels), set back behind the links' faces. */
+	private static void cord(CubeListBuilder b, float x, int dir) {
+		zBox(b, GAP, x - 0.62f, x + 0.62f, 0.32f, 0.92f, IN_Z - 0.02f, 0.16f, dir);
 	}
 
 	/**
-	 * v0.17.7 (user: "Make the necklace model look like the necklace on the suit please"): the necklace rebuilt from the one painted on
-	 * the suit skin ({@code black_panther.png}). On the skin it is a band of tooth texels one row below the collar: on the chest and the
-	 * back, texels 0, 2, 5 and 7 of row 1 are silver ({@code #6E6E76}) and 1, 3, 4, 6 black; over each shoulder it runs front to back
-	 * along the arm's top (column 2 of the right arm, 1 of the left), silver and black in turn, and drops one silver texel down the
-	 * front and back of the shoulder. The model is that band in 3D: a silver fang over every silver texel, a black bead over every
-	 * black one, the same spacing, the same row, standing just proud of the suit.
+	 * One claw-tooth hanging on the chest from {@code y0}: a broad shadowed root, a narrower mid-gold middle and a fine bright tip, each
+	 * a little further forward so the tooth curls out from the suit like the claws painted on it.
+	 */
+	private static void tooth(CubeListBuilder b, float x, float y0, float len, float w, float in) {
+		float y1 = y0 + len * 0.45f, y2 = y0 + len * 0.40f, y3 = y0 + len * 0.78f, y4 = y0 + len * 0.72f, y5 = y0 + len;
+		zBox(b, SHADE, x - w * 0.5f, x + w * 0.5f, y0, y1, in, 0.32f, -1);
+		zBox(b, MID, x - w * 0.35f, x + w * 0.35f, y2, y3, in + 0.04f, 0.32f, -1);
+		zBox(b, TIP, x - w * 0.19f, x + w * 0.19f, y4, y5, in + 0.08f, 0.32f, -1);
+	}
+
+	/**
+	 * v0.17.7 (user: "Make the necklace model look like the necklace on the suit please"): the gold necklace painted on the comics suit
+	 * skin ({@code black_panther.png}) in 3D. On the skin: row 20 of the body (the top texel row of the torso) is a gold band all the
+	 * way round -- chest texels 20 / 22-25 / 27 gold with near-black gaps at 21 and 26, both sides solid gold, the back the chest
+	 * mirrored (gaps at 33 and 38); under it on the chest, row 21 has claw-teeth at 21, 23, 24 and 26 and row 22 a centre point at
+	 * 23-24; the jacket layer raises gold over the same rows. The arms carry no gold, so the whole necklace lives in the body's space.
 	 * <ul>
-	 *   <li>Body space (y down, the chest at -z): fangs at x = +-1.5, +-3.5, beads at +-0.5, +-2.5, from y = 1 (row 1), chest and back.</li>
-	 *   <li>Arm space: over the shoulder top (y = -2) at x = -0.5 (right arm) / +0.5 (left): bead, silver bead, bead, silver bead from
-	 *       front to back, and a short fang down the front and back of the shoulder.</li>
+	 *   <li>Band (y 0.08-1.18, the skin's row 20), chest and back: links at x -4.68..-3.04 and 3.04..4.68 (round the corners) and a
+	 *       wider, thicker centre plate at -1.96..1.96 (texels 22-25), with dark cord in the gaps at x = +-2.5 (texels 21 / 26).</li>
+	 *   <li>Sides: one solid gold run each (texels 16-19 / 28-31), between the chest and back links.</li>
+	 *   <li>Chest only: a short tooth hanging from each gap's cord at x = +-2.5, a slightly longer one each side of centre at +-1.2 and
+	 *       the long centre fang at 0 down to y 3.4 (the painted point ends at y 3) -- four teeth and the fang, open front.</li>
 	 * </ul>
+	 * Inside faces at 2.36 / 4.36, outside up to 2.88: clear of the jacket (2.29) and of the high collar
+	 * ({@link BlackPantherCollarLayer}: its yoke is at y -0.73, above the band, its wall at 6.35 px round the neck and open at the front,
+	 * its back skirt 3.7 px or more behind the torso) -- nothing touches.
 	 */
 	private static void buildNecklace() {
-		if (necklaceBody != null) {
+		if (necklace != null) {
 			return;
 		}
 		MeshDefinition mesh = new MeshDefinition();
-		CubeListBuilder silver = CubeListBuilder.create().texOffs(SILVER_U, 0);
-		CubeListBuilder tip = CubeListBuilder.create().texOffs(TIP_U, 0);
-		CubeListBuilder beads = CubeListBuilder.create().texOffs(BEAD_U, 0);
+		CubeListBuilder b = CubeListBuilder.create();
 		for (int dir = -1; dir <= 1; dir += 2) {
-			for (float x : new float[] { -3.5f, -1.5f, 1.5f, 3.5f }) {
-				fang(silver, tip, x, 1.0f, dir);
+			endLink(b, 3.04f, -1, dir);
+			endLink(b, 3.04f, 1, dir);
+			// the centre plate (texels 22-25), a little bolder than the links
+			zBox(b, HI, -1.96f, 1.96f, 0.08f, 0.36f, IN_Z, 0.36f, dir);
+			zBox(b, PLATE, -1.94f, 1.94f, 0.32f, 1.06f, IN_Z, 0.40f, dir);
+			zBox(b, SHADE, -1.9f, 1.9f, 1.02f, 1.22f, IN_Z, 0.30f, dir);
+			cord(b, -2.5f, dir);
+			cord(b, 2.5f, dir);
+		}
+		// the sides: one gold run each, from the chest links to the back links
+		for (int side = -1; side <= 1; side += 2) {
+			float[][] tiers = { { HI_Y0, HI_Y1, HI_OUT }, { MID_Y0, MID_Y1, MID_OUT }, { SH_Y0, SH_Y1, SH_OUT } };
+			int[][] tex = { HI, MID, SHADE };
+			for (int t = 0; t < 3; t++) {
+				float out = tiers[t][2];
+				b.texOffs(tex[t][0], tex[t][1]);
+				b.addBox(side < 0 ? -(IN_X + out) : IN_X, tiers[t][0], -IN_Z, out, tiers[t][1] - tiers[t][0], IN_Z * 2f);
 			}
-			for (float x : new float[] { -2.5f, -0.5f, 0.5f, 2.5f }) {
-				bead(beads, x, 1.0f, dir);
-			}
 		}
-		mesh.getRoot().addOrReplaceChild("silver", silver, PartPose.ZERO);
-		mesh.getRoot().addOrReplaceChild("tip", tip, PartPose.ZERO);
-		mesh.getRoot().addOrReplaceChild("beads", beads, PartPose.ZERO);
-		necklaceBody = LayerDefinition.create(mesh, 32, 32).bakeRoot();
-		necklaceRightShoulder = shoulder(-0.5f);
-		necklaceLeftShoulder = shoulder(0.5f);
-	}
-
-	/** The run over one shoulder, in that arm's space (the arm's top face at y = -2, its sleeve at -2.29). */
-	private static ModelPart shoulder(float x) {
-		MeshDefinition mesh = new MeshDefinition();
-		CubeListBuilder silver = CubeListBuilder.create().texOffs(SILVER_U, 0);
-		CubeListBuilder tip = CubeListBuilder.create().texOffs(TIP_U, 0);
-		CubeListBuilder beads = CubeListBuilder.create().texOffs(BEAD_U, 0);
-		float top = -2.42f;
-		// over the top, front to back: silver, black, silver, black (the arm's top-face texels)
-		for (int i = 0; i < 4; i++) {
-			float z = -1.5f + i;
-			(i % 2 == 0 ? silver : beads).addBox(x - 0.36f, top - 0.34f, z - 0.36f, 0.72f, 0.34f, 0.72f);
-		}
-		// down the front and the back of the shoulder: one short fang each (the arm's front / back top-row silver texel)
-		for (int dir = -1; dir <= 1; dir += 2) {
-			float z = dir < 0 ? -FACE : FACE;
-			silver.addBox(x - 0.36f, -2.42f, dir < 0 ? z - 0.34f : z, 0.72f, 0.7f, 0.34f);
-			tip.addBox(x - 0.18f, -1.76f, dir < 0 ? z - 0.4f : z + 0.04f, 0.36f, 0.42f, 0.38f);
-		}
-		mesh.getRoot().addOrReplaceChild("silver", silver, PartPose.ZERO);
-		mesh.getRoot().addOrReplaceChild("tip", tip, PartPose.ZERO);
-		mesh.getRoot().addOrReplaceChild("beads", beads, PartPose.ZERO);
-		return LayerDefinition.create(mesh, 32, 32).bakeRoot();
+		// the teeth on the chest: the outer two hang from the cord in the gaps (their root wraps the cord like a bail), the inner two
+		// and the long centre fang from under the plate
+		tooth(b, -2.5f, 0.55f, 1.65f, 0.8f, IN_Z + 0.04f);
+		tooth(b, 2.5f, 0.55f, 1.65f, 0.8f, IN_Z + 0.04f);
+		tooth(b, -1.2f, 0.9f, 1.45f, 0.7f, IN_Z + 0.04f);
+		tooth(b, 1.2f, 0.9f, 1.45f, 0.7f, IN_Z + 0.04f);
+		tooth(b, 0f, 0.9f, 2.5f, 1.1f, IN_Z + 0.06f);
+		mesh.getRoot().addOrReplaceChild("necklace", b, PartPose.ZERO);
+		necklace = LayerDefinition.create(mesh, 64, 64).bakeRoot();
 	}
 
 	/**
-	 * The necklace on the posed model: the band in the body's space, the shoulder runs in each arm's. Drawn only while
-	 * {@code BlackPanther.showsNecklace} (suited AND wearing the necklace) -- the layer checks. Plain silver like the painted one;
-	 * with Kinetic stored it takes the suit trim's violet glow.
+	 * The necklace on the posed model, in the body's space. Drawn only while {@code BlackPanther.showsNecklace} (suited AND wearing the
+	 * necklace) -- the layer checks. Gold like the painted one; with Kinetic stored it takes the suit trims' violet glow
+	 * ({@link #NECKLACE_GLOW}, emissive, alpha = the Kinetic bar like the trims).
 	 */
-	public static void renderNecklace(PoseStack pose, MultiBufferSource buffers, int light, Player player, ModelPart body, ModelPart rightArm,
-			ModelPart leftArm) {
+	public static void renderNecklace(PoseStack pose, MultiBufferSource buffers, int light, Player player, ModelPart body) {
+		if (!body.visible) {
+			return;
+		}
 		buildNecklace();
 		float k = glow(player);
-		int glowA = Mth.clamp(Math.round(190 * k), 0, 255);
-		ModelPart[] parts = { necklaceBody, necklaceRightShoulder, necklaceLeftShoulder };
-		ModelPart[] bones = { body, rightArm, leftArm };
-		for (int i = 0; i < parts.length; i++) {
-			if (!bones[i].visible) {
-				continue;
-			}
-			pose.pushPose();
-			bones[i].translateAndRotate(pose);
-			parts[i].render(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(NECKLACE)), light, OverlayTexture.NO_OVERLAY);
-			if (glowA > 2) {
-				parts[i].render(pose, buffers.getBuffer(RenderType.entityTranslucentEmissive(NECKLACE)), LightTexture.FULL_BRIGHT,
-						OverlayTexture.NO_OVERLAY, (glowA << 24) | 0xB070FF);
-			}
-			pose.popPose();
+		int glowA = Mth.clamp(Math.round(255 * k), 0, 255);
+		pose.pushPose();
+		body.translateAndRotate(pose);
+		necklace.render(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(NECKLACE)), light, OverlayTexture.NO_OVERLAY);
+		if (glowA > 2) {
+			necklace.render(pose, buffers.getBuffer(RenderType.entityTranslucentEmissive(NECKLACE_GLOW)), LightTexture.FULL_BRIGHT,
+					OverlayTexture.NO_OVERLAY, (glowA << 24) | 0xFFFFFF);
 		}
+		pose.popPose();
 	}
 
 	// ---------------------------------------------------------------- the order of the build
