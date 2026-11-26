@@ -42,6 +42,11 @@ import net.minecraft.world.entity.player.Player;
  * is gone (user: "remove the claw model it looks bad please"). Shift+N hides the suit's head. The trim glows purple with the Kinetic bar.
  */
 public final class BlackPantherRender {
+	/**
+	 * v0.17.7: the comics suit -- "Black Panther [Marvel Comics]" on PlanetMinecraft (planetminecraft.com/skin/black-panther-marvel-comics-6828688,
+	 * file 19479117, wide arms; borrowed skin, ships publicly) with its painted cape and high collar taken off (they are models:
+	 * {@link BlackPantherCapeLayer}, {@link BlackPantherCollarLayer}) and the back painted in: {@code scratchpad/v0177/make_bp_suit_skin.js}.
+	 */
 	public static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/black_panther/black_panther.png");
 	public static final ResourceLocation GLOW = ProjectHeroMod.id("textures/entity/black_panther/black_panther_glow.png");
 	public static final ResourceLocation NECKLACE = ProjectHeroMod.id("textures/entity/black_panther/necklace.png");

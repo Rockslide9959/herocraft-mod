@@ -3,6 +3,7 @@ package com.projecthero.mod.client.blackpanther;
 import com.projecthero.mod.blackpanther.entity.BlackPantherEntityTypes;
 import com.projecthero.mod.blackpanther.item.BlackPantherItems;
 import com.projecthero.mod.blackpanther.network.PantherSensesPayload;
+import com.projecthero.mod.client.render.FlowingCapeLayer;
 
 import net.fabricmc.fabric.api.blockrenderlayer.v1.BlockRenderLayerMap;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
@@ -28,8 +29,12 @@ public final class BlackPantherClient {
 		LivingEntityFeatureRendererRegistrationCallback.EVENT.register((entityType, entityRenderer, helper, context) -> {
 			if (entityRenderer instanceof PlayerRenderer playerRenderer) {
 				helper.register(new BlackPantherLayer(playerRenderer));
+				// v0.17.7: the comics suit's high collar, a model (only while the suit is out)
+				helper.register(new BlackPantherCollarLayer(playerRenderer));
 			}
 		});
+		// v0.17.7: the comics suit's long cape, on the shared cloth (only while the suit is out)
+		FlowingCapeLayer.register(BlackPantherCapeLayer::new);
 		HudRenderCallback.EVENT.register(BlackPantherHud::render);
 		WorldRenderEvents.AFTER_ENTITIES.register(BlackPantherEffectsRenderer::render);
 		EntityRendererRegistry.register(BlackPantherEntityTypes.VIBRANIUM_DAGGER, VibraniumDaggerRenderer::new);
