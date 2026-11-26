@@ -94,7 +94,7 @@ public class SuperSpeedV0147GameTests implements FabricGameTest {
 		p.lookAt(EntityAnchorArgument.Anchor.EYES, z.getEyePosition());
 		AbilityRouter.handleInput(p, 2, true); // G
 		float dealt = 100f - z.getHealth();
-		helper.assertTrue(Math.abs(dealt - SuperSpeedMoves.BLITZ_DAMAGE) < 0.01f, "Blitz hits for 20, dealt " + dealt);
+		helper.assertTrue(Math.abs(dealt - SuperSpeedMoves.CITY_BLITZ) < 0.01f, "Blitz hits for 15, dealt " + dealt);
 		helper.assertTrue(p.distanceTo(z) < 2.0f, "the speedster lands right next to the zombie (" + p.distanceTo(z) + ")");
 		int cd = ExperimentalPowers.cooldownRemainingTicks(p, power(), power().ability(AbilitySlot.SLOT_2));
 		int expected = HeroConfig.get().scaledCooldown(80);
@@ -131,7 +131,7 @@ public class SuperSpeedV0147GameTests implements FabricGameTest {
 		float before = golem.getHealth();
 		AbilityRouter.handleInput(p, 1, true); // R
 		float dealt = before - golem.getHealth();
-		helper.assertTrue(Math.abs(dealt - 20f) < 0.01f, "4 x 5 = 20 even inside the i-frame window, dealt " + dealt);
+		helper.assertTrue(Math.abs(dealt - 44f) < 0.01f, "4 x 11 = 44 even inside the i-frame window, dealt " + dealt);
 		helper.succeed();
 	}
 
@@ -149,7 +149,7 @@ public class SuperSpeedV0147GameTests implements FabricGameTest {
 		AbilityRouter.handleInput(p, 1, true);
 		float dealt = 100f - victim.getHealth();
 		if (pvp) {
-			helper.assertTrue(Math.abs(dealt - 20f) < 0.01f, "4 x 5 = 20 on a player too, dealt " + dealt);
+			helper.assertTrue(Math.abs(dealt - 44f) < 0.01f, "4 x 11 = 44 on a player too, dealt " + dealt);
 		} else {
 			helper.assertTrue(dealt == 0f, "PvP off: no damage to players");
 		}
@@ -165,11 +165,11 @@ public class SuperSpeedV0147GameTests implements FabricGameTest {
 		helper.getLevel().addFreshEntity(golem);
 		p.lookAt(EntityAnchorArgument.Anchor.EYES, golem.getEyePosition());
 		helper.assertTrue(SuperSpeedMoves.machDamage(0) == 20f && SuperSpeedMoves.machDamage(3.2) == 20f
-				&& SuperSpeedMoves.machDamage(10) == 20f, "a flat 20 at any speed");
+				&& SuperSpeedMoves.machDamage(10) == 20f, "a flat 20 at any speed (what the Speed Force Speedster borrows)");
 		float before = golem.getHealth();
 		shiftPress(p, 1); // Shift+R
 		float dealt = before - golem.getHealth();
-		helper.assertTrue(Math.abs(dealt - 20f) < 0.01f, "a standing Mach Punch hits for 20, dealt " + dealt);
+		helper.assertTrue(Math.abs(dealt - SuperSpeedMoves.CITY_MACH) < 0.01f, "a standing Mach Punch hits for 15 (v0.17.7 City), dealt " + dealt);
 		helper.assertTrue(res(p, SuperSpeedMoves.MACH_READY) > helper.getLevel().getGameTime() + 100,
 				"Mach Punch goes on its own 10 s cooldown");
 		helper.assertTrue(ExperimentalPowers.cooldownReady(p, power(), power().ability(AbilitySlot.SLOT_1)),
@@ -198,7 +198,7 @@ public class SuperSpeedV0147GameTests implements FabricGameTest {
 		helper.assertFalse(SuperSpeedMoves.vortexActive(p), "and ends after 3 s");
 		float dealt = 100f - z.getHealth();
 		float expected = 5 * SuperSpeedMoves.VORTEX_TICK_DAMAGE + SuperSpeedMoves.VORTEX_FINAL_DAMAGE;
-		helper.assertTrue(Math.abs(dealt - expected) < 0.01f, "5 x 3 + 8 = " + expected + ", dealt " + dealt);
+		helper.assertTrue(Math.abs(dealt - expected) < 0.01f, "5 x 3 + 11 = " + expected + ", dealt " + dealt);
 		helper.assertTrue(res(p, SuperSpeedMoves.VORTEX_READY) > helper.getLevel().getGameTime() + 200, "14 s cooldown");
 		shiftPress(p, 2);
 		helper.assertFalse(SuperSpeedMoves.vortexActive(p), "not again during the cooldown");
@@ -227,7 +227,7 @@ public class SuperSpeedV0147GameTests implements FabricGameTest {
 		helper.assertFalse(SuperSpeedMoves.sweeping(p), "the sweep finishes");
 		for (Zombie z : new Zombie[] { a, b, c }) {
 			float dealt = 100f - z.getHealth();
-			helper.assertTrue(Math.abs(dealt - SuperSpeedMoves.SWEEP_DAMAGE) < 0.01f, "each zombie takes 15, dealt " + dealt);
+			helper.assertTrue(Math.abs(dealt - SuperSpeedMoves.CITY_SWEEP) < 0.01f, "each zombie takes 14, dealt " + dealt);
 		}
 		helper.assertTrue(p.position().distanceTo(home) < 0.01, "back exactly where it started (" + p.position() + " vs " + home + ")");
 		helper.assertTrue(Math.abs(p.getYRot() - 37f) < 0.01f && Math.abs(p.getXRot() - 12f) < 0.01f, "facing the same way");
@@ -388,9 +388,9 @@ public class SuperSpeedV0147GameTests implements FabricGameTest {
 		}
 		helper.assertFalse(SuperSpeedMoves.lightningCharging(p), "thrown after 1 s");
 		helper.assertTrue(Math.abs((100f - first.getHealth()) - SuperSpeedMoves.LIGHTNING_DAMAGE) < 0.01f,
-				"24 to the one in the crosshair, dealt " + (100f - first.getHealth()));
+				"15 to the one in the crosshair, dealt " + (100f - first.getHealth()));
 		helper.assertTrue(Math.abs((100f - second.getHealth()) - SuperSpeedMoves.LIGHTNING_CHAIN_DAMAGE) < 0.01f,
-				"12 to the one it arcs to, dealt " + (100f - second.getHealth()));
+				"11 to the one it arcs to, dealt " + (100f - second.getHealth()));
 		helper.assertTrue(res(p, SuperSpeedMoves.LIGHTNING_READY) > helper.getLevel().getGameTime() + 200, "12 s cooldown");
 		helper.succeed();
 	}

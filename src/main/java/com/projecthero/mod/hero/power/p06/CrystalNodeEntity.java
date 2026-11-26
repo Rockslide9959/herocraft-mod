@@ -225,7 +225,7 @@ public class CrystalNodeEntity extends Entity {
 		Vec3 c = position().add(0, 0.4, 0);
 		int hits = 0;
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, c, r)) {
-			if (AbilityHelpers.hurtBurst(p, e, dmg)) {
+			if (com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, dmg)) {
 				hits++;
 			}
 			AbilityHelpers.knockbackFrom(e, c, 0.8);

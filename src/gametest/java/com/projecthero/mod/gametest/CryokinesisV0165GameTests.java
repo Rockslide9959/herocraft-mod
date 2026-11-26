@@ -221,7 +221,7 @@ public class CryokinesisV0165GameTests implements FabricGameTest {
 		IronGolem g = dummy(helper, 2, 6);
 		press(p, 1);
 		helper.runAfterDelay(10, () -> {
-			assertNear(helper, 100 - CryokinesisHandlers.BOLT_DAMAGE, g.getHealth(), "Ice Bolt hits for 10");
+			assertNear(helper, 100 - CryokinesisHandlers.BOLT_DAMAGE, g.getHealth(), "Ice Bolt hits for 11");
 			helper.assertTrue(FrostStacks.stacks(g) == 1, "and 1 Frost, got " + FrostStacks.stacks(g));
 			helper.succeed();
 		});
@@ -329,7 +329,7 @@ public class CryokinesisV0165GameTests implements FabricGameTest {
 		helper.assertTrue(helper.getLevel().getEntitiesOfClass(IceSpikeEntity.class, new AABB(p.blockPosition()).inflate(14)).size() >= 6,
 				"a line of spikes (over the floor)");
 		helper.runAfterDelay(20, () -> {
-			assertNear(helper, 100 - CryokinesisHandlers.SPIKES_DAMAGE, g.getHealth(), "16 damage, once per volley");
+			assertNear(helper, 100 - CryokinesisHandlers.SPIKES_DAMAGE, g.getHealth(), "15 damage, once per volley");
 			helper.assertTrue(FrostStacks.stacks(g) == 2, "and 2 Frost, got " + FrostStacks.stacks(g));
 			helper.succeed();
 		});
@@ -429,7 +429,7 @@ public class CryokinesisV0165GameTests implements FabricGameTest {
 		double base = p.getAttributeValue(Attributes.ATTACK_DAMAGE);
 		press(p, 6);
 		helper.assertTrue(CryokinesisHandlers.bladed(p), "C grows the blade");
-		assertNear(helper, (float) base + CryokinesisHandlers.BLADE_DAMAGE, (float) p.getAttributeValue(Attributes.ATTACK_DAMAGE), "+8 melee");
+		assertNear(helper, (float) base + CryokinesisHandlers.BLADE_DAMAGE, (float) p.getAttributeValue(Attributes.ATTACK_DAMAGE), "+11 melee");
 		assertNear(helper, 100, CryokinesisHandlers.cold(p), "free");
 		AttackEntityCallback.EVENT.invoker().interact(p, helper.getLevel(), InteractionHand.MAIN_HAND, g, null);
 		helper.assertTrue(FrostStacks.stacks(g) == 1, "1 Frost a hit, got " + FrostStacks.stacks(g));
@@ -449,9 +449,9 @@ public class CryokinesisV0165GameTests implements FabricGameTest {
 		FrostStacks.freezeNow(p, frozen);
 		FrostStacks.add(p, frosted, 1);
 		shiftPress(p, 6);
-		assertNear(helper, 100 - 2 * CryokinesisHandlers.SHATTER_DAMAGE, frozen.getHealth(), "double (40) against the frozen");
+		assertNear(helper, 100 - 2 * CryokinesisHandlers.SHATTER_DAMAGE, frozen.getHealth(), "double (30) against the frozen");
 		helper.assertFalse(FrostStacks.frozen(frozen), "and it bursts out of its ice");
-		assertNear(helper, 100 - CryokinesisHandlers.SHATTER_DAMAGE, frosted.getHealth(), "20 against the frosted");
+		assertNear(helper, 100 - CryokinesisHandlers.SHATTER_DAMAGE, frosted.getHealth(), "15 against the frosted");
 		assertNear(helper, 100, clean.getHealth(), "nothing for one with no ice on it");
 		assertNear(helper, 80, CryokinesisHandlers.cold(p), "20 Cold");
 		helper.succeed();
@@ -485,7 +485,7 @@ public class CryokinesisV0165GameTests implements FabricGameTest {
 		AbilityRouter.handleInput(p, 2, true);
 		ExperimentalPowers.forget(p, Powers.byKey(K));
 		helper.assertFalse(CryokinesisHandlers.owns(p), "forgotten");
-		assertNear(helper, (float) base, (float) p.getAttributeValue(Attributes.ATTACK_DAMAGE), "the blade's +8 is gone");
+		assertNear(helper, (float) base, (float) p.getAttributeValue(Attributes.ATTACK_DAMAGE), "the blade's +11 is gone");
 		helper.assertTrue(p.getAttributeValue(Attributes.MAX_ABSORPTION) < 0.01, "the armour's hearts are gone");
 		helper.succeed();
 	}

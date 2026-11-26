@@ -201,7 +201,7 @@ public final class InvisibilityLightHandlers {
 				double r = range(p, 30.0);
 				Vec3 end = AbilityHelpers.aimPoint(p, r);
 				for (LivingEntity e : lanceTargets(p, r, 1.6)) {
-					AbilityHelpers.hurt(p, e, dmg(p, LANCE_DAMAGE));
+					com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, dmg(p, LANCE_DAMAGE));
 					AbilityHelpers.applyControl(e, MobEffects.BLINDNESS, 80, 0);
 					AbilityHelpers.applyControl(e, MobEffects.GLOWING, 100, 0);
 					AbilityHelpers.knockbackFrom(e, p.position(), 0.8);
@@ -220,7 +220,7 @@ public final class InvisibilityLightHandlers {
 				if (Squads.areAllies(p, e) || e instanceof MirrorImageEntity) {
 					continue;
 				}
-				AbilityHelpers.hurt(p, e, dmg(p, FLASH_DAMAGE));
+				com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, dmg(p, FLASH_DAMAGE));
 				AbilityHelpers.applyControl(e, MobEffects.BLINDNESS, 200, 0);
 				AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 200, 1);
 				if (e instanceof Mob mob) {
@@ -359,7 +359,7 @@ public final class InvisibilityLightHandlers {
 				Vec3 end;
 				if (target != null && !Squads.areAllies(p, target)) {
 					end = target.position().add(0, target.getBbHeight() * 0.5, 0);
-					AbilityHelpers.hurt(p, target, dmg(p, HOLY_BEAM_DAMAGE));
+					com.projecthero.mod.hero.power.MutationDamage.hurt(p, target, dmg(p, HOLY_BEAM_DAMAGE));
 				} else {
 					var bhr = AbilityHelpers.raycastBlock(p, 40.0);
 					end = bhr.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK
@@ -375,7 +375,7 @@ public final class InvisibilityLightHandlers {
 						if (Squads.areAllies(p, e)) {
 							continue;
 						}
-						AbilityHelpers.hurt(p, e, dmg(p, HOLY_BURST_DAMAGE));
+						com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, dmg(p, HOLY_BURST_DAMAGE));
 						AbilityHelpers.applyControl(e, MobEffects.GLOWING, 60, 0);
 						AbilityHelpers.applyControl(e, MobEffects.BLINDNESS, 40, 0);
 					}
@@ -554,7 +554,7 @@ public final class InvisibilityLightHandlers {
 		AbilityHelpers.line(level, from, to, ParticleTypes.END_ROD, 3.0);
 		yellowBurst(level, from, 8, 0.12);
 		if (t != null && !Squads.areAllies(p, t)) {
-			AbilityHelpers.hurt(p, t, dmg(p, BLAST_DAMAGE) + bonusDamage);
+			com.projecthero.mod.hero.power.MutationDamage.hurt(p, t, dmg(p, BLAST_DAMAGE) + bonusDamage);
 			AbilityHelpers.applyControl(t, MobEffects.BLINDNESS, 80, 0);
 		}
 		MutationVisuals.play(p, "cast_right");
@@ -828,7 +828,7 @@ public final class InvisibilityLightHandlers {
 			if (source.getEntity() instanceof LivingEntity sender && sender != player && sender.isAlive()
 					&& !Squads.areAllies(player, sender)) {
 				AbilityHelpers.line(sl, c, BatchDFx.centre(sender), ParticleTypes.END_ROD, 2.0);
-				AbilityHelpers.hurt(player, sender, amount * 0.6f);
+				com.projecthero.mod.hero.power.MutationDamage.hurt(player, sender, amount * 0.6f);
 			}
 		}
 		AbilityHelpers.sound(player, SoundEvents.AMETHYST_BLOCK_RESONATE, 1.0f, 1.8f);

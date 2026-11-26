@@ -22,6 +22,7 @@ public abstract class PlayerAttackComboMixin {
 		if ((Object) this instanceof ServerPlayer player) {
 			WeaponCombo.beforeAttack(player, target);
 			com.projecthero.mod.ironman.IronManCombo.beforeMelee(player, target); // v0.14.29 agent F
+			com.projecthero.mod.hero.power.MutationDamage.beforeMelee(player); // v0.17.7 City tier melee cap
 		}
 	}
 
@@ -30,6 +31,7 @@ public abstract class PlayerAttackComboMixin {
 		if ((Object) this instanceof ServerPlayer player) {
 			WeaponCombo.afterAttack(player);
 			com.projecthero.mod.ironman.IronManCombo.afterMelee(player); // v0.14.29 agent F
+			com.projecthero.mod.hero.power.MutationDamage.afterMelee();
 		}
 	}
 }

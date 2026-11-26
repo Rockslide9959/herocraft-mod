@@ -411,7 +411,7 @@ public final class DensityManipulationHandlers {
 		for (LivingEntity e : AbilityHelpers.hostilesAround(p, p.position(), r)) {
 			double d = Math.sqrt(e.distanceToSqr(p));
 			float dmg = (float) (HEAVY_IMPACT_DAMAGE * (1.0 - Math.min(0.8, d / r)));
-			AbilityHelpers.hurt(p, e, dmg);
+			com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, dmg);
 			AbilityHelpers.knockbackFrom(e, p.position(), 1.6);
 			AbilityHelpers.push(e, new Vec3(0, 0.4, 0));
 		}

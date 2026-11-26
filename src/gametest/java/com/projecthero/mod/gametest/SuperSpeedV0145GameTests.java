@@ -129,8 +129,8 @@ public class SuperSpeedV0145GameTests implements FabricGameTest {
 		float before = golem.getHealth();
 		AbilityRouter.handleInput(p, 1, true); // R
 		float dealt = before - golem.getHealth();
-		float expected = SuperSpeedHandlers.PUNCH_DAMAGE * SuperSpeedHandlers.PUNCHES;
-		helper.assertTrue(Math.abs(dealt - expected) < 0.01f, "4 punches of 8 = " + expected + ", dealt " + dealt);
+		float expected = com.projecthero.mod.hero.power.p04.SuperSpeedMoves.CITY_PUNCH * SuperSpeedHandlers.PUNCHES;
+		helper.assertTrue(Math.abs(dealt - expected) < 0.01f, "4 punches of 11 = " + expected + ", dealt " + dealt);
 		helper.succeed();
 	}
 

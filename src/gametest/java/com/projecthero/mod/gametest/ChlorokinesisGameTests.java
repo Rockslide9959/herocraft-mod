@@ -261,7 +261,7 @@ public class ChlorokinesisGameTests implements FabricGameTest {
 		float before = z.getHealth();
 		tap(p, 2);
 		float afterEruption = z.getHealth();
-		helper.assertTrue(afterEruption < before, "the roots erupt for 6");
+		helper.assertTrue(afterEruption < before, "the roots erupt for 11");
 		var roots = fx(helper, p, ChloroFxEntity.ROOTS);
 		helper.assertTrue(roots.size() == 1 && roots.get(0).victim() == z, "roots hold the zombie");
 		assertSpent(helper, p, PlantManipulationHandlers.COST_SNARE, "Root Snare");
@@ -458,7 +458,7 @@ public class ChlorokinesisGameTests implements FabricGameTest {
 		double before = p.getAttributeValue(Attributes.ARMOR);
 		tap(p, 6);
 		helper.assertTrue(PlantManipulationHandlers.blessingOn(p), "Verdant Form on");
-		helper.assertTrue(p.getAttributeValue(Attributes.ARMOR) >= before + 5.9, "+6 armour");
+		helper.assertTrue(p.getAttributeValue(Attributes.ARMOR) >= before + 13.9, "+14 armour (v0.17.7 City)");
 		helper.assertTrue(ExperimentalPowers.isToggled(p, power(), power().ability(AbilitySlot.SLOT_6)), "the C box lights");
 		tap(p, 6);
 		helper.assertFalse(PlantManipulationHandlers.blessingOn(p), "and off again");

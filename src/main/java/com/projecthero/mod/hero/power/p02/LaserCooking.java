@@ -57,12 +57,12 @@ public final class LaserCooking {
 
 	/** {@link AbilityHelpers#hurt} as a laser: a kill drops cooked food. */
 	public static boolean hurt(ServerPlayer p, LivingEntity target, DamageSource source, float amount) {
-		return run(() -> AbilityHelpers.hurt(p, target, source, amount));
+		return run(() -> com.projecthero.mod.hero.power.MutationDamage.hurt(p, target, source, amount));
 	}
 
 	/** {@link AbilityHelpers#hurtBurst} as a laser: a kill drops cooked food. */
 	public static boolean hurtBurst(ServerPlayer p, LivingEntity target, DamageSource source, float amount) {
-		return run(() -> AbilityHelpers.hurtBurst(p, target, source, amount));
+		return run(() -> com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, target, source, amount));
 	}
 
 	/** Run any laser damage code (e.g. a shared strike helper) so kills inside it drop cooked food. */

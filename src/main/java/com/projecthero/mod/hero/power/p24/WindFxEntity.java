@@ -198,7 +198,7 @@ public class WindFxEntity extends Entity {
 			}
 		}
 		if (tickCount % 20 == 0) {
-			AbilityHelpers.hurtBurst(p, v, WindHandlers.SUFFOCATE_DPS);
+			com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, v, WindHandlers.SUFFOCATE_DPS);
 			level.sendParticles(ParticleTypes.CLOUD, v.getX(), v.getEyeY(), v.getZ(), 4, 0.25, 0.15, 0.25, 0.01);
 		}
 		if (tickCount % 8 == 0) {

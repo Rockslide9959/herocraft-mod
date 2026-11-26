@@ -457,7 +457,7 @@ public final class TelekinesisHandlers {
 			Vec3 dir = e.position().subtract(eye).normalize().scale(2.0).add(0, 0.5, 0);
 			AbilityHelpers.push(e, dir);
 			AbilityHelpers.knockbackFrom(e, p.position(), 1.6);
-			AbilityHelpers.hurt(p, e, PUSH_DAMAGE);
+			com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, PUSH_DAMAGE);
 		}
 		Vec3 mid = focus.add(0, aimed.getBbHeight() * 0.5, 0);
 		AbilityHelpers.line(ctx.level(), eye, mid, ParticleTypes.SCULK_SOUL, 2.0);
@@ -627,7 +627,7 @@ public final class TelekinesisHandlers {
 			}
 			Vec3 dir = e.position().subtract(p.position()).normalize().scale(2.8).add(0, 0.6, 0);
 			AbilityHelpers.push(e, dir);
-			AbilityHelpers.hurtBurst(p, e, ULT_DAMAGE);
+			com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, ULT_DAMAGE);
 		}
 		for (int i = 0; i < 5; i++) {
 			double r = ULT_RANGE * (i + 1) / 5.0;
@@ -995,10 +995,10 @@ public final class TelekinesisHandlers {
 			}
 			for (LivingEntity le : level.getEntitiesOfClass(LivingEntity.class, entity.getBoundingBox().inflate(0.6),
 					x -> x != entity && com.projecthero.mod.combat.HeroTargets.canHarm(p, x) && !Squads.areAllies(p, x))) {
-				AbilityHelpers.hurtBurst(p, le, damage);
+				com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, le, damage);
 				AbilityHelpers.knockbackFrom(le, entity.position(), 1.2);
 				if (entity instanceof LivingEntity thrown) {
-					AbilityHelpers.hurtBurst(p, thrown, THROWN_SELF_DAMAGE);
+					com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, thrown, THROWN_SELF_DAMAGE);
 				}
 				level.sendParticles(ParticleTypes.SCULK_CHARGE_POP, le.getX(), le.getY() + le.getBbHeight() * 0.5, le.getZ(),
 						16, 0.4, 0.4, 0.4, 0.1);
@@ -1011,7 +1011,7 @@ public final class TelekinesisHandlers {
 			}
 			if (entity instanceof LivingEntity thrown && age > 3 && (thrown.horizontalCollision || thrown.onGround())) {
 				if (thrown.horizontalCollision) {
-					AbilityHelpers.hurtBurst(p, thrown, THROWN_SELF_DAMAGE);
+					com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, thrown, THROWN_SELF_DAMAGE);
 				}
 				settle();
 				return false;
@@ -1195,7 +1195,7 @@ public final class TelekinesisHandlers {
 		victim.hurtMarked = true;
 		victim.hasImpulse = true;
 		if ((int) left % 20 == 0) {
-			AbilityHelpers.hurt(p, victim, CRUSH_DAMAGE_PER_SECOND);
+			com.projecthero.mod.hero.power.MutationDamage.hurt(p, victim, CRUSH_DAMAGE_PER_SECOND);
 			AbilityHelpers.sound(p, SoundEvents.WARDEN_HEARTBEAT, 1.0f, 1.6f);
 		}
 		ctx.level().sendParticles(ParticleTypes.SCULK_CHARGE_POP,
@@ -1418,7 +1418,7 @@ public final class TelekinesisHandlers {
 			if (Squads.areAllies(p, e)) {
 				continue;
 			}
-			AbilityHelpers.hurtBurst(p, e, CHUNK_IMPACT_DAMAGE);
+			com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, CHUNK_IMPACT_DAMAGE);
 			AbilityHelpers.knockbackFrom(e, lead.position(), 1.8);
 			ctx.level().sendParticles(ParticleTypes.SCULK_CHARGE_POP,
 					e.getX(), e.getY() + 1.0, e.getZ(), 30, 0.5, 0.5, 0.5, 0.2);

@@ -68,19 +68,19 @@ public final class PlantManipulationHandlers {
 
 	// ---- R: Thorn Volley / Vine Lash ----
 	public static final float COST_VOLLEY = 5.0f;
-	public static final float VOLLEY_DAMAGE = 5.0f;
+	public static final float VOLLEY_DAMAGE = 11.0f; // v0.17.7 City, each thorn (was 5)
 	public static final int VOLLEY_THORNS = 3;
 	public static final float COST_LASH = 12.0f;
 	public static final double LASH_RANGE = 14.0;
 	public static final float LASH_DAMAGE = 12.0f;
-	public static final float LASH_BOSS_BONUS = 4.0f;
+	public static final float LASH_BOSS_BONUS = 3.0f; // v0.17.7 City: 15 on a boss (was +4)
 	public static final int LASH_CD = 3 * 20;
 
 	// ---- G: Root Snare / Spore Cloud / hold: Thorn Sentry ----
 	public static final float COST_SNARE = 18.0f;
 	public static final double SNARE_RANGE = 20.0;
 	public static final double SNARE_SPLASH = 2.5;
-	public static final float SNARE_DAMAGE = 6.0f;
+	public static final float SNARE_DAMAGE = 11.0f; // v0.17.7 City (was 6); the 2 a second hold is a DoT
 	public static final float SNARE_DPS = 2.0f;
 	public static final int SNARE_TICKS = 4 * 20;
 	public static final float COST_SPORES = 22.0f;
@@ -101,11 +101,11 @@ public final class PlantManipulationHandlers {
 	public static final float COST_OVERGROWTH = 60.0f;
 	public static final int OVERGROWTH_GATHER = 30;
 	public static final double OVERGROWTH_RADIUS = 12.0;
-	public static final float OVERGROWTH_DAMAGE = 30.0f;
+	public static final float OVERGROWTH_DAMAGE = 25.0f; // v0.17.7 City ultimate: 25, 30 on living ground (was 30 / 36)
 	public static final float COST_TREANT = 50.0f;
 	public static final int TREANT_CD = 60 * 20;
 	public static final double TREANT_HEALTH = 80.0;
-	public static final double TREANT_DAMAGE = 10.0;
+	public static final double TREANT_DAMAGE = 11.0; // v0.17.7 City (was 10)
 
 	// ---- V: Bloom Burst / Living Architecture ----
 	public static final float COST_BLOOM = 25.0f;
@@ -124,8 +124,8 @@ public final class PlantManipulationHandlers {
 	public static final float BRAMBLE_DPS = 3.0f;
 
 	// ---- C: Verdant Form / Root Sense ----
-	public static final double VERDANT_ARMOR = 6.0;
-	public static final double VERDANT_TOUGHNESS = 2.0;
+	public static final double VERDANT_ARMOR = 14.0; // v0.17.7 City toughness: ~45% off a 10 hit by itself (was 6 / 2)
+	public static final double VERDANT_TOUGHNESS = 6.0;
 	public static final double VERDANT_KB = 0.25;
 	public static final float VERDANT_THORNS = 3.0f;
 	public static final float VERDANT_DRAIN_PER_SECOND = 1.0f;

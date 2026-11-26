@@ -187,7 +187,7 @@ public class IceJavelinEntity extends ThrowableProjectile {
 		if (getOwner() instanceof ServerPlayer p && AbilityHelpers.asLiving(result.getEntity()) instanceof LivingEntity e
 				&& com.projecthero.mod.combat.HeroTargets.canHarm(p, e)) {
 			pierced.add(result.getEntity().getId());
-			boolean landed = AbilityHelpers.hurtBurst(p, e, CryokinesisHandlers.JAVELIN_DAMAGE);
+			boolean landed = com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, CryokinesisHandlers.JAVELIN_DAMAGE);
 			if (landed || e instanceof Player) {
 				FrostStacks.add(p, e, CryokinesisHandlers.JAVELIN_FROST);
 			}

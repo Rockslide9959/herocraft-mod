@@ -79,7 +79,7 @@ public class CrystalShardEntity extends ThrowableItemProjectile {
 			return;
 		}
 		if (getOwner() instanceof ServerPlayer p && AbilityHelpers.asLiving(result.getEntity()) instanceof LivingEntity e) {
-			if (AbilityHelpers.hurtLands(p, e, damage)) {
+			if (com.projecthero.mod.hero.power.MutationDamage.hurtLands(p, e, damage)) {
 				AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 40, 1);
 			}
 			if (plantsNode) {

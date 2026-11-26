@@ -617,7 +617,7 @@ public final class TeleportationHandlers {
 		}
 		depart(level, from, yaw);
 		BatchDFx.puff(level, p.position());
-		AbilityHelpers.hurtBurst(p, t, BAMF_DAMAGE);
+		com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, t, BAMF_DAMAGE);
 		AbilityHelpers.knockbackFrom(t, p.position(), 0.5);
 		Vec3 c = t.position().add(0, t.getBbHeight() * 0.5, 0);
 		level.sendParticles(ParticleTypes.SWEEP_ATTACK, c.x, c.y, c.z, 1, 0, 0, 0, 0);
@@ -806,7 +806,7 @@ public final class TeleportationHandlers {
 		set(p, "ambush", 0);
 		AMBUSH_REENTRANT.set(true);
 		try {
-			victim.hurt(source, amount * AMBUSH_MULTIPLIER);
+			victim.hurt(source, Math.max(amount, com.projecthero.mod.hero.power.MutationDamage.cap(amount * AMBUSH_MULTIPLIER))); // v0.17.7: never past the cap
 		} finally {
 			AMBUSH_REENTRANT.set(false);
 		}

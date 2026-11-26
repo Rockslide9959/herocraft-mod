@@ -502,7 +502,7 @@ public final class CrystalkinesisHandlers {
 		for (LivingEntity e : AbilityHelpers.hostilesAround(p, p.position(), r)) {
 			double d = e.position().distanceTo(p.position());
 			float dmg = (float) ((ERUPT_DAMAGE + armorBonus(p)) * (1.0 - Math.min(0.55, d / r)));
-			AbilityHelpers.hurtBurst(p, e, dmg);
+			com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, dmg);
 			AbilityHelpers.knockbackFrom(e, p.position(), 1.3);
 			AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 80, 2);
 		}
@@ -579,7 +579,7 @@ public final class CrystalkinesisHandlers {
 		}
 		if (impact || ticks <= 1.5f) {
 			for (LivingEntity le : AbilityHelpers.enemiesAround(player, c, 4.0)) {
-				AbilityHelpers.hurtBurst(player, le, COLOSSAL_DAMAGE + armorBonus(player));
+				com.projecthero.mod.hero.power.MutationDamage.hurtBurst(player, le, COLOSSAL_DAMAGE + armorBonus(player));
 				AbilityHelpers.knockbackFrom(le, c, 2.4);
 				AbilityHelpers.applyControl(le, MobEffects.MOVEMENT_SLOWDOWN, 60, 2);
 			}
@@ -640,7 +640,7 @@ public final class CrystalkinesisHandlers {
 			Vec3 end = direct != null ? direct.position().add(0, direct.getBbHeight() * 0.6, 0) : eye.add(look.scale(blockDist));
 			beam(level, hand, end);
 			if (direct != null) {
-				AbilityHelpers.hurtLands(p, direct, REFRACT_DAMAGE + armorBonus(p));
+				com.projecthero.mod.hero.power.MutationDamage.hurtLands(p, direct, REFRACT_DAMAGE + armorBonus(p));
 			}
 			return;
 		}
@@ -664,7 +664,7 @@ public final class CrystalkinesisHandlers {
 			if (i < targets.size()) {
 				LivingEntity t = targets.get(i);
 				beam(level, c, t.position().add(0, t.getBbHeight() * 0.5, 0));
-				AbilityHelpers.hurtLands(p, t, split);
+				com.projecthero.mod.hero.power.MutationDamage.hurtLands(p, t, split);
 			} else {
 				double yaw = Math.atan2(look.z, look.x) + (i - 1) * 0.7;
 				Vec3 d = new Vec3(Math.cos(yaw), look.y * 0.5, Math.sin(yaw)).normalize();

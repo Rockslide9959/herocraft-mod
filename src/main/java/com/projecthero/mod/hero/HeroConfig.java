@@ -45,6 +45,14 @@ public final class HeroConfig {
 	/** Multiplier on how much world-changing a large ultimate is allowed to do. */
 	public double largeAbilityDestruction = 1.0;
 
+	// ---- v0.17.7 City tier (mutations) ----
+	/** No single mutation hit (abilities, or melee lifted by mutation bonuses) goes past this. City's ultimate max. */
+	public double mutationMaxHit = 30.0;
+	/** The most damage reduction all owned mutations' passive / mode rules may add up to together (0.5 = half off). */
+	public double mutationMaxDamageReduction = 0.5;
+	/** The most extra max health all owned mutations may add together (16 = 8 hearts). */
+	public double mutationMaxBonusHealth = 16.0;
+
 	// ---- worldgen ----
 	/** Multiplier on structure spacing (>1 = rarer). Applied by the placement config where possible. */
 	public double structureRarityMultiplier = 1.0;

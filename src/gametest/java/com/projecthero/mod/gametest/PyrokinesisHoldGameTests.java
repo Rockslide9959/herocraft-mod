@@ -154,7 +154,7 @@ public class PyrokinesisHoldGameTests implements FabricGameTest {
 			tick(p, PyrokinesisHandlers.BLUE_WINDUP); // the half-second wind-up
 			List<PyroBoltEntity> b = bolts(helper, p);
 			helper.assertTrue(b.size() == 1 && b.get(0).blue(), "holding R throws a Blue Flame, got " + b.size());
-			assertNear(helper, PyrokinesisHandlers.BLUE_DAMAGE, b.get(0).damage(), "the Blue Flame: 24");
+			assertNear(helper, PyrokinesisHandlers.BLUE_DAMAGE, b.get(0).damage(), "the Blue Flame: 15");
 			assertHeat(helper, PyrokinesisHandlers.HEAT_BLUE, p, "+20 Heat");
 			helper.assertTrue(res(p, "blue_cd") > 0.5f, "it has its own cooldown");
 			b.forEach(PyroBoltEntity::discard);
@@ -162,7 +162,7 @@ public class PyrokinesisHoldGameTests implements FabricGameTest {
 			g.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 400, 0));
 			float before = g.getHealth();
 			PyrokinesisHandlers.blueImpact(p, helper.getLevel(), g.position(), g, PyrokinesisHandlers.BLUE_DAMAGE, null);
-			assertNear(helper, PyrokinesisHandlers.BLUE_DAMAGE, before - g.getHealth(), "24 through Fire Resistance");
+			assertNear(helper, PyrokinesisHandlers.BLUE_DAMAGE, before - g.getHealth(), "15 through Fire Resistance");
 			helper.assertTrue(g.getRemainingFireTicks() >= PyrokinesisHandlers.BLUE_BURN_TICKS - 2, "and 8 s of burning");
 			// the tap is not on that cooldown
 			PyrokinesisHandlers.setHeat(p, 0.0f);
@@ -183,13 +183,13 @@ public class PyrokinesisHoldGameTests implements FabricGameTest {
 		hold(helper, p, 2, () -> {
 			List<PyroSerpentEntity> s = helper.getLevel().getEntitiesOfClass(PyroSerpentEntity.class, p.getBoundingBox().inflate(16));
 			helper.assertTrue(s.size() == 1, "holding G looses a Flame Serpent, got " + s.size());
-			assertNear(helper, PyrokinesisHandlers.SERPENT_DAMAGE, s.get(0).damage(), "it strikes for 18");
+			assertNear(helper, PyrokinesisHandlers.SERPENT_DAMAGE, s.get(0).damage(), "it strikes for 15");
 			assertHeat(helper, PyrokinesisHandlers.HEAT_SERPENT, p, "+25 Heat");
 			helper.assertTrue(g.getHealth() == before, "the plain Fire Whip didn't crack (that was a hold)");
 			helper.succeedWhen(() -> {
 				float lost = before - g.getHealth();
 				helper.assertTrue(lost > 0.5f, "the serpent hasn't reached it yet");
-				helper.assertTrue(Math.abs(lost - PyrokinesisHandlers.SERPENT_DAMAGE) < 1.05f, "the serpent's strike: 18, got " + lost);
+				helper.assertTrue(Math.abs(lost - PyrokinesisHandlers.SERPENT_DAMAGE) < 1.05f, "the serpent's strike: 15, got " + lost);
 				helper.assertTrue(g.getRemainingFireTicks() > 0, "and sets it burning");
 				helper.assertTrue(helper.getLevel().getEntitiesOfClass(PyroSerpentEntity.class, p.getBoundingBox().inflate(16)).isEmpty(),
 						"the serpent bursts on the strike");
@@ -212,7 +212,7 @@ public class PyrokinesisHoldGameTests implements FabricGameTest {
 			// the rise, the turn and -- the mock never leaves the ground -- the landing
 			tick(p, PyrokinesisHandlers.PHOENIX_RISE_TICKS + 2);
 			helper.assertFalse(PyrokinesisHandlers.phoenix(p), "the dive has landed");
-			assertNear(helper, PyrokinesisHandlers.PHOENIX_DAMAGE, n0 - near.getHealth(), "the Phoenix blast: 20");
+			assertNear(helper, PyrokinesisHandlers.PHOENIX_DAMAGE, n0 - near.getHealth(), "the Phoenix blast: 15");
 			helper.assertTrue(near.getRemainingFireTicks() > 0, "it burns");
 			helper.assertTrue(far.getHealth() == f0, "nothing 7 blocks off is caught");
 			helper.assertTrue(res(p, "nofall") > 0.5f, "no fall damage after it");
@@ -251,7 +251,7 @@ public class PyrokinesisHoldGameTests implements FabricGameTest {
 			tap(p, 4);
 			List<PyroBoltEntity> b = bolts(helper, p);
 			helper.assertTrue(b.size() == 1 && b.get(0).meteor(), "a second tap throws it");
-			assertNear(helper, 30.0f, b.get(0).damage(), "a full 2 s charge: 30");
+			assertNear(helper, PyrokinesisHandlers.METEOR_DAMAGE_MAX, b.get(0).damage(), "a full 2 s charge: 15");
 			helper.assertFalse(PyrokinesisHandlers.charging(p), "and the charge is spent");
 			b.forEach(PyroBoltEntity::discard);
 			helper.succeed();
@@ -266,7 +266,7 @@ public class PyrokinesisHoldGameTests implements FabricGameTest {
 			tick(p, 1);
 			List<PyroBoltEntity> b = bolts(helper, p);
 			helper.assertTrue(b.size() == 1 && b.get(0).meteor(), "after 5 s it throws itself");
-			assertNear(helper, 30.0f, b.get(0).damage(), "at full charge: 30");
+			assertNear(helper, PyrokinesisHandlers.METEOR_DAMAGE_MAX, b.get(0).damage(), "at full charge: 15");
 			b.forEach(PyroBoltEntity::discard);
 			helper.succeed();
 		});
@@ -281,7 +281,7 @@ public class PyrokinesisHoldGameTests implements FabricGameTest {
 			helper.assertTrue(b.size() == PyrokinesisHandlers.SHOWER_COUNT, "six meteors, got " + b.size());
 			for (PyroBoltEntity m : b) {
 				helper.assertTrue(m.meteor() && Math.abs(m.blastRadius() - PyrokinesisHandlers.SHOWER_BLAST) < 1.0e-3, "small meteors");
-				assertNear(helper, PyrokinesisHandlers.SHOWER_DAMAGE, m.damage(), "10 each");
+				assertNear(helper, PyrokinesisHandlers.SHOWER_DAMAGE, m.damage(), "11 each");
 				helper.assertTrue(m.getY() > p.getY() + 10 && m.getDeltaMovement().y < 0, "falling out of the sky");
 			}
 			assertHeat(helper, PyrokinesisHandlers.HEAT_SHOWER, p, "+35 Heat");
@@ -293,7 +293,7 @@ public class PyrokinesisHoldGameTests implements FabricGameTest {
 			Vec3 at = in.position().add(-1.0, 0, 0);
 			int hit = PyrokinesisHandlers.meteorImpact(p, helper.getLevel(), at, PyrokinesisHandlers.SHOWER_DAMAGE, 0.55f, null,
 					PyrokinesisHandlers.SHOWER_BLAST);
-			assertNear(helper, PyrokinesisHandlers.SHOWER_DAMAGE, i0 - in.getHealth(), "a shower meteor's blast: 10");
+			assertNear(helper, PyrokinesisHandlers.SHOWER_DAMAGE, i0 - in.getHealth(), "a shower meteor's blast: 11");
 			helper.assertTrue(hit == 1 && out.getHealth() == o0, "a small 2.5-block blast, hit " + hit);
 			helper.succeed();
 		});

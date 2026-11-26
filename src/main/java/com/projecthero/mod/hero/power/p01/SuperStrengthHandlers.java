@@ -83,17 +83,17 @@ public final class SuperStrengthHandlers {
 
 	/** Charged Punch: 1 s hold, your melee damage +15, 2 s cooldown after it lands. */
 	public static final int CHARGED_HOLD_TICKS = 20;
-	public static final float CHARGED_BONUS = 15f;
+	public static final float CHARGED_BONUS = 4f; // v0.17.7 City: fist 11 + 4 = 15 (was +15)
 	public static final int CHARGED_CD_TICKS = 40;
 	/** Haymaker: jab, cross, then the launching haymaker; each follow-up must land within 1.5 s. */
-	private static final float[] HAYMAKER_DAMAGE = { 10f, 12f, 22f };
+	private static final float[] HAYMAKER_DAMAGE = { 11f, 12f, 14f }; // v0.17.7 City melee (was 10 / 12 / 22)
 	private static final int COMBO_WINDOW = 30;
 	private static final int COMBO_GAP = 8;
 	private static final int HAYMAKER_CD = 102;
 	/** A combo abandoned after one or two hits costs a short cooldown, so it never out-damages finishing it. */
 	private static final int COMBO_DROP_CD = 50;
 	/** G: Ground Slam on the ground. */
-	public static final float SLAM_DAMAGE = 20f;
+	public static final float SLAM_DAMAGE = 13f; // v0.17.7 City (was 20)
 	private static final int SLAM_CD = 136;
 	/** Z: Bull Rush is a 5 s hold-to-charge, then 8 s of ploughing forward; 34 s cooldown. */
 	public static final int RUSH_CHARGE = 100;
@@ -392,7 +392,7 @@ public final class SuperStrengthHandlers {
 							.normalize().dot(look) > 0.3);
 		}
 		for (LivingEntity e : victims) {
-			AbilityHelpers.hurt(p, e, AbilityHelpers.kinetic(p), dmg);
+			com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, AbilityHelpers.kinetic(p), dmg);
 			AbilityHelpers.knockbackFrom(e, p.position(), 3.6);
 			AbilityHelpers.push(e, new Vec3(0, 0.5, 0));
 			if (e instanceof Player victim) {
@@ -440,7 +440,7 @@ public final class SuperStrengthHandlers {
 		BatchA.play(p, KEY, anim, step == 3 ? 18 : 12);
 		Vec3 fist = p.getEyePosition().add(p.getLookAngle().scale(1.4));
 		if (t != null) {
-			AbilityHelpers.hurtBurst(p, t, AbilityHelpers.kinetic(p), dmg);
+			com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, t, AbilityHelpers.kinetic(p), dmg);
 			Vec3 hit = t.position().add(0, t.getBbHeight() * 0.6, 0);
 			fist = hit;
 			if (step == 3) {
@@ -514,13 +514,13 @@ public final class SuperStrengthHandlers {
 			if (dist < 6) {
 				dmg = SLAM_DAMAGE;
 			} else if (dist < 10) {
-				dmg = 22f;
+				dmg = 14f; // v0.17.7 City: 13 / 14 / 15 by height (was 20-34)
 			} else if (dist < 20) {
-				dmg = 26f;
+				dmg = 15f;
 			} else if (dist < 30) {
-				dmg = 30f;
+				dmg = 15f;
 			} else {
-				dmg = 34f;
+				dmg = 15f;
 			}
 			res(p, "diving", 0);
 			res(p, "dive_from_y", 0);
@@ -541,7 +541,7 @@ public final class SuperStrengthHandlers {
 			kb *= 1.3;
 		}
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), radius)) {
-			AbilityHelpers.hurt(p, e, damage);
+			com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, damage);
 			AbilityHelpers.knockbackFrom(e, p.position(), kb);
 			AbilityHelpers.push(e, new Vec3(0, launch, 0));
 			AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 40, 2);
@@ -564,7 +564,7 @@ public final class SuperStrengthHandlers {
 		BatchA.play(p, KEY, "clap", 16);
 		Vec3 eye = p.getEyePosition();
 		Vec3 look = p.getLookAngle();
-		float dmg = 9f * effort(p);
+		float dmg = 11f * effort(p); // v0.17.7 City (was 9)
 		for (LivingEntity e : AbilityHelpers.living(level, eye, range, e -> e != p)) {
 			if (!BatchA.inCone(p, e, minDot)) {
 				continue;
@@ -573,7 +573,7 @@ public final class SuperStrengthHandlers {
 			if (!AbilityHelpers.enemiesAround(p, e.position(), 0.05).contains(e)) {
 				continue; // allies / protected players: just put out, never hit
 			}
-			AbilityHelpers.hurt(p, e, dmg);
+			com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, dmg);
 			AbilityHelpers.knockbackFrom(e, p.position(), 2.4);
 			AbilityHelpers.push(e, new Vec3(0, 0.3, 0));
 			AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 50, 4);
@@ -718,10 +718,10 @@ public final class SuperStrengthHandlers {
 		ServerPlayer p = ctx.player();
 		ServerLevel level = ctx.level();
 		double radius = 2.5 + tier * 0.6;
-		float dmg = (7f + tier * 3.0f) * effort(p);
+		float dmg = (11f + tier * 0.8f) * effort(p); // v0.17.7 City: 11..15 (was 7..22)
 		p.resetFallDistance();
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), radius)) {
-			AbilityHelpers.hurt(p, e, dmg);
+			com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, dmg);
 			AbilityHelpers.knockbackFrom(e, p.position(), 0.8 + tier * 0.2);
 			AbilityHelpers.push(e, new Vec3(0, 0.35 + tier * 0.06, 0));
 		}
@@ -851,7 +851,7 @@ public final class SuperStrengthHandlers {
 			res(p, "grab_ticks", 0);
 			if (level.getEntity(chunkId) instanceof ThrownChunkEntity chunk && chunk.isAlive()) {
 				float m = effort(p);
-				chunk.launch(p.getLookAngle().scale(2.2).add(0, 0.12, 0), 19f * m, 8f * m, 2.5);
+				chunk.launch(p.getLookAngle().scale(2.2).add(0, 0.12, 0), 14f * m, 11f * m, 2.5); // v0.17.7 City (was 19 / 8)
 				BatchA.play(p, KEY, "throw_right", 14);
 				AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_STRONG, 1.0f, 0.6f);
 			}
@@ -919,10 +919,10 @@ public final class SuperStrengthHandlers {
 				hitMobs.remove(thrown);
 				boolean slam = thrown.horizontalCollision || !hitMobs.isEmpty() || (tt < 26 && thrown.onGround());
 				if (slam) {
-					float dmg = 12f * effort(p);
-					AbilityHelpers.hurtBurst(p, thrown, dmg);
+					float dmg = 13f * effort(p); // v0.17.7 City (was 12)
+					com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, thrown, dmg);
 					for (LivingEntity o : hitMobs) {
-						AbilityHelpers.hurt(p, o, dmg * 0.75f);
+						com.projecthero.mod.hero.power.MutationDamage.hurt(p, o, dmg * 0.85f); // v0.17.7: 11 (was 0.75)
 						AbilityHelpers.knockbackFrom(o, thrown.position(), 1.2);
 					}
 					level.sendParticles(ParticleTypes.EXPLOSION, thrown.getX(), thrown.getY() + 0.5, thrown.getZ(), 1, 0, 0, 0, 0);
@@ -1060,7 +1060,7 @@ public final class SuperStrengthHandlers {
 		float m = effort(p);
 		chunk.hold(overhead(p, 0.4));
 		// v0.14.5: a much harder throw -- about twice the old range
-		chunk.launch(p.getLookAngle().scale(RIP_THROW_SPEED).add(0, 0.25, 0), 26f * m, 14f * m, 3.2);
+		chunk.launch(p.getLookAngle().scale(RIP_THROW_SPEED).add(0, 0.25, 0), 15f * m, 12f * m, 3.2); // v0.17.7 City (was 26 / 14)
 		BatchA.play(p, KEY, "throw_right", 14);
 		AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_STRONG, 1.2f, 0.5f);
 		level.playSound(null, p.blockPosition(), SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 0.5f, 1.3f);
@@ -1140,7 +1140,7 @@ public final class SuperStrengthHandlers {
 		// Plough straight through -- hitting an enemy does NOT stop the rush.
 		float m = maxEffortActive(p) ? 1.25f : 1.0f;
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position().add(flat.scale(1.3)), 2.0)) {
-			AbilityHelpers.hurt(p, e, 24f * m);
+			com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, 26f * m); // v0.17.7 City ultimate 26 (x1.25 capped 30; was 24)
 			AbilityHelpers.knockbackFrom(e, p.position(), 4.2);
 			AbilityHelpers.push(e, new Vec3(0, 0.45, 0));
 		}

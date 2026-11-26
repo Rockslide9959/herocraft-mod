@@ -213,7 +213,7 @@ public class ChloroFxEntity extends Entity {
 		if (tickCount % 20 == 10) {
 			ServerPlayer p = owner == null ? null : (ServerPlayer) level.getPlayerByUUID(owner);
 			if (p != null) {
-				AbilityHelpers.hurt(p, v, PlantManipulationHandlers.SNARE_DPS);
+				com.projecthero.mod.hero.power.MutationDamage.hurt(p, v, PlantManipulationHandlers.SNARE_DPS);
 			}
 			level.sendParticles(ChloroParticles.SAP, v.getX(), v.getY() + 0.3, v.getZ(), 3, 0.25, 0.2, 0.25, 0.0);
 		}

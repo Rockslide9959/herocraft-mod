@@ -230,7 +230,7 @@ public class SpeedSquadV01416GameTests implements FabricGameTest {
 				continue;
 			}
 			float dealt = 100f - z.getHealth();
-			helper.assertTrue(Math.abs(dealt - SuperSpeedMoves.SWEEP_DAMAGE) < 0.01f, "each living zombie is hit exactly once, dealt " + dealt);
+			helper.assertTrue(Math.abs(dealt - SuperSpeedMoves.CITY_SWEEP) < 0.01f, "each living zombie is hit exactly once, dealt " + dealt);
 		}
 		helper.assertTrue(p.position().distanceTo(home) < 0.01, "back where it started");
 		helper.succeed();

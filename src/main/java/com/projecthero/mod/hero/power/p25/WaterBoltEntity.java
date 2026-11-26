@@ -97,7 +97,7 @@ public class WaterBoltEntity extends WaterFxEntity {
 
 	/** The bolt strikes {@code t}: 12, knockback along the flight, any fire put out. */
 	public void hitEntity(ServerPlayer owner, LivingEntity t) {
-		if (AbilityHelpers.hurtLands(owner, t, WaterHandlers.SHOT_DAMAGE)) {
+		if (com.projecthero.mod.hero.power.MutationDamage.hurtLands(owner, t, WaterHandlers.SHOT_DAMAGE)) {
 			Vec3 dir = getDeltaMovement().lengthSqr() < 1.0e-6 ? owner.getLookAngle() : getDeltaMovement().normalize();
 			AbilityHelpers.knockbackFrom(t, t.position().subtract(dir), 0.7);
 		}

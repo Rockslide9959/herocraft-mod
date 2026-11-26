@@ -40,7 +40,7 @@ import net.minecraft.world.phys.Vec3;
  * power's upkeep):
  * <ul>
  * <li>R -- <b>Ice Javelin</b>: a big ice spear forms in your raised hand for 0.5 s, then flies: pierces up to 4 creatures,
- * 18 damage and 3 Frost each. 25 Cold, 6 s.</li>
+ * 15 damage and 3 Frost each. 25 Cold, 6 s.</li>
  * <li>G -- <b>Frozen Ground</b>: a sheet of ice spreads 10 blocks round you for 8 s; enemies on it slip about, are
  * slowed and take 1 Frost every 2 s. 30 Cold, 16 s.</li>
  * <li>X -- <b>Ice Wings</b>: beating wings of ice for 10 s of the shared directional flight, a frost trail behind you.

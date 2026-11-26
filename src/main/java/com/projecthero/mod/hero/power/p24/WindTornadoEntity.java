@@ -257,7 +257,7 @@ public class WindTornadoEntity extends Entity {
 				m.getNavigation().stop();
 			}
 			if (t % 20 == 0) {
-				AbilityHelpers.hurtBurst(p, e, WindHandlers.TORNADO_DPS);
+				com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, WindHandlers.TORNADO_DPS);
 			}
 		}
 	}

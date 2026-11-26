@@ -186,7 +186,7 @@ public final class SizeHandlers {
 		PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, ATK, atk, AttributeModifier.Operation.ADD_VALUE);
 		PowerToggles.modifier(p, Attributes.ENTITY_INTERACTION_RANGE, REACH, reach, AttributeModifier.Operation.ADD_VALUE);
 		PowerToggles.modifier(p, Attributes.STEP_HEIGHT, STEP, step, AttributeModifier.Operation.ADD_VALUE);
-		PowerToggles.modifier(p, Attributes.MAX_HEALTH, HP, hp, AttributeModifier.Operation.ADD_VALUE);
+		PowerToggles.modifier(p, Attributes.MAX_HEALTH, HP, Math.min(hp, com.projecthero.mod.hero.HeroConfig.get().mutationMaxBonusHealth), AttributeModifier.Operation.ADD_VALUE); // v0.17.7 City: +16 at most
 		PowerToggles.modifier(p, Attributes.JUMP_STRENGTH, JUMP, jump, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		if (f == Form.TINY) {
 			p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 40, 1, false, false, false));
@@ -297,11 +297,11 @@ public final class SizeHandlers {
 			if (t == null) {
 				// a giant's fist is wide -- sweep everything in an arc ahead, not just a pinpoint ray
 				for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.getEyePosition().add(p.getLookAngle().scale(range * 0.5)), range * 0.5)) {
-					AbilityHelpers.hurt(p, e, punch);
+					com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, punch);
 					AbilityHelpers.knockbackFrom(e, p.position(), 1.6);
 				}
 			} else {
-				AbilityHelpers.hurt(p, t, punch);
+				com.projecthero.mod.hero.power.MutationDamage.hurt(p, t, punch);
 				AbilityHelpers.knockbackFrom(t, p.position(), 1.6);
 			}
 			AbilityHelpers.burst(ctx.level(), p.getEyePosition().add(p.getLookAngle().scale(3 * reachScale(p))), ParticleTypes.SWEEP_ATTACK, 4, 0.3);
@@ -315,7 +315,7 @@ public final class SizeHandlers {
 			float stompDmg = (9.6f + formDamageBonus(p)) * formDamageMult(p);
 			MutationVisuals.play(p, "stomp");
 			for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), radius)) {
-				AbilityHelpers.hurt(p, e, stompDmg);
+				com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, stompDmg);
 				AbilityHelpers.knockbackFrom(e, p.position(), 1.2);
 				AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 40, 2);
 			}
@@ -417,7 +417,7 @@ public final class SizeHandlers {
 
 	/** Shrink Punch payload, public for the gametests: damage plus 8 s of {@link ShrunkenEffect} (bosses: damage only). */
 	public static void shrinkPunch(ServerPlayer p, LivingEntity t) {
-		AbilityHelpers.hurt(p, t, SHRINK_PUNCH_DAMAGE * formDamageMult(p));
+		com.projecthero.mod.hero.power.MutationDamage.hurt(p, t, SHRINK_PUNCH_DAMAGE * formDamageMult(p));
 		if (t.getMaxHealth() <= 200.0f) {
 			AbilityHelpers.applyControl(t, ShrunkenEffect.HOLDER, SHRINK_TICKS, 0);
 		}
@@ -685,7 +685,7 @@ public final class SizeHandlers {
 		float dmg = 9.6f;
 		for (LivingEntity e : AbilityHelpers.hostilesAround(p, p.position(), foot)) {
 			if (e.getBbHeight() < p.getBbHeight() * 0.5 && e.invulnerableTime <= 0) {
-				AbilityHelpers.hurt(p, e, dmg);
+				com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, dmg);
 				AbilityHelpers.knockbackFrom(e, p.position(), 0.8);
 			}
 		}

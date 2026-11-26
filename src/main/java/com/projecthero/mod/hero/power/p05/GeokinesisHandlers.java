@@ -102,7 +102,7 @@ public final class GeokinesisHandlers {
 
 	// ---- R ----
 	public static final float ROCK_DAMAGE = 12.0f;
-	public static final float BOULDER_DAMAGE = 26.0f;
+	public static final float BOULDER_DAMAGE = 15.0f; // v0.17.7 City (was 26)
 	/** A lifted boulder is thrown by itself after this long. */
 	public static final int BOULDER_MAX_HOLD = 8 * 20;
 	// ---- G ----
@@ -129,7 +129,7 @@ public final class GeokinesisHandlers {
 	public static final float QUAKE_DAMAGE = 14.0f;
 	public static final double QUAKE_RADIUS = 10.0;
 	public static final int QUAKE_SLOW_TICKS = 4 * 20;
-	public static final float SPIKE_DAMAGE = 18.0f;
+	public static final float SPIKE_DAMAGE = 15.0f; // v0.17.7 City (was 18)
 	public static final double SPIKE_LENGTH = 12.0;
 	// ---- V ----
 	public static final int WALL_WIDTH = 5;
@@ -147,7 +147,7 @@ public final class GeokinesisHandlers {
 	// ---- v0.16.6 hold moves (HoldTap: hold the key 0.6 s; each has its own cooldown) ----
 	/** Hold R -- Stone Barrage: five stones rise and circle you, then fire one after another at your aim. */
 	public static final float COST_BARRAGE = 25.0f;
-	public static final float BARRAGE_DAMAGE = 8.0f;
+	public static final float BARRAGE_DAMAGE = 11.0f; // v0.17.7 City, each stone (was 8)
 	public static final int BARRAGE_STONES = 5;
 	/** The first stone fires this many ticks after the hold; the rest follow {@link #BARRAGE_GAP} apart. */
 	public static final int BARRAGE_FIRST = 18;
@@ -161,14 +161,14 @@ public final class GeokinesisHandlers {
 	/** Hold X -- Burrow: sink in, travel up to 15 blocks under the ground, burst out for 10 in 4 blocks. */
 	public static final float COST_BURROW = 20.0f;
 	public static final double BURROW_RANGE = 15.0;
-	public static final float BURST_DAMAGE = 10.0f;
+	public static final float BURST_DAMAGE = 11.0f; // v0.17.7 City (was 10)
 	public static final double BURST_RADIUS = 4.0;
 	public static final int BURROW_CD = 6 * 20;
 	/** Hold Z -- Fissure: a 20-block crack along your look, 3 deep; what is over it drops in and takes 16; closes after 5 s. */
 	public static final float COST_FISSURE = 40.0f;
 	public static final double FISSURE_LENGTH = 20.0;
 	public static final int FISSURE_DEPTH = 3;
-	public static final float FISSURE_DAMAGE = 16.0f;
+	public static final float FISSURE_DAMAGE = 15.0f; // v0.17.7 City (was 16)
 	public static final int FISSURE_TICKS = 5 * 20;
 	public static final int FISSURE_CD = 14 * 20;
 	/** Hold V -- Stone Dome: a radius-4 dome of the local stone closes round you for 8 s. */
@@ -992,7 +992,7 @@ public final class GeokinesisHandlers {
 
 	/** The quake wave reaching a creature: 14, a stagger (a jolt up and a moment's stun) and Slowness II for 4 s. */
 	public static void quakeHit(ServerPlayer p, LivingEntity e, Vec3 centre) {
-		if (AbilityHelpers.hurtLands(p, e, QUAKE_DAMAGE)) {
+		if (com.projecthero.mod.hero.power.MutationDamage.hurtLands(p, e, QUAKE_DAMAGE)) {
 			AbilityHelpers.knockbackFrom(e, centre, 0.35);
 			AbilityHelpers.push(e, new Vec3(0, 0.38, 0));
 			AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 15, 5); // the stagger
@@ -1040,7 +1040,7 @@ public final class GeokinesisHandlers {
 		level.sendParticles(dust(block), c.x, c.y + 0.3, c.z, 10, 0.3, 0.3, 0.3, 0.1);
 		int n = 0;
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, c.add(0, 0.8, 0), 1.4)) {
-			if (hit.add(e.getId()) && AbilityHelpers.hurtLands(p, e, SPIKE_DAMAGE)) {
+			if (hit.add(e.getId()) && com.projecthero.mod.hero.power.MutationDamage.hurtLands(p, e, SPIKE_DAMAGE)) {
 				AbilityHelpers.push(e, new Vec3(0, 0.7, 0));
 				n++;
 			}
@@ -1566,7 +1566,7 @@ public final class GeokinesisHandlers {
 			if (Squads.areAllies(p, e)) {
 				continue;
 			}
-			if (AbilityHelpers.hurtLands(p, e, BURST_DAMAGE)) {
+			if (com.projecthero.mod.hero.power.MutationDamage.hurtLands(p, e, BURST_DAMAGE)) {
 				AbilityHelpers.knockbackFrom(e, c, 0.9);
 				AbilityHelpers.push(e, new Vec3(0, 0.45, 0));
 				n++;
@@ -1729,7 +1729,7 @@ public final class GeokinesisHandlers {
 					m.getNavigation().stop();
 				}
 			}
-			AbilityHelpers.hurtLands(p, e, FISSURE_DAMAGE);
+			com.projecthero.mod.hero.power.MutationDamage.hurtLands(p, e, FISSURE_DAMAGE);
 		}
 		if (top == null) {
 			return;

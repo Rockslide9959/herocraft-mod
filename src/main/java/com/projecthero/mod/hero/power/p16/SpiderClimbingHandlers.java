@@ -107,7 +107,7 @@ public final class SpiderClimbingHandlers {
 			MutationVisuals.play(p, "p16.palm_strike");
 			LivingEntity t = AbilityHelpers.raycastEntity(p, 4.5);
 			if (t != null) {
-				AbilityHelpers.hurt(p, t, STRIKE_DAMAGE);
+				com.projecthero.mod.hero.power.MutationDamage.hurt(p, t, STRIKE_DAMAGE);
 				// pinned in place for 7 seconds
 				AbilityHelpers.applyControl(t, MobEffects.MOVEMENT_SLOWDOWN, 140, 200);
 				AbilityHelpers.applyControl(t, MobEffects.WEAKNESS, 140, 2);
@@ -219,7 +219,7 @@ public final class SpiderClimbingHandlers {
 
 	/** Venom Bite's payload, public for the gametests. */
 	public static void bite(ServerPlayer p, LivingEntity t) {
-		AbilityHelpers.hurt(p, t, BITE_DAMAGE);
+		com.projecthero.mod.hero.power.MutationDamage.hurt(p, t, BITE_DAMAGE);
 		AbilityHelpers.applyControl(t, MobEffects.POISON, 120, 1);
 		AbilityHelpers.applyControl(t, MobEffects.MOVEMENT_SLOWDOWN, 80, 1);
 		Vec3 to = t.position().subtract(p.position());
@@ -287,7 +287,7 @@ public final class SpiderClimbingHandlers {
 			if (com.projecthero.mod.squad.Squads.areAllies(p, e)) {
 				continue;
 			}
-			AbilityHelpers.hurt(p, e, POUNCE_DAMAGE);
+			com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, POUNCE_DAMAGE);
 			AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 40, 1);
 			AbilityHelpers.knockbackFrom(e, p.position(), 0.6);
 			ctx.level().sendParticles(ParticleTypes.CRIT, e.getX(), e.getY() + e.getBbHeight() * 0.6, e.getZ(),

@@ -87,9 +87,9 @@ public class ThornProjectile extends ThrowableProjectile {
 		}
 		if (AbilityHelpers.asLiving(hit.getEntity()) instanceof LivingEntity le) {
 			if (getOwner() instanceof ServerPlayer sp) {
-				AbilityHelpers.hurt(sp, le, damage);
+				com.projecthero.mod.hero.power.MutationDamage.hurt(sp, le, damage);
 			} else {
-				le.hurt(damageSources().thrown(this, getOwner()), damage);
+				le.hurt(damageSources().thrown(this, getOwner()), com.projecthero.mod.hero.power.MutationDamage.cap(damage));
 			}
 			AbilityHelpers.applyControl(le, MobEffects.POISON, 50, 0);
 			if (level() instanceof ServerLevel sl) {

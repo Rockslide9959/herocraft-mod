@@ -225,10 +225,11 @@ public class FlightV0165GameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void diveBombDamageScalesWithHeight(GameTestHelper helper) {
-		assertNear(helper, 12f, FlightHandlers.diveDamage(0), "12 from no height");
-		assertNear(helper, 21f, FlightHandlers.diveDamage(15), "half way at 15 blocks");
-		assertNear(helper, 30f, FlightHandlers.diveDamage(30), "30 at 30 blocks");
-		assertNear(helper, 30f, FlightHandlers.diveDamage(90), "capped at 30");
+		// v0.17.7 City: 11-15 (was 12-30)
+		assertNear(helper, 11f, FlightHandlers.diveDamage(0), "11 from no height");
+		assertNear(helper, 13f, FlightHandlers.diveDamage(15), "half way at 15 blocks");
+		assertNear(helper, 15f, FlightHandlers.diveDamage(30), "15 at 30 blocks");
+		assertNear(helper, 15f, FlightHandlers.diveDamage(90), "capped at 15");
 		helper.succeed();
 	}
 
@@ -248,7 +249,7 @@ public class FlightV0165GameTests implements FabricGameTest {
 		p.setOnGround(true);
 		tick(p, 2);
 		helper.assertTrue(FlightHandlers.driveKind(p) == 0, "the landing ends the dive");
-		assertNear(helper, 70f, near.getHealth(), "30 inside the 4-block ring");
+		assertNear(helper, 85f, near.getHealth(), "15 inside the 4-block ring");
 		assertNear(helper, 100f, far.getHealth(), "nothing outside it");
 		helper.succeed();
 	}
@@ -319,7 +320,7 @@ public class FlightV0165GameTests implements FabricGameTest {
 		IronGolem behind = dummy(helper, 2, 0);
 		press(p, 4);
 		assertNear(helper, 70f, res(p, "lift"), "30 Lift");
-		assertNear(helper, 84f, ahead.getHealth(), "16 to the golem in the cone");
+		assertNear(helper, 85f, ahead.getHealth(), "15 to the golem in the cone");
 		helper.assertTrue(ahead.getDeltaMovement().z > 0.5 && ahead.getDeltaMovement().y > 0.3, "and a launch");
 		assertNear(helper, 100f, behind.getHealth(), "nothing behind him");
 		helper.succeed();

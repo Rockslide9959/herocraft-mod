@@ -110,7 +110,7 @@ public final class WaterHandlers {
 
 	// ---- X ----
 	public static final double RIPTIDE_SPEED = 3.0; // a Riptide III trident
-	public static final float RIPTIDE_DAMAGE = 8.0f;
+	public static final float RIPTIDE_DAMAGE = 11.0f; // v0.17.7 City (was 8)
 	public static final int RIPTIDE_SPIN_TICKS = 20;
 	/** v0.16.5 (user): Wave Ride has no time limit -- a toggle that drains Water while you ride (like the Ice Slide). */
 	public static final float COST_SURF_PER_SECOND = 1.0f;
@@ -129,7 +129,7 @@ public final class WaterHandlers {
 	public static final int HEAL_CD = 20 * 20;
 
 	// ---- C ----
-	public static final double AQUATIC_MELEE = 6.0;
+	public static final double AQUATIC_MELEE = 10.0; // v0.17.7 City: an 11 bare-handed swing (was +6)
 	public static final double DRAW_RANGE = 12.0;
 
 	// ---- passives ----
@@ -139,7 +139,7 @@ public final class WaterHandlers {
 	/** Hold R -- Water Dragon. */
 	public static final float COST_DRAGON = 25.0f;
 	public static final double DRAGON_RANGE = 30.0;
-	public static final float DRAGON_DAMAGE = 20.0f;
+	public static final float DRAGON_DAMAGE = 15.0f; // v0.17.7 City (was 20)
 	public static final int DRAGON_CD = 8 * 20;
 	/** Hold G -- Whirlpool (8 across). */
 	public static final float COST_WHIRLPOOL = 35.0f;
@@ -155,7 +155,7 @@ public final class WaterHandlers {
 	private static final String HYDRO_JETS_LANDING = "water_hydro_jets";
 	/** Hold Z -- Tsunami (12 wide, 6 tall, 30 blocks). */
 	public static final float COST_TSUNAMI = 60.0f;
-	public static final float TSUNAMI_DAMAGE = 22.0f;
+	public static final float TSUNAMI_DAMAGE = 25.0f; // v0.17.7 City ultimate band: the 60-Water move (was 22)
 	public static final int TSUNAMI_CD = 20 * 20;
 	/** Hold V -- Water Clone: 15 s at half your melee damage. The cooldown runs from the cast. */
 	public static final float COST_CLONE = 40.0f;
@@ -718,7 +718,7 @@ public final class WaterHandlers {
 			}
 			n++;
 			if (pulse) {
-				AbilityHelpers.hurtBurst(p, e, JET_DAMAGE_PER_SECOND * JET_PULSE / 20.0f);
+				com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, JET_DAMAGE_PER_SECOND * JET_PULSE / 20.0f);
 			}
 			e.clearFire();
 			if (noBoss(e)) {
@@ -756,7 +756,7 @@ public final class WaterHandlers {
 
 	/** The lash lands: 12, and the target is hauled in to a couple of blocks in front of you. */
 	public static void whipHit(ServerPlayer p, LivingEntity t) {
-		AbilityHelpers.hurtLands(p, t, WHIP_DAMAGE);
+		com.projecthero.mod.hero.power.MutationDamage.hurtLands(p, t, WHIP_DAMAGE);
 		t.clearFire();
 		if (noBoss(t) && HeroTargets.canHarm(p, t)) {
 			Vec3 to = p.position().subtract(t.position());

@@ -280,7 +280,7 @@ public final class LaserVisionHandlers {
 			Vec3 blast = AbilityHelpers.aimPoint(p, RANGE);
 			AbilityHelpers.launchSelf(p, look.scale(-1.9).add(0, 0.25, 0));
 			set(p, "no_fall_until", p.level().getGameTime() + 80);
-			float dmg = 9.6f;
+			float dmg = 11f; // v0.17.7 City (was 9.6)
 			for (LivingEntity e : AbilityHelpers.enemiesAround(p, blast, 2.5)) {
 				LaserCooking.hurt(p, e, AbilityHelpers.fire(p), dmg);
 				AbilityHelpers.knockbackFrom(e, blast, 1.2);
@@ -415,7 +415,7 @@ public final class LaserVisionHandlers {
 		LivingEntity onTarget = AbilityHelpers.raycastEntity(p, RANGE);
 		if (onTarget != null && com.projecthero.mod.hero.power.EyeBeamHits.due(p, "laser_vision_beam", onTarget, BEAM_HIT_INTERVAL)) {
 			float ramp = 1.0f + Math.min(1.5f, held / 40.0f);
-			Vec3 end = beamDamage(ctx, 4.8f * ramp, 0.0);
+			Vec3 end = beamDamage(ctx, 5.6f * ramp, 0.0); // v0.17.7 City: 5.6 first hit, ramps to 14 (was 4.8 -> 12)
 			impact(ctx.level(), end, 3);
 		} else if (onTarget == null && p.tickCount % BEAM_HIT_INTERVAL == 0) {
 			impact(ctx.level(), AbilityHelpers.aimPoint(p, RANGE), 3);
@@ -450,7 +450,7 @@ public final class LaserVisionHandlers {
 	private static void firePiercingBlast(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
 		ServerLevel level = ctx.level();
-		float dmg = 29f;
+		float dmg = 15f; // v0.17.7 City (was 29)
 		int pierce = 4;
 		Vec3 start = p.getEyePosition();
 		Vec3 dir = p.getLookAngle();
@@ -652,7 +652,7 @@ public final class LaserVisionHandlers {
 				ClipContext.Fluid.NONE, p));
 		Vec3 end = bhr.getType() == HitResult.Type.BLOCK ? bhr.getLocation() : start.add(dir.scale(RANGE));
 		LaserBeams.send(level, p, start, end, LaserBeamPayload.KIND_SWEEP, 2);
-		float dmg = 14.4f;
+		float dmg = 13f; // v0.17.7 City (was 14.4)
 		double len = start.distanceTo(end);
 		for (double d = 0.5; d <= len; d += 1.0) {
 			for (LivingEntity e : AbilityHelpers.enemiesAround(p, start.add(dir.scale(d)), 1.0)) {

@@ -127,12 +127,12 @@ public final class PyrokinesisHandlers {
 
 	// ---- Z: Meteor / Inferno ----
 	public static final int METEOR_CHARGE_TICKS = 40;
-	public static final float METEOR_DAMAGE_MIN = 16.0f;
-	public static final float METEOR_DAMAGE_MAX = 30.0f;
+	public static final float METEOR_DAMAGE_MIN = 11.0f; // v0.17.7 City: 11-15 by charge (was 16-30)
+	public static final float METEOR_DAMAGE_MAX = 15.0f;
 	public static final double METEOR_RADIUS = 5.0;
 	public static final float HEAT_METEOR = 25.0f;
 	public static final int METEOR_CD = 3 * 20;
-	public static final float INFERNO_DAMAGE_MAX = 30.0f;
+	public static final float INFERNO_DAMAGE_MAX = 15.0f; // v0.17.7 City (was 30)
 	public static final double INFERNO_RADIUS = 8.0;
 	public static final float INFERNO_MIN_HEAT = 10.0f;
 
@@ -157,20 +157,20 @@ public final class PyrokinesisHandlers {
 
 	// ---- v0.16.6 hold moves (HoldTap: hold the key 0.6 s; a tap is the old move) ----
 	/** Hold R: Blue Flame -- a short wind-up, then a blue-white fireball that ignores Fire Resistance. */
-	public static final float BLUE_DAMAGE = 24.0f;
+	public static final float BLUE_DAMAGE = 15.0f; // v0.17.7 City (was 24)
 	public static final float HEAT_BLUE = 20.0f;
 	public static final int BLUE_BURN_TICKS = 8 * 20;
 	public static final int BLUE_WINDUP = 10;
 	public static final int BLUE_CD = 6 * 20;
 	private static final double BLUE_SPEED = 2.1;
 	/** Hold G: Flame Serpent -- coils off the arm, then hunts the nearest enemy within 25 blocks. */
-	public static final float SERPENT_DAMAGE = 18.0f;
+	public static final float SERPENT_DAMAGE = 15.0f; // v0.17.7 City (was 18)
 	public static final double SERPENT_RANGE = 25.0;
 	public static final float HEAT_SERPENT = 25.0f;
 	public static final int SERPENT_CD = 10 * 20;
 	public static final int SERPENT_BURN_TICKS = 8 * 20;
 	/** Hold X: Phoenix Dive -- rise wrapped in a firebird, then dive along the aim into a blast. */
-	public static final float PHOENIX_DAMAGE = 20.0f;
+	public static final float PHOENIX_DAMAGE = 15.0f; // v0.17.7 City (was 20)
 	/** 8 blocks across. */
 	public static final double PHOENIX_RADIUS = 4.0;
 	public static final float HEAT_PHOENIX = 25.0f;
@@ -180,7 +180,7 @@ public final class PyrokinesisHandlers {
 	private static final double PHOENIX_DIVE_SPEED = 1.7;
 	/** Hold Z: Meteor Shower -- six smaller meteors on the aimed spot (up to 30 away). */
 	public static final int SHOWER_COUNT = 6;
-	public static final float SHOWER_DAMAGE = 10.0f;
+	public static final float SHOWER_DAMAGE = 11.0f; // v0.17.7 City, each meteor (was 10)
 	public static final double SHOWER_RANGE = 30.0;
 	public static final double SHOWER_SPREAD = 4.0;
 	public static final double SHOWER_BLAST = 2.5;
@@ -302,7 +302,7 @@ public final class PyrokinesisHandlers {
 		return base * heatMult(p);
 	}
 
-	/** Inferno damage for {@code heat}: up to 30 at full Heat. */
+	/** Inferno damage for {@code heat}: up to 15 at full Heat. */
 	public static float infernoDamage(float heat) {
 		return INFERNO_DAMAGE_MAX * Math.max(0.0f, Math.min(1.0f, heat / MAX_HEAT));
 	}
@@ -843,7 +843,7 @@ public final class PyrokinesisHandlers {
 		int hit = 0;
 		Vec3 c = p.position();
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, c.add(0, 1, 0), OVERHEAT_RADIUS)) {
-			if (AbilityHelpers.hurtBurst(p, e, AbilityHelpers.fire(p), OVERHEAT_DAMAGE)) {
+			if (com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, AbilityHelpers.fire(p), OVERHEAT_DAMAGE)) {
 				hit++;
 			}
 			ignite(e, IGNITE_TICKS);
@@ -877,7 +877,7 @@ public final class PyrokinesisHandlers {
 	/** A Fireball lands: the direct hit takes its damage and burns; a block it strikes catches fire. */
 	public static void fireballImpact(ServerPlayer p, ServerLevel level, Vec3 at, LivingEntity direct, float damage, BlockHitResult block) {
 		if (direct != null && enemy(p, direct)) {
-			AbilityHelpers.hurt(p, direct, AbilityHelpers.fire(p), damage);
+			com.projecthero.mod.hero.power.MutationDamage.hurt(p, direct, AbilityHelpers.fire(p), damage);
 			ignite(direct, IGNITE_TICKS);
 		}
 		if (block != null) {
@@ -1001,7 +1001,7 @@ public final class PyrokinesisHandlers {
 			if (d > THROWER_RANGE + e.getBbWidth() || d < 1.0e-3 || to.scale(1.0 / d).dot(look) < THROWER_CONE) {
 				continue;
 			}
-			if (AbilityHelpers.hurtBurst(p, e, AbilityHelpers.fire(p), damage)) {
+			if (com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, AbilityHelpers.fire(p), damage)) {
 				hit++;
 			}
 			ignite(e, IGNITE_TICKS);
@@ -1030,7 +1030,7 @@ public final class PyrokinesisHandlers {
 		MutationVisuals.play(p, "p08.whip");
 		AbilityHelpers.sound(p, SoundEvents.BLAZE_SHOOT, 0.8f, 1.6f);
 		if (t != null) {
-			AbilityHelpers.hurt(p, t, AbilityHelpers.fire(p), dmg(p, WHIP_DAMAGE));
+			com.projecthero.mod.hero.power.MutationDamage.hurt(p, t, AbilityHelpers.fire(p), dmg(p, WHIP_DAMAGE));
 			ignite(t, 4 * 20);
 			groundFire(p, level, t.position(), 60); // v0.17.2: the lash sets the ground under it alight
 			if (noBoss(t)) {
@@ -1107,7 +1107,7 @@ public final class PyrokinesisHandlers {
 	/** One second of the lasso's burn. */
 	public static void lassoBurn(ServerPlayer p, LivingEntity t) {
 		float d = res(p, "lasso_dmg");
-		AbilityHelpers.hurtBurst(p, t, AbilityHelpers.fire(p), d > 0 ? d : LASSO_DAMAGE_PER_SECOND);
+		com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, t, AbilityHelpers.fire(p), d > 0 ? d : LASSO_DAMAGE_PER_SECOND);
 		ignite(t, 40);
 		groundFire(p, AbilityHelpers.level(p), t.position(), 40); // v0.17.2: it burns where it is dragged
 		AbilityHelpers.level(p).sendParticles(ParticleTypes.FLAME, t.getX(), t.getY() + t.getBbHeight() * 0.5, t.getZ(), 10, 0.4, 0.3, 0.4, 0.02);
@@ -1357,7 +1357,7 @@ public final class PyrokinesisHandlers {
 		int hit = 0;
 		boolean small = radius < METEOR_RADIUS - 0.5;
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, at, radius)) {
-			if (AbilityHelpers.hurtBurst(p, e, AbilityHelpers.fire(p), damage)) {
+			if (com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, AbilityHelpers.fire(p), damage)) {
 				hit++;
 			}
 			ignite(e, 8 * 20);
@@ -1399,7 +1399,7 @@ public final class PyrokinesisHandlers {
 		Vec3 c = p.position();
 		int hit = 0;
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, c.add(0, 1, 0), INFERNO_RADIUS)) {
-			if (AbilityHelpers.hurtBurst(p, e, AbilityHelpers.fire(p), damage)) {
+			if (com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, AbilityHelpers.fire(p), damage)) {
 				hit++;
 			}
 			ignite(e, 6 * 20);
@@ -1455,7 +1455,7 @@ public final class PyrokinesisHandlers {
 			if (Math.abs(wall.acrossWall(e.position())) > 0.9 + e.getBbWidth() * 0.5) {
 				continue;
 			}
-			if (AbilityHelpers.hurtBurst(p, e, AbilityHelpers.fire(p), damage > 0 ? damage : WALL_DAMAGE)) {
+			if (com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, AbilityHelpers.fire(p), damage > 0 ? damage : WALL_DAMAGE)) {
 				hit++;
 			}
 			ignite(e, IGNITE_TICKS);
@@ -1698,7 +1698,7 @@ public final class PyrokinesisHandlers {
 	/** A Blue Flame lands. */
 	public static void blueImpact(ServerPlayer p, ServerLevel level, Vec3 at, LivingEntity direct, float damage, BlockHitResult block) {
 		if (direct != null && enemy(p, direct)) {
-			AbilityHelpers.hurtBurst(p, direct, AbilityHelpers.kinetic(p), damage);
+			com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, direct, AbilityHelpers.kinetic(p), damage);
 			ignite(direct, BLUE_BURN_TICKS);
 		}
 		if (block != null) {
@@ -1749,7 +1749,7 @@ public final class PyrokinesisHandlers {
 
 	/** The serpent strikes {@code t}. */
 	public static boolean serpentStrike(ServerPlayer p, ServerLevel level, LivingEntity t, float damage) {
-		boolean dealt = AbilityHelpers.hurtBurst(p, t, AbilityHelpers.fire(p), damage);
+		boolean dealt = com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, t, AbilityHelpers.fire(p), damage);
 		ignite(t, SERPENT_BURN_TICKS);
 		if (noBoss(t)) {
 			AbilityHelpers.push(t, new Vec3(0, 0.3, 0));
@@ -1846,7 +1846,7 @@ public final class PyrokinesisHandlers {
 		endHoldMoves(p);
 		int hit = 0;
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, at.add(0, 0.5, 0), PHOENIX_RADIUS)) {
-			if (AbilityHelpers.hurtBurst(p, e, AbilityHelpers.fire(p), damage)) {
+			if (com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, AbilityHelpers.fire(p), damage)) {
 				hit++;
 			}
 			ignite(e, 8 * 20);
@@ -1947,7 +1947,7 @@ public final class PyrokinesisHandlers {
 			if (Math.abs(d - r) > 0.9 + e.getBbWidth() * 0.5) {
 				continue;
 			}
-			if (AbilityHelpers.hurtBurst(p, e, AbilityHelpers.fire(p), damage > 0 ? damage : RING_DAMAGE)) {
+			if (com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, AbilityHelpers.fire(p), damage > 0 ? damage : RING_DAMAGE)) {
 				hit++;
 			}
 			ignite(e, IGNITE_TICKS);

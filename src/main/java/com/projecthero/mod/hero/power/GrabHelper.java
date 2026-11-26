@@ -53,7 +53,7 @@ public final class GrabHelper {
 		le.hurtMarked = true;
 		le.hasImpulse = true;
 		if (damage > 0) {
-			AbilityHelpers.hurt(ctx.player(), le, damage);
+			com.projecthero.mod.hero.power.MutationDamage.hurt(ctx.player(), le, damage);
 		}
 		return true;
 	}
@@ -89,7 +89,7 @@ public final class GrabHelper {
 		le.setDeltaMovement(0, -2.0, 0);
 		le.hurtMarked = true;
 		if (damage > 0) {
-			AbilityHelpers.hurt(ctx.player(), le, damage);
+			com.projecthero.mod.hero.power.MutationDamage.hurt(ctx.player(), le, damage);
 		}
 		return true;
 	}
