@@ -160,3 +160,18 @@ and toughness 0 / 0 / 1 / 2 / 4 / 6 / 8 (was up to 26 / 12). Integrity, slots, s
 | Piledriver | 14 | 9 |
 | Core Overload | 24 | 16 (cap 20) |
 | Rail Cannon | 28 | 15 (cap 20) |
+
+## City (user's "B", v0.17.7)
+
+Each power got a `MAX_HIT` 30 cap after its multipliers (boss caps still on top), hits moved into 11-14 melee / 11-15 abilities,
+ultimates (or the kit's biggest commitment move) 25-30, toughness ~netherite where the power already granted armour. Full
+before/after tables live in each power's own doc:
+
+| Power | Doc | Notes |
+|---|---|---|
+| Spider-Man (+ black suit), Spin | `SPIDERMAN_REFERENCE.md`, `SPIN_DESIGN.md` | Web Blossom = ultimate 28; Spin Ball Breaker 100 -> 30, damage taken -40% |
+| Miraculous (all 10) | `MIRACULOUS_REFERENCE.md` | suit +11 melee / +14 armour / +8 toughness / +12 HP; Cataclysm 2000 -> 30, Lucky Charm TNT 100 -> 30, Venom 40 -> 28 |
+| Quirks (7 kits) | `QUIRKS_REFERENCE.md` | `QuirkConfig.MAX_HIT`; meter bands count as buffs (capped at 30) |
+| Symbiote, Falcon, Beast Boy | `SYMBIOTE_REFERENCE.md`, `FALCON_SECONDARY_REFERENCE.md`, `TEEN_TITANS_DESIGN.md` | Symbiote melee cap mixin; Monster form +16 HP (was x2); Falcon gear netherite-grade |
+| Max Steel, Undead, Titan Shifter | `MAXSTEEL_REFERENCE.md`, `UNDEAD_REFERENCE.md`, `TITANSHIFTER_REFERENCE.md` | Titan HP x0.8, armour lowered, all types scale 1.0 |
+| Mutations (13 live) | `revamp/README.md` | central `MutationDamage` cap; stacked reduction floored at 50%; Size HP capped +16 |
