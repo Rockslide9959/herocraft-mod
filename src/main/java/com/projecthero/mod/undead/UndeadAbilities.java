@@ -213,7 +213,7 @@ public final class UndeadAbilities {
 		if (!HeroTargets.canHarm(owner, target)) {
 			return false;
 		}
-		float d = damage * (Undead.victor(owner) ? UndeadConfig.VICTOR_DAMAGE : 1f);
+		float d = Math.min(UndeadConfig.MAX_HIT, damage * (Undead.victor(owner) ? UndeadConfig.VICTOR_DAMAGE : 1f));
 		boolean boss = isBoss(target);
 		if (boss) {
 			d = Math.min(d, target.getMaxHealth() * UndeadConfig.BOSS_MAX_FRACTION_PER_HIT);

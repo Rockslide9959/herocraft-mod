@@ -43,6 +43,13 @@ public final class UndeadDamage {
 	}
 
 	public static boolean allowDamage(LivingEntity entity, DamageSource source, float amount) {
+		// v0.17.7 City tier: no hit from an Undead over MAX_HIT -- the moves are capped in UndeadAbilities.strike, this catches a
+		// bare-handed hit with a sword in the shoulder (its damage + sharpness + the fist bonus + a crit). The capped re-hit passes.
+		if (amount > UndeadConfig.MAX_HIT && source.getEntity() instanceof ServerPlayer attacker && attacker != entity
+				&& Undead.hasPower(attacker)) {
+			entity.hurt(source, UndeadConfig.MAX_HIT);
+			return false;
+		}
 		if (!(entity instanceof ServerPlayer player) || amount <= 0f || !Undead.hasPower(player)) {
 			return true;
 		}

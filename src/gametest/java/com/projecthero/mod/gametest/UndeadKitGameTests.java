@@ -222,7 +222,7 @@ public class UndeadKitGameTests implements FabricGameTest {
 		p.setShiftKeyDown(false);
 		helper.runAfterDelay(UndeadKitConfig.METEOR_FALL + 3, () -> {
 			float dn = 200f - near.getHealth(), dm = 200f - mid.getHealth();
-			helper.assertTrue(dn >= 28f, "the centre takes the brunt: " + hurt(near));
+			helper.assertTrue(dn >= 25f, "the centre takes the brunt: " + hurt(near)); // v0.17.7 City tier: 30 at the centre (was 40)
 			helper.assertTrue(dm > 0f && dm < dn, "less further out: " + hurt(mid));
 			helper.assertTrue(far.getHealth() == 200f, "outside the 10-block blast: untouched: " + hurt(far));
 			helper.assertTrue(near.isOnFire(), "set alight");
@@ -292,7 +292,7 @@ public class UndeadKitGameTests implements FabricGameTest {
 					press(p, AbilitySlot.SLOT_2, false, false);
 				}
 				case 32 -> {
-					helper.assertTrue(200f - later[0].getHealth() >= 18f, "Great Deep-Crimson Crescent Moon: " + hurt(later[0]));
+					helper.assertTrue(200f - later[0].getHealth() >= 14f, "Great Deep-Crimson Crescent Moon: " + hurt(later[0])); // v0.17.7: 15 (was 24)
 					helper.assertTrue(later[1].getHealth() < 200f, "and wide: " + hurt(later[1]));
 					later[0].discard();
 					later[1].discard();

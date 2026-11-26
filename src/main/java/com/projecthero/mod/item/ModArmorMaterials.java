@@ -52,7 +52,7 @@ public final class ModArmorMaterials {
 
 	/**
 	 * The Max Steel suit's raw {@code ArmorMaterial} defence -- what protects the player even at 0
-	 * T.U.R.B.O. Energy. v0.9.2: <b>diamond level</b> (user request) -- full diamond protection
+	 * T.U.R.B.O. Energy. v0.17.7 City tier: toughness 2 -> 3 (netherite's; armour stays 20). v0.9.2: <b>diamond level</b> (user request) -- full diamond protection
 	 * (3/6/8/3 = 20), diamond toughness (2.0), no knockback resistance from the plate itself (Base Mode
 	 * grants a little via an attribute; Strength Mode adds Resistance I on top). There is no longer a
 	 * flat Base-Mode damage reduction in the damage hook. The suit is never crafted, so the repair
@@ -67,7 +67,7 @@ public final class ModArmorMaterials {
 					ArmorItem.Type.HELMET, 3),
 			15,
 			SoundEvents.ARMOR_EQUIP_DIAMOND,
-			2.0f,
+			3.0f,
 			0.0f,
 			() -> Ingredient.of(Items.DIAMOND));
 

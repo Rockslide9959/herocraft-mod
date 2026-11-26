@@ -112,14 +112,14 @@ public final class UndeadConfig {
 
 	// ---------------------------------------------------------------- passives
 	/** Bloody Arts: + melee (Victor: {@link #VICTOR_MELEE}). */
-	public static final double BLOODY_ARTS_MELEE = 3.0;
-	public static final double VICTOR_MELEE = 7.0;
+	public static final double BLOODY_ARTS_MELEE = 10.0; // v0.17.7 City tier: was 3 (a bare fist hits for 11)
+	public static final double VICTOR_MELEE = 13.0; // v0.17.7 City tier: was 7 (Victor is off; a fist 14)
 	/** Victor hits harder with every move. */
 	public static final float VICTOR_DAMAGE = 1.35f;
 	/** Repair Headbutt: a head hit this hard (or the head breaking) snaps back at the nearest enemy within the reach. */
 	public static final float HEADBUTT_TRIGGER = 4f;
 	public static final double HEADBUTT_REACH = 4.0;
-	public static final float HEADBUTT_DAMAGE = 8f;
+	public static final float HEADBUTT_DAMAGE = 11f; // v0.17.7 City tier: was 8
 	public static final int HEADBUTT_COOLDOWN = 40;
 
 	// ---------------------------------------------------------------- R: the Parts Bullets (v0.17.3 rework: UndeadBulletConfig)
@@ -137,7 +137,7 @@ public final class UndeadConfig {
 	public static final float CRESCENT_DAMAGE = 11f;
 	public static final double CRESCENT_REACH = 4.5;
 	public static final int CRESCENT_COOLDOWN = 35;
-	public static final float GREAT_CRESCENT_DAMAGE = 18f;
+	public static final float GREAT_CRESCENT_DAMAGE = 15f; // v0.17.7 City tier: was 18 (old G, no key since the v0.17.3 kit)
 	public static final double GREAT_CRESCENT_RANGE = 18.0;
 	public static final int GREAT_CRESCENT_COOLDOWN = 300;
 
@@ -186,7 +186,7 @@ public final class UndeadConfig {
 	/** v0.17.3: after a launch lets go in the air, how long at most he is safe from fall damage while momentum carries him (ends on landing). */
 	public static final int LAUNCH_CARRY_SAFE = 200;
 	/** Leg Launch: what the flying body does to whatever it passes through. (The Head Launch uses {@link #HEAD_BULLET_DAMAGE}.) */
-	public static final float LEG_LAUNCH_DAMAGE = 6f;
+	public static final float LEG_LAUNCH_DAMAGE = 11f; // v0.17.7 City tier: was 6 (no key since the v0.17.3 kit)
 	public static final int LEG_LAUNCH_COOLDOWN = 40;
 	public static final int HEAD_LAUNCH_COOLDOWN = 160;
 
@@ -196,7 +196,7 @@ public final class UndeadConfig {
 	public static final int VORTEX_PIERCE = 3;
 	public static final int VORTEX_COOLDOWN = 80;
 	/** The head hits hardest of the thrown parts (tester: "the head throw makes sense for more damage"); the Head Launch too. */
-	public static final float HEAD_BULLET_DAMAGE = 18f;
+	public static final float HEAD_BULLET_DAMAGE = 15f; // v0.17.7 City tier: was 18 (no key since the v0.17.3 kit)
 	public static final double HEAD_SPEED = 1.5;
 	public static final int HEAD_BULLET_COOLDOWN = 160;
 
@@ -207,8 +207,8 @@ public final class UndeadConfig {
 	 * total, Bloody Arts included), sweeps like a sword and reaches a little further; the torn-off arm only grows back once it
 	 * is put away (Shift+V again, after {@link #BONE_SWORD_MAX}, or on losing the hand).
 	 */
-	public static final float BONE_SWORD_DAMAGE = 9f;
-	public static final float BONE_SWORD_SWEEP_DAMAGE = 4f;
+	public static final float BONE_SWORD_DAMAGE = 13f; // v0.17.7 City tier: was 9
+	public static final float BONE_SWORD_SWEEP_DAMAGE = 11f; // v0.17.7 City tier: was 4
 	public static final double BONE_SWORD_REACH_BONUS = 1.0;
 	/** Attack speed while held: a sword's 1.6 a second (the player's base is 4). */
 	public static final double BONE_SWORD_ATTACK_SPEED = 1.6;
@@ -260,13 +260,19 @@ public final class UndeadConfig {
 	public static final int VULCAN_SHOTS = 10;
 	public static final float VULCAN_DAMAGE = 4f;
 	public static final int VULCAN_COOLDOWN = 60;
-	public static final float DEAD_BLADE_DAMAGE = 22f;
+	public static final float DEAD_BLADE_DAMAGE = 15f; // v0.17.7 City tier: was 22 (Victor, off)
 	public static final double DEAD_BLADE_REACH = 5.5;
 	public static final int DEAD_BLADE_COOLDOWN = 80;
 	public static final double DEAD_ROAD_RANGE = 32.0;
 	public static final float DEAD_ROAD_DAMAGE = 7f;
 	public static final int DEAD_ROAD_TICKS = 50;
 	public static final int DEAD_ROAD_COOLDOWN = 240;
+
+	/**
+	 * v0.17.7 City tier (melee 11-14, abilities 11-15, ultimate 25-30): no move hit of his lands for more than this, Victor's
+	 * x1.35 included ({@link UndeadAbilities#strike}); the boss cap below still applies on top.
+	 */
+	public static final float MAX_HIT = com.projecthero.mod.hero.PowerRank.CITY.ultimateMax;
 
 	/** A boss takes at most this share of its max health from one hit. */
 	public static final float BOSS_MAX_FRACTION_PER_HIT = 0.08f;

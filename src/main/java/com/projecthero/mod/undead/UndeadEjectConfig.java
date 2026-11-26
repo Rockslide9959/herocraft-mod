@@ -67,7 +67,7 @@ public final class UndeadEjectConfig {
 	public static final int WHIRL_RISE_TICKS = 8;
 	public static final double WHIRL_RISE = 2.0;
 	public static final double WHIRL_RADIUS = 10.0;
-	public static final float WHIRL_DAMAGE = 25f;
+	public static final float WHIRL_DAMAGE = 15f; // v0.17.7 City tier: was 25
 	/** Full turns over the spin. */
 	public static final float WHIRL_TURNS = 3.0f;
 	public static final int WHIRL_COOLDOWN = 300;
@@ -87,7 +87,7 @@ public final class UndeadEjectConfig {
 	/** He punches once his fist is this close to the target's box. */
 	public static final double COMBUSTION_REACH = 1.4;
 	public static final int COMBUSTION_MAX_TICKS = 25;
-	public static final float COMBUSTION_DAMAGE = 22f;
+	public static final float COMBUSTION_DAMAGE = 15f; // v0.17.7 City tier: was 22
 	/** The target is knocked back about this far. */
 	public static final double COMBUSTION_KNOCKBACK = 5.0;
 	public static final int COMBUSTION_COOLDOWN = 200;

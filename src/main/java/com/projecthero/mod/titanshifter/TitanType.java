@@ -12,13 +12,16 @@ import net.minecraft.resources.ResourceLocation;
  */
 public enum TitanType {
 	/** The Attack Titan (id kept as generic_titan so saved shifters keep their Titan). v0.16.7: 15 blocks (config). */
-	GENERIC_TITAN("generic_titan", "titan_form", 15.0f, 5.0f, 500.0f, 25.0, 8.0, 0.45, 1.0f),
+	GENERIC_TITAN("generic_titan", "titan_form", 15.0f, 5.0f, 400.0f, 16.0, 6.0, 0.45, 1.0f),
 	/** v0.16.7 (user): the Armoured Titan -- 15 blocks, slow crystal-plated tank. Wears the user's player skin on player proportions, so it is as wide as the Attack Titan (5). */
-	ARMORED_TITAN("armored_titan", "titan_armored", 15.0f, 5.0f, 800.0f, 35.0, 14.0, 0.36, 1.1f),
+	ARMORED_TITAN("armored_titan", "titan_armored", 15.0f, 5.0f, 640.0f, 18.0, 8.0, 0.36, 1.0f),
 	/** v0.16.7 (user): the Female Titan -- 12 blocks, fast and agile, hardened fists and shins. */
-	FEMALE_TITAN("female_titan", "titan_female", 12.0f, 4.0f, 450.0f, 20.0, 6.0, 0.55, 0.95f),
+	FEMALE_TITAN("female_titan", "titan_female", 12.0f, 4.0f, 360.0f, 14.0, 4.0, 0.55, 1.0f),
 	/** v0.16.7 (user): the Beast Titan -- 14 blocks, long arms, throws boulders. */
-	BEAST_TITAN("beast_titan", "titan_beast", 14.0f, 4.67f, 600.0f, 22.0, 6.0, 0.42, 1.0f);
+	BEAST_TITAN("beast_titan", "titan_beast", 14.0f, 4.67f, 480.0f, 15.0, 4.0, 0.42, 1.0f);
+	// v0.17.7 City tier: health x0.8 (500 / 800 / 450 / 600 -> 400 / 640 / 360 / 480), armour / toughness cut so a City hit
+	// loses roughly 40-60% to it instead of 80% (25/8, 35/14, 20/6, 22/6 -> 16/6, 18/8, 14/4, 15/4), and every damage scale
+	// 1.0 (Armoured was 1.1, Female 0.95): the City melee range has no room for a type that hits 10% harder.
 
 	public final String id;
 	private final String modelName;
@@ -79,7 +82,7 @@ public enum TitanType {
 
 	/** v0.16.7: the Armoured Titan's crystal plates -- built-in damage reduction (0..1), always on. */
 	public double plateReduction() {
-		return this == ARMORED_TITAN ? 0.35 : 0.0;
+		return this == ARMORED_TITAN ? 0.25 : 0.0; // v0.17.7 City tier: was 0.35
 	}
 
 	/** The baseline reads the live config; a future type would return its own constants. */

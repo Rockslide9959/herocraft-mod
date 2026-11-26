@@ -121,7 +121,7 @@ public class UndeadVMoveGameTests implements FabricGameTest {
 		helper.assertTrue(UndeadKitConfig.REFORM_TAP <= 6, "the whip fires on a quick tap only (well before Reform's hold)");
 		helper.assertTrue(UndeadAbilityManager.maxCooldown(UndeadRibShot.ID) == UndeadKitConfig.RIB_SHOT_COOLDOWN, "the HUD knows its 6 s cooldown");
 		helper.assertTrue(UndeadAbilityManager.maxCooldown(UndeadAbilities.REFORM) == UndeadConfig.REFORM_COOLDOWN, "and Reform's");
-		helper.assertTrue(UndeadKitConfig.RIB_SHOT_COOLDOWN == 120 && UndeadKitConfig.RIB_SHOT_COUNT == 7 && UndeadKitConfig.RIB_SHOT_DAMAGE == 6f
+		helper.assertTrue(UndeadKitConfig.RIB_SHOT_COOLDOWN == 120 && UndeadKitConfig.RIB_SHOT_COUNT == 7 && UndeadKitConfig.RIB_SHOT_DAMAGE == 2f
 				&& UndeadKitConfig.RIB_SHOT_RANGE == 20.0 && UndeadKitConfig.RIB_SHOT_CONE == 15.0, "the agreed numbers");
 		helper.assertTrue(UndeadKitConfig.REFORM_HOLD == 20 && UndeadKitConfig.REFORM_TAP < UndeadKitConfig.REFORM_HOLD, "Reform: a one-second Shift hold");
 		helper.succeed();
