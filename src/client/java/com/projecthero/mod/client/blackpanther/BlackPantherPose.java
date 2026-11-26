@@ -94,20 +94,24 @@ public final class BlackPantherPose {
 			// the slam: everything comes down in front of him
 			k(9.5f, SNAP, -0.55f, 0.2f, 0.1f, -0.55f, -0.2f, -0.1f, 0f, 0.55f, -0.6f, 0.4f, 0.9f),
 			k(13f, SMOOTH, -0.7f, 0.1f, 0.2f, -0.7f, -0.1f, -0.2f, 0f, 0.4f, -0.5f, 0.35f, 0.7f));
-	private static final Clip DISARM = clip(12f, 1f, 4f,
-			k(2f, SMOOTH, -2.5f, -0.35f, 0.1f, -1.45f, 0.35f, 0f, 0.3f, 0f, N, N, 0.1f),
-			k(3.8f, SNAP, -0.65f, -0.65f, 0f, -1.4f, 0.3f, 0f, -0.35f, 0.2f, N, N, 0.25f),
-			k(7f, SMOOTH, -0.8f, -0.5f, 0.1f, -1.3f, 0.25f, 0f, -0.25f, 0.15f, N, N, 0.2f));
+	/** v0.17.7 Ground Pound: crouch, spring up with both fists raised overhead, then drive them into the ground, a knee down. */
+	private static final Clip GROUND_POUND = clip(22f, 1f, 4f,
+			k(2f, SMOOTH, 0.6f, 0f, 0.3f, 0.6f, 0f, -0.3f, 0f, 0.35f, -0.3f, 0.2f, 0.9f),
+			kx(6f, SNAP, -2.95f, 0.25f, 0.05f, -2.95f, -0.25f, -0.05f, 0f, -0.15f, -1.1f, -0.9f, N, N, 0.2f, -0.35f),
+			k(9f, SMOOTH, -2.9f, 0.25f, 0.05f, -2.9f, -0.25f, -0.05f, 0f, -0.05f, -0.9f, -0.7f, 0.1f),
+			k(11f, SNAP, -0.4f, 0.2f, 0.1f, -0.4f, -0.2f, -0.1f, 0f, 0.6f, -1.25f, 0.45f, 1f),
+			k(17f, LINEAR, -0.45f, 0.2f, 0.1f, -0.45f, -0.2f, -0.1f, 0f, 0.55f, -1.2f, 0.45f, 1f));
 	private static final Clip VAULT = clip(17f, 1f, 3f,
 			k(1.5f, SNAP, -2.6f, 0f, 0.2f, -2.6f, 0f, -0.2f, 0f, 0.1f, 0.4f, -0.3f, 0.1f),
 			k(5f, SMOOTH, -2.0f, 0f, 0.3f, -2.0f, 0f, -0.3f, 0f, 0.4f, -1.3f, -1.3f, 0.6f),
 			k(11f, SMOOTH, -1.9f, 0f, 0.3f, -1.9f, 0f, -0.3f, 0f, 0.4f, -1.3f, -1.3f, 0.6f),
 			k(14f, SMOOTH, -0.5f, 0f, 0.5f, -0.5f, 0f, -0.5f, 0f, 0.15f, -0.3f, 0.2f, 0.4f));
-	private static final Clip BACKFLIP = clip(17f, 1f, 3f,
-			kx(1.5f, SNAP, -3.0f, 0f, 0.15f, -3.0f, 0f, -0.15f, 0f, -0.2f, 0.2f, 0.2f, N, N, 0.0f, -0.6f),
-			k(5f, SMOOTH, -1.6f, 0f, 0.3f, -1.6f, 0f, -0.3f, 0f, 0.3f, -1.4f, -1.4f, 0.6f),
-			k(11f, SMOOTH, -1.6f, 0f, 0.3f, -1.6f, 0f, -0.3f, 0f, 0.3f, -1.4f, -1.4f, 0.6f),
-			k(14f, SMOOTH, -1.0f, 0f, 0.7f, -1.0f, 0f, -0.7f, 0f, 0.15f, -0.3f, 0.2f, 0.45f));
+	/** v0.17.7 Flying Kick: the right knee chambers, then the leg shoots out straight as he leans back, arms flung back for balance. */
+	private static final Clip FLYING_KICK = clip(16f, 1f, 4f,
+			k(2f, SMOOTH, GUARD[0], GUARD[1], GUARD[2], GUARD[3], GUARD[4], GUARD[5], 0.1f, 0f, -1.4f, 0.1f, 0.2f),
+			kx(3.5f, SNAP, 0.5f, 0f, 0.6f, 0.4f, 0f, -0.7f, 0f, -0.4f, -1.6f, 0.45f, N, N, 0f, 0.15f),
+			kx(10f, LINEAR, 0.45f, 0f, 0.6f, 0.4f, 0f, -0.7f, 0f, -0.38f, -1.55f, 0.45f, N, N, 0f, 0.15f),
+			k(13f, SMOOTH, GUARD[0], GUARD[1], GUARD[2], GUARD[3], GUARD[4], GUARD[5], 0f, 0.05f, N, N, 0.15f));
 	private static final Clip KNIFE = clip(11f, 1f, 3f,
 			k(3f, SMOOTH, -2.85f, 0.25f, 0.3f, -0.9f, 0.4f, -0.2f, 0.4f, -0.05f, N, N, 0.1f),
 			k(4.8f, SNAP, -1.25f, -0.35f, 0f, -0.4f, 0.2f, -0.3f, -0.35f, 0.15f, N, N, 0.15f),
@@ -115,9 +119,12 @@ public final class BlackPantherPose {
 	private static final Clip SCAN = clip(16f, 2f, 4f,
 			k(3f, SMOOTH, -1.62f, -0.05f, 0f, -1.35f, 0.62f, 0f, 0.1f, 0f, N, N, 0f),
 			k(12f, LINEAR, -1.6f, 0.05f, 0f, -1.35f, 0.6f, 0f, 0.1f, 0f, N, N, 0f));
-	private static final Clip RIPOSTE = clip(11f, 0.5f, 4f,
-			k(1.5f, SNAP, -1.62f, -0.2f, 0f, -1.7f, 0.5f, -0.1f, -0.45f, 0.2f, N, N, 0.3f),
-			k(5f, SMOOTH, -1.4f, -0.3f, 0.1f, -1.5f, 0.5f, -0.1f, -0.3f, 0.15f, N, N, 0.25f));
+	/** v0.17.7 Rising Uppercut: he dips low, the right fist cocked at the hip, and rips it up past his face onto his toes. */
+	private static final Clip UPPERCUT = clip(15f, 1f, 4f,
+			k(2.5f, SMOOTH, 0.45f, 0.1f, 0.2f, GUARD[3], GUARD[4], GUARD[5], 0.35f, 0.3f, -0.3f, 0.2f, 0.8f),
+			kx(4.5f, SNAP, -2.75f, -0.35f, 0.1f, -0.9f, 0.4f, -0.2f, -0.35f, -0.2f, 0.1f, 0.15f, N, N, 0f, -0.35f),
+			kx(9f, SMOOTH, -2.6f, -0.3f, 0.1f, -1.0f, 0.4f, -0.2f, -0.3f, -0.15f, 0f, 0.1f, N, N, 0f, -0.25f),
+			k(12f, SMOOTH, GUARD[0], GUARD[1], GUARD[2], GUARD[3], GUARD[4], GUARD[5], 0f, 0.05f, N, N, 0.15f));
 	private static final Clip RESOLVE = clip(26f, 2f, 5f,
 			// arms crossed over the chest, fists at the shoulders
 			k(4f, SMOOTH, -2.05f, -0.9f, 0.05f, -2.05f, 0.9f, -0.05f, 0f, 0.1f, N, N, 0.1f),
@@ -193,19 +200,20 @@ public final class BlackPantherPose {
 
 	// held stances (weight follows the toggle, no clip timing)
 	private static final float[] ABSORB = { -1.25f, -0.62f, 0f, -1.25f, 0.62f, 0f, 0f, 0.2f, N, N, N, N, 0.35f, N };
-	private static final float[] PARRY = { -1.0f, -0.25f, 0.15f, -1.95f, 0.55f, 0.05f, 0.2f, 0.1f, N, N, N, N, 0.3f, N };
+	/** v0.17.7 Block: both forearms crossed up in front of the face, a little crouched. */
+	private static final float[] BLOCK = { -2.0f, -0.85f, 0.1f, -2.0f, 0.85f, -0.1f, 0f, 0.12f, N, N, N, N, 0.35f, N };
 
 	private static Clip clipFor(int animId) {
 		return switch (animId) {
 			case BlackPantherState.ANIM_COMBO -> COMBO;
 			case BlackPantherState.ANIM_SWEEP -> SWEEP;
 			case BlackPantherState.ANIM_TAKEDOWN -> TAKEDOWN;
-			case BlackPantherState.ANIM_DISARM -> DISARM;
+			case BlackPantherState.ANIM_GROUND_POUND -> GROUND_POUND;
 			case BlackPantherState.ANIM_VAULT -> VAULT;
-			case BlackPantherState.ANIM_BACKFLIP -> BACKFLIP;
+			case BlackPantherState.ANIM_FLYING_KICK -> FLYING_KICK;
 			case BlackPantherState.ANIM_KNIFE -> KNIFE;
 			case BlackPantherState.ANIM_SCAN -> SCAN;
-			case BlackPantherState.ANIM_RIPOSTE -> RIPOSTE;
+			case BlackPantherState.ANIM_UPPERCUT -> UPPERCUT;
 			case BlackPantherState.ANIM_RESOLVE -> RESOLVE;
 			case BlackPantherState.ANIM_SUIT_UP -> SUIT_UP;
 			case BlackPantherState.ANIM_SUIT_DOWN -> SUIT_DOWN;
@@ -305,16 +313,10 @@ public final class BlackPantherPose {
 		}
 		// the held stances win over a finished clip
 		if (s.absorbing) {
-			float[] held = s.suited ? ABSORB : PARRY;
+			float[] held = s.suited ? ABSORB : BLOCK;
 			float[] hp = new float[CH];
 			for (int ch = 0; ch < CH; ch++) {
 				hp[ch] = val(held[ch], base[ch]);
-			}
-			if (s.animId == BlackPantherState.ANIM_RIPOSTE && w > 0.001f) {
-				// the riposte plays over the parry guard
-				for (int ch = 0; ch < CH; ch++) {
-					hp[ch] = Mth.lerp(w, hp[ch], pose[ch]);
-				}
 			}
 			pose = hp;
 			w = 1f;
@@ -417,7 +419,7 @@ public final class BlackPantherPose {
 
 	// ================================================================== whole-body flips and spins (BlackPantherFlipMixin)
 
-	/** Head-over-heels about the hips: Vault forward (negative), Backflip backward. 0 when none plays. */
+	/** Head-over-heels about the hips: the Vault, forward. 0 when none plays. */
 	public static float flipDegrees(Player player, float partial) {
 		BlackPantherState s = player.getAttachedOrElse(ModAttachments.BLACK_PANTHER_STATE, null);
 		if (s == null || !s.hasPower) {
@@ -426,7 +428,6 @@ public final class BlackPantherPose {
 		float age = player.level().getGameTime() - s.animStart + partial;
 		return switch (s.animId) {
 			case BlackPantherState.ANIM_VAULT -> -360f * ease(SMOOTH, Mth.clamp((age - 1.5f) / 11f, 0f, 1f)) * (age < 17f ? 1f : 0f);
-			case BlackPantherState.ANIM_BACKFLIP -> 360f * ease(SMOOTH, Mth.clamp((age - 1.5f) / 11f, 0f, 1f)) * (age < 17f ? 1f : 0f);
 			default -> 0f;
 		};
 	}
@@ -484,17 +485,20 @@ public final class BlackPantherPose {
 			fk(6f, SMOOTH, f(-0.15f, 0.5f, -0.05f, 65f, 0f, 0f), f(-0.15f, 0.5f, -0.05f, 65f, 0f, 0f)),
 			fk(9.5f, SNAP, f(-0.2f, -0.32f, -0.38f, -35f, 0f, 0f), f(-0.2f, -0.32f, -0.38f, -35f, 0f, 0f)),
 			fk(13f, SMOOTH, f(-0.15f, -0.25f, -0.3f, -25f, 0f, 0f), f(-0.15f, -0.25f, -0.3f, -25f, 0f, 0f)) });
-	private static final FClip F_DISARM = new FClip(12f, 1f, 4f, new FKey[] {
-			fk(2f, SMOOTH, f(0.05f, 0.38f, 0.05f, 55f, 0f, -20f), f(-0.22f, 0.02f, -0.3f, 10f, 0f, 0f)),
-			fk(3.8f, SNAP, f(-0.42f, -0.15f, -0.28f, -35f, 20f, 30f), f(-0.2f, 0f, -0.3f, 10f, 0f, 0f)),
-			fk(7f, SMOOTH, f(-0.35f, -0.12f, -0.22f, -25f, 15f, 25f), f(-0.15f, 0f, -0.2f, 5f, 0f, 0f)) });
+	private static final FClip F_GROUND_POUND = new FClip(22f, 1f, 4f, new FKey[] {
+			fk(2f, SMOOTH, f(0.05f, -0.3f, 0.1f, -30f, 0f, 0f), f(0.05f, -0.3f, 0.1f, -30f, 0f, 0f)),
+			fk(6f, SNAP, f(-0.15f, 0.5f, -0.05f, 65f, 0f, 0f), f(-0.15f, 0.5f, -0.05f, 65f, 0f, 0f)),
+			fk(9f, SMOOTH, f(-0.15f, 0.45f, -0.05f, 60f, 0f, 0f), f(-0.15f, 0.45f, -0.05f, 60f, 0f, 0f)),
+			fk(11f, SNAP, f(-0.2f, -0.45f, -0.35f, -45f, 0f, 0f), f(-0.2f, -0.45f, -0.35f, -45f, 0f, 0f)),
+			fk(17f, LINEAR, f(-0.2f, -0.42f, -0.32f, -42f, 0f, 0f), f(-0.2f, -0.42f, -0.32f, -42f, 0f, 0f)) });
 	private static final FClip F_TUCK = new FClip(17f, 1f, 3f, new FKey[] {
 			fk(2f, SNAP, f(-0.15f, 0.25f, 0.1f, 35f, 0f, 0f), f(-0.15f, 0.25f, 0.1f, 35f, 0f, 0f)),
 			fk(12f, LINEAR, f(-0.15f, 0.2f, 0.1f, 30f, 0f, 0f), f(-0.15f, 0.2f, 0.1f, 30f, 0f, 0f)) });
-	private static final FClip F_BACKFLIP = new FClip(17f, 1f, 3f, new FKey[] {
-			fk(2f, SNAP, f(0f, 0.55f, 0.1f, 75f, 0f, 0f), f(0f, 0.55f, 0.1f, 75f, 0f, 0f)),
-			fk(6f, SMOOTH, f(-0.15f, 0.2f, 0.1f, 30f, 0f, 0f), f(-0.15f, 0.2f, 0.1f, 30f, 0f, 0f)),
-			fk(12f, LINEAR, f(-0.15f, 0.2f, 0.1f, 30f, 0f, 0f), f(-0.15f, 0.2f, 0.1f, 30f, 0f, 0f)) });
+	private static final FClip F_FLYING_KICK = new FClip(16f, 1f, 4f, new FKey[] {
+			fk(2f, SMOOTH, F_GUARD_LEAD, F_GUARD_OFF),
+			fk(3.5f, SNAP, f(0.35f, -0.25f, 0.15f, -10f, -40f, 35f), f(0.35f, -0.25f, 0.15f, -10f, -40f, 35f)),
+			fk(10f, LINEAR, f(0.35f, -0.28f, 0.15f, -12f, -40f, 38f), f(0.35f, -0.28f, 0.15f, -12f, -40f, 38f)),
+			fk(13f, SMOOTH, F_GUARD_LEAD, F_GUARD_OFF) });
 	private static final FClip F_THROW = new FClip(11f, 1f, 3f, new FKey[] {
 			fk(3f, SMOOTH, f(0.12f, 0.32f, 0.15f, 60f, -10f, 0f), f(0.05f, -0.1f, 0f, -10f, 0f, 0f)),
 			fk(4.8f, SNAP, f(-0.25f, 0.05f, -0.42f, -10f, 10f, 0f), f(0.05f, -0.1f, 0f, -10f, 0f, 0f)),
@@ -505,9 +509,11 @@ public final class BlackPantherPose {
 	private static final FClip F_SCAN = new FClip(16f, 2f, 4f, new FKey[] {
 			fk(3f, SMOOTH, f(-0.22f, 0.25f, -0.25f, 40f, 0f, 0f), f(-0.38f, 0.12f, -0.2f, 20f, 30f, 0f)),
 			fk(12f, LINEAR, f(-0.22f, 0.27f, -0.25f, 40f, 0f, 0f), f(-0.38f, 0.12f, -0.2f, 20f, 30f, 0f)) });
-	private static final FClip F_RIPOSTE = new FClip(11f, 0.5f, 4f, new FKey[] {
-			fk(1.5f, SNAP, f(-0.36f, 0.1f, -0.46f, 5f, 10f, 0f), f(-0.4f, 0.35f, -0.05f, 30f, 0f, -45f)),
-			fk(5f, SMOOTH, f(-0.3f, 0.08f, -0.35f, 5f, 8f, 0f), f(-0.4f, 0.32f, -0.05f, 28f, 0f, -45f)) });
+	private static final FClip F_UPPERCUT = new FClip(15f, 1f, 4f, new FKey[] {
+			fk(2.5f, SMOOTH, f(0.05f, -0.35f, 0.1f, -35f, 0f, 0f), F_GUARD_OFF),
+			fk(4.5f, SNAP, f(-0.18f, 0.5f, -0.35f, 70f, 0f, -10f), F_GUARD_OFF),
+			fk(9f, SMOOTH, f(-0.15f, 0.45f, -0.3f, 62f, 0f, -8f), F_GUARD_OFF),
+			fk(12f, SMOOTH, F_GUARD_LEAD, F_GUARD_OFF) });
 	private static final FClip F_RESOLVE = new FClip(26f, 2f, 5f, new FKey[] {
 			fk(4f, SMOOTH, f(-0.5f, 0.22f, 0.05f, 20f, -40f, -45f), f(-0.5f, 0.22f, 0.05f, 20f, -40f, -45f)),
 			fk(10f, LINEAR, f(-0.5f, 0.22f, 0.05f, 20f, -40f, -45f), f(-0.5f, 0.22f, 0.05f, 20f, -40f, -45f)),
@@ -562,20 +568,19 @@ public final class BlackPantherPose {
 			fk(6f, SMOOTH, f(-0.3f, 0.1f, -0.38f, 0f, 5f, 0f), null) });
 
 	private static final float[] F_ABSORB = f(-0.45f, 0.15f, -0.1f, 10f, -30f, -50f);
-	private static final float[] F_PARRY_LEAD = f(-0.1f, -0.05f, 0f, 0f, 0f, 0f);
-	private static final float[] F_PARRY_OFF = f(-0.45f, 0.36f, -0.05f, 30f, 0f, -50f);
+	private static final float[] F_BLOCK = f(-0.38f, 0.32f, -0.05f, 30f, 0f, -45f);
 
 	private static FClip fclipFor(int animId) {
 		return switch (animId) {
 			case BlackPantherState.ANIM_COMBO -> F_COMBO;
 			case BlackPantherState.ANIM_SWEEP -> F_SWEEP;
 			case BlackPantherState.ANIM_TAKEDOWN -> F_TAKEDOWN;
-			case BlackPantherState.ANIM_DISARM -> F_DISARM;
+			case BlackPantherState.ANIM_GROUND_POUND -> F_GROUND_POUND;
 			case BlackPantherState.ANIM_VAULT -> F_TUCK;
-			case BlackPantherState.ANIM_BACKFLIP -> F_BACKFLIP;
+			case BlackPantherState.ANIM_FLYING_KICK -> F_FLYING_KICK;
 			case BlackPantherState.ANIM_KNIFE, BlackPantherState.ANIM_THROW -> F_THROW;
 			case BlackPantherState.ANIM_SCAN -> F_SCAN;
-			case BlackPantherState.ANIM_RIPOSTE -> F_RIPOSTE;
+			case BlackPantherState.ANIM_UPPERCUT -> F_UPPERCUT;
 			case BlackPantherState.ANIM_RESOLVE -> F_RESOLVE;
 			case BlackPantherState.ANIM_SUIT_UP -> F_SUIT_UP;
 			case BlackPantherState.ANIM_SUIT_DOWN -> F_SUIT_DOWN;
@@ -683,11 +688,8 @@ public final class BlackPantherPose {
 			}
 		}
 		if (s.absorbing) {
-			float[] held = s.suited ? F_ABSORB : (lead ? F_PARRY_LEAD : F_PARRY_OFF);
-			float hw = s.animId == BlackPantherState.ANIM_RIPOSTE ? 1f - w : 1f;
-			for (int j = 0; j < 6; j++) {
-				v[j] = v[j] + (held[j] - v[j]) * hw;
-			}
+			float[] held = s.suited ? F_ABSORB : F_BLOCK;
+			System.arraycopy(held, 0, v, 0, 6);
 			any = true;
 		}
 		if (!any) {

@@ -2,11 +2,11 @@ package com.projecthero.mod.blackpanther.item;
 
 import java.util.List;
 
-import com.projecthero.mod.blackpanther.BlackPanther;
-
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
@@ -16,9 +16,9 @@ import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 
 /**
- * v0.17.4 (user: "make his suit craftable"): the Panther Habit -- the vibranium-weave suit, folded into a fang pendant. Use it as
- * the Black Panther and it flows into his necklace ({@link BlackPanther#bindHabit}); from then on H runs the suit out and the
- * keys switch to the suited moveset. It stays with the power through death; losing the power hands it back as this item.
+ * The Panther Habit: v0.17.4-0.17.6's folded suit, bound into the necklace. v0.17.7 made the suit four wearable armour pieces
+ * ({@link PantherSuitItem}), so the habit has no recipe any more and is only kept so old stacks do not vanish: using it unfolds it
+ * into the four pieces (anyone may). Not in the creative tab.
  */
 public class PantherHabitItem extends Item {
 	public PantherHabitItem(Properties properties) {
@@ -29,13 +29,18 @@ public class PantherHabitItem extends Item {
 	public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
 		ItemStack stack = player.getItemInHand(hand);
 		if (!(player instanceof ServerPlayer sp)) {
-			return BlackPanther.hasPower(player) && !BlackPanther.hasHabit(player) ? InteractionResultHolder.success(stack)
-					: InteractionResultHolder.pass(stack);
-		}
-		if (!BlackPanther.bindHabit(sp)) {
-			return InteractionResultHolder.fail(stack);
+			return InteractionResultHolder.success(stack);
 		}
 		stack.consume(1, player);
+		for (Item piece : new Item[] { BlackPantherItems.SUIT_HELMET, BlackPantherItems.SUIT_CHESTPLATE, BlackPantherItems.SUIT_LEGGINGS,
+				BlackPantherItems.SUIT_BOOTS }) {
+			ItemStack out = new ItemStack(piece);
+			if (!sp.getInventory().add(out)) {
+				sp.drop(out, false);
+			}
+		}
+		level.playSound(null, sp.getX(), sp.getY() + 1.0, sp.getZ(), SoundEvents.ARMOR_EQUIP_NETHERITE.value(), SoundSource.PLAYERS, 0.8f, 1.6f);
+		sp.displayClientMessage(Component.translatable("message.projecthero.black_panther.habit_unfolded").withStyle(ChatFormatting.LIGHT_PURPLE), true);
 		return InteractionResultHolder.success(stack);
 	}
 

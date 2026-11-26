@@ -34,7 +34,8 @@ Every other power is unplaced (no badge) until the user assigns it. Don't place 
 - **Buffs may exceed the base range but never the tier's ultimate max** (Street: 20). Each power has a
   `MAX_HIT` constant applied after its multipliers (Super Soldier: Assemble on the marked -- was Onslaught / Tactical Focus; Stalk, Kimoyo Scan, Target Designation,
   Kinetic Return). Boss caps still apply on top.
-- **Main fighting form only.** Black Panther's unsuited (T'Challa) kit was left as it was: weaker by design.
+- **Main fighting form only.** Black Panther's unsuited (T'Challa) kit was left as it was: weaker by design. (v0.17.7: the user then set
+  both kits' numbers himself, see the Black Panther v0.17.7 table below and `docs/BLACKPANTHER_REFERENCE.md`.)
 - **Toughness ~ full diamond armour** (takes ~30-40% of a 10-damage hit), at most +10 max health.
 - Gear anyone can use (the Punisher guns) was tuned too, since it is the Punisher's kit.
 
@@ -128,6 +129,22 @@ Assemble on top; bosses keep the 6% cap and are never launched.
 | Kinetic Return | max(4, 1.25x shot) + up to 10, no ceiling | max(8, 1.25x shot) + up to 10, max 20 |
 | Stalk / Scan stacking | uncapped (x3 x1.25) | capped at 20 in `BlackPantherCombat.capped` |
 | Suit armour / toughness | +8 / +2 | +12 / +4 |
+
+### Black Panther v0.17.7 (user's numbers, both kits; the suit is now crafted armour)
+| Hit | Before | After |
+|---|---|---|
+| Bare fist unsuited / suited | 3 (+2 herb) / 8 (+5 claws, N toggle) | 5 / 10 (claws always out) |
+| Regeneration unsuited / suited | Herb Vitality 1 hp / 3 s | Regeneration I / II |
+| Warrior's Combo unsuited | 3 / 3 / 5 | 5 / 7 / 10 |
+| Warrior's Combo suited (new on R) | -- (R was Kinetic Pulse) | 8 / 9 / 10 |
+| Kinetic Pulse | 8 on R | 10 on Shift+R (Overload on a full bar) |
+| Leg Sweep | 4 | 7 |
+| Takedown | 7, grab 3.5 | 10, grab 3 |
+| Ground Pound (was Disarm 2) | -- | 9 within 3.5 |
+| Flying Kick (was Backflip) | -- | 10 |
+| Throwing Knife | 5 | 8 |
+| Rising Uppercut (was Shadow Step) | -- | 9 |
+| Block (was Parry) | front melee -60%, perfect parry + riposte 3 | every front hit -60% |
 
 ### Punisher (`PunisherConfig`, `Firearms`, `PunisherWeaponAbilities`)
 | Hit | Before | After |

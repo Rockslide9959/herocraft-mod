@@ -23,20 +23,17 @@ import net.minecraft.util.Mth;
 /**
  * v0.17.3: the Black Panther HUD on the Minecraft-style look of the newest powers ({@link VanillaHud.Stack}, bottom-right):
  * <pre>
- *   BLACK PANTHER
+ *   Black Panther                       v0.17.7 (user): always this title, suit or no suit, and no status words
  *   Absorb  [Hairline ====---]  60%    what the suit can still absorb, only while absorbing
- *   Kinetic [Hairline ======-]  84     the Kinetic charge (purple), in the Hairline style it always had
+ *   Kinetic [Meter ======-]  84        the Kinetic charge (purple), v0.17.7 (user): in the Meter style
  *   +----+----+----+----+----+----+    R G Z X C V: shown move's cooldown (sweep + seconds), the Shift move's as the durability
  *   | R  | G  | Z  | X  | C  | V  |    bar; V lit while stalking / Senses run, C while absorbing; yellow while Shift shows the
  *   +----+----+----+----+----+----+    Shift moves
  * </pre>
- * Kept as they were: the hold-H necklace bar over the hotbar, and the Ancestral Plane (a purple sky over the whole screen for
- * the ten seconds after the soup).
+ * Kept as it was: the Ancestral Plane (a purple sky over the whole screen for the ten seconds after the soup).
  */
 public final class BlackPantherHud {
-	private static final int BAR_H = 3;
 	private static final int NAME = 0xFFE2E2E2;
-	private static final int BAR_BG = 0xAA0C0C0C;
 	private static final int KINETIC = 0xFF9A4CFF;
 	private static final int KINETIC_TEXT = 0xFFC08CFF;
 	private static final int ABSORB = 0xFFD9B8FF;
@@ -65,17 +62,6 @@ public final class BlackPantherHud {
 		if (!s.hasPower || mc.options.hideGui) {
 			return;
 		}
-		float hold = BlackPantherClient.holdProgress();
-		if (hold > 0.1f) {
-			// holding H: a thin bar over the hotbar fills toward the necklace coming off (or going back on) -- kept as it was
-			int w = 82;
-			int x = g.guiWidth() / 2 - w / 2;
-			int y = g.guiHeight() - 62;
-			g.fill(x, y, x + w, y + BAR_H, BAR_BG);
-			g.fill(x, y, x + Math.round(w * hold), y + BAR_H, KINETIC);
-			g.drawCenteredString(mc.font, Component.translatable(s.necklaceOff ? "hud.projecthero.black_panther.necklace_on"
-					: "hud.projecthero.black_panther.necklace_off"), g.guiWidth() / 2, y - 10, NAME);
-		}
 		var exp = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
 		if (exp != null && !exp.activePower.isEmpty()) {
 			return;
@@ -102,15 +88,15 @@ public final class BlackPantherHud {
 
 		if (suited) {
 			st.meter(Component.translatable("hud.projecthero.black_panther.kinetic"), s.kinetic / BlackPantherConfig.KINETIC_MAX, KINETIC,
-					String.valueOf(Math.round(s.kinetic)), KINETIC_TEXT, MutationMeters.Style.HAIRLINE);
+					String.valueOf(Math.round(s.kinetic)), KINETIC_TEXT, MutationMeters.Style.METER);
 			if (s.absorbing) {
 				float left = Mth.clamp(1f - s.absorbed / BlackPantherConfig.ABSORB_MAX, 0f, 1f);
 				st.meter(Component.translatable("hud.projecthero.black_panther.absorb"), left, ABSORB, Math.round(left * 100) + "%", ABSORB,
 						MutationMeters.Style.HAIRLINE);
 			}
 		}
-		st.title(Component.translatable(suited ? "hud.projecthero.black_panther.title" : "hud.projecthero.black_panther.title_unsuited"), NAME);
-		st.tags(passiveTags(p, s, mc.level.getGameTime()));
+		// v0.17.7 (user): "the only text on the hud should be the name of the ability" -- no T'Challa title, no status words
+		st.title(Component.translatable("hud.projecthero.black_panther.title"), NAME);
 
 		if (MoveListOverlay.held()) {
 			List<MoveListOverlay.Row> rows = new ArrayList<>();
@@ -121,61 +107,18 @@ public final class BlackPantherHud {
 							ids.length > 1 ? Component.translatable("projecthero.black_panther.ability." + ids[1]) : null));
 				}
 			}
-			// N has no HUD box (the project rule): the claws and the mask are listed here instead (the suit's)
+			// N has no HUD box (the project rule): the suit's mask (Shift+N) is listed here instead; the claws are always out
 			if (suited) {
-				rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(AbilitySlot.SLOT_8), Component.translatable("projecthero.black_panther.ability.claws"),
-						Component.translatable("projecthero.black_panther.ability.mask")));
+				rows.add(MoveListOverlay.Row.of("Shift+" + MoveListOverlay.key(AbilitySlot.SLOT_8), Component.translatable("projecthero.black_panther.ability.mask"),
+						null));
 			}
-			rows.add(MoveListOverlay.Row.of("Hold " + MoveListOverlay.key(AbilitySlot.SLOT_7),
-					Component.translatable("projecthero.black_panther.ability.necklace"), null));
+			if (suited) {
+				// v0.17.7: Shift+R becomes Kinetic Overload on a full bar
+				rows.add(MoveListOverlay.Row.of("Shift+" + MoveListOverlay.key(AbilitySlot.SLOT_1) + " (full)",
+						Component.translatable("projecthero.black_panther.ability.kinetic_overload"), null));
+			}
 			st.moveList(rows);
 		}
-	}
-
-	private static float lastHealth = -1f;
-	private static long lastDropAt;
-
-	/**
-	 * v0.17.4: the passives working right now, as status words over the HUD title -- Herb (out of the suit), Silent (in it),
-	 * Night Eyes, Healing (Herb Vitality: hurt, and 5 s since the last hit), Hunted xN (Hunter's Instinct), Evade (a Backflip's
-	 * window), Parry, and a grey No suit until the habit is crafted.
-	 */
-	private static List<VanillaHud.Tag> passiveTags(LocalPlayer p, BlackPantherState s, long now) {
-		List<VanillaHud.Tag> tags = new ArrayList<>();
-		float health = p.getHealth();
-		if (lastHealth >= 0f && health < lastHealth - 0.01f) {
-			lastDropAt = now;
-		}
-		lastHealth = health;
-		if (s.suited) {
-			tags.add(tag("silent", 0xFFC08CFF));
-		} else {
-			tags.add(tag("herb", 0xFFB070FF));
-		}
-		if (p.hasEffect(net.minecraft.world.effect.MobEffects.NIGHT_VISION)) {
-			tags.add(tag("night_eyes", 0xFF9AD0FF));
-		}
-		if (health < p.getMaxHealth() && now - lastDropAt >= BlackPantherConfig.HEAL_DELAY) {
-			tags.add(tag("healing", 0xFFFF7A9A));
-		}
-		int hunted = PantherSensesClient.count(com.projecthero.mod.blackpanther.network.PantherSensesPayload.INSTINCT);
-		if (hunted > 0) {
-			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.black_panther.tag.hunted", hunted).getString(), 0xFFFF5040));
-		}
-		if (!s.suited && s.animId == BlackPantherState.ANIM_BACKFLIP && now - s.animStart <= BlackPantherConfig.EVADE_TICKS) {
-			tags.add(tag("evade", 0xFFFFFFFF));
-		}
-		if (!s.suited && s.absorbing) {
-			tags.add(tag("parry", 0xFFFFE08A));
-		}
-		if (!s.suited && !s.habit) {
-			tags.add(tag("no_suit", 0xFF8A8A8A));
-		}
-		return tags;
-	}
-
-	private static VanillaHud.Tag tag(String key, int colour) {
-		return new VanillaHud.Tag(Component.translatable("hud.projecthero.black_panther.tag." + key).getString(), colour);
 	}
 
 	/** The Ancestral Plane: a violet sky with slow stars, fading in and out. */

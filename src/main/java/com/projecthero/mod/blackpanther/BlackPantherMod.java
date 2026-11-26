@@ -4,7 +4,6 @@ import com.mojang.brigadier.arguments.FloatArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.projecthero.mod.blackpanther.entity.BlackPantherEntityTypes;
 import com.projecthero.mod.blackpanther.item.BlackPantherItems;
-import com.projecthero.mod.blackpanther.network.BlackPantherActionPayload;
 import com.projecthero.mod.blackpanther.network.PantherSensesPayload;
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerEntityWorldChangeEvents;
@@ -12,7 +11,6 @@ import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -33,19 +31,8 @@ public final class BlackPantherMod {
 		BlackPantherItems.initialize();
 		BlackPantherEntityTypes.initialize();
 		BlackPantherDamage.initialize();
-		PayloadTypeRegistry.playC2S().register(BlackPantherActionPayload.TYPE, BlackPantherActionPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(PantherSensesPayload.TYPE, PantherSensesPayload.CODEC);
-		ServerPlayNetworking.registerGlobalReceiver(BlackPantherActionPayload.TYPE, (payload, context) -> {
-			ServerPlayer p = context.player();
-			if (!BlackPanther.hasPower(p) || com.projecthero.mod.hero.PowerSuppression.refuse(p, payload.action())) { // Erased
-				return;
-			}
-			if (payload.action() == BlackPantherActionPayload.Action.TOGGLE_SUIT) {
-				BlackPanther.toggleSuit(p);
-			} else if (payload.action() == BlackPantherActionPayload.Action.TOGGLE_NECKLACE) {
-				BlackPanther.toggleNecklace(p);
-			}
-		});
+		// v0.17.7: no H payload any more (the suit is worn armour, not summoned)
 		ServerPlayerEvents.JOIN.register(BlackPanther::onPlayerJoin);
 		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> BlackPanther.onPlayerRespawn(newPlayer));
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {

@@ -28,12 +28,12 @@ public final class BlackPantherState {
 	public static final int ANIM_COMBO = 10;
 	public static final int ANIM_SWEEP = 11;
 	public static final int ANIM_TAKEDOWN = 12;
-	public static final int ANIM_DISARM = 13;
+	public static final int ANIM_GROUND_POUND = 13; // v0.17.7 (was Disarm)
 	public static final int ANIM_VAULT = 14;
-	public static final int ANIM_BACKFLIP = 15;
+	public static final int ANIM_FLYING_KICK = 15; // v0.17.7 (was Backflip)
 	public static final int ANIM_KNIFE = 16;
 	public static final int ANIM_SCAN = 17;
-	public static final int ANIM_RIPOSTE = 18;
+	public static final int ANIM_UPPERCUT = 18; // v0.17.7 Rising Uppercut (was the riposte)
 	public static final int ANIM_RESOLVE = 19;
 	public static final int ANIM_LEAP = 20;
 	public static final int ANIM_FLASH = 21;
@@ -53,16 +53,18 @@ public final class BlackPantherState {
 	public boolean stalking;
 	/** Panther Senses is on (a toggle since the v0.17.3 tester round; it ends when the suit comes off). */
 	public boolean senses;
-	/** N: the vibranium claws are out (the +5 melee only applies while they are). */
+	/** Legacy (the v0.17.3-0.17.6 claw toggle): cleared by the v0.17.7 migration; the claws are always out in the suit now. */
 	public boolean clawsOut;
 	/** Shift+N: the mask is off (the suit's head is not drawn). */
 	public boolean unmasked;
-	/** Hold H: the necklace is off -- no suit and no moves, only the herb's Speed I and Jump Boost I. */
+	/** Legacy (the hold-H necklace toggle, removed in v0.17.7): cleared by the migration. */
 	public boolean necklaceOff;
-	/** v0.17.4: the crafted Panther Habit is in the necklace (H only suits up once it is). */
+	/** Legacy (v0.17.4-0.17.6): the Panther Habit was in the necklace. The v0.17.7 migration hands it back as the four suit pieces. */
 	public boolean habit;
 	/** v0.17.4: this state has been through the habit migration (a power held in 0.17.3 keeps its suit). */
 	public boolean v174;
+	/** v0.17.7: this state has been through the wearable-suit migration (a suit held before is handed back as armour, once). */
+	public boolean v177;
 	/** C is held. */
 	public boolean absorbing;
 	/** Kinetic gained in the current Absorb Stance. */
@@ -95,6 +97,7 @@ public final class BlackPantherState {
 		this.necklaceOff = (flags & 8) != 0;
 		this.habit = (flags & 16) != 0;
 		this.v174 = (flags & 32) != 0;
+		this.v177 = (flags & 64) != 0;
 		this.absorbing = absorbing;
 		this.absorbed = absorbed;
 		this.pulseStart = pulseStart;
@@ -107,9 +110,9 @@ public final class BlackPantherState {
 				stalking, flags(), absorbing, absorbed, pulseStart, pulseRadius, pulsePos);
 	}
 
-	/** The four toggles packed in one int (the codec is at RecordCodecBuilder's 16-field limit). */
+	/** The toggles packed in one int (the codec is at RecordCodecBuilder's 16-field limit). */
 	public int flags() {
-		return (senses ? 1 : 0) | (clawsOut ? 2 : 0) | (unmasked ? 4 : 0) | (necklaceOff ? 8 : 0) | (habit ? 16 : 0) | (v174 ? 32 : 0);
+		return (senses ? 1 : 0) | (clawsOut ? 2 : 0) | (unmasked ? 4 : 0) | (necklaceOff ? 8 : 0) | (habit ? 16 : 0) | (v174 ? 32 : 0) | (v177 ? 64 : 0);
 	}
 
 	public static final Codec<BlackPantherState> CODEC = RecordCodecBuilder.create(i -> i.group(
