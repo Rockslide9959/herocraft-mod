@@ -160,6 +160,7 @@
 		"ShazamCourageMixin",
 		"LivingEntityShazamHitMixin",
 		"PlayerSymbioteMeleeCapMixin",
+		"LivingEntityMutationHitMixin",
 		"VisionPhaseCollideMixin",
 		"VisionPhaseMoveCheckMixin",
 		"VisionProjectilePassMixin"

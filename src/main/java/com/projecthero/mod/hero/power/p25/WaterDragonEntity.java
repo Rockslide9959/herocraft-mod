@@ -185,7 +185,7 @@ public class WaterDragonEntity extends WaterFxEntity {
 	}
 
 	private static void ram(ServerPlayer owner, LivingEntity e, float damage, Vec3 dir, double force) {
-		AbilityHelpers.hurtBurst(owner, e, damage);
+		com.projecthero.mod.hero.power.MutationDamage.hurtBurst(owner, e, damage);
 		e.clearFire();
 		if (!com.projecthero.mod.titanshifter.TitanCombat.isBoss(e) && e.getMaxHealth() <= 200.0f) {
 			Vec3 flat = new Vec3(dir.x, 0, dir.z);

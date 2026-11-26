@@ -184,7 +184,7 @@ public class GeokinesisHoldGameTests implements FabricGameTest {
 			var stones = around(helper, GeoRockEntity.class, p, 4);
 			helper.assertTrue(stones.size() == GeokinesisHandlers.BARRAGE_STONES, "five stones, got " + stones.size());
 			helper.assertTrue(stones.stream().allMatch(GeoRockEntity::orbiting), "circling you first");
-			helper.assertTrue(stones.stream().allMatch(s -> Math.abs(s.damage() - GeokinesisHandlers.BARRAGE_DAMAGE) < 0.01f), "8 each");
+			helper.assertTrue(stones.stream().allMatch(s -> Math.abs(s.damage() - GeokinesisHandlers.BARRAGE_DAMAGE) < 0.01f), "11 each");
 			spent(helper, p, GeokinesisHandlers.COST_BARRAGE);
 			cooling(helper, p, "barrage_cd", GeokinesisHandlers.BARRAGE_CD);
 			// held again while it cools: nothing
@@ -192,7 +192,7 @@ public class GeokinesisHoldGameTests implements FabricGameTest {
 				long mine = around(helper, GeoRockEntity.class, p, 30).stream().filter(r -> r.getOwner() == p).count();
 				helper.assertTrue(mine <= GeokinesisHandlers.BARRAGE_STONES, "no second barrage on cooldown, " + mine + " stones");
 				helper.succeedWhen(() -> helper.assertTrue(Math.abs(g.getHealth() - (100 - 5 * GeokinesisHandlers.BARRAGE_DAMAGE)) < 0.05f,
-						"all five land: 40, golem at " + g.getHealth()));
+						"all five land: 55, golem at " + g.getHealth()));
 			});
 		});
 	}
@@ -253,7 +253,7 @@ public class GeokinesisHoldGameTests implements FabricGameTest {
 					helper.assertTrue(rel < 10.0 && p.getZ() - startZ > 5.0, "stopped short of the bedrock, at z " + rel);
 					helper.assertTrue(p.getY() >= surface - 0.05, "back on the surface, at y " + p.getY());
 					helper.assertTrue(Math.abs(g.getHealth() - (100 - GeokinesisHandlers.BURST_DAMAGE)) < 0.05f,
-							"the burst hits the golem for 10, at " + g.getHealth());
+							"the burst hits the golem for 11, at " + g.getHealth());
 				});
 			});
 		});
@@ -277,7 +277,7 @@ public class GeokinesisHoldGameTests implements FabricGameTest {
 							"the crack is open 3 deep along your look");
 				}
 				helper.assertTrue(level.getBlockState(p.blockPosition().below()).is(Blocks.STONE), "never under you");
-				helper.assertTrue(Math.abs(g.getHealth() - (100 - GeokinesisHandlers.FISSURE_DAMAGE)) < 0.05f, "16 damage, golem at " + g.getHealth());
+				helper.assertTrue(Math.abs(g.getHealth() - (100 - GeokinesisHandlers.FISSURE_DAMAGE)) < 0.05f, "15 damage, golem at " + g.getHealth());
 				double floor = helper.absoluteVec(new Vec3(0, 2 - GeokinesisHandlers.FISSURE_DEPTH, 0)).y;
 				helper.assertTrue(g.getY() < floor + 0.5, "it dropped 3 blocks in, at " + g.getY());
 				helper.runAfterDelay(GeokinesisHandlers.FISSURE_TICKS, () -> {

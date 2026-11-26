@@ -196,7 +196,7 @@ public final class ElectrokinesisHandlers {
 
 	/** One Electrokinesis hit: damage, then a static stack. Returns true if it landed. */
 	private static boolean zap(ServerPlayer p, LivingEntity target, float base) {
-		boolean hit = AbilityHelpers.hurt(p, target, AbilityHelpers.kinetic(p), damage(p, target, base));
+		boolean hit = com.projecthero.mod.hero.power.MutationDamage.hurt(p, target, AbilityHelpers.kinetic(p), damage(p, target, base));
 		addStack(p, target, 1);
 		return hit;
 	}
@@ -577,7 +577,7 @@ public final class ElectrokinesisHandlers {
 			for (LivingEntity e : stacked) {
 				int n = consumeStacks(e);
 				float dmg = (OVERCHARGE_PER_STACK * n + chargedBonus(p) * 0.5f) * PowerCombos.wetElectricMultiplier(p, e);
-				AbilityHelpers.hurtBurst(p, e, AbilityHelpers.kinetic(p), dmg);
+				com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, AbilityHelpers.kinetic(p), dmg);
 				AbilityHelpers.knockbackFrom(e, p.position(), 0.4 + 0.4 * n);
 				if (n >= MAX_STACKS) {
 					stun(level, e);
@@ -643,7 +643,7 @@ public final class ElectrokinesisHandlers {
 		AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
 			if (!world.isClientSide() && player instanceof ServerPlayer sp && chargedModeActive(sp)
 					&& entity instanceof LivingEntity le) {
-				AbilityHelpers.hurt(sp, le, AbilityHelpers.kinetic(sp), 3.0f);
+				com.projecthero.mod.hero.power.MutationDamage.hurt(sp, le, AbilityHelpers.kinetic(sp), 3.0f);
 				addStack(sp, le, 1);
 			}
 			return InteractionResult.PASS;
@@ -786,7 +786,7 @@ public final class ElectrokinesisHandlers {
 		Vec3 at = AbilityHelpers.aimPoint(p, 40.0);
 		strikeVisual(level, at, p);
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, at, 5.0)) {
-			AbilityHelpers.hurtBurst(p, e, AbilityHelpers.kinetic(p), damage(p, e, STORM_STRIKE));
+			com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, AbilityHelpers.kinetic(p), damage(p, e, STORM_STRIKE));
 			addStack(p, e, 2);
 		}
 		if (AbilityHelpers.canGrief()) {
@@ -833,7 +833,7 @@ public final class ElectrokinesisHandlers {
 			}
 		}
 		strikeVisual(st.level, pick.position(), p);
-		AbilityHelpers.hurtBurst(p, pick, AbilityHelpers.kinetic(p), damage(p, pick, STORM_FOLLOW_UP));
+		com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, pick, AbilityHelpers.kinetic(p), damage(p, pick, STORM_FOLLOW_UP));
 		addStack(p, pick, 1);
 	}
 

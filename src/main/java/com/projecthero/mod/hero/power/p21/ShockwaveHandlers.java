@@ -187,7 +187,7 @@ public final class ShockwaveHandlers {
 		ExperimentalPowers.setResource(p, power, "parry_until", 0, 1.0e12f);
 		storeKinetic(p, amount * 2.0f);
 		if (attacker != null && attacker != p) {
-			AbilityHelpers.hurt(p, attacker, 5.0f);
+			com.projecthero.mod.hero.power.MutationDamage.hurt(p, attacker, 5.0f);
 			AbilityHelpers.knockbackFrom(attacker, p.position(), 2.5);
 			AbilityHelpers.push(attacker, new Vec3(0, 0.3, 0));
 			AbilityHelpers.applyControl(attacker, MobEffects.MOVEMENT_SLOWDOWN, 30, 3);
@@ -240,7 +240,7 @@ public final class ShockwaveHandlers {
 				if (to.normalize().dot(look) < 0.55) {
 					continue;
 				}
-				AbilityHelpers.hurt(p, e, PUNCH_DAMAGE * mult);
+				com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, PUNCH_DAMAGE * mult);
 				AbilityHelpers.knockbackFrom(e, eye, 1.3 * mult);
 				lastHit = e.position();
 			}
@@ -268,7 +268,7 @@ public final class ShockwaveHandlers {
 				float mult = boost(ctx, 15.0f, 0.5f);
 				if (p.isShiftKeyDown()) {
 					for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), 8.0)) {
-						AbilityHelpers.hurt(p, e, BURST_DAMAGE * mult);
+						com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, BURST_DAMAGE * mult);
 						AbilityHelpers.push(e, new Vec3(0, 0.6, 0));
 						AbilityHelpers.knockbackFrom(e, p.position(), 0.8);
 					}
@@ -313,7 +313,7 @@ public final class ShockwaveHandlers {
 			if (big) {
 				ctx.addResource("charge", -10.0f, MAX_CHARGE);
 				for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), 3.0)) {
-					AbilityHelpers.hurt(p, e, 6.0f);
+					com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, 6.0f);
 					AbilityHelpers.knockbackFrom(e, p.position(), 1.2);
 				}
 			}
@@ -391,7 +391,7 @@ public final class ShockwaveHandlers {
 					ctx.setResource("charge", 0, MAX_CHARGE);
 					double r = 20.0;
 					for (LivingEntity e : AbilityHelpers.hostilesAround(p, p.position(), r)) {
-						AbilityHelpers.hurtBurst(p, e, DETONATION_DAMAGE);
+						com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, DETONATION_DAMAGE);
 						AbilityHelpers.knockbackFrom(e, p.position(), 3.0);
 						AbilityHelpers.push(e, new Vec3(0, 0.8, 0));
 						AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 40, 1);
@@ -584,7 +584,7 @@ public final class ShockwaveHandlers {
 		Vec3 pt = new Vec3(w.x, w.y, w.z);
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, pt.add(0, 0.8, 0), 2.2)) {
 			if (w.hit.add(e.getId())) {
-				AbilityHelpers.hurt(p, e, w.damage);
+				com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, w.damage);
 				AbilityHelpers.knockbackFrom(e, pt, 1.4);
 				AbilityHelpers.push(e, new Vec3(0, 0.35, 0));
 				recordImpact(p, e.position());
@@ -616,7 +616,7 @@ public final class ShockwaveHandlers {
 		}
 		AFTERSHOCKS.remove(p.getUUID());
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, a.pos().add(0, 0.8, 0), 5.0)) {
-			AbilityHelpers.hurtBurst(p, e, a.damage());
+			com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, a.damage());
 			AbilityHelpers.push(e, new Vec3(0, 0.75, 0));
 			AbilityHelpers.knockbackFrom(e, a.pos(), 0.8);
 		}

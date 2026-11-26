@@ -175,7 +175,7 @@ public class TidalWaveEntity extends WaterFxEntity {
 					continue;
 				}
 				if (hit.add(le.getId())) {
-					AbilityHelpers.hurtBurst(owner, le, damage());
+					com.projecthero.mod.hero.power.MutationDamage.hurtBurst(owner, le, damage());
 				}
 				le.clearFire(); // v0.16.6: every pass of the wall puts fire out, not only the one that hits
 				le.fallDistance = 0;

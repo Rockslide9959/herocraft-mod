@@ -192,7 +192,7 @@ public class WaterCloneEntity extends PathfinderMob implements TraceableEntity {
 	public float hitDamage() {
 		Player o = owner();
 		double base = o == null ? 1.0 : o.getAttributeValue(Attributes.ATTACK_DAMAGE);
-		return (float) (base * WaterHandlers.CLONE_DAMAGE_FACTOR);
+		return com.projecthero.mod.hero.power.MutationDamage.cap((float) (base * WaterHandlers.CLONE_DAMAGE_FACTOR));
 	}
 
 	@Override

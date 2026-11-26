@@ -144,7 +144,7 @@ public class IceSpikeEntity extends Entity {
 			if (e.getY() > base.y + height() + 0.5 || !hitSet.add(e)) {
 				continue;
 			}
-			if (AbilityHelpers.hurtBurst(owner, e, damage) || e instanceof net.minecraft.world.entity.player.Player) {
+			if (com.projecthero.mod.hero.power.MutationDamage.hurtBurst(owner, e, damage) || e instanceof net.minecraft.world.entity.player.Player) {
 				FrostStacks.add(owner, e, frost);
 			}
 			AbilityHelpers.push(e, new Vec3(0, 0.55, 0));

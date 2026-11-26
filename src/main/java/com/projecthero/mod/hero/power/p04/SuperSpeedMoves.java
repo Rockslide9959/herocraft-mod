@@ -83,7 +83,7 @@ public final class SuperSpeedMoves {
 	public static final int VORTEX_TICKS = 3 * 20;
 	public static final double VORTEX_RADIUS = 8.0;
 	public static final float VORTEX_TICK_DAMAGE = 3.0f;
-	public static final float VORTEX_FINAL_DAMAGE = 8.0f;
+	public static final float VORTEX_FINAL_DAMAGE = 11.0f; // v0.17.7 City (was 8); the 3 a half-second drag is a DoT
 
 	public static final String SWEEP_READY = "sweep_ready";
 	public static final int SWEEP_CD = 10 * 20; // v0.14.13: was 20 s
@@ -101,10 +101,31 @@ public final class SuperSpeedMoves {
 	public static final int LIGHTNING_CD = 12 * 20;
 	public static final int LIGHTNING_CHARGE_TICKS = 20;
 	public static final double LIGHTNING_RANGE = 48.0;
-	public static final float LIGHTNING_DAMAGE = 24.0f;
+	public static final float LIGHTNING_DAMAGE = 15.0f; // v0.17.7 City (was 24)
 	public static final int LIGHTNING_CHAINS = 3;
 	public static final double LIGHTNING_CHAIN_RADIUS = 6.0;
-	public static final float LIGHTNING_CHAIN_DAMAGE = 12.0f;
+	public static final float LIGHTNING_CHAIN_DAMAGE = 11.0f; // v0.17.7 City (was 12)
+
+	/**
+	 * v0.17.7 City tier: the mutation's own numbers. The constants above stay what the Speed Force Speedster borrows (its own
+	 * damage scale sits on them; XLR8 has his own), so only the Super Speed mutation moves to City's ranges.
+	 */
+	public static final float CITY_PUNCH = 11.0f; // Rapid Assault, each of the 4 (was 5)
+	public static final float CITY_BLITZ = 15.0f; // was 20
+	public static final float CITY_BLITZ_AOE = 11.0f; // was 10
+	public static final float CITY_MACH = 15.0f; // was 20
+	public static final float CITY_MACH_SHOCKWAVE = 11.0f; // was 6
+	public static final float CITY_SWEEP = 14.0f; // was 15
+
+	/** Moves borrowed by the Speed Force Speedster or XLR8 keep their numbers (and are not capped as a mutation). */
+	public static boolean borrowed(net.minecraft.world.entity.player.Player p) {
+		return com.projecthero.mod.speedforce.SpeedForceSpeedster.hasPower(p) || com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.is(p);
+	}
+
+	/** The mutation's City value, or the borrowed value for the Speed Force Speedster / XLR8. */
+	public static float city(net.minecraft.world.entity.player.Player p, float cityValue, float borrowedValue) {
+		return borrowed(p) ? borrowedValue : cityValue;
+	}
 
 	/** v0.17.1 Shift+V Afterimage Decoys: three images that hold every foe's attention for 6 s. */
 	public static final String DECOY_READY = "decoy_ready";
@@ -244,7 +265,7 @@ public final class SuperSpeedMoves {
 		}
 		int saved = target.invulnerableTime;
 		target.invulnerableTime = 0;
-		boolean dealt = AbilityHelpers.hurt(p, target, amount);
+		boolean dealt = borrowed(p) ? AbilityHelpers.hurt(p, target, amount) : com.projecthero.mod.hero.power.MutationDamage.hurt(p, target, amount);
 		if (!dealt) {
 			target.invulnerableTime = saved;
 		}
@@ -461,7 +482,7 @@ public final class SuperSpeedMoves {
 		// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): XLR8's
 		// borrowed Blitz hits for his own 14 (and 8 round it); Super Speed's own stays BLITZ_DAMAGE / BLITZ_AOE_DAMAGE
 		punchThrough(p, target, (com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.is(p) ? com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.BLITZ_HIT * com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.damageScale(p) // v0.17.2: XLR8 Overdrive +50%
-				: BLITZ_DAMAGE) * mult(p));
+				: city(p, CITY_BLITZ, BLITZ_DAMAGE)) * mult(p));
 		AbilityHelpers.knockbackFrom(target, spot, BLITZ_KNOCKBACK);
 		AbilityHelpers.push(target, new Vec3(0, 0.35, 0));
 		Vec3 c = center(target);
@@ -480,7 +501,7 @@ public final class SuperSpeedMoves {
 		ServerLevel level = p.serverLevel();
 		for (LivingEntity e : AbilityHelpers.living(level, c, BLITZ_AOE_RADIUS, e -> e != target && validFoe(p, e))) {
 			punchThrough(p, e, (com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.is(p) ? com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.BLITZ_AOE * com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.damageScale(p)
-					: BLITZ_AOE_DAMAGE) * mult(p));
+					: city(p, CITY_BLITZ_AOE, BLITZ_AOE_DAMAGE)) * mult(p));
 			AbilityHelpers.knockbackFrom(e, c, BLITZ_AOE_KNOCKBACK);
 			AbilityHelpers.push(e, new Vec3(0, 0.25, 0));
 		}
@@ -516,7 +537,7 @@ public final class SuperSpeedMoves {
 	 * the runner is going, 0..1 -- the knockback and the ring grow with it). The foe in front within 5 blocks, or the air.
 	 */
 	public static void machPunchCore(ServerPlayer p, float frac) {
-		float damage = (MACH_MIN + (MACH_MAX - MACH_MIN) * frac) * com.projecthero.mod.speedforce.SpeedForceSpeedster.damageScale(p);
+		float damage = (borrowed(p) ? MACH_MIN + (MACH_MAX - MACH_MIN) * frac : CITY_MACH) * com.projecthero.mod.speedforce.SpeedForceSpeedster.damageScale(p);
 		ServerLevel level = p.serverLevel();
 		Vec3 look = p.getLookAngle();
 		LivingEntity target = aimTarget(p, 5.0);
@@ -536,7 +557,7 @@ public final class SuperSpeedMoves {
 			// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): XLR8's
 			// shockwave is his own 8 (Super Speed's own stays MACH_SHOCKWAVE)
 			float shock = com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.is(p) ? com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.MACH_SHOCK
-					: MACH_SHOCKWAVE;
+					: city(p, CITY_MACH_SHOCKWAVE, MACH_SHOCKWAVE);
 			punchThrough(p, e, shock * com.projecthero.mod.speedforce.SpeedForceSpeedster.damageScale(p));
 			AbilityHelpers.knockbackFrom(e, impact, 1.2 + frac);
 		}
@@ -812,7 +833,7 @@ public final class SuperSpeedMoves {
 			// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): XLR8's
 			// sweep lands his own 26 a foe (Super Speed's own stays SWEEP_DAMAGE)
 			punchThrough(p, le, (com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.is(p) ? com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.SWEEP_HIT * com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.damageScale(p) // v0.17.2: XLR8 Overdrive +50%
-					: SWEEP_DAMAGE) * mult(p));
+					: city(p, CITY_SWEEP, SWEEP_DAMAGE)) * mult(p));
 			s.targets.hit(le.getId());
 			AbilityHelpers.knockbackFrom(le, spot, 0.35);
 			Vec3 c = center(le);

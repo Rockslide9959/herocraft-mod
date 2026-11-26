@@ -150,7 +150,7 @@ public class WindBladeEntity extends Entity {
 				continue;
 			}
 			cut.add(e.getId());
-			if (AbilityHelpers.hurtBurst(p, e, damage)) {
+			if (com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, damage)) {
 				Vec3 push = getDeltaMovement().normalize().scale(0.35);
 				e.push(push.x, 0.12, push.z);
 				e.hurtMarked = true;

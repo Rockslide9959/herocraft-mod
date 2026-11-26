@@ -179,7 +179,7 @@ public final class SonicScreamHandlers {
 			for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.getEyePosition().add(p.getLookAngle().scale(range * 0.6)),
 					range * 0.7)) {
 				if (inCone(p, e, 0.5, range + 1.0)) {
-					AbilityHelpers.hurt(p, e, BLAST_DAMAGE);
+					com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, BLAST_DAMAGE);
 					AbilityHelpers.knockbackFrom(e, p.position(), 1.5);
 					staticStun(e);
 				}
@@ -202,7 +202,7 @@ public final class SonicScreamHandlers {
 			double len = mouth(p).distanceTo(end);
 			soundTrail(ctx.level(), mouth(p), end.subtract(mouth(p)), len, 0.35, 0.02, 1.5);
 			if (t != null) {
-				AbilityHelpers.hurt(p, t, FOCUSED_DAMAGE);
+				com.projecthero.mod.hero.power.MutationDamage.hurt(p, t, FOCUSED_DAMAGE);
 				AbilityHelpers.knockbackFrom(t, p.position(), 1.0);
 				AbilityHelpers.applyControl(t, MobEffects.CONFUSION, 80, 0);
 				staticStun(t);
@@ -225,7 +225,7 @@ public final class SonicScreamHandlers {
 			} else {
 				AbilityHelpers.launchSelf(p, new Vec3(p.getDeltaMovement().x, 1.35, p.getDeltaMovement().z));
 				for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), 3.0)) {
-					AbilityHelpers.hurt(p, e, 4.0f);
+					com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, 4.0f);
 					AbilityHelpers.knockbackFrom(e, p.position(), 1.2);
 				}
 				for (int i = 1; i <= 3; i++) {
@@ -334,7 +334,7 @@ public final class SonicScreamHandlers {
 				}
 			}
 			for (LivingEntity e : AbilityHelpers.enemiesAround(p, at, 3.5)) {
-				AbilityHelpers.hurt(p, e, 6.0f);
+				com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, 6.0f);
 				AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 40, 5);
 				AbilityHelpers.applyControl(e, MobEffects.CONFUSION, 60, 0);
 				if (e instanceof Mob mob) {
@@ -537,7 +537,7 @@ public final class SonicScreamHandlers {
 				if (!b.contains(e.position().add(0, e.getBbHeight() * 0.5, 0))) {
 					continue;
 				}
-				AbilityHelpers.hurt(owner, e, 3.0f);
+				com.projecthero.mod.hero.power.MutationDamage.hurt(owner, e, 3.0f);
 				Vec3 away = e.position().subtract(b.centre).dot(b.normal) >= 0 ? b.normal : b.normal.reverse();
 				AbilityHelpers.push(e, away.scale(1.1).add(0, 0.25, 0));
 			}
@@ -555,7 +555,7 @@ public final class SonicScreamHandlers {
 		long until = level.getGameTime() + 60;
 		int n = 0;
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), radius)) {
-			AbilityHelpers.hurt(p, e, 4.0f);
+			com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, 4.0f);
 			AbilityHelpers.applyControl(e, MobEffects.CONFUSION, 120, 0);
 			AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 60, 0);
 			if (e instanceof Mob mob) {
@@ -635,7 +635,7 @@ public final class SonicScreamHandlers {
 		if (shift) {
 			double r = 20.0;
 			for (LivingEntity e : AbilityHelpers.hostilesAround(p, p.position(), r)) {
-				AbilityHelpers.hurtBurst(p, e, SUPERSONIC_RADIAL);
+				com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, SUPERSONIC_RADIAL);
 				AbilityHelpers.knockbackFrom(e, p.position(), 2.4);
 				AbilityHelpers.applyControl(e, MobEffects.CONFUSION, 120, 0);
 				staticStun(e);
@@ -659,7 +659,7 @@ public final class SonicScreamHandlers {
 			if (to.length() > r || to.normalize().dot(look) < 0.6) {
 				continue;
 			}
-			AbilityHelpers.hurtBurst(p, e, SUPERSONIC_CONE);
+			com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, SUPERSONIC_CONE);
 			AbilityHelpers.knockbackFrom(e, p.position(), 3.0);
 			AbilityHelpers.applyControl(e, MobEffects.CONFUSION, 120, 0);
 			staticStun(e);

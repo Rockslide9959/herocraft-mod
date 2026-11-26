@@ -111,7 +111,7 @@ public class IceBoltEntity extends ThrowableProjectile {
 		}
 		if (getOwner() instanceof ServerPlayer p && AbilityHelpers.asLiving(result.getEntity()) instanceof LivingEntity e) {
 			// every shard of a volley lands (hurtBurst skips the hit window a shard ahead of it opened)
-			boolean landed = kind() == SHARD ? AbilityHelpers.hurtBurst(p, e, damage) : AbilityHelpers.hurtLands(p, e, damage);
+			boolean landed = kind() == SHARD ? com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, damage) : com.projecthero.mod.hero.power.MutationDamage.hurtLands(p, e, damage);
 			if (landed || e instanceof net.minecraft.world.entity.player.Player) {
 				FrostStacks.add(p, e, frost);
 			}

@@ -140,7 +140,7 @@ public class ThrownChunkEntity extends Entity {
 		Vec3 at = position().add(0, 0.4 * scale(), 0);
 		if (thrower != null) {
 			if (struck != null) {
-				AbilityHelpers.hurtBurst(thrower, struck, damage);
+				com.projecthero.mod.hero.power.MutationDamage.hurtBurst(thrower, struck, damage);
 				AbilityHelpers.knockbackFrom(struck, position().subtract(getDeltaMovement()), 1.4);
 			}
 			if (splashRadius > 0 && splashDamage > 0) {
@@ -148,7 +148,7 @@ public class ThrownChunkEntity extends Entity {
 					if (e == struck) {
 						continue;
 					}
-					AbilityHelpers.hurt(thrower, e, splashDamage);
+					com.projecthero.mod.hero.power.MutationDamage.hurt(thrower, e, splashDamage);
 					AbilityHelpers.knockbackFrom(e, at, 1.0);
 					AbilityHelpers.push(e, new Vec3(0, 0.35, 0));
 				}

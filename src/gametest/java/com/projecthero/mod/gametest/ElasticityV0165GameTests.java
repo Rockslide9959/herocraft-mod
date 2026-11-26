@@ -192,7 +192,7 @@ public class ElasticityV0165GameTests implements FabricGameTest {
 		assertNear(helper, ElasticityHandlers.PUNCH_DAMAGE, before - g.getHealth(), "a tapped Stretch Punch");
 		helper.assertTrue(ElasticityHandlers.armStretched(p) && ElasticityHandlers.armLength(p) > 4.0f,
 				"the arm is drawn stretched out to the target, got " + ElasticityHandlers.armLength(p));
-		helper.assertTrue(ElasticityHandlers.punchDamage(1.0f) == 24.0f, "fully coiled: 24");
+		helper.assertTrue(ElasticityHandlers.punchDamage(1.0f) == 15.0f, "fully coiled: 15 (v0.17.7 City)");
 		// a real 1.5 s coil
 		IronGolem g2 = dummy(helper, 2, 7);
 		g.discard();
@@ -202,7 +202,7 @@ public class ElasticityV0165GameTests implements FabricGameTest {
 		helper.assertTrue(res(p, "coil_kind") > 0.5f, "holding R coils");
 		helper.runAfterDelay(32, () -> {
 			AbilityRouter.handleInput(p, 1, false);
-			assertNear(helper, 24.0f, before2 - g2.getHealth(), "a fully coiled Stretch Punch");
+			assertNear(helper, ElasticityHandlers.PUNCH_DAMAGE_COILED, before2 - g2.getHealth(), "a fully coiled Stretch Punch");
 			helper.succeed();
 		});
 	}
@@ -215,7 +215,7 @@ public class ElasticityV0165GameTests implements FabricGameTest {
 		press(p, 4); // Z tapped: an uncoiled Hammer Fist
 		assertNear(helper, ElasticityHandlers.HAMMER_DAMAGE_MIN, h0 - g.getHealth(), "an uncoiled Hammer Fist");
 		helper.assertTrue(res(p, "hammer_cd") > 150.0f, "the Hammer Fist has its 8s cooldown");
-		helper.assertTrue(ElasticityHandlers.hammerDamage(1.0f) == 34.0f, "fully coiled: 34");
+		helper.assertTrue(ElasticityHandlers.hammerDamage(1.0f) == 15.0f, "fully coiled: 15 (v0.17.7 City)");
 		helper.assertTrue(g.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "plus Slowness");
 
 		float h1 = g.getHealth();
@@ -241,7 +241,7 @@ public class ElasticityV0165GameTests implements FabricGameTest {
 		bowled.setPos(p.getX() + 0.6, p.getY(), p.getZ());
 		float h3 = bowled.getHealth();
 		ElasticityHandlers.ballBowl(p, helper.getLevel());
-		assertNear(helper, ElasticityHandlers.BALL_HIT_DAMAGE, h3 - bowled.getHealth(), "the ball bowls through for 6");
+		assertNear(helper, ElasticityHandlers.BALL_HIT_DAMAGE, h3 - bowled.getHealth(), "the ball bowls through for 11");
 		// v0.16.5 (user): no time limit -- it drains 3 Stretch a second instead (and nothing refills meanwhile)
 		float st = ElasticityHandlers.stretch(p);
 		tick(p, 200);
@@ -328,8 +328,8 @@ public class ElasticityV0165GameTests implements FabricGameTest {
 		helper.assertTrue(arrow.getOwner() == p && arrow.getDeltaMovement().z > 0, "back at its shooter, and it is the hero's now");
 		helper.assertTrue(ElasticityHandlers.damageFactor(p, p.damageSources().arrow(arrow, shooter)) < 0.0f,
 				"a projectile that still reaches the balloon is bounced, not taken");
-		assertNear(helper, 0.75f * 0.4f, ElasticityHandlers.damageFactor(p, p.damageSources().mobAttack(shooter)),
-				"melee on the balloon: blunt -25%, then -60%");
+		assertNear(helper, 0.75f * 0.5f, ElasticityHandlers.damageFactor(p, p.damageSources().mobAttack(shooter)),
+				"melee on the balloon: blunt -25%, then -50% (v0.17.7 City)");
 		AbilityRouter.handleInput(p, 5, false);
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.MOVEMENT_SPEED) - speedBefore) < 1.0e-6, "the slow is gone on release");
 		helper.succeed();

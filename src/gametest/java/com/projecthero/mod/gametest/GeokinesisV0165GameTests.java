@@ -216,7 +216,7 @@ public class GeokinesisV0165GameTests implements FabricGameTest {
 		GeoBoulderEntity b = boulders.get(0);
 		int hit = b.shatter(helper.getLevel(), g.position());
 		helper.assertTrue(hit == 1, "the shatter hits the golem");
-		assertNear(helper, 74, g.getHealth(), "26 damage");
+		assertNear(helper, 85, g.getHealth(), "15 damage");
 		helper.assertTrue(!around(helper, GeoRockEntity.class, p, 16).isEmpty(), "it bursts into shards");
 		helper.assertTrue(b.isRemoved(), "the boulder is gone");
 		tick(p, 1);
@@ -358,7 +358,7 @@ public class GeokinesisV0165GameTests implements FabricGameTest {
 		shiftPress(p, 4);
 		assertNear(helper, 75, res(p, "earth"), "25 Earth");
 		helper.succeedWhen(() -> {
-			assertNear(helper, 82, g.getHealth(), "18 from the spike line");
+			assertNear(helper, 85, g.getHealth(), "15 from the spike line");
 			helper.assertTrue(around(helper, GeoFormEntity.class, p, 14).stream().anyMatch(f -> f.kind() == GeoFormEntity.SPIKE),
 					"spike models");
 		});

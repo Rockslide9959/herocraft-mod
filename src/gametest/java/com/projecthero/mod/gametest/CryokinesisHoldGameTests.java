@@ -193,9 +193,9 @@ public class CryokinesisHoldGameTests implements FabricGameTest {
 		});
 		helper.runAfterDelay(HoldTap.HOLD_TICKS + 1 + IceJavelinEntity.CHARGE_TICKS + 20, () -> {
 			for (int i = 0; i < 4; i++) {
-				// 18 less the zombie's armour (and any freeze sting): at least 15 off
-				helper.assertTrue(line[i].getHealth() < 20.0f - 15.0f,
-						"zombie " + i + " takes 18 (less armour), has " + line[i].getHealth() + " all: " + java.util.Arrays.stream(line).map(z -> z.getHealth() + "/" + FrostStacks.stacks(z)).toList());
+				// v0.17.7 City: 15 less the zombie's armour (and any freeze sting): at least 13 off
+				helper.assertTrue(line[i].getHealth() < 20.0f - 13.0f,
+						"zombie " + i + " takes 15 (less armour), has " + line[i].getHealth() + " all: " + java.util.Arrays.stream(line).map(z -> z.getHealth() + "/" + FrostStacks.stacks(z)).toList());
 				helper.assertTrue(FrostStacks.stacks(line[i]) == CryokinesisHandlers.JAVELIN_FROST, "zombie " + i + " takes 3 Frost, has "
 						+ FrostStacks.stacks(line[i]));
 			}

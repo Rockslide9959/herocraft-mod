@@ -92,7 +92,7 @@ public class WaterPrisonEntity extends WaterFxEntity {
 
 	/** One second of drowning: 4. */
 	public void squeeze(ServerPlayer owner, LivingEntity t) {
-		AbilityHelpers.hurtBurst(owner, t, owner.level().damageSources().source(DamageTypes.DROWN, owner),
+		com.projecthero.mod.hero.power.MutationDamage.hurtBurst(owner, t, owner.level().damageSources().source(DamageTypes.DROWN, owner),
 				WaterHandlers.PRISON_DAMAGE_PER_SECOND);
 		Vec3 m = mid(t);
 		((ServerLevel) level()).sendParticles(ParticleTypes.BUBBLE_COLUMN_UP, m.x, m.y, m.z, 10, 0.25, 0.3, 0.25, 0.1);

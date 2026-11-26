@@ -199,7 +199,7 @@ public class GeoBoulderEntity extends ThrowableItemProjectile {
 		int hit = 0;
 		if (getOwner() instanceof ServerPlayer p) {
 			for (LivingEntity e : AbilityHelpers.enemiesAround(p, at, RADIUS)) {
-				if (AbilityHelpers.hurtLands(p, e, damage)) {
+				if (com.projecthero.mod.hero.power.MutationDamage.hurtLands(p, e, damage)) {
 					hit++;
 				}
 				AbilityHelpers.knockbackFrom(e, at, 1.1);

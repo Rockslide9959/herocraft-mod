@@ -89,7 +89,7 @@ public final class CryokinesisHandlers {
 	public static final float COST_SHATTER = 20.0f;
 
 	// ---- R: Ice Bolt / Ice Shards ----
-	public static final float BOLT_DAMAGE = 10.0f;
+	public static final float BOLT_DAMAGE = 11.0f; // v0.17.7 City (was 10)
 	public static final int BOLT_FROST = 1;
 	private static final float BOLT_SPEED = 1.6f;
 	public static final int SHARD_COUNT = 7;
@@ -121,7 +121,7 @@ public final class CryokinesisHandlers {
 	private static final int FALL_GRACE_TICKS = 3 * 20;
 
 	// ---- Z: Glacier Spikes / Absolute Zero ----
-	public static final float SPIKES_DAMAGE = 16.0f;
+	public static final float SPIKES_DAMAGE = 15.0f; // v0.17.7 City (was 16)
 	public static final int SPIKES_FROST = 2;
 	public static final int SPIKES_LENGTH = 12;
 	public static final double ZERO_RADIUS = 8.0;
@@ -135,14 +135,14 @@ public final class CryokinesisHandlers {
 	public static final float ARMOR_ABSORPTION = 16.0f;
 
 	// ---- C: Ice Blade / Shatter ----
-	public static final float BLADE_DAMAGE = 8.0f;
+	public static final float BLADE_DAMAGE = 11.0f; // v0.17.7 City: a 12 bare-handed swing (was +8)
 	public static final double SHATTER_RADIUS = 10.0;
-	public static final float SHATTER_DAMAGE = 20.0f;
+	public static final float SHATTER_DAMAGE = 15.0f; // v0.17.7 City: 15, 30 on the frozen (was 20 / 40)
 
 	// ---- v0.16.6 hold moves (HoldTap: hold the key 0.6 s), see CryoHoldMoves ----
-	/** R held: Ice Javelin -- pierces up to 4, 18 damage + 3 Frost each. */
+	/** R held: Ice Javelin -- pierces up to 4, 15 damage + 3 Frost each. */
 	public static final float COST_JAVELIN = 25.0f;
-	public static final float JAVELIN_DAMAGE = 18.0f;
+	public static final float JAVELIN_DAMAGE = 15.0f; // v0.17.7 City (was 18)
 	public static final int JAVELIN_FROST = 3;
 	public static final int JAVELIN_PIERCE = 4;
 	public static final int JAVELIN_CD = 6 * 20;
@@ -169,11 +169,11 @@ public final class CryokinesisHandlers {
 	public static final double FORTRESS_RADIUS = 4.0;
 	public static final int FORTRESS_TTL = 15 * 20;
 	public static final int FORTRESS_CD = 25 * 20;
-	/** C held: Ice Golem -- 20 s, 60 HP, 10-damage punches (+1 Frost). */
+	/** C held: Ice Golem -- 20 s, 60 HP, 11-damage punches (+1 Frost). */
 	public static final float COST_GOLEM = 50.0f;
 	public static final int GOLEM_TICKS = 20 * 20;
 	public static final double GOLEM_HEALTH = 60.0;
-	public static final double GOLEM_DAMAGE = 10.0;
+	public static final double GOLEM_DAMAGE = 11.0; // v0.17.7 City (was 10)
 	public static final int GOLEM_FROST = 1;
 	public static final int GOLEM_CD = 40 * 20;
 	/** The hold moves' cooldown timers (resources ticked down by the upkeep). */
@@ -1147,7 +1147,7 @@ public final class CryokinesisHandlers {
 			if (wasFrozen) {
 				frozen++;
 			}
-			AbilityHelpers.hurtBurst(p, e, wasFrozen ? SHATTER_DAMAGE * 2 : SHATTER_DAMAGE);
+			com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, wasFrozen ? SHATTER_DAMAGE * 2 : SHATTER_DAMAGE);
 			Vec3 c = mid(e);
 			int n = wasFrozen ? 9 : 4;
 			for (int i = 0; i < n; i++) {

@@ -85,8 +85,8 @@ public final class WindHandlers {
 	public static final double PUSH_RANGE = 10.0;
 	/** cos of the push cone's half-angle (~40 degrees). */
 	public static final double PUSH_CONE = 0.766;
-	public static final float PUSH_DAMAGE = 6.0f;
-	public static final float WALL_SLAM_DAMAGE = 8.0f;
+	public static final float PUSH_DAMAGE = 11.0f; // v0.17.7 City (was 6)
+	public static final float WALL_SLAM_DAMAGE = 11.0f; // v0.17.7 City (was 8)
 	public static final double PUSH_SPEED = 3.0;
 	/** A pushed creature slams into a wall within this long for the extra damage. */
 	private static final int SLAM_WINDOW = 30;
@@ -132,7 +132,7 @@ public final class WindHandlers {
 	// ---- v0.16.6 hold moves (HoldTap: hold the key 0.6 s). Each has its own cooldown (ticks, from the cast). ----
 	/** R hold: Cyclone Blade -- one huge spinning blade of air, 3 blocks across. */
 	public static final float COST_CYCLONE = 25.0f;
-	public static final float CYCLONE_DAMAGE = 22.0f;
+	public static final float CYCLONE_DAMAGE = 15.0f; // v0.17.7 City (was 22)
 	public static final double CYCLONE_RANGE = 40.0;
 	public static final double CYCLONE_SPEED = 1.4;
 	/** Half its width: everything within 1.5 blocks of its path is cut. */
@@ -169,7 +169,7 @@ public final class WindHandlers {
 	public static final double DOWNBURST_RANGE = 24.0;
 	/** 6 blocks across. */
 	public static final double DOWNBURST_RADIUS = 3.0;
-	public static final float DOWNBURST_DAMAGE = 18.0f;
+	public static final float DOWNBURST_DAMAGE = 15.0f; // v0.17.7 City (was 18)
 	public static final int DOWNBURST_COOLDOWN = 8 * 20;
 	private static final String[] HOLD_COOLDOWNS = { "cyclone", "suffocate", "skystep", "twin", "eye", "downburst" };
 
@@ -703,7 +703,7 @@ public final class WindHandlers {
 			if (e == p || d > PUSH_RANGE + e.getBbWidth() || (d > 1.2 && to.scale(1.0 / d).dot(look) < PUSH_CONE)) {
 				continue;
 			}
-			if (AbilityHelpers.hurtBurst(p, e, PUSH_DAMAGE)) {
+			if (com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, PUSH_DAMAGE)) {
 				hit++;
 			}
 			if (movable(e)) {
@@ -755,7 +755,7 @@ public final class WindHandlers {
 	/** The wall slam itself (also called directly by the gametests). */
 	public static void wallSlam(ServerPlayer p, LivingEntity le) {
 		SLAMS.remove(le.getId());
-		AbilityHelpers.hurtBurst(p, le, WALL_SLAM_DAMAGE);
+		com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, le, WALL_SLAM_DAMAGE);
 		ServerLevel level = level(p);
 		level.sendParticles(ParticleTypes.GUST, le.getX(), le.getY() + le.getBbHeight() * 0.5, le.getZ(), 1, 0, 0, 0, 0);
 		level.playSound(null, le.getX(), le.getY(), le.getZ(), SoundEvents.PLAYER_ATTACK_KNOCKBACK, SoundSource.PLAYERS, 1.2f, 0.6f);
@@ -1143,7 +1143,7 @@ public final class WindHandlers {
 
 	/** The ridden tornado bowls {@code e} over: 6, and thrown aside. */
 	public static void bowl(ServerPlayer p, LivingEntity e, Vec3 axis, Vec3 heading) {
-		AbilityHelpers.hurtBurst(p, e, RIDE_BOWL_DAMAGE);
+		com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, RIDE_BOWL_DAMAGE);
 		if (movable(e)) {
 			Vec3 out = new Vec3(e.getX() - axis.x, 0, e.getZ() - axis.z);
 			out = out.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : out.normalize();
@@ -1341,7 +1341,7 @@ public final class WindHandlers {
 
 	/** A twin funnel touched {@code e}: 4, and flung away from you. */
 	public static void twinTouch(ServerPlayer p, LivingEntity e, Vec3 axis) {
-		AbilityHelpers.hurtBurst(p, e, TWIN_DPS);
+		com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, TWIN_DPS);
 		if (movable(e)) {
 			Vec3 out = new Vec3(e.getX() - p.getX(), 0, e.getZ() - p.getZ());
 			out = out.lengthSqr() < 1.0e-4 ? new Vec3(e.getX() - axis.x, 0, e.getZ() - axis.z) : out;
@@ -1475,7 +1475,7 @@ public final class WindHandlers {
 			if (d > DOWNBURST_RADIUS + e.getBbWidth() * 0.5 || e.getY() > at.y + 6 || e.getY() + e.getBbHeight() < at.y - 1.5) {
 				continue;
 			}
-			if (AbilityHelpers.hurtBurst(p, e, DOWNBURST_DAMAGE)) {
+			if (com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, DOWNBURST_DAMAGE)) {
 				hit++;
 			}
 			if (movable(e)) {

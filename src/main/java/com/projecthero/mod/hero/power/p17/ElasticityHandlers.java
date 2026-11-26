@@ -106,8 +106,8 @@ public final class ElasticityHandlers {
 	// ---- R: Stretch Punch / Gatling Barrage ----
 	/** R and Z coil for up to 1.5 s. */
 	public static final int COIL_MAX_TICKS = 30;
-	public static final float PUNCH_DAMAGE = 12.0f;
-	public static final float PUNCH_DAMAGE_COILED = 24.0f;
+	public static final float PUNCH_DAMAGE = 11.0f; // v0.17.7 City: 11-15 by coil (was 12-24)
+	public static final float PUNCH_DAMAGE_COILED = 15.0f;
 	public static final double PUNCH_RANGE = 18.0;
 	public static final double PUNCH_RANGE_COILED = 22.0;
 	public static final float GATLING_DAMAGE = 12.8f; // v0.16.5 (user): 12.8 a punch
@@ -120,8 +120,8 @@ public final class ElasticityHandlers {
 	public static final double GRAB_RANGE = 20.0;
 	public static final int GRAB_HOLD_TICKS = 6 * 20;
 	private static final double GRAB_HOLD_DISTANCE = 2.5;
-	public static final float HURL_DAMAGE = 10.0f;
-	public static final float HURL_IMPACT_BONUS = 6.0f;
+	public static final float HURL_DAMAGE = 11.0f; // v0.17.7 City: 11, 15 into a wall / creature (was 10 + 6)
+	public static final float HURL_IMPACT_BONUS = 4.0f;
 	private static final int HURL_FLIGHT_TICKS = 30;
 	public static final double WRAP_RANGE = 6.0;
 	public static final int WRAP_TICKS = 4 * 20;
@@ -137,23 +137,23 @@ public final class ElasticityHandlers {
 	private static final int SLING_FLY_TICKS = 15 * 20;
 	/** v0.16.5 (user): the Rubber Ball has no time limit -- a toggle that drains Stretch while you roll. */
 	public static final float COST_BALL_PER_SECOND = 3.0f;
-	public static final float BALL_HIT_DAMAGE = 6.0f;
+	public static final float BALL_HIT_DAMAGE = 11.0f; // v0.17.7 City (was 6)
 
 	// ---- Z: Giant Hammer Fist / Spring Stomp ----
 	public static final double HAMMER_RANGE = 12.0;
-	public static final float HAMMER_DAMAGE_MIN = 20.0f;
-	public static final float HAMMER_DAMAGE_MAX = 34.0f;
+	public static final float HAMMER_DAMAGE_MIN = 12.0f; // v0.17.7 City: 12-15 by coil (was 20-34)
+	public static final float HAMMER_DAMAGE_MAX = 15.0f;
 	public static final double HAMMER_RADIUS = 4.5;
 	public static final int HAMMER_CD = 8 * 20;
-	public static final float STOMP_DAMAGE = 20.0f;
+	public static final float STOMP_DAMAGE = 15.0f; // v0.17.7 City (was 20)
 	public static final double STOMP_RADIUS = 5.0;
 	public static final int STOMP_CD = 6 * 20;
 	/** Ticks of the stilt rise (a ~8-block launch) before the slam. */
 	private static final int STOMP_RISE_TICKS = 13;
 
 	// ---- V: Rubber Shield / Parachute ----
-	/** The balloon takes 60% less damage. */
-	public static final float SHIELD_DAMAGE_FACTOR = 0.4f;
+	/** The balloon takes 50% less damage (v0.17.7 City: was 60%; mutations together never take more than half off). */
+	public static final float SHIELD_DAMAGE_FACTOR = 0.5f;
 
 	// ---- C: Long Reach / Shape Shift ----
 	public static final double LONG_REACH = 12.0;
@@ -863,7 +863,7 @@ public final class ElasticityHandlers {
 		MutationVisuals.play(p, "p17.stretch_right");
 		stretchArm(p, end.distanceTo(p.getEyePosition()) - 0.3, ARM_STRIKE_TICKS, ARM_RIGHT);
 		if (t != null) {
-			AbilityHelpers.hurt(p, t, punchDamage(coil));
+			com.projecthero.mod.hero.power.MutationDamage.hurt(p, t, punchDamage(coil));
 			AbilityHelpers.knockbackFrom(t, p.position(), 0.8 + 1.8 * coil);
 			slime(level, mid(t), 14 + (int) (coil * 20), 0.3);
 		} else {
@@ -906,7 +906,7 @@ public final class ElasticityHandlers {
 				continue;
 			}
 			// the barrage keeps its own 6-a-second count, so it runs past the hit-invulnerability window
-			if (AbilityHelpers.hurtBurst(p, e, GATLING_DAMAGE)) {
+			if (com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, GATLING_DAMAGE)) {
 				hit++;
 				AbilityHelpers.knockbackFrom(e, p.position(), 0.12);
 				slime(level, mid(e), 4, 0.25);
@@ -1021,7 +1021,7 @@ public final class ElasticityHandlers {
 		if (le.horizontalCollision || struck != null) {
 			hurlLanded(p, le, true);
 			if (struck != null) {
-				AbilityHelpers.hurtBurst(p, struck, HURL_IMPACT_BONUS);
+				com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, struck, HURL_DAMAGE); // v0.17.7: the bowled-over creature takes 11 (was the 6 bonus)
 				AbilityHelpers.knockbackFrom(struck, le.position(), 0.8);
 			}
 		} else if ((age > 3 && le.onGround()) || left <= 1.0f) {
@@ -1033,7 +1033,7 @@ public final class ElasticityHandlers {
 	public static void hurlLanded(ServerPlayer p, LivingEntity le, boolean impact) {
 		set(p, "thrown_ticks", 0);
 		set(p, "thrown_id", 0);
-		AbilityHelpers.hurtBurst(p, le, HURL_DAMAGE + (impact ? HURL_IMPACT_BONUS : 0.0f));
+		com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, le, HURL_DAMAGE + (impact ? HURL_IMPACT_BONUS : 0.0f));
 		ServerLevel level = AbilityHelpers.level(p);
 		slime(level, mid(le), impact ? 24 : 10, 0.4);
 		if (impact) {
@@ -1099,7 +1099,7 @@ public final class ElasticityHandlers {
 
 	/** One squeeze of the wrap: 4 damage (once a second). */
 	public static void wrapSqueeze(ServerPlayer p, LivingEntity t) {
-		AbilityHelpers.hurtBurst(p, t, WRAP_DAMAGE_PER_SECOND);
+		com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, t, WRAP_DAMAGE_PER_SECOND);
 		slime(AbilityHelpers.level(p), mid(t), 8, 0.3);
 		AbilityHelpers.sound(p, SoundEvents.SLIME_SQUISH_SMALL, 1.0f, 0.8f);
 	}
@@ -1276,7 +1276,7 @@ public final class ElasticityHandlers {
 		int hit = 0;
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, p.getBoundingBox().inflate(0.6),
 				e -> e != p && e.isAlive() && HeroTargets.canHarm(p, e) && !Squads.areAllies(p, e))) {
-			if (AbilityHelpers.hurt(p, e, BALL_HIT_DAMAGE)) {
+			if (com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, BALL_HIT_DAMAGE)) {
 				hit++;
 				e.setDeltaMovement(e.getDeltaMovement().add(dir.scale(1.1)).add(0, 0.45, 0));
 				e.hurtMarked = true;
@@ -1316,7 +1316,7 @@ public final class ElasticityHandlers {
 		stretchArm(p, at.distanceTo(p.getEyePosition()) - 0.6, 18, ARM_HAMMER);
 		int hit = 0;
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, at, HAMMER_RADIUS)) {
-			if (AbilityHelpers.hurt(p, e, hammerDamage(coil))) {
+			if (com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, hammerDamage(coil))) {
 				hit++;
 			}
 			AbilityHelpers.knockbackFrom(e, at, 1.2 + coil);
@@ -1374,7 +1374,7 @@ public final class ElasticityHandlers {
 		set(p, "stomp", 0);
 		int hit = 0;
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), STOMP_RADIUS)) {
-			if (AbilityHelpers.hurt(p, e, STOMP_DAMAGE)) {
+			if (com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, STOMP_DAMAGE)) {
 				hit++;
 			}
 			Vec3 away = e.position().subtract(p.position()).multiply(1, 0, 1);

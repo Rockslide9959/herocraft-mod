@@ -82,7 +82,7 @@ public final class ChloroMoves {
 
 	// ================================================================ R: Thorn Volley / Vine Lash
 
-	/** Three thorns in a narrow fan from the hand (5 each + Poison I 2.5 s on a hit). Returns the thorns. */
+	/** Three thorns in a narrow fan from the hand (11 each + Poison I 2.5 s on a hit). Returns the thorns. */
 	public static List<ThornProjectile> thornVolley(ServerPlayer p) {
 		spend(p, COST_VOLLEY);
 		ServerLevel level = level(p);
@@ -122,7 +122,7 @@ public final class ChloroMoves {
 		}
 		spend(p, COST_LASH);
 		boolean boss = !movable(t);
-		AbilityHelpers.hurtBurst(p, t, dmg(p, LASH_DAMAGE + (boss ? LASH_BOSS_BONUS : 0)));
+		com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, t, dmg(p, LASH_DAMAGE + (boss ? LASH_BOSS_BONUS : 0)));
 		ChloroFxEntity.spawn(p, ChloroFxEntity.VINE, 12, p.position()).follow(p).target(t).style(ChloroFxEntity.STYLE_LASH)
 				.end(mid(t));
 		if (!boss && t.isAlive()) {
@@ -172,7 +172,7 @@ public final class ChloroMoves {
 		spend(p, COST_SNARE);
 		float d = dmg(p, SNARE_DAMAGE);
 		for (LivingEntity e : caught) {
-			AbilityHelpers.hurtBurst(p, e, d);
+			com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, d);
 			ChloroFxEntity fx = ChloroFxEntity.spawn(p, ChloroFxEntity.ROOTS, SNARE_TICKS, e.position());
 			fx.radius(Math.max(0.5f, e.getBbWidth() * 0.6f));
 			fx.hold(e);
@@ -412,7 +412,7 @@ public final class ChloroMoves {
 		int rooted = 0;
 		float d = dmg(p, OVERGROWTH_DAMAGE);
 		for (LivingEntity e : AbilityHelpers.hostilesAround(p, c, OVERGROWTH_RADIUS)) {
-			AbilityHelpers.hurtBurst(p, e, d);
+			com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, d);
 			AbilityHelpers.applyControl(e, MobEffects.POISON, 120, 1);
 			if (movable(e) && rooted < 16) {
 				ChloroFxEntity fx = ChloroFxEntity.spawn(p, ChloroFxEntity.ROOTS, SNARE_TICKS, e.position());
@@ -623,7 +623,7 @@ public final class ChloroMoves {
 		}
 		IN_THORNS.set(true);
 		try {
-			if (AbilityHelpers.hurt(p, attacker, VERDANT_THORNS)) {
+			if (com.projecthero.mod.hero.power.MutationDamage.hurt(p, attacker, VERDANT_THORNS)) {
 				level(p).sendParticles(ChloroParticles.SAP, attacker.getX(), attacker.getY() + attacker.getBbHeight() * 0.6, attacker.getZ(), 5,
 						0.2, 0.2, 0.2, 0.05);
 			}

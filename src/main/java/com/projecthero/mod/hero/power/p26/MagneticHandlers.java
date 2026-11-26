@@ -279,7 +279,7 @@ public final class MagneticHandlers {
 				g.hasImpulse = true;
 				if (g instanceof LivingEntity le) {
 					le.hurtMarked = true;
-					AbilityHelpers.hurt(p, le, mass.damage * 0.5f * DAMAGE_MULT);
+					com.projecthero.mod.hero.power.MutationDamage.hurt(p, le, mass.damage * 0.5f * DAMAGE_MULT);
 				}
 			}
 			AbilityHelpers.sound(p, SoundEvents.IRON_GOLEM_REPAIR, 0.8f, 0.9f);
@@ -452,7 +452,7 @@ public final class MagneticHandlers {
 		if (lo.netherite()) {
 			dmg *= 0.6f; // netherite resists the force -- but the lockdown still lands
 		}
-		AbilityHelpers.hurt(p, t, dmg);
+		com.projecthero.mod.hero.power.MutationDamage.hurt(p, t, dmg);
 		AbilityHelpers.applyControl(t, MobEffects.MOVEMENT_SLOWDOWN, 100, Math.min(4, pieces + 1));
 		AbilityHelpers.applyControl(t, MobEffects.WEAKNESS, 100, 1);
 		if (pieces >= 3) {
@@ -672,7 +672,7 @@ public final class MagneticHandlers {
 		drop.setPickUpDelay(20);
 		level.addFreshEntity(drop);
 		if (!MagneticMaterials.isNetherite(ripped)) {
-			AbilityHelpers.hurt(p, t, DISARM_DAMAGE);
+			com.projecthero.mod.hero.power.MutationDamage.hurt(p, t, DISARM_DAMAGE);
 		}
 		AbilityHelpers.line(level, AbilityHelpers.handPosition(p), at, ParticleTypes.ELECTRIC_SPARK, 2.0);
 		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, 20, 0.3, 0.3, 0.3, 0.15);
@@ -767,7 +767,7 @@ public final class MagneticHandlers {
 			}
 			for (LivingEntity le : level.getEntitiesOfClass(LivingEntity.class, entity.getBoundingBox().inflate(0.55),
 					e -> com.projecthero.mod.combat.HeroTargets.canHarm(owner, e))) { // v0.14.20: rule 1
-				AbilityHelpers.hurt(owner, le, damage);
+				com.projecthero.mod.hero.power.MutationDamage.hurt(owner, le, damage);
 				AbilityHelpers.knockbackFrom(le, entity.position(), knockback);
 				level.sendParticles(ParticleTypes.ELECTRIC_SPARK, le.getX(), le.getY() + le.getBbHeight() * 0.5, le.getZ(),
 						10, 0.3, 0.3, 0.3, 0.1);
@@ -878,7 +878,7 @@ public final class MagneticHandlers {
 				}
 				float done = dealt.getOrDefault(hit.getId(), 0.0f);
 				float d = Math.min(mass.damage * DAMAGE_MULT, STORM_PER_TARGET_CAP - done);
-				AbilityHelpers.hurt(owner, hit, d);
+				com.projecthero.mod.hero.power.MutationDamage.hurt(owner, hit, d);
 				AbilityHelpers.knockbackFrom(hit, e.position(), mass.knockback);
 				dealt.put(hit.getId(), done + d);
 				if (e instanceof ItemEntity ie) {

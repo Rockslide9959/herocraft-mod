@@ -120,7 +120,7 @@ public class WhirlpoolEntity extends WaterFxEntity {
 			if (!inside(e) || Squads.areAllies(owner, e)) {
 				continue;
 			}
-			if (AbilityHelpers.hurtBurst(owner, e, owner.level().damageSources().source(DamageTypes.DROWN, owner),
+			if (com.projecthero.mod.hero.power.MutationDamage.hurtBurst(owner, e, owner.level().damageSources().source(DamageTypes.DROWN, owner),
 					WaterHandlers.WHIRLPOOL_DAMAGE_PER_SECOND)) {
 				n++;
 			}

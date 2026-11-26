@@ -242,7 +242,7 @@ public final class ShadowManipulationHandlers {
 					if (friendly(p, e) || dir.lengthSqr() < 1.0e-4 || dir.normalize().dot(look) < 0.5) {
 						continue;
 					}
-					AbilityHelpers.hurt(p, e, damage);
+					com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, damage);
 					AbilityHelpers.applyControl(e, MobEffects.BLINDNESS, 160, 0);
 					root(p, e, 160);
 					tendril(ctx.level(), e);
@@ -258,7 +258,7 @@ public final class ShadowManipulationHandlers {
 				if (friendly(p, e)) {
 					continue;
 				}
-				AbilityHelpers.hurt(p, e, damage);
+				com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, damage);
 				AbilityHelpers.applyControl(e, MobEffects.BLINDNESS, 160, 0);
 				tendril(ctx.level(), e);
 			}
@@ -304,7 +304,7 @@ public final class ShadowManipulationHandlers {
 			AbilityHelpers.sound(p, SoundEvents.ENDERMAN_TELEPORT, 0.8f, 0.5f);
 			for (LivingEntity hit : AbilityHelpers.living(level, p.position().add(0, p.getBbHeight() * 0.5, 0), 1.6,
 					e -> e != p && !friendly(p, e))) {
-				AbilityHelpers.hurt(p, hit, dmg(p, STEP_DAMAGE));
+				com.projecthero.mod.hero.power.MutationDamage.hurt(p, hit, dmg(p, STEP_DAMAGE));
 				AbilityHelpers.knockbackFrom(hit, p.position(), 0.6);
 				blind4s(hit);
 			}
@@ -503,7 +503,7 @@ public final class ShadowManipulationHandlers {
 						return InteractionResult.FAIL;
 					}
 					if (isDeepDark(sp.level(), sp.blockPosition())) { // v0.14.11: whatever is held, not just bare-handed
-						AbilityHelpers.hurt(sp, le, 4.0f);
+						com.projecthero.mod.hero.power.MutationDamage.hurt(sp, le, 4.0f);
 					}
 				}
 			}
@@ -663,7 +663,7 @@ public final class ShadowManipulationHandlers {
 		AbilityHelpers.line(ctx.level(), AbilityHelpers.handPosition(p), AbilityHelpers.aimPoint(p, 24.0), ParticleTypes.SQUID_INK, 3.0);
 		AbilityHelpers.line(ctx.level(), AbilityHelpers.handPosition(p), AbilityHelpers.aimPoint(p, 24.0), BatchDFx.SHADOW_EYE, 0.6);
 		if (t != null && !friendly(p, t)) {
-			AbilityHelpers.hurt(p, t, dmg(p, BOLT_DAMAGE) + cloakAbilityBonus(p));
+			com.projecthero.mod.hero.power.MutationDamage.hurt(p, t, dmg(p, BOLT_DAMAGE) + cloakAbilityBonus(p));
 			blind4s(t);
 		}
 		AbilityHelpers.sound(p, SoundEvents.SCULK_CLICKING, 1.0f, 0.6f);
@@ -716,7 +716,7 @@ public final class ShadowManipulationHandlers {
 		Vec3 endPoint = best != null ? best.position().add(0, best.getBbHeight() * 0.5, 0) : eye.add(dir.scale(maxDist));
 		AbilityHelpers.line(ctx.level(), eye, endPoint, ParticleTypes.SQUID_INK, 3.0);
 		if (best != null) {
-			AbilityHelpers.hurtBurst(p, best, dmg(p, BOLT_DAMAGE) + cloakAbilityBonus(p));
+			com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, best, dmg(p, BOLT_DAMAGE) + cloakAbilityBonus(p));
 			blind4s(best);
 		}
 	}
@@ -790,7 +790,7 @@ public final class ShadowManipulationHandlers {
 
 	/** Shadow Bind on one target: damage, root, slow, weaken, blind, and the chain visual (public for tests). */
 	public static void bind(ServerPlayer p, LivingEntity e, int ticks) {
-		AbilityHelpers.hurt(p, e, dmg(p, BIND_DAMAGE) + cloakAbilityBonus(p));
+		com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, dmg(p, BIND_DAMAGE) + cloakAbilityBonus(p));
 		root(p, e, ticks);
 		AbilityHelpers.applyControl(e, MobEffects.WEAKNESS, ticks, 1);
 		AbilityHelpers.applyControl(e, MobEffects.BLINDNESS, Math.min(ticks, 60), 0);
@@ -930,7 +930,7 @@ public final class ShadowManipulationHandlers {
 				AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 20, 2);
 				AbilityHelpers.applyControl(e, MobEffects.BLINDNESS, 20, 0);
 				if (age % 20 == 0) {
-					AbilityHelpers.hurt(owner, e, ZONE_DPS);
+					com.projecthero.mod.hero.power.MutationDamage.hurt(owner, e, ZONE_DPS);
 				}
 			}
 			if (age % 4 == 0) {

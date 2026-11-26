@@ -227,8 +227,8 @@ public class WaterHoldGameTests implements FabricGameTest {
 			Vec3 m = g.position().add(0, g.getBbHeight() * 0.5, 0);
 			d.setPos(m.x, m.y, m.z);
 			int n = d.strike(helper.getLevel(), p, g);
-			assertNear(helper, 80.0f, g.getHealth(), "it rams for 20");
-			assertNear(helper, 90.0f, near.getHealth(), "and the splash hits what is beside it for half");
+			assertNear(helper, 85.0f, g.getHealth(), "it rams for 15 (v0.17.7 City)");
+			assertNear(helper, 92.5f, near.getHealth(), "and the splash hits what is beside it for half");
 			helper.assertTrue(n == 2, "two hit, got " + n);
 			Vec3 v = g.getDeltaMovement();
 			helper.assertTrue(Math.sqrt(v.x * v.x + v.z * v.z) > 1.0 && v.y > 0.4, "a big knockback, v=" + v);
@@ -329,13 +329,13 @@ public class WaterHoldGameTests implements FabricGameTest {
 			g.setDeltaMovement(Vec3.ZERO);
 			boss.setDeltaMovement(Vec3.ZERO);
 			w.sweep(level, p);
-			assertNear(helper, 78.0f, g.getHealth(), "it hits for 22");
+			assertNear(helper, 75.0f, g.getHealth(), "it hits for 25 (v0.17.7 City)");
 			helper.assertFalse(g.isOnFire(), "puts out fire");
 			helper.assertTrue(g.getDeltaMovement().z >= w.speed(), "and carries it along, vz=" + g.getDeltaMovement().z);
-			assertNear(helper, 278.0f, boss.getHealth(), "a boss takes the hit");
+			assertNear(helper, 275.0f, boss.getHealth(), "a boss takes the hit");
 			helper.assertTrue(Math.abs(boss.getDeltaMovement().z) < 1.0e-6, "but is not carried");
 			w.sweep(level, p);
-			assertNear(helper, 78.0f, g.getHealth(), "only once");
+			assertNear(helper, 75.0f, g.getHealth(), "only once");
 			helper.assertTrue(waterBlocks(level, at) == before, "no water blocks");
 			w.discard();
 			helper.succeed();

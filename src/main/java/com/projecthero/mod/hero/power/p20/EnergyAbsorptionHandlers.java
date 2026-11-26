@@ -201,7 +201,7 @@ public final class EnergyAbsorptionHandlers {
 	public static boolean elementalHit(ServerPlayer p, LivingEntity t, float dmg, boolean burst) {
 		int el = element(p);
 		DamageSource src = sourceFor(p, el);
-		boolean hit = burst ? AbilityHelpers.hurtBurst(p, t, src, dmg) : AbilityHelpers.hurt(p, t, src, dmg);
+		boolean hit = burst ? com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, t, src, dmg) : com.projecthero.mod.hero.power.MutationDamage.hurt(p, t, src, dmg);
 		applyElement(p, t, dmg, el);
 		return hit;
 	}
@@ -219,7 +219,7 @@ public final class EnergyAbsorptionHandlers {
 				level.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, 14, 0.3, 0.4, 0.3, 0.2);
 				for (LivingEntity e : AbilityHelpers.enemiesAround(p, t.position(), 5.0)) {
 					if (e != t) {
-						AbilityHelpers.hurt(p, e, AbilityHelpers.kinetic(p), dmg * 0.5f);
+						com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, AbilityHelpers.kinetic(p), dmg * 0.5f);
 						BatchCFx.arc(level, c, e.position().add(0, e.getBbHeight() * 0.5, 0), ParticleTypes.ELECTRIC_SPARK, 0.5);
 						break;
 					}
@@ -371,7 +371,7 @@ public final class EnergyAbsorptionHandlers {
 					if (p.tickCount % 10 == 0) {
 						elementalHit(p, t, BEAM_DAMAGE + superchargedBonus(p), false);
 					} else {
-						AbilityHelpers.hurt(p, t, BEAM_DAMAGE + superchargedBonus(p));
+						com.projecthero.mod.hero.power.MutationDamage.hurt(p, t, BEAM_DAMAGE + superchargedBonus(p));
 					}
 				}
 			}
@@ -681,7 +681,7 @@ public final class EnergyAbsorptionHandlers {
 		ServerLevel level = ctx.level();
 		LivingEntity t = AbilityHelpers.raycastEntity(p, 12.0);
 		if (t != null) {
-			AbilityHelpers.hurt(p, t, p.damageSources().indirectMagic(p, p), 5.0f);
+			com.projecthero.mod.hero.power.MutationDamage.hurt(p, t, p.damageSources().indirectMagic(p, p), 5.0f);
 			gain(p, 14.0f);
 			p.heal(1.0f);
 			Vec3 from = t.position().add(0, t.getBbHeight() * 0.5, 0);

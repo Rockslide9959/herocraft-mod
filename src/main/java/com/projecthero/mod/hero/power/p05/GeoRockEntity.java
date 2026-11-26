@@ -292,13 +292,13 @@ public class GeoRockEntity extends ThrowableItemProjectile {
 		if (getOwner() instanceof ServerPlayer p && AbilityHelpers.asLiving(result.getEntity()) instanceof LivingEntity e) {
 			if (falling()) {
 				// v0.16.6 Avalanche: a rock dropping on it -- 6, a little shove down and out
-				if (AbilityHelpers.hurtLands(p, e, damage)) {
+				if (com.projecthero.mod.hero.power.MutationDamage.hurtLands(p, e, damage)) {
 					AbilityHelpers.push(e, new Vec3(getDeltaMovement().x * 0.1, -0.1, getDeltaMovement().z * 0.1));
 				}
 				return;
 			}
 			// a Barrage stone is one of five discrete hits a few ticks apart: each lands its full 8 (never on players' i-frames)
-			boolean landed = barrage ? AbilityHelpers.hurtBurst(p, e, damage) : AbilityHelpers.hurtLands(p, e, damage);
+			boolean landed = barrage ? com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, damage) : com.projecthero.mod.hero.power.MutationDamage.hurtLands(p, e, damage);
 			if (landed) {
 				AbilityHelpers.knockbackFrom(e, position().subtract(getDeltaMovement()), barrage ? 0.45 : 0.9);
 			}

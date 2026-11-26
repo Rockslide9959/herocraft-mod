@@ -64,6 +64,10 @@ public final class HeroDamageRules {
 		if (cancel) {
 			return false;
 		}
+		// v0.17.7 City tier: however many owned mutations stack their reductions, together they take at most half a hit
+		// off (HeroConfig.mutationMaxDamageReduction). Immunities above (phasing, dodges) and fall damage (movement
+		// utility) are left alone.
+		if (!source.is(DamageTypeTags.IS_FALL)) factor = Math.max(factor, 1.0f - (float) com.projecthero.mod.hero.HeroConfig.get().mutationMaxDamageReduction);
 		if (Math.abs(factor - 1.0f) > 0.001f) { // v0.16.5: also > 1 (Elasticity's fire weakness)
 			return reduce(player, source, amount, factor);
 		}

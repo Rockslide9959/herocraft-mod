@@ -150,7 +150,7 @@ public final class GravityHandlers {
 					continue;
 				}
 				AbilityHelpers.push(e, e.position().subtract(p.getEyePosition()).normalize().scale(2.6).add(0, 0.5, 0));
-				AbilityHelpers.hurt(p, e, PUSH_DAMAGE + nexusBonus(p));
+				com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, PUSH_DAMAGE + nexusBonus(p));
 			}
 			AbilityHelpers.burst(ctx.level(), front, ParticleTypes.PORTAL, 20, 0.6);
 			BatchDFx.distortion(ctx.level(), front.add(0, 1, 0), 0.8, 14);
@@ -223,7 +223,7 @@ public final class GravityHandlers {
 							e.hurtMarked = true;
 						}
 						if ((120 - wt) % 20 == 0) {
-							AbilityHelpers.hurt(p, e, WELL_DPS + nexusBonus(p));
+							com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, WELL_DPS + nexusBonus(p));
 						}
 					}
 					if (wt % 4 == 0) {
@@ -250,7 +250,7 @@ public final class GravityHandlers {
 				for (LivingEntity e : AbilityHelpers.living(level, center, 2.8, le -> le != p && !friendly(p, le))) {
 					AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 20, 1);
 					if (held % 20 == 0) {
-						AbilityHelpers.hurt(p, e, CRUSH_DPS + nexusBonus(p));
+						com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, CRUSH_DPS + nexusBonus(p));
 					}
 				}
 				if (held % 5 == 0) {
@@ -355,7 +355,7 @@ public final class GravityHandlers {
 						le.removeEffect(MobEffects.LEVITATION);
 						le.setDeltaMovement(le.getDeltaMovement().x, -1.6, le.getDeltaMovement().z);
 						le.hurtMarked = true;
-						AbilityHelpers.hurt(p, le, SLAM_DAMAGE + nexusBonus(p));
+						com.projecthero.mod.hero.power.MutationDamage.hurt(p, le, SLAM_DAMAGE + nexusBonus(p));
 						BatchDFx.distortion(ctx.level(), BatchDFx.centre(le), 0.5, 8);
 					}
 				}
@@ -422,7 +422,7 @@ public final class GravityHandlers {
 					}
 					AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 20, 3);
 					if (p.tickCount % 20 == 0) {
-						AbilityHelpers.hurt(p, e, 2.5f);
+						com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, 2.5f);
 					}
 				}
 				if (!ModeMeter.drain(ctx, "nexus_bar", MAX_NEXUS, NEXUS_DRAIN)) {
@@ -591,7 +591,7 @@ public final class GravityHandlers {
 				if (le.verticalCollision && age > 2) {
 					// slammed into a ceiling on the way up
 					if (p != null) {
-						AbilityHelpers.hurtBurst(p, le, INVERT_CEILING_DAMAGE);
+						com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, le, INVERT_CEILING_DAMAGE);
 					}
 					age = INVERT_RISE_TICKS;
 				}
@@ -615,10 +615,10 @@ public final class GravityHandlers {
 			le.hurtMarked = true;
 			if (le.onGround()) {
 				if (p != null) {
-					AbilityHelpers.hurtBurst(p, le, INVERT_CRASH_DAMAGE);
+					com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, le, INVERT_CRASH_DAMAGE);
 					for (LivingEntity near : AbilityHelpers.enemiesAround(p, le.position(), 3.0)) {
 						if (near != le && !Squads.areAllies(p, near)) {
-							AbilityHelpers.hurt(p, near, INVERT_CRASH_DAMAGE * 0.5f);
+							com.projecthero.mod.hero.power.MutationDamage.hurt(p, near, INVERT_CRASH_DAMAGE * 0.5f);
 							AbilityHelpers.knockbackFrom(near, le.position(), 0.8);
 						}
 					}
@@ -694,7 +694,7 @@ public final class GravityHandlers {
 					AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 20, 1);
 				}
 				if (age % 20 == 0) {
-					AbilityHelpers.hurt(owner, e, HEAVY_DPS);
+					com.projecthero.mod.hero.power.MutationDamage.hurt(owner, e, HEAVY_DPS);
 				}
 			}
 			if (age % 3 == 0) {
@@ -755,7 +755,7 @@ public final class GravityHandlers {
 					e.hurtMarked = true;
 				}
 				if (dist <= 10.0 && age % 20 == 0) {
-					AbilityHelpers.hurt(owner, e, HOLE_DPS + nexusBonus(owner));
+					com.projecthero.mod.hero.power.MutationDamage.hurt(owner, e, HOLE_DPS + nexusBonus(owner));
 				}
 			}
 			if (AbilityHelpers.canGrief() && age % 4 == 0) {

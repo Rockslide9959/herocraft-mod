@@ -86,9 +86,9 @@ public final class FlightHandlers {
 	public static final double PUNCH_RANGE = 8.0;
 	public static final float PUNCH_DAMAGE = 14.0f;
 	public static final double PUNCH_KNOCKBACK = 3.0;
-	public static final float DIVE_DAMAGE_MIN = 12.0f;
-	public static final float DIVE_DAMAGE_MAX = 30.0f;
-	/** The full 30 lands from this high up. */
+	public static final float DIVE_DAMAGE_MIN = 11.0f; // v0.17.7 City: 11-15 by height (was 12-30)
+	public static final float DIVE_DAMAGE_MAX = 15.0f;
+	/** The full 15 lands from this high up. */
 	public static final double DIVE_FULL_HEIGHT = 30.0;
 	public static final double DIVE_RADIUS = 4.0;
 	private static final double DIVE_SPEED = 3.5;
@@ -108,7 +108,7 @@ public final class FlightHandlers {
 
 	// ---- Z: Sonic Boom / Takeoff Blast ----
 	public static final double BOOM_RANGE = 10.0;
-	public static final float BOOM_DAMAGE = 16.0f;
+	public static final float BOOM_DAMAGE = 15.0f; // v0.17.7 City (was 16)
 	/** cos of the cone's half-angle (~40 degrees). */
 	public static final double BOOM_CONE = 0.76;
 	public static final double TAKEOFF_HEIGHT = 20.0;
@@ -607,7 +607,7 @@ public final class FlightHandlers {
 
 	/** 14 and a big knockback along the dash. */
 	public static void punchHit(ServerPlayer p, ServerLevel level, LivingEntity e, Vec3 dir) {
-		AbilityHelpers.hurt(p, e, PUNCH_DAMAGE);
+		com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, PUNCH_DAMAGE);
 		Vec3 d = dir.lengthSqr() < 1.0e-4 ? p.getLookAngle() : dir.normalize();
 		e.setDeltaMovement(e.getDeltaMovement().add(d.x * PUNCH_KNOCKBACK, Math.max(0.45, d.y * PUNCH_KNOCKBACK * 0.5 + 0.45),
 				d.z * PUNCH_KNOCKBACK));
@@ -663,7 +663,7 @@ public final class FlightHandlers {
 		float dmg = diveDamage(height) + com.projecthero.mod.hero.power.PowerCombos.meteorSlamBonus(p, KEY);
 		int hit = 0;
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), DIVE_RADIUS)) {
-			if (AbilityHelpers.hurtBurst(p, e, dmg)) {
+			if (com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, dmg)) {
 				hit++;
 			}
 			AbilityHelpers.knockbackFrom(e, p.position(), 1.2 + height * 0.03);
@@ -906,7 +906,7 @@ public final class FlightHandlers {
 			if (d > BOOM_RANGE + e.getBbWidth() || d < 1.0e-3 || to.scale(1.0 / d).dot(look) < BOOM_CONE) {
 				continue;
 			}
-			if (AbilityHelpers.hurtBurst(p, e, BOOM_DAMAGE)) {
+			if (com.projecthero.mod.hero.power.MutationDamage.hurtBurst(p, e, BOOM_DAMAGE)) {
 				hit++;
 			}
 			Vec3 push = to.normalize().scale(1.8).add(0, 0.65, 0);

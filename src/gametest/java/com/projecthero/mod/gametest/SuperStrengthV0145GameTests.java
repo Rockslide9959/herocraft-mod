@@ -161,8 +161,8 @@ public class SuperStrengthV0145GameTests implements FabricGameTest {
 		tick(p, 1);
 		Zombie z = dummy(helper, p, 2.0);
 		p.lookAt(EntityAnchorArgument.Anchor.EYES, z.getEyePosition());
-		float expected = (float) p.getAttributeValue(Attributes.ATTACK_DAMAGE) + 15f;
-		helper.assertTrue(Math.abs(expected - 26f) < 1e-3, "bare-handed Charged Punch = 11 + 15, got " + expected);
+		float expected = (float) p.getAttributeValue(Attributes.ATTACK_DAMAGE) + SuperStrengthHandlers.CHARGED_BONUS;
+		helper.assertTrue(Math.abs(expected - 15f) < 1e-3, "bare-handed Charged Punch = 11 + 4 (v0.17.7 City), got " + expected);
 		SuperStrengthHandlers.performChargedPunch(p);
 		helper.assertTrue(Math.abs((100f - z.getHealth()) - expected) < 0.5f, "dealt " + (100f - z.getHealth()) + ", expected " + expected);
 		helper.assertTrue(res(p, "charged_cd") == SuperStrengthHandlers.CHARGED_CD_TICKS, "2 s cooldown");
@@ -182,7 +182,7 @@ public class SuperStrengthV0145GameTests implements FabricGameTest {
 		AbilityRouter.handleInput(p, 2, true);
 		AbilityRouter.handleInput(p, 2, false);
 		helper.assertTrue(Math.abs((100f - z.getHealth()) - SuperStrengthHandlers.SLAM_DAMAGE) < 0.5f,
-				"Ground Slam hit for " + (100f - z.getHealth()) + ", expected 20");
+				"Ground Slam hit for " + (100f - z.getHealth()) + ", expected 13");
 		helper.assertTrue(ExperimentalPowers.cooldownRemainingTicks(p, power(), power().ability(AbilitySlot.SLOT_2)) > 100,
 				"Ground Slam goes on cooldown");
 		helper.succeed();

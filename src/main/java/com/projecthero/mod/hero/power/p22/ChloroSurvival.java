@@ -716,7 +716,7 @@ public final class ChloroSurvival {
 		}
 		AABB touch = b.box().inflate(0.7);
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, touch, e -> com.projecthero.mod.combat.HeroTargets.isHostile(p, e))) {
-			AbilityHelpers.hurt(p, e, BRAMBLE_DPS / 2.0f);
+			com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, BRAMBLE_DPS / 2.0f);
 			AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 30, 1);
 			level.sendParticles(ChloroParticles.SAP, e.getX(), e.getY() + 0.6, e.getZ(), 2, 0.2, 0.2, 0.2, 0.02);
 		}

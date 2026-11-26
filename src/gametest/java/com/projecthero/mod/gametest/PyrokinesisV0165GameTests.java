@@ -274,14 +274,15 @@ public class PyrokinesisV0165GameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
 	public void meteorChargesTo30(GameTestHelper helper) {
-		assertNear(helper, 16.0f, PyrokinesisHandlers.meteorDamage(0.0f), "a tapped Meteor: 16");
-		assertNear(helper, 30.0f, PyrokinesisHandlers.meteorDamage(1.0f), "fully charged: 30");
+		// v0.17.7 City: 11-15 (was 16-30)
+		assertNear(helper, 11.0f, PyrokinesisHandlers.meteorDamage(0.0f), "a tapped Meteor: 11");
+		assertNear(helper, 15.0f, PyrokinesisHandlers.meteorDamage(1.0f), "fully charged: 15");
 		ServerPlayer p = hero(helper);
 		IronGolem g = dummy(helper, 2, 5);
 		float before = g.getHealth();
-		int hit = PyrokinesisHandlers.meteorImpact(p, helper.getLevel(), g.position().add(1.5, 0, 0), 16.0f, 1.0f, null);
+		int hit = PyrokinesisHandlers.meteorImpact(p, helper.getLevel(), g.position().add(1.5, 0, 0), 11.0f, 1.0f, null);
 		helper.assertTrue(hit == 1, "the blast reaches 1.5 blocks out");
-		assertNear(helper, 16.0f, before - g.getHealth(), "the Meteor blast");
+		assertNear(helper, 11.0f, before - g.getHealth(), "the Meteor blast");
 		g.discard();
 		press(p, 4); // v0.16.6: Z is a toggle -- a tap starts the charge
 		helper.assertTrue(PyrokinesisHandlers.charging(p), "a tap of Z charges a Meteor");
@@ -289,7 +290,7 @@ public class PyrokinesisV0165GameTests implements FabricGameTest {
 			press(p, 4); // a second tap throws it
 			var bolts = helper.getLevel().getEntitiesOfClass(PyroBoltEntity.class, p.getBoundingBox().inflate(5));
 			helper.assertTrue(bolts.size() == 1 && bolts.get(0).meteor(), "the second tap throws the Meteor");
-			assertNear(helper, 30.0f, bolts.get(0).damage(), "a full 2 s charge: 30");
+			assertNear(helper, 15.0f, bolts.get(0).damage(), "a full 2 s charge: 15");
 			assertNear(helper, PyrokinesisHandlers.HEAT_METEOR, PyrokinesisHandlers.heat(p), "+25 Heat");
 			bolts.get(0).discard();
 			helper.succeed();
@@ -306,9 +307,9 @@ public class PyrokinesisV0165GameTests implements FabricGameTest {
 		PyrokinesisHandlers.setHeat(p, 50.0f);
 		float before = g.getHealth();
 		shiftPress(p, 4); // Shift+Z: Inferno
-		assertNear(helper, 15.0f, before - g.getHealth(), "50 Heat: 15 in 8 blocks (30 at full)");
+		assertNear(helper, 7.5f, before - g.getHealth(), "50 Heat: 7.5 in 8 blocks (15 at full, v0.17.7 City)");
 		helper.assertTrue(PyrokinesisHandlers.heat(p) < 0.01f, "Heat to 0");
-		assertNear(helper, 30.0f, PyrokinesisHandlers.infernoDamage(100.0f), "full Heat: 30");
+		assertNear(helper, 15.0f, PyrokinesisHandlers.infernoDamage(100.0f), "full Heat: 15");
 		helper.succeed();
 	}
 

@@ -110,7 +110,7 @@ public final class ComboMoves {
 		MutationVisuals.play(p, "hero_landing");
 		Vec3 c = p.position();
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, c, 6.0)) {
-			AbilityHelpers.hurt(p, e, 26.0f);
+			com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, 26.0f);
 			AbilityHelpers.knockbackFrom(e, c, 2.2);
 		}
 		AbilityHelpers.burst(level, c, ParticleTypes.EXPLOSION_EMITTER, 2, 0.5);
@@ -129,7 +129,7 @@ public final class ComboMoves {
 			FallingBlockEntity rock = FallingBlockEntity.fall(level, BlockPos.containing(at), Blocks.COBBLESTONE.defaultBlockState());
 			rock.setPos(at.x, at.y, at.z);
 			rock.dropItem = false;
-			rock.setHurtsEntities(3.0f, 22);
+			rock.setHurtsEntities(3.0f, 15); // v0.17.7 City: max 15 a boulder (was 22)
 			rock.setDeltaMovement(look.add(side).normalize().scale(1.6).add(0, 0.25, 0));
 			rock.hurtMarked = true;
 		}
@@ -150,7 +150,7 @@ public final class ComboMoves {
 			AbilityHelpers.burst(level, at.add(0, 1, 0), ParticleTypes.ELECTRIC_SPARK, 6, 0.4);
 		}
 		for (LivingEntity e : hit) {
-			AbilityHelpers.hurt(p, e, 18.0f);
+			com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, 15.0f); // v0.17.7 City (was 18)
 			AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 60, 3);
 		}
 		SafeTeleport.blink(p, flat, 14.0);
@@ -163,7 +163,7 @@ public final class ComboMoves {
 		MutationVisuals.play(p, "cast_raise_both");
 		Vec3 c = p.position();
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, c, 7.0)) {
-			AbilityHelpers.hurt(p, e, 22.0f);
+			com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, 25.0f); // v0.17.7 City ultimate band (was 22)
 			AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 80, 2);
 			AbilityHelpers.knockbackFrom(e, c, 1.2);
 		}
@@ -181,7 +181,7 @@ public final class ComboMoves {
 		MutationVisuals.play(p, "summon_ground");
 		Vec3 c = p.position();
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, c, 8.0)) {
-			AbilityHelpers.hurt(p, e, AbilityHelpers.freeze(p), 16.0f);
+			com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, AbilityHelpers.freeze(p), 15.0f); // v0.17.7 City (was 16)
 			AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 120, 5);
 			e.setTicksFrozen(Math.max(e.getTicksFrozen(), 300));
 		}
@@ -204,7 +204,7 @@ public final class ComboMoves {
 			AbilityHelpers.burst(level, at, ParticleTypes.FLAME, 10, 0.5);
 		}
 		for (LivingEntity e : hit) {
-			AbilityHelpers.hurt(p, e, AbilityHelpers.fire(p), 16.0f);
+			com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, AbilityHelpers.fire(p), 15.0f); // v0.17.7 City (was 16)
 			e.igniteForSeconds(6);
 		}
 		AbilityHelpers.launchSelf(p, look.scale(2.6));
@@ -235,7 +235,7 @@ public final class ComboMoves {
 			AbilityHelpers.burst(level, at, ParticleTypes.FLAME, 2, 0.2);
 		}
 		for (LivingEntity e : hit) {
-			AbilityHelpers.hurt(p, e, 30.0f);
+			com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, 30.0f);
 			e.igniteForSeconds(4);
 		}
 		AbilityHelpers.sound(p, SoundEvents.BEACON_POWER_SELECT, 1.4f, 1.6f);
@@ -248,7 +248,7 @@ public final class ComboMoves {
 		if (SafeTeleport.blink(p, AbilityHelpers.lookDir(p), 28.0)) {
 			for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), 5.0)) {
 				AbilityHelpers.applyControl(e, MobEffects.BLINDNESS, 100, 0);
-				AbilityHelpers.hurt(p, e, 10.0f);
+				com.projecthero.mod.hero.power.MutationDamage.hurt(p, e, 11.0f); // v0.17.7 City (was 10)
 			}
 			p.addEffect(new net.minecraft.world.effect.MobEffectInstance(MobEffects.INVISIBILITY, 60, 0, false, false, true));
 		}
@@ -303,7 +303,7 @@ public final class ComboMoves {
 					Vec3 pull = c.subtract(t.position()).normalize().scale(0.35).add(0, 0.12, 0);
 					AbilityHelpers.push(t, pull);
 					if (t.distanceToSqr(c) < 9.0) {
-						AbilityHelpers.hurt(p, t, AbilityHelpers.fire(p), 5.0f);
+						com.projecthero.mod.hero.power.MutationDamage.hurt(p, t, AbilityHelpers.fire(p), 5.0f);
 						t.igniteForSeconds(3);
 					}
 				}
