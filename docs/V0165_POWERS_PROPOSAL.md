@@ -17,6 +17,10 @@ Shared rules for all four (they match the current mod):
 **How you get it:** the **Mother Box** already drops from the Apokolips Invasion (Darkseid raid). Right-click it while you have **4 hearts or less**. The box fuses with you and you get a 10 s per-texel conversion, the same reveal style as the Max Steel nanotech. The Mother Box is used up.
 
 **Look:** a player model with a detailed cyborg skin (chrome plates, red eye, glowing chest core).
+- **v0.17.7 (user):** the skin is now the Teen Titans Cyborg from PlanetMinecraft (`teen-titans-cyborg-4002965`, wide arms) with
+  Victor Stone's own skin cleared out on both layers (`scratchpad/v0177/make_cyborg_skin.js`), so the wearer's face, scalp, neck and
+  upper arms show between the plates; a slim copy goes on slim players. Only the red eye glows. The H hologram now wipes **both**
+  layers of the plates at its scan line (they come back behind it when it drains away), first person included.
 - **Reworked (user):** he is **always Cyborg**; the full kit and the passives always work. **H** projects a **hologram** of your normal skin from the blue light on his forehead. It builds over the body one pixel at a time, top-down, and any move (or H again) drops it.
 - **Jet Flight (user):** double-tap jump in the air. A jetpack builds itself onto his back and he flies on energy jets from it and from his boots; landing folds it away.
 - **Arm blaster (user):** the Sonic Cannon and the Sonic Burst build a blaster round his forearm, like Max Steel's.
