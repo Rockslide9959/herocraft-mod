@@ -33,7 +33,7 @@ public final class PegasusConfig {
 	public static final int PASS_COOLDOWN = 30;
 
 	// ---------------------------------------------------------------- R: Horseshoe Throw / Shift+R: Horseshoe Volley
-	public static final float THROW_DAMAGE = 12f;
+	public static final float THROW_DAMAGE = 13f; // v0.17.7 City tier (was 12)
 	/** How far out the Horseshoe flies before it turns back. */
 	public static final double THROW_RANGE = 18.0;
 	/** Ticks of the outbound flight at full range (a nearer aim is reached sooner). */
@@ -47,7 +47,7 @@ public final class PegasusConfig {
 	/** Starts when the Horseshoe is caught (it can't be thrown while out anyway). */
 	public static final int THROW_COOLDOWN = 30;
 	public static final int VOLLEY_COUNT = 3;
-	public static final float VOLLEY_DAMAGE = 7f;
+	public static final float VOLLEY_DAMAGE = 11f; // v0.17.7 City tier (was 7)
 	/** The fan's spread between neighbouring horseshoes, degrees. */
 	public static final double VOLLEY_SPREAD_DEGREES = 12.0;
 	public static final double VOLLEY_SPEED = 1.6;
@@ -63,7 +63,7 @@ public final class PegasusConfig {
 	public static final int KICK_COOLDOWN = 50;
 	public static final double TRAMPLE_DISTANCE = 12.0;
 	public static final int TRAMPLE_TICKS = 8;
-	public static final float TRAMPLE_DAMAGE = 10f;
+	public static final float TRAMPLE_DAMAGE = 12f; // v0.17.7 City tier (was 10)
 	/** Everything this close to the path is trampled (once each). */
 	public static final double TRAMPLE_WIDTH = 1.5;
 	public static final double TRAMPLE_KNOCKBACK = 1.0;

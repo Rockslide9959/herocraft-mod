@@ -41,8 +41,8 @@ public final class QueenBeeConfig {
 	public static final int STRIKE_GAP = 5;
 	public static final int STRIKE_WINDOW = 20;
 	public static final int STRIKE_SWING_TICKS = 10;
-	public static final float STRIKE_DAMAGE = 7f;
-	public static final float STRIKE_FINISHER_DAMAGE = 9f;
+	public static final float STRIKE_DAMAGE = 12f; // v0.17.7 City tier (was 7)
+	public static final float STRIKE_FINISHER_DAMAGE = 14f; // v0.17.7 City tier (was 9)
 	public static final double STRIKE_REACH = 5.0;
 	public static final double STRIKE_CONE = 0.5;
 	public static final double STRIKE_KNOCKBACK = 0.35;
@@ -63,12 +63,12 @@ public final class QueenBeeConfig {
 	// ---------------------------------------------------------------- G: Spinning Shield / Shift+G: Top Tangle
 	public static final int SHIELD_TICKS = 80;
 	public static final double SHIELD_RADIUS = 3.0;
-	public static final float SHIELD_DAMAGE = 4f;
+	public static final float SHIELD_DAMAGE = 5f; // v0.17.7 City tier (was 4)
 	public static final int SHIELD_EVERY = 10;
 	public static final int SHIELD_COOLDOWN = 200;
 	public static final double TANGLE_RANGE = 14.0;
 	public static final double TANGLE_ASSIST_DEGREES = 7.0;
-	public static final float TANGLE_DAMAGE = 6f;
+	public static final float TANGLE_DAMAGE = 11f; // v0.17.7 City tier (was 6)
 	public static final int TANGLE_TICKS = 60;
 	public static final int TANGLE_COOLDOWN = 200;
 
@@ -95,7 +95,7 @@ public final class QueenBeeConfig {
 	public static final double DIVE_SPEED = 2.2;
 	/** Never lands: given up after this long. */
 	public static final int DIVE_MAX_TICKS = 80;
-	public static final float DIVE_DAMAGE = 17f;
+	public static final float DIVE_DAMAGE = 15f; // v0.17.7 City tier (was 17)
 	public static final double DIVE_RADIUS = 4.0;
 	public static final double DIVE_LIFT = 0.6;
 	public static final double DIVE_KNOCKBACK = 0.6;
@@ -104,7 +104,7 @@ public final class QueenBeeConfig {
 	public static final int VENOM_ARMED_TICKS = 10 * 20;
 	/** Paralysed: rooted and unable to act this long. */
 	public static final int VENOM_PARALYSE_TICKS = 10 * 20;
-	public static final float VENOM_DAMAGE = 40f;
+	public static final float VENOM_DAMAGE = 28f; // v0.17.7 City tier (was 40)
 	/** A boss is only slowed (Slowness III) this long. */
 	public static final int VENOM_BOSS_SLOW_TICKS = 3 * 20;
 	/** Shift+Z again while armed: a touch this far in front of her. */
@@ -132,7 +132,7 @@ public final class QueenBeeConfig {
 	public static final int VOLLEY_SHOTS = 6;
 	public static final int VOLLEY_EVERY = 4;
 	public static final double VOLLEY_RANGE = 20.0;
-	public static final float VOLLEY_DAMAGE = 6f;
+	public static final float VOLLEY_DAMAGE = 11f; // v0.17.7 City tier (was 6)
 	public static final int VOLLEY_POISON_TICKS = 40;
 	public static final int VOLLEY_COOLDOWN = 240;
 }

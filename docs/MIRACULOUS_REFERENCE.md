@@ -107,9 +107,33 @@ while transformed, v0.16.7: the Pegasus suit's own goggles, painted on its skin,
 
 ## Shared passives (while transformed)
 
-`MiraculousStats`: +12 armour, +6 toughness, +10 max health, +7 melee, Regeneration I (topped up when low, removed on detransform if it is ours), +25% speed, +35% jump. `MiraculousDamage`
+`MiraculousStats`: +14 armour, +8 toughness, +12 max health, +11 melee (v0.17.7 City tier; was +12 / +6 / +10 / +7), Regeneration I (topped up when low, removed on detransform if it is ours), +25% speed, +35% jump. `MiraculousDamage`
 (`ALLOW_DAMAGE`): no fall damage; every other hit goes through the kit's `KwamiKit.modifyIncomingDamage` (0 cancels,
 a changed amount is cancelled and re-issued once). `/kill` and the void are never touched.
+
+## v0.17.7 City tier
+
+Every Miraculous holder is **City** tier (melee 11-14, abilities 11-15, ultimate 25-30; `hero/PowerRank`). Numbers live in each
+kit's own Config; `MiraculousConfig.MAX_HIT` (30) is applied in every kit's hit helper (`CatNoirCombat.strike`,
+`RenaRougeCombat.strike`, `CarapaceCombat.strike`, `PegasusCombat.strike`, `QueenBeeMoves.hit` + Venom, `RyukoMoves.hit`,
+`ViperionMoves.hit`, `MultimouseMoves.hit`, the Lucky Charm TNT) before the boss cap. Bare fist 12 (+11).
+Toughness: +14 armour / +8 toughness (vanilla maths: ~46% off a 10-damage hit, was ~37%), +12 max health.
+
+| Hero | Hit: before -> after |
+|---|---|
+| Ladybug | Yo-yo Strike 10 -> 13; Ricochet 7 -> 11 each; Lasso Fling landing 8 -> 11; Lucky Charm TNT 100 -> 30 (15 at the edge) |
+| Cat Noir | Baton Strike 9 -> 12 x3; Low Sweep 6 -> 11; Extend 14; Throw 12 -> 13; Spin 8 -> 11; Pounce 12 -> 13; **Cataclysm 2000 -> 30, burn 100/s -> 2/s x10** |
+| Rena Rouge | Flute Strike 9 -> 12; Sweep 7 -> 11; Throw 10 -> 12 |
+| Carapace | Shield Bash 12 -> 13; Shield Throw 10 -> 11 each; Shield Slam 10 -> 12 |
+| Pegasus | Horseshoe Throw 12 -> 13; Volley 7 -> 11 each; Hoof Kick 14; Gallop Trample 10 -> 12 |
+| Queen Bee | Top Strike 7/7/9 -> 12/12/14; Throw 14; Spinning Shield 4 -> 5 every 0.5 s; Tangle 6 -> 11; Dive 17 -> 15; Sting 13; Volley 6 -> 11 each; **Venom 40 -> 28** (bosses: min(28, 8%), was the full 8%) |
+| Viperion | Lyre Strike 9 -> 12; Sweep 12; Sonic Chord 10 -> 12; Resonance 4 -> 11; Venom Strike 6 -> 11; Constrict 2.5 -> 3.5 every 0.5 s |
+| Ryuko | Blade Combo 8/8/11 -> 12/12/14; Lunge 12 -> 13; element strikes 8/10/12 -> 11/12/14, chain 8 -> 11; bursts 10/8/12 -> 12/11/14; Slide 4 -> 11; Blink 6 -> 11; Throw 14; Storm Guard shock 6 -> 11; Riposte 15; Dragon Form touch 9 a second (unchanged) |
+| Multimouse | Rope Lash 8 -> 12 x3; Lasso 6 -> 11; Twirl 4 -> 5 every 0.5 s; Trip 6 -> 11; Mouse Trap 8 -> 11; Multitude recombine 2 -> 2.5 a copy (25 with all ten) |
+| Hawk Moth | Cane Strike 9 -> 12 x3; Cane Sword 14 |
+
+Unchanged on purpose: utility specials (Mirage, Shelter, Second Chance, Voyage, Rise Akuma), summons (Rena's foxes 6, Mouse
+Swarm 2, Multitude copies 3, akumas / Champions), the Lucky Charm sword (11) and bow (Power V).
 
 ## HUD
 

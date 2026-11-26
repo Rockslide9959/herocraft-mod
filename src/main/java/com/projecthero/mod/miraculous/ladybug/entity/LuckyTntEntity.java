@@ -53,7 +53,7 @@ public class LuckyTntEntity extends ThrowableItemProjectile {
 			double r = LadybugConfig.CHARM_TNT_RADIUS;
 			for (LivingEntity e : AbilityHelpers.enemiesAround(owner, c, r)) {
 				double d = Math.sqrt(AbilityHelpers.distanceSqToBox(e, c));
-				float dmg = (float) (LadybugConfig.CHARM_TNT_DAMAGE * (1.0 - 0.5 * Math.min(1.0, d / r)));
+				float dmg = com.projecthero.mod.miraculous.MiraculousConfig.capHit((float) (LadybugConfig.CHARM_TNT_DAMAGE * (1.0 - 0.5 * Math.min(1.0, d / r))));
 				AbilityHelpers.hurtBurst(owner, e, level.damageSources().explosion(this, owner), dmg);
 				AbilityHelpers.knockbackFrom(e, c, LadybugConfig.CHARM_TNT_KNOCKBACK);
 			}

@@ -160,7 +160,7 @@ public final class MultimouseMoves {
 			return false;
 		}
 		boolean boss = isBoss(target);
-		float dmg = scaled(owner, damage);
+		float dmg = com.projecthero.mod.miraculous.MiraculousConfig.capHit(scaled(owner, damage)); // v0.17.7 City tier
 		if (boss) {
 			dmg = Math.min(dmg, target.getMaxHealth() * MultimouseConfig.BOSS_MAX_FRACTION_PER_HIT);
 		}

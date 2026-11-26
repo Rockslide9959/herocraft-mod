@@ -45,6 +45,7 @@ public final class CatNoirCombat {
 			return false;
 		}
 		boolean boss = isBoss(target);
+		damage = com.projecthero.mod.miraculous.MiraculousConfig.capHit(damage); // v0.17.7 City tier
 		float dmg = boss ? Math.min(damage, target.getMaxHealth() * bossFraction) : damage;
 		boolean landed;
 		ABILITY_HIT.set(true);

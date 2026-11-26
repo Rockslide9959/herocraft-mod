@@ -159,6 +159,7 @@ public final class QueenBeeMoves {
 			return false;
 		}
 		boolean boss = isBoss(target);
+		damage = com.projecthero.mod.miraculous.MiraculousConfig.capHit(damage); // v0.17.7 City tier
 		float dmg = boss ? Math.min(damage, target.getMaxHealth() * QueenBeeConfig.BOSS_MAX_FRACTION_PER_HIT) : damage;
 		if (!AbilityHelpers.hurtBurst(owner, target, owner.level().damageSources().playerAttack(owner), Math.max(0.5f, dmg))) {
 			return false;
@@ -797,7 +798,9 @@ public final class QueenBeeMoves {
 		level.playSound(null, t.getX(), t.getY(), t.getZ(), SoundEvents.BEE_STING, SoundSource.PLAYERS, 1.2f, 0.6f);
 		level.playSound(null, t.getX(), t.getY(), t.getZ(), SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 0.6f, 1.8f);
 		boolean boss = isBoss(t);
-		float dmg = boss ? t.getMaxHealth() * QueenBeeConfig.BOSS_MAX_FRACTION_PER_HIT : QueenBeeConfig.VENOM_DAMAGE;
+		// v0.17.7 City tier: a boss takes the smaller of Venom's damage and its 8% (it used to take the full 8% however big)
+		float venom = com.projecthero.mod.miraculous.MiraculousConfig.capHit(QueenBeeConfig.VENOM_DAMAGE);
+		float dmg = boss ? Math.min(venom, t.getMaxHealth() * QueenBeeConfig.BOSS_MAX_FRACTION_PER_HIT) : venom;
 		AbilityHelpers.hurtBurst(p, t, p.level().damageSources().playerAttack(p), dmg);
 		if (boss) {
 			AbilityHelpers.applyControl(t, MobEffects.MOVEMENT_SLOWDOWN, QueenBeeConfig.VENOM_BOSS_SLOW_TICKS, 2);

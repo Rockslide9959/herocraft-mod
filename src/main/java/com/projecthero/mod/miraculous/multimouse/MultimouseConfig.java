@@ -44,7 +44,7 @@ public final class MultimouseConfig {
 	public static final int LASH_GAP = 5;
 	public static final int LASH_WINDOW = 20;
 	public static final int LASH_SWING_TICKS = 10;
-	public static final float LASH_DAMAGE = 8f;
+	public static final float LASH_DAMAGE = 12f; // v0.17.7 City tier (was 8)
 	public static final double LASH_REACH = 5.0;
 	public static final double LASH_CONE = 0.5;
 	public static final double LASH_KNOCKBACK = 0.35;
@@ -53,20 +53,20 @@ public final class MultimouseConfig {
 	public static final int LASH_COOLDOWN = 30;
 	public static final double LASSO_RANGE = 16.0;
 	public static final double LASSO_ASSIST_DEGREES = 7.0;
-	public static final float LASSO_DAMAGE = 6f;
+	public static final float LASSO_DAMAGE = 11f; // v0.17.7 City tier (was 6)
 	public static final int LASSO_STUN_TICKS = 30;
 	public static final int LASSO_COOLDOWN = 160;
 
 	// ---------------------------------------------------------------- G: Rope Twirl / Shift+G: Skipping Trip
 	public static final int TWIRL_TICKS = 80;
 	public static final double TWIRL_RADIUS = 3.5;
-	public static final float TWIRL_DAMAGE = 4f;
+	public static final float TWIRL_DAMAGE = 5f; // v0.17.7 City tier (was 4)
 	public static final int TWIRL_EVERY = 10;
 	public static final int TWIRL_COOLDOWN = 200;
 	public static final double TRIP_RADIUS = 6.0;
 	/** The low sweep's half arc (the front half). */
 	public static final double TRIP_DOT = 0.0;
-	public static final float TRIP_DAMAGE = 6f;
+	public static final float TRIP_DAMAGE = 11f; // v0.17.7 City tier (was 6)
 	/** Tripped: knocked down, slowed hard and unable to attack (a stun) this long. */
 	public static final int TRIP_TICKS = 40;
 	public static final int TRIP_COOLDOWN = 160;
@@ -115,8 +115,8 @@ public final class MultimouseConfig {
 	/** Recombining: the survivors run back for at most this long, then the shockwave. */
 	public static final int RECOMBINE_TICKS = 20;
 	public static final double RECOMBINE_RADIUS = 6.0;
-	/** 2 damage for each copy that made it back. */
-	public static final float RECOMBINE_DAMAGE_PER_COPY = 2f;
+	/** 2.5 damage for each copy that made it back (v0.17.7 City tier: 25 with all ten; was 2). */
+	public static final float RECOMBINE_DAMAGE_PER_COPY = 2.5f; // v0.17.7 City tier (was 2)
 	public static final double RECOMBINE_KNOCKBACK = 1.4;
 	/** The special's cooldown, from its start. */
 	public static final int MULTITUDE_COOLDOWN = 2400;
@@ -138,7 +138,7 @@ public final class MultimouseConfig {
 	/** A mob whose feet come this close (flat) to the snare steps in. */
 	public static final double TRAP_TRIGGER = 0.8;
 	public static final int TRAP_SNARE_TICKS = 100;
-	public static final float TRAP_DAMAGE = 8f;
+	public static final float TRAP_DAMAGE = 11f; // v0.17.7 City tier (was 8)
 	/** An unsprung snare frays away after this long. */
 	public static final int TRAP_LIFE = 120 * 20;
 	public static final int TRAP_COOLDOWN = 20;

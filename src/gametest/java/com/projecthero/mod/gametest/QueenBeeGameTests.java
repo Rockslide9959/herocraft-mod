@@ -120,17 +120,17 @@ public class QueenBeeGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void theApprovedNumbers(GameTestHelper helper) {
-		helper.assertTrue(QueenBeeConfig.STRIKE_DAMAGE == 7f && QueenBeeConfig.STRIKE_FINISHER_DAMAGE == 9f && QueenBeeConfig.STRIKE_REACH == 5.0, "Top Strike 7 / 7 / 9, 5 blocks");
+		helper.assertTrue(QueenBeeConfig.STRIKE_DAMAGE == 12f && QueenBeeConfig.STRIKE_FINISHER_DAMAGE == 14f && QueenBeeConfig.STRIKE_REACH == 5.0, "Top Strike 12 / 12 / 14, 5 blocks");
 		helper.assertTrue(QueenBeeConfig.THROW_RANGE == 20.0 && QueenBeeConfig.THROW_DAMAGE == 14f && QueenBeeConfig.THROW_TARGETS == 3, "Top Throw 20 blocks, 14, 3 targets");
-		helper.assertTrue(QueenBeeConfig.SHIELD_TICKS == 80 && QueenBeeConfig.SHIELD_DAMAGE == 4f && QueenBeeConfig.SHIELD_EVERY == 10, "Spinning Shield 4 s, 4 every 0.5 s");
-		helper.assertTrue(QueenBeeConfig.TANGLE_RANGE == 14.0 && QueenBeeConfig.TANGLE_DAMAGE == 6f && QueenBeeConfig.TANGLE_TICKS == 60, "Top Tangle 14, 6 + 3 s");
+		helper.assertTrue(QueenBeeConfig.SHIELD_TICKS == 80 && QueenBeeConfig.SHIELD_DAMAGE == 5f && QueenBeeConfig.SHIELD_EVERY == 10, "Spinning Shield 4 s, 5 every 0.5 s");
+		helper.assertTrue(QueenBeeConfig.TANGLE_RANGE == 14.0 && QueenBeeConfig.TANGLE_DAMAGE == 11f && QueenBeeConfig.TANGLE_TICKS == 60, "Top Tangle 14, 11 + 3 s");
 		helper.assertTrue(QueenBeeConfig.SWING_RANGE == 30.0 && QueenBeeConfig.COPTER_TICKS == 300, "Top Swing 30, Top Copter 15 s");
-		helper.assertTrue(QueenBeeConfig.DIVE_DAMAGE == 17f && QueenBeeConfig.DIVE_RADIUS == 4.0, "Stinger Dive 17 in 4");
-		helper.assertTrue(QueenBeeConfig.VENOM_DAMAGE == 40f && QueenBeeConfig.VENOM_PARALYSE_TICKS == 200 && QueenBeeConfig.VENOM_ARMED_TICKS == 200
-				&& QueenBeeConfig.VENOM_BOSS_SLOW_TICKS == 60, "Venom 40 + 10 s paralysis, armed 10 s, bosses slowed 3 s");
+		helper.assertTrue(QueenBeeConfig.DIVE_DAMAGE == 15f && QueenBeeConfig.DIVE_RADIUS == 4.0, "Stinger Dive 15 in 4");
+		helper.assertTrue(QueenBeeConfig.VENOM_DAMAGE == 28f && QueenBeeConfig.VENOM_PARALYSE_TICKS == 200 && QueenBeeConfig.VENOM_ARMED_TICKS == 200
+				&& QueenBeeConfig.VENOM_BOSS_SLOW_TICKS == 60, "Venom 28 + 10 s paralysis, armed 10 s, bosses slowed 3 s");
 		helper.assertTrue(QueenBeeConfig.HIVE_RANGE == 32.0 && QueenBeeConfig.COMMAND_RADIUS == 10.0 && QueenBeeConfig.COMMAND_STRENGTH_TICKS == 200, "Hive Sense 32, Command 10 / 10 s");
 		helper.assertTrue(QueenBeeConfig.STING_DAMAGE == 13f && QueenBeeConfig.STING_POISON_TICKS == 60, "Sting 13 + Poison 3 s");
-		helper.assertTrue(QueenBeeConfig.VOLLEY_SHOTS == 6 && QueenBeeConfig.VOLLEY_DAMAGE == 6f, "Stinger Volley 6 x 6");
+		helper.assertTrue(QueenBeeConfig.VOLLEY_SHOTS == 6 && QueenBeeConfig.VOLLEY_DAMAGE == 11f, "Stinger Volley 6 x 11");
 		helper.assertTrue(MiraculousConfig.SAFE_LANDING_MOVES.contains(QueenBeeConfig.SWING), "Top Swing lands safely");
 		var kit = MiraculousKits.of(Kwami.POLLEN);
 		helper.assertTrue(kit.idsOf(com.projecthero.mod.hero.AbilitySlot.SLOT_4)[1].equals(QueenBeeConfig.VENOM)
