@@ -44,8 +44,8 @@ import net.minecraft.world.phys.Vec3;
  *   COCOON   2.5 s, invulnerable: tendrils erupt from the ground round the feet, spiral up faster and faster and weave a cocoon
  *            that swells to 7 blocks (the hitbox grows with it), beats like a heart and bursts -- tendrils whip out, everything
  *            within 4 blocks is thrown back, a roar.
- *   MONSTER  40 s: 7 blocks (scale attribute), +100% max health (healed in), 50% damage reduction, no knockback, a jump boost,
- *            walking 15% slower (sprinting normal), +3 reach, +8 claw damage. The normal kit is locked; R G X Z C V are the
+ *   MONSTER  40 s: 7 blocks (scale attribute), +16 max health (healed in; v0.17.7 City tier, was +100%), 50% damage reduction, no knockback, a jump boost,
+ *            walking 15% slower (sprinting normal), +3 reach, +4 claw damage (v0.17.7, was +8: claws 15 with the suit's 11). The normal kit is locked; R G X Z C V are the
  *            monster's moves ({@link SymbioteMonsterMoves}); Shift+Z ends it early.
  *   MELT     1.5 s, invulnerable: the monster melts back down into goo and the host re-forms in the suit.
  * </pre>
@@ -76,7 +76,11 @@ public final class SymbioteMonster {
 	private static final ResourceLocation STEP_ID = ProjectHeroMod.id("symbiote_monster_step");
 	private static final ResourceLocation REACH_ID = ProjectHeroMod.id("symbiote_monster_reach");
 	private static final ResourceLocation BLOCK_REACH_ID = ProjectHeroMod.id("symbiote_monster_block_reach");
-	private static final ResourceLocation ATTACK_ID = ProjectHeroMod.id("symbiote_monster_attack");
+	public static final ResourceLocation ATTACK_ID = ProjectHeroMod.id("symbiote_monster_attack");
+	/** v0.17.7 City tier: max health while the monster (a flat +16, was +100% -- a Primary's own health is never doubled). */
+	public static final float HEALTH_BONUS = 16.0f;
+	/** v0.17.7 City tier: the claws' extra melee (was 8): with the suit's +10 a claw lands 15. */
+	public static final double CLAW_BONUS = 4.0;
 
 	private SymbioteMonster() {
 	}
@@ -263,7 +267,7 @@ public final class SymbioteMonster {
 	public static void burst(ServerPlayer player, long now) {
 		setState(player, state(player).withPhase(SymbioteMonsterState.MONSTER, now).withMove(SymbioteMonsterState.MOVE_NONE, now));
 		reconcile(player);
-		player.heal(player.getMaxHealth() * 0.5f); // the +100% comes in full
+		player.heal(HEALTH_BONUS); // the bonus comes in full
 		ServerLevel level = AbilityHelpers.level(player);
 		Vec3 c = player.position();
 		for (LivingEntity e : SymbioteAbilityManager.enemiesAround(player, c, BURST_RADIUS + 1.2)) {
@@ -445,7 +449,7 @@ public final class SymbioteMonster {
 		if (Math.abs(player.getScale() - before) > 1.0e-4) {
 			player.refreshDimensions(); // at once, not on the next entity tick (the hitbox and eye height follow the body)
 		}
-		set(player, Attributes.MAX_HEALTH, HEALTH_ID, monster ? 1.0 : 0.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+		set(player, Attributes.MAX_HEALTH, HEALTH_ID, monster ? HEALTH_BONUS : 0.0, AttributeModifier.Operation.ADD_VALUE);
 		set(player, Attributes.KNOCKBACK_RESISTANCE, KNOCKBACK_ID, s.inForm() || charging ? 1.0 : 0.0, AttributeModifier.Operation.ADD_VALUE);
 		double speed = rooted ? -1.0 : monster && !player.isSprinting() ? -0.15 : 0.0;
 		set(player, Attributes.MOVEMENT_SPEED, SPEED_ID, speed, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
@@ -457,7 +461,7 @@ public final class SymbioteMonster {
 		set(player, Attributes.STEP_HEIGHT, STEP_ID, monster ? 1.0 : 0.0, AttributeModifier.Operation.ADD_VALUE);
 		set(player, Attributes.ENTITY_INTERACTION_RANGE, REACH_ID, monster ? 3.0 : 0.0, AttributeModifier.Operation.ADD_VALUE);
 		set(player, Attributes.BLOCK_INTERACTION_RANGE, BLOCK_REACH_ID, monster ? 2.0 : 0.0, AttributeModifier.Operation.ADD_VALUE);
-		set(player, Attributes.ATTACK_DAMAGE, ATTACK_ID, monster ? 8.0 : 0.0, AttributeModifier.Operation.ADD_VALUE);
+		set(player, Attributes.ATTACK_DAMAGE, ATTACK_ID, monster ? CLAW_BONUS : 0.0, AttributeModifier.Operation.ADD_VALUE);
 	}
 
 	private static void set(ServerPlayer player, Holder<Attribute> attribute, ResourceLocation id, double amount, AttributeModifier.Operation op) {

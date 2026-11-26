@@ -7,8 +7,10 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.food.FoodData;
 
 /**
@@ -28,6 +30,13 @@ import net.minecraft.world.food.FoodData;
  */
 public final class SymbiotePassives {
 	private static final ResourceLocation ATTACK = ProjectHeroMod.id("symbiote_host_attack");
+	/** v0.17.7 City tier: the suit's bare fist lands 11 (vanilla 1 + this; was +5 = 6). */
+	public static final double SUIT_MELEE_BONUS = 10.0;
+	/**
+	 * v0.17.7 City tier: the Symbiote is a Secondary stacked on a Primary, so its melee bonuses never push a punch past this
+	 * ({@link #capMelee}); a punch already over it without them (the Primary's own) is never lowered.
+	 */
+	public static final float MAX_HIT = com.projecthero.mod.hero.PowerRank.CITY.ultimateMax;
 	private static final ResourceLocation SPEED = ProjectHeroMod.id("symbiote_host_speed");
 	private static final ResourceLocation JUMP = ProjectHeroMod.id("symbiote_host_jump");
 	private static final ResourceLocation KNOCKBACK = ProjectHeroMod.id("symbiote_host_knockback");
@@ -78,9 +87,9 @@ public final class SymbiotePassives {
 		PowerToggles.clearModifier(player, Attributes.FALL_DAMAGE_MULTIPLIER, FALL_MULT);
 
 		if (suited) {
-			// Unarmed lands 6 (vanilla base 1.0 + 5.0; v0.13.19: +4 -> +5) and jumps are noticeably higher --
-			// the "powered up" feel of actually wearing the suit. Kept off the bonded-only baseline on purpose.
-			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, ATTACK, 5.0,
+			// Unarmed lands 11 (vanilla base 1.0 + 10.0; v0.13.19: +4 -> +5; v0.17.7 City tier: +5 -> +10) and jumps are
+			// noticeably higher -- the "powered up" feel of actually wearing the suit. Kept off the bonded-only baseline on purpose.
+			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, ATTACK, SUIT_MELEE_BONUS,
 					AttributeModifier.Operation.ADD_VALUE);
 			PowerToggles.modifier(player, Attributes.JUMP_STRENGTH, JUMP, 0.20,
 					AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
@@ -110,5 +119,32 @@ public final class SymbiotePassives {
 					true, false, false));
 			SymbioteVitalsManager.spendBiomass(player, REGEN_BIOMASS_PER_PULSE);
 		}
+	}
+
+	/**
+	 * v0.17.7 City tier (from {@code PlayerSymbioteMeleeCapMixin}, on the damage of a real melee swing): the Symbiote's attack-damage
+	 * bonuses (the suit, a weapon, the Monster's claws) never lift a punch past {@link #MAX_HIT}. {@code amount} comes back untouched
+	 * when it is already at or under the cap, or when the punch without the Symbiote's bonuses (the Primary's own) is over it anyway.
+	 */
+	public static float capMelee(Player attacker, float amount) {
+		if (amount <= MAX_HIT || attacker.level().isClientSide()) {
+			return amount;
+		}
+		AttributeInstance inst = attacker.getAttribute(Attributes.ATTACK_DAMAGE);
+		if (inst == null) {
+			return amount;
+		}
+		double bonus = 0.0;
+		for (ResourceLocation id : new ResourceLocation[] { ATTACK, SymbioteVitalsManager.BLADE_ATTACK,
+				com.projecthero.mod.symbiote.monster.SymbioteMonster.ATTACK_ID }) {
+			AttributeModifier m = inst.getModifier(id);
+			if (m != null && m.operation() == AttributeModifier.Operation.ADD_VALUE && m.amount() > 0.0) {
+				bonus += m.amount();
+			}
+		}
+		if (bonus <= 0.0) {
+			return amount;
+		}
+		return Math.max(MAX_HIT, amount - (float) bonus);
 	}
 }

@@ -35,16 +35,16 @@ public final class BeastBoyConfig {
 
 	// ---- the quick morphs (human form)
 	public static final int QUICK_TICKS = 10;
-	public static final float RAM_DAMAGE = 10f, RAM_COST = 10f, RAM_RANGE = 6f;
+	public static final float RAM_DAMAGE = 11f, RAM_COST = 10f, RAM_RANGE = 6f;
 	public static final int RAM_COOLDOWN = 20;
-	public static final float POUNCE_DAMAGE = 8f, POUNCE_COST = 10f, POUNCE_RANGE = 8f;
+	public static final float POUNCE_DAMAGE = 11f, POUNCE_COST = 10f, POUNCE_RANGE = 8f;
 	public static final int POUNCE_COOLDOWN = 20, BLEED_TICKS = 60, BLEED_EVERY = 20;
 	public static final float BLEED_DAMAGE = 1f;
 	public static final float SMASH_DAMAGE = 12f, SMASH_COST = 12f, SMASH_REACH = 3.5f;
 	public static final int SMASH_COOLDOWN = 24;
-	public static final float SNAKE_DAMAGE = 5f, SNAKE_COST = 10f, SNAKE_RANGE = 5f;
+	public static final float SNAKE_DAMAGE = 11f, SNAKE_COST = 10f, SNAKE_RANGE = 5f;
 	public static final int SNAKE_COOLDOWN = 20, SNAKE_EFFECT_TICKS = 80;
-	public static final float ROAR_DAMAGE = 6f, ROAR_COST = 25f, ROAR_RANGE = 8f;
+	public static final float ROAR_DAMAGE = 11f, ROAR_COST = 25f, ROAR_RANGE = 8f;
 	public static final int ROAR_COOLDOWN = 200, FEAR_TICKS = 80;
 	public static final float STOMP_DAMAGE = 14f, STOMP_COST = 20f, STOMP_RADIUS = 4f;
 	public static final int STOMP_COOLDOWN = 40;
@@ -56,36 +56,44 @@ public final class BeastBoyConfig {
 	// ---- The Beast (Shift+Z)
 	public static final float BEAST_COST = 100f;
 	public static final int BEAST_TICKS = 600, BEAST_COOLDOWN = 3600;
-	public static final float BEAST_SWIPE = 20f, BEAST_SLAM = 12f;
+	public static final float BEAST_SWIPE = 19f, BEAST_SLAM = 18f;
 	public static final int BEAST_SWIPE_COOLDOWN = 14, BEAST_LEAP_COOLDOWN = 40, BEAST_ROAR_COOLDOWN = 160;
 
 	// ---- the sustained forms' own moves (damage, cooldown in ticks)
-	public static final float TREX_BITE = 18f, TREX_TAIL = 12f;
+	public static final float TREX_BITE = 14f, TREX_TAIL = 13f;
 	public static final int TREX_BITE_CD = 24, TREX_TAIL_CD = 40, TREX_ROAR_CD = 160;
-	public static final float GORILLA_PUNCH = 12f, GORILLA_THROW = 6f;
+	public static final float GORILLA_PUNCH = 12f, GORILLA_THROW = 11f;
 	public static final int GORILLA_PUNCH_CD = 16, GORILLA_THROW_CD = 40, GORILLA_BEAT_CD = 400, CHEST_BEAT_TICKS = 200;
-	public static final float RHINO_CHARGE = 16f, RHINO_RANGE = 8f;
+	public static final float RHINO_CHARGE = 15f, RHINO_RANGE = 8f;
 	public static final int RHINO_CHARGE_CD = 40;
-	public static final float ELEPHANT_TRUNK = 8f, ELEPHANT_STOMP = 14f;
+	public static final float ELEPHANT_TRUNK = 11f, ELEPHANT_STOMP = 15f;
 	public static final int ELEPHANT_TRUNK_CD = 30, ELEPHANT_STOMP_CD = 40, ELEPHANT_SPRAY_CD = 60;
-	public static final float WOLF_BITE = 8f;
+	public static final float WOLF_BITE = 11f;
 	public static final int WOLF_BITE_CD = 12, WOLF_HOWL_CD = 400, HOWL_TICKS = 300;
 	public static final float BEAR_MAUL = 14f;
 	public static final int BEAR_MAUL_CD = 20, BEAR_ROAR_CD = 160;
 	public static final float PTERO_DIVE = 12f, PTERO_RANGE = 12f;
 	public static final int PTERO_DIVE_CD = 40;
-	public static final float HAWK_TALON = 5f;
+	public static final float HAWK_TALON = 11f;
 	public static final int HAWK_TALON_CD = 10, HAWK_SCREECH_CD = 200, SCREECH_TICKS = 200;
 	public static final int BAT_PULSE_CD = 160, BAT_PULSE_TICKS = 120;
 	public static final float BAT_PULSE_RADIUS = 24f;
 	public static final float SHARK_BITE = 14f;
 	public static final int SHARK_BITE_CD = 20;
 	public static final int OCTOPUS_INK_CD = 100, INK_TICKS = 80;
-	public static final float WHALE_SLAM = 10f;
+	public static final float WHALE_SLAM = 14f;
 	public static final int WHALE_SLAM_CD = 40;
 	public static final int WHALE_SEATS = 4;
 	/** Melee reach of the forms' bites and punches. */
 	public static final float REACH = 4f;
+
+	// ---- v0.17.7 City tier (melee 11-14, abilities 11-15, ultimate 25-30 a hit; the big forms at the top). Was: Ram 10, Pounce 8,
+	// Snake 5, Roar 6, T-Rex Bite 18 / Tail 12, Gorilla Throw 6, Rhino 16, Trunk 8, Elephant Stomp 14, Wolf 8, Hawk 5, Whale 10,
+	// The Beast swipe 20 / slam 12 (x1.4 locked chain: 28 / 16.8 -> 26.6 / 25.2). Left clicks: see the melee bonuses below.
+	/** No Beast Boy move hit goes over this, whatever the Morph Chain (and Titans Together) put on it. */
+	public static final float MAX_HIT = com.projecthero.mod.hero.PowerRank.CITY.ultimateMax;
+	/** Extra left-click melee in a form (vanilla fist 1 + this). Was T-Rex 8, Beast 10, big bodies 5, Wolf / Shark / Cheetah / Ptero 2. */
+	public static final double MELEE_TREX = 13.0, MELEE_BEAST = 13.0, MELEE_BIG = 11.0, MELEE_SMALL = 10.0;
 
 	// ---- getting it
 	/** One jungle ocelot in this many is the green (Sakutia) one. */

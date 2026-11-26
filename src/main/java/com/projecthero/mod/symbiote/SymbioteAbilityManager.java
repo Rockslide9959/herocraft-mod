@@ -87,20 +87,20 @@ public final class SymbioteAbilityManager {
 	private static final float LEAP_RAM_DAMAGE = 15.0f;
 
 	private static final double TENDRIL_STRIKE_RANGE = 30.0;
-	private static final float TENDRIL_STRIKE_DAMAGE = 15.0f;
+	private static final float TENDRIL_STRIKE_DAMAGE = 12.0f; // v0.17.7 City tier: was 15 (a 1 s spam move, under the Slam)
 	private static final double SWEEP_RANGE = 9.0;
 	private static final double SWEEP_CONE_DOT = 0.35;
-	private static final float SWEEP_DAMAGE = 8.0f;
+	private static final float SWEEP_DAMAGE = 11.0f; // v0.17.7 City tier: was 8 (+0-2 random)
 
 	private static final double GRAB_RANGE = 15.0;
 	private static final double GRAB_HOLD_DISTANCE = 2.6;
 	/** v0.17.5 moveset v3: no time limit any more -- this is only how long each WRAP effect / tendril top-up lasts. */
 	private static final int GRAB_WRAP_TICKS = 70;
-	private static final float GRAB_THROW_DAMAGE = 7.0f;
+	private static final float GRAB_THROW_DAMAGE = 11.0f; // v0.17.7 City tier: was 7
 
 	private static final int BARRAGE_DURATION = 26;
 	private static final int BARRAGE_HIT_INTERVAL = 3;
-	private static final float BARRAGE_HIT_DAMAGE = 4.0f;
+	private static final float BARRAGE_HIT_DAMAGE = 11.0f; // v0.17.7 City tier: was 4 (hit invulnerability lets about 3 land on one target)
 	/** v0.13.19: the barrage reaches as far as Tendril Strike. */
 	private static final double BARRAGE_RANGE = TENDRIL_STRIKE_RANGE;
 	/** Each barrage tendril wanders up to this many degrees off the aim. */
@@ -108,7 +108,7 @@ public final class SymbioteAbilityManager {
 
 	private static final double BLADE_SLASH_RANGE = 5.0;
 	private static final double BLADE_SLASH_CONE_DOT = 0.2;
-	private static final float BLADE_SLASH_DAMAGE = 8.0f;
+	private static final float BLADE_SLASH_DAMAGE = 12.0f; // v0.17.7 City tier: was 8 (+2 past armour unchanged)
 
 	/** v0.13.19: 60 s -> 90 s, a much bigger hit. */
 	private static final int CD_ONSLAUGHT = 1800;
@@ -626,7 +626,7 @@ public final class SymbioteAbilityManager {
 	// ---------------- v0.17.5 moveset v3: Spike Nova (Shift + G, replaces the Spike Fan) ----------------
 
 	public static final double NOVA_RADIUS = 6.0;
-	public static final float NOVA_DAMAGE = 10.0f;
+	public static final float NOVA_DAMAGE = 12.0f; // v0.17.7 City tier: was 10
 	private static final int NOVA_WITHER_TICKS = 60;
 	private static final int NOVA_SPIKES = 16;
 
@@ -776,7 +776,7 @@ public final class SymbioteAbilityManager {
 	// ---------------- Tendril Grab (Shift + C; C throws, left click crushes, Shift+C sets down) ----------------
 
 	/** v0.17.5 moveset v3: a crush squeezes for this much, at most once per {@link #CRUSH_INTERVAL} ticks. */
-	public static final float CRUSH_DAMAGE = 6.0f;
+	public static final float CRUSH_DAMAGE = 8.0f; // v0.17.7 City tier: was 6 (a repeat squeeze, twice a second at most -- kept under the range like tick damage)
 	public static final int CRUSH_INTERVAL = 10;
 	/** Ticks a released target is spared fall damage (it is also spared as soon as it lands -- the entry just lapses). */
 	private static final int SAFE_LANDING_TICKS = 100;
@@ -1429,8 +1429,8 @@ public final class SymbioteAbilityManager {
 
 	/** Strikes count as "in a row" while each lands within 4 s of the last (the cooldown is 1.5 s). */
 	private static final int STRIKE_CHAIN_WINDOW = 80;
-	public static final float SLAM_DAMAGE = 22.0f;
-	private static final float SLAM_SPLASH_DAMAGE = 6.0f;
+	public static final float SLAM_DAMAGE = 15.0f; // v0.17.7 City tier: was 22
+	private static final float SLAM_SPLASH_DAMAGE = 11.0f; // v0.17.7 City tier: was 6
 	private static final double SLAM_SPLASH_RADIUS = 2.5;
 	/** playerId -> {strikes in a row that found something, game time of the last}. */
 	private static final Map<Integer, long[]> STRIKE_CHAIN = new ConcurrentHashMap<>();
@@ -1440,8 +1440,8 @@ public final class SymbioteAbilityManager {
 	private static final int SPEAR_FULL_CHARGE = 20;
 	private static final int SPEAR_MAX_HOLD = 60;
 	public static final double SPEAR_RANGE = 10.0;
-	public static final float SPEAR_MIN_DAMAGE = 14.0f;
-	public static final float SPEAR_MAX_DAMAGE = 26.0f;
+	public static final float SPEAR_MIN_DAMAGE = 11.0f; // v0.17.7 City tier: was 14
+	public static final float SPEAR_MAX_DAMAGE = 15.0f; // v0.17.7 City tier: was 26
 	private static final int SPEAR_PIN_TICKS = 20;
 	/** playerId -> game time the Spear's charge began. */
 	private static final Map<Integer, Long> SPEAR = new ConcurrentHashMap<>();
@@ -1455,15 +1455,17 @@ public final class SymbioteAbilityManager {
 	private static final double RAIN_RADIUS = 4.0;
 	private static final double RAIN_RANGE = 24.0;
 	private static final double RAIN_HEIGHT = 11.0;
-	public static final float RAIN_SPIKE_DAMAGE = 3.0f;
+	public static final float RAIN_SPIKE_DAMAGE = 5.0f; // v0.17.7 City tier: was 3 (tick-like: about 6 land on one target, ~30 over the 3 s)
 	/** playerId -> {centre x, y, z, end tick, last volley tick, spawn height}. */
 	private static final Map<Integer, double[]> RAIN = new ConcurrentHashMap<>();
 
 	private static final int CD_DIVE = 120;             // 6 s
 	private static final double DIVE_MIN_HEIGHT = 2.5;
 	private static final double DIVE_RADIUS = 4.5;
-	public static final float DIVE_BASE_DAMAGE = 12.0f;
-	private static final float DIVE_MAX_BONUS = 12.0f;
+	public static final float DIVE_BASE_DAMAGE = 11.0f; // v0.17.7 City tier: was 12
+	private static final float DIVE_MAX_BONUS = 4.0f; // v0.17.7 City tier: was 12 (max 15, was 24)
+	/** v0.17.7 City tier: the Dive Bomb adds this a block fallen (was 0.8). */
+	private static final float DIVE_PER_BLOCK = 0.4f;
 	private static final int DIVE_MAX_TICKS = 80;
 	/** playerId -> {start y, start tick}. */
 	private static final Map<Integer, double[]> DIVE = new ConcurrentHashMap<>();
@@ -1492,7 +1494,7 @@ public final class SymbioteAbilityManager {
 
 	private static final int CD_MAW = 100;              // 5 s
 	private static final double MAW_RANGE = 5.0;
-	public static final float MAW_DAMAGE = 18.0f;
+	public static final float MAW_DAMAGE = 15.0f; // v0.17.7 City tier: was 18
 	public static final float MAW_BIOMASS = 12.0f;
 
 	private static final int CD_DEVOUR = 400;           // 20 s
@@ -1500,7 +1502,7 @@ public final class SymbioteAbilityManager {
 	public static final float DEVOUR_THRESHOLD = 0.25f;
 	public static final float DEVOUR_BIOMASS = 40.0f;
 	private static final float DEVOUR_HOST_HEAL = 6.0f;
-	public static final float HEAVY_BITE_DAMAGE = 30.0f;
+	public static final float HEAVY_BITE_DAMAGE = 15.0f; // v0.17.7 City tier: was 30
 	private static final float HEAVY_BITE_BIOMASS = 20.0f;
 	/** Ticks the tongue takes to drag the prey into the maw. */
 	public static final int DEVOUR_PULL_TICKS = 14;
@@ -1792,7 +1794,7 @@ public final class SymbioteAbilityManager {
 	private static void diveImpact(ServerPlayer player, double fallen) {
 		ServerLevel level = AbilityHelpers.level(player);
 		Vec3 c = player.position();
-		float damage = DIVE_BASE_DAMAGE + (float) Math.min(DIVE_MAX_BONUS, fallen * 0.8);
+		float damage = DIVE_BASE_DAMAGE + (float) Math.min(DIVE_MAX_BONUS, fallen * DIVE_PER_BLOCK);
 		SymbioteAnim.play(player, SymbioteAnim.DIVE_IMPACT);
 		for (LivingEntity target : enemiesAround(player, c, DIVE_RADIUS)) {
 			if (AbilityHelpers.hurtBurst(player, target, damage) && !isBoss(target)) {

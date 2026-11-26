@@ -24,7 +24,7 @@ import net.minecraft.world.item.crafting.Ingredient;
 
 /**
  * v0.17.1: the Falcon gear (all craftable, recipes in {@code data/projecthero/recipe/falcon_*.json}): the EXO-7 Wing Pack
- * (chest), the Falcon Goggles (head) and the Flight Suit leggings and boots. Iron-level protection; the flat armour layer
+ * (chest), the Falcon Goggles (head) and the Flight Suit leggings and boots. Netherite-level protection (v0.17.7 City tier; was iron); the flat armour layer
  * ({@code textures/models/armor/falcon_layer_1/2.png}) only shows for a piece worn without the rest of the set.
  */
 public final class FalconItems {
@@ -41,13 +41,14 @@ public final class FalconItems {
 		MATERIAL = Registry.registerForHolder(BuiltInRegistries.ARMOR_MATERIAL,
 				ResourceKey.create(Registries.ARMOR_MATERIAL, ProjectHeroMod.id("falcon")),
 				new ArmorMaterial(
-						Map.of(ArmorItem.Type.BOOTS, 2, ArmorItem.Type.LEGGINGS, 5, ArmorItem.Type.CHESTPLATE, 6,
-								ArmorItem.Type.HELMET, 2, ArmorItem.Type.BODY, 6),
+						// v0.17.7 City tier: netherite-grade 3/6/8/3 = 20 armour, 2 toughness (was iron 2/5/6/2 = 15, toughness 1)
+						Map.of(ArmorItem.Type.BOOTS, 3, ArmorItem.Type.LEGGINGS, 6, ArmorItem.Type.CHESTPLATE, 8,
+								ArmorItem.Type.HELMET, 3, ArmorItem.Type.BODY, 8),
 						12,
 						SoundEvents.ARMOR_EQUIP_ELYTRA,
 						() -> Ingredient.of(Items.IRON_INGOT),
 						List.of(new ArmorMaterial.Layer(ProjectHeroMod.id("falcon"))),
-						1.0f,
+						2.0f,
 						0.0f));
 		GOGGLES = piece("falcon_goggles", ArmorItem.Type.HELMET, "item.projecthero.falcon_goggles.tooltip");
 		WING_PACK = piece("falcon_wing_pack", ArmorItem.Type.CHESTPLATE, "item.projecthero.falcon_wing_pack.tooltip");

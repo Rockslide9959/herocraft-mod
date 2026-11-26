@@ -31,13 +31,13 @@ import net.minecraft.world.phys.Vec3;
  * v0.17.5 Symbiote Monster form: the monster's moves (the normal kit is locked out while transformed).
  *
  * <pre>
- *   R  Claw Swipe      4.5-block 120-degree cone, 24 damage, knockback                                    1 s
- *   G  Ground Pound    6-block radius, 20 damage, launched up                                              6 s
- *   X  Leap Smash      a pounce up to ~14 blocks along the aim; landing: 4 blocks, 22 damage              5 s
- *   Z  Roar            10-block cone, 8 damage, Slowness III + Weakness II 4 s, pushed back                10 s
+ *   R  Claw Swipe      4.5-block 120-degree cone, 15 damage, knockback                                    1 s
+ *   G  Ground Pound    6-block radius, 25 damage, launched up                                              6 s
+ *   X  Leap Smash      a pounce up to ~14 blocks along the aim; landing: 4 blocks, 25 damage              5 s
+ *   Z  Roar            10-block cone, 11 damage, Slowness III + Weakness II 4 s, pushed back                10 s
  *   C  Devour          a non-boss, non-player mob within 5 blocks is seized, dragged to the jaws and eaten
- *                      (any health): +30 Biomass, +6 HP; a boss takes a 35-damage bite                     8 s
- *   V  Tendril Pull    everything in an 8-block cone yanked toward you (4 damage)                          8 s
+ *                      (any health): +30 Biomass, +6 HP; a boss takes a 30-damage bite                     8 s
+ *   V  Tendril Pull    everything in an 8-block cone yanked toward you (11 damage)                          8 s
  *   Shift+Z            end the form early (the melt)
  * </pre>
  * Ranges are from the edge of the monster's body (+ half its hitbox width). Bosses ({@link SymbioteAbilityManager#isBoss}) are
@@ -46,24 +46,24 @@ import net.minecraft.world.phys.Vec3;
  * Static maps hold entity ids and numbers only; cleared per player ({@link #clear}) and on server stop ({@link #clearAll}).
  */
 public final class SymbioteMonsterMoves {
-	public static final float SWIPE_DAMAGE = 24.0f;
+	public static final float SWIPE_DAMAGE = 15.0f; // v0.17.7 City tier (Shift+Z form): was 24 -- the 1 s spam move sits at the ability top
 	public static final double SWIPE_RANGE = 4.5;
 	public static final double SWIPE_COS = 0.5; // 120 degrees
 	public static final int SWIPE_COOLDOWN = 20;
 	public static final int SWIPE_HIT_TICK = 6;
 
-	public static final float POUND_DAMAGE = 20.0f;
+	public static final float POUND_DAMAGE = 25.0f; // v0.17.7 City tier ultimate: was 20
 	public static final double POUND_RADIUS = 6.0;
 	public static final int POUND_COOLDOWN = 120;
 	public static final int POUND_HIT_TICK = 10;
 
-	public static final float LEAP_DAMAGE = 22.0f;
+	public static final float LEAP_DAMAGE = 25.0f; // v0.17.7 City tier ultimate: was 22
 	public static final double LEAP_RADIUS = 4.0;
 	public static final int LEAP_COOLDOWN = 100;
 	public static final int LEAP_LAUNCH_TICK = 3;
 	private static final int LEAP_MAX_TICKS = 80;
 
-	public static final float ROAR_DAMAGE = 8.0f;
+	public static final float ROAR_DAMAGE = 11.0f; // v0.17.7 City tier: was 8
 	public static final double ROAR_RANGE = 10.0;
 	public static final double ROAR_COS = 0.42;
 	public static final int ROAR_COOLDOWN = 200;
@@ -73,14 +73,14 @@ public final class SymbioteMonsterMoves {
 	public static final double DEVOUR_RANGE = 5.0;
 	public static final float DEVOUR_BIOMASS = 30.0f;
 	public static final float DEVOUR_HEAL = 6.0f;
-	public static final float DEVOUR_BOSS_DAMAGE = 35.0f;
+	public static final float DEVOUR_BOSS_DAMAGE = 30.0f; // v0.17.7 City tier ultimate: was 35
 	public static final int DEVOUR_COOLDOWN = 160;
 	public static final int DEVOUR_SEIZE_TICK = 6;
 	public static final int DEVOUR_EAT_TICK = 18;
 
 	public static final double PULL_RANGE = 8.0;
 	public static final double PULL_COS = 0.5;
-	public static final float PULL_DAMAGE = 4.0f;
+	public static final float PULL_DAMAGE = 11.0f; // v0.17.7 City tier: was 4
 	public static final int PULL_COOLDOWN = 160;
 	public static final int PULL_HIT_TICK = 6;
 

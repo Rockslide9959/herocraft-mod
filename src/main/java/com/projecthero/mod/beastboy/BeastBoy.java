@@ -357,6 +357,10 @@ public final class BeastBoy {
 		if (target == null || target == player || !com.projecthero.mod.combat.HeroTargets.canHarm(player, target)) {
 			return false;
 		}
+		// v0.17.7 City tier: the Morph Chain (and Titans Together, applied later in the hurt head) never lift a hit past MAX_HIT
+		float cap = BeastBoyConfig.MAX_HIT / (com.projecthero.mod.titans.TitansTogether.active(player)
+				? com.projecthero.mod.titans.TitansTogether.DAMAGE_MULT : 1f);
+		amount = Math.min(amount, cap);
 		float before = target.getHealth();
 		boolean landed = com.projecthero.mod.hero.power.AbilityHelpers.hurtBurst(player, target, player.damageSources().playerAttack(player), amount);
 		return landed || target.getHealth() < before;

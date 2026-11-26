@@ -324,20 +324,20 @@ public class FalconGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void missileHitsForTenRedwingLasersFiveBombsTen(GameTestHelper helper) {
+	public void missileHitsForTwelveRedwingLasersElevenBombsTwentyFive(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = falcon(helper, 1.5, 2.0, 1.5);
 		Zombie struck = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 5.5, 100);
 		Zombie near = mob(helper, EntityType.ZOMBIE, 5.5, 2.0, 5.5, 100);
 		FalconAbilities.missileBlast(p, struck.position().add(0, 1, 0), struck, p.position());
-		helper.assertTrue(Math.abs((100f - struck.getHealth()) - 10f) < EPS && FalconConfig.MISSILE_DAMAGE == 10f,
-				"10 to the one it struck (no splash on top), took " + (100f - struck.getHealth()));
+		helper.assertTrue(Math.abs((100f - struck.getHealth()) - 12f) < EPS && FalconConfig.MISSILE_DAMAGE == 12f,
+				"12 to the one it struck (no splash on top), took " + (100f - struck.getHealth()));
 		helper.assertTrue(Math.abs((100f - near.getHealth()) - FalconConfig.MISSILE_SPLASH) < EPS, "the blast for everyone else");
-		helper.assertTrue(FalconConfig.LASER_DAMAGE == 5f, "Redwing's lasers: 5 a bolt");
+		helper.assertTrue(FalconConfig.LASER_DAMAGE == 11f, "Redwing's lasers: 11 a bolt (v0.17.7 City tier)");
 		Zombie bombed = mob(helper, EntityType.ZOMBIE, 5.5, 2.0, 1.5, 100);
 		RedwingEntity.bombBlast(p, bombed.position());
-		helper.assertTrue(Math.abs((100f - bombed.getHealth()) - 10f) < EPS && FalconConfig.BOMB_DAMAGE == 10f,
-				"a bomb: 10, took " + (100f - bombed.getHealth()));
+		helper.assertTrue(Math.abs((100f - bombed.getHealth()) - 25f) < EPS && FalconConfig.BOMB_DAMAGE == 25f,
+				"a bomb: 25 (the ultimate), took " + (100f - bombed.getHealth()));
 		helper.succeed();
 	}
 
@@ -378,9 +378,9 @@ public class FalconGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void diveBombDamageScalesWithTheDrop(GameTestHelper helper) {
-		helper.assertTrue(FalconAbilities.diveDamage(0) == FalconConfig.DIVE_MIN_DAMAGE, "6 from no height");
-		helper.assertTrue(Math.abs(FalconAbilities.diveDamage(10) - 12f) < 0.01f, "12 from 10 blocks");
-		helper.assertTrue(FalconAbilities.diveDamage(60) == FalconConfig.DIVE_MAX_DAMAGE, "capped at 18");
+		helper.assertTrue(FalconAbilities.diveDamage(0) == FalconConfig.DIVE_MIN_DAMAGE, "11 from no height");
+		helper.assertTrue(Math.abs(FalconAbilities.diveDamage(10) - 13.5f) < 0.01f, "13.5 from 10 blocks");
+		helper.assertTrue(FalconAbilities.diveDamage(60) == FalconConfig.DIVE_MAX_DAMAGE, "capped at 15");
 		ServerPlayer p = falcon(helper, 2.5, 2.0, 2.5);
 		FalconAbilities.diveBomb(p);
 		helper.assertTrue(Falcon.cooldownRemaining(p, FalconAbilities.DIVE) == 0 && Falcon.thrust(p) == FalconConfig.THRUST_MAX,

@@ -31,7 +31,7 @@ public final class SymbioteWeaponMoves {
 	public static final int CLEAVE_DELAY = 4;
 	public static final double CLEAVE_LENGTH = 4.5;
 	public static final double CLEAVE_HALF_WIDTH = 1.3;
-	public static final float CLEAVE_DAMAGE = 16.0f;
+	public static final float CLEAVE_DAMAGE = 14.0f; // v0.17.7 City tier: was 16 (+4 past armour unchanged)
 	public static final float CLEAVE_ARMOUR_PIERCE = 4.0f;
 
 	public static final int SMASH_DELAY = 6;
