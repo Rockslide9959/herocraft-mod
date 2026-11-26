@@ -608,7 +608,11 @@ public final class ShazamPose {
 	}
 
 	/** First-person sprint-flight hand: {x (+ = out, mirrored), y, z, xDeg, yDeg (+ = turned in), zDeg}, fist forward toward the middle. */
-	private static final float[] FP_FLIGHT = { -0.22f, 0.42f, -0.5f, -12f, 14f, 0f };
+	// v0.17.7 (user: "please fix this first person flying pov"): the old pose stood both forearms straight up in the middle of the
+	// screen like two red pillars; now each arm reaches in from its lower corner, tipped forward along the view, fists near the middle
+	private static final float[] FP_FLIGHT = { -0.15f, 0.4f, -0.25f, -38f, 18f, 0f };
+	/** Where the flight hand turns about: the base of vanilla's first-person arm, low at the edge of the view (x mirrored). */
+	private static final float[] FP_FLIGHT_PIVOT = { 0.64f, -0.6f, -0.72f };
 	/** How far below its place a hand starts when it rises into view (the off hand, or a hand that held an item). */
 	private static final float FP_FLIGHT_RISE = 0.75f;
 
@@ -627,9 +631,13 @@ public final class ShazamPose {
 		float drop = fromBelow ? (1f - w) * FP_FLIGHT_RISE : 0f;
 		float k = fromBelow ? 1f : w;
 		pose.translate(sg * FP_FLIGHT[0] * k, FP_FLIGHT[1] * k - drop + tremble, FP_FLIGHT[2] * k);
+		// turned about the arm's own base (low at the edge of the view), so tipping it forward lays it along the view instead of
+		// swinging the whole arm round the camera
+		pose.translate(sg * FP_FLIGHT_PIVOT[0], FP_FLIGHT_PIVOT[1], FP_FLIGHT_PIVOT[2]);
 		pose.mulPose(Axis.YP.rotationDegrees(sg * FP_FLIGHT[4] * k));
 		pose.mulPose(Axis.XP.rotationDegrees(FP_FLIGHT[3] * k - 25f * (fromBelow ? 1f - w : 0f)));
 		pose.mulPose(Axis.ZP.rotationDegrees(sg * FP_FLIGHT[5] * k));
+		pose.translate(-sg * FP_FLIGHT_PIVOT[0], -FP_FLIGHT_PIVOT[1], -FP_FLIGHT_PIVOT[2]);
 	}
 
 	private static float[] sampleFp(float[][] fr, float tick) {

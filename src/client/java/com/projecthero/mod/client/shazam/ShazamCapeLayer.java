@@ -17,8 +17,11 @@ import net.minecraft.resources.ResourceLocation;
  */
 public class ShazamCapeLayer extends FlowingCapeLayer {
 	private static final ResourceLocation TEXTURE = ProjectHeroMod.id("textures/entity/shazam/shazam_cape.png");
-	/** The short cape: this much of the full cloth's length (the painted cape ends just above the belt). */
-	private static final float SHORT = 0.4f;
+	/**
+	 * The short cape: this much of the full cloth's length (1.25 blocks). v0.17.7 (user: "make shazams cape as long as his torso"):
+	 * from the collar just above the shoulders to the bottom of the torso (12 px + the 0.035 lift), down to the belt line.
+	 */
+	private static final float SHORT = 0.63f;
 
 	public ShazamCapeLayer(RenderLayerParent<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> parent) {
 		super(parent);

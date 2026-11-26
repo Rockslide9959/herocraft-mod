@@ -323,7 +323,75 @@ public final class ShazamKitHarness implements ClientModInitializer {
 		});
 	}
 
+	// ================= mode "fpgrid": first-person sprint-flight hand variants (FP_FLIGHT mutated by reflection), then cape stills
+	private static final float[][] GRID = { { -0.2f, 0.3f, -0.3f, -35f, 12f, 0f }, { -0.12f, 0.35f, -0.3f, -42f, 22f, 0f }, { -0.1f, 0.4f, -0.35f, -45f, 28f, 0f }, { -0.15f, 0.4f, -0.25f, -38f, 18f, 0f }, { -0.08f, 0.45f, -0.4f, -48f, 25f, 0f }, { -0.15f, 0.3f, -0.2f, -45f, 25f, 5f }, { -0.12f, 0.45f, -0.3f, -35f, 20f, 0f }, { -0.05f, 0.38f, -0.3f, -42f, 32f, 0f } };
+
+	private static void setFp(float[] v) {
+		try {
+			java.lang.reflect.Field fl = com.projecthero.mod.client.shazam.ShazamPose.class.getDeclaredField("FP_FLIGHT");
+			fl.setAccessible(true);
+			float[] a = (float[]) fl.get(null);
+			System.arraycopy(v, 0, a, 0, 6);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	private static void planFpGrid() {
+		Minecraft mc = Minecraft.getInstance();
+		pitch = 0f;
+		at(0, () -> {
+			camFollow = false;
+			fp();
+			flyFwd = false;
+			flySprint = false;
+		});
+		at(0, () -> server(mc, p -> {
+			reset(p);
+			p.getInventory().clearContent();
+			p.connection.teleport(base.getX() + 0.5, base.getY() + 6, base.getZ() + 0.5, 0f, 0f);
+			com.projecthero.mod.shazam.ShazamFlight.toggle(p);
+		}));
+		at(8, () -> flyFwd = true);
+		at(20, () -> flySprint = true);
+		int t = 40;
+		for (int fov : new int[] { 70 }) {
+			for (int i = 0; i < GRID.length; i++) {
+				final int ii = i, ff = fov;
+				at(t, () -> {
+					mc.options.fov().set(ff);
+					setFp(GRID[ii]);
+				});
+				at(t + 6, () -> shot(mc, "grid/fov" + ff + "_v" + ii));
+				t += 8;
+			}
+		}
+		at(t, () -> {
+			flySprint = false;
+			flyFwd = false;
+		});
+		at(t + 4, () -> server(mc, p -> {
+			reset(p);
+			com.projecthero.mod.shazam.ShazamFlight.stop(p);
+		}));
+		at(t + 20, () -> cam3(180f, 2.6f, 1.3f, 0f, 1.1f));
+		at(t + 30, () -> shot(mc, "cape/stand_behind"));
+		at(t + 32, () -> cam3(90f, 2.6f, 1.2f, 0f, 1.1f));
+		at(t + 42, () -> shot(mc, "cape/stand_side"));
+		at(t + 44, () -> cam3(135f, 2.8f, 1.5f, 0f, 1.1f));
+		at(t + 54, () -> shot(mc, "cape/stand_three_quarter"));
+		final int end = t + 60;
+		at(end, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
 	private static void plan() {
+		if (mode.equals("fpgrid")) {
+			planFpGrid();
+			return;
+		}
 		if (mode.equals("flight")) {
 			planFlight();
 			return;
@@ -466,7 +534,7 @@ public final class ShazamKitHarness implements ClientModInitializer {
 			return;
 		}
 		face(mc);
-		if (mode.equals("flight")) {
+		if (mode.equals("flight") || mode.equals("fpgrid")) {
 			mc.options.keyUp.setDown(flyFwd);
 			mc.options.keySprint.setDown(flySprint);
 			mc.player.setSprinting(flySprint && flyFwd);
