@@ -12,7 +12,7 @@ placed power's "Primary Power" line, so the Guidebook and the I menu both show i
 | Planet | 16-19 | 16-20 | 32-40 | green |
 | Cosmic | 21-28 | 22-30 | 45-60 | light purple |
 
-**Placed so far (user, 2026-11-23):** Street = Super Soldier, Punisher, Black Panther, Power Armour. Planet = Shazam (user: "hes A tier", v0.17.7). Cosmic = Thor (user, v0.17.7 Thor revamp).
+**Placed so far (user, 2026-11-23):** Street = Super Soldier, Punisher, Black Panther, Power Armour. Planet = Shazam (user: "hes A tier", v0.17.7). Cosmic = Thor (user, v0.17.7 Thor revamp). City (user's "B", v0.17.7) = Spider-Man, all Miraculous (Ladybug, Cat Noir, Rena Rouge, Carapace, Queen Bee, Viperion, Pegasus, Ryuko, Multimouse, Hawk Moth), Symbiote (secondary, incl. Symbiote Spider-Man), Falcon (secondary), Beast Boy, Quirks, Max Steel, Spin, Undead, Mutation (all 27), Titan Shifter.
 
 ## In the Guidebook (v0.17.7 remake)
 

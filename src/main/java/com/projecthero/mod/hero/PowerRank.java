@@ -60,6 +60,14 @@ public enum PowerRank {
 		return switch (chapterKey) {
 			case "projecthero.guide.super_soldier", "projecthero.guide.punisher", "projecthero.guide.black_panther",
 					"projecthero.guide.power_armour" -> STREET;
+			// v0.17.7 (user: "B: Spider-Man, Miraculous, Symbiote(secondary), Falcon(secondary), Beast Boy, Quirks, Max-Steel, Spin,
+			// Undead, mutation, titan shifter"): B tier is City
+			case "projecthero.guide.spider_man", "projecthero.guide.symbiote", "projecthero.guide.symbiote_spider_man", "projecthero.guide.falcon",
+					"projecthero.guide.beast_boy", "projecthero.guide.quirks", "projecthero.guide.max_steel", "projecthero.guide.spin",
+					"projecthero.guide.undead", "projecthero.guide.mutation", "projecthero.guide.titan_shifter", "projecthero.guide.ladybug",
+					"projecthero.guide.cat_noir", "projecthero.guide.rena_rouge", "projecthero.guide.carapace", "projecthero.guide.queen_bee",
+					"projecthero.guide.viperion", "projecthero.guide.pegasus", "projecthero.guide.ryuko", "projecthero.guide.multimouse",
+					"projecthero.guide.hawk_moth" -> CITY;
 			case "projecthero.guide.thor" -> COSMIC; // v0.17.7 (user): Thor is Cosmic
 			case "projecthero.guide.shazam" -> PLANET; // v0.17.7 (user: "hes A tier"): Shazam is Planet
 			default -> null;
