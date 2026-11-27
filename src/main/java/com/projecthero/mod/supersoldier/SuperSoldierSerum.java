@@ -9,10 +9,15 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 
 /**
- * What drinking a Super Soldier Serum does (v0.14.8). The <b>unrefined</b> serum (crafted from a Potion of Strength,
- * Swiftness and Leaping) takes 1 time in 10 -- the other 9 the body rejects it and the drinker dies
- * ({@link SuperSoldierDamage#SERUM_REJECTION}). Ten minutes in a Blast Furnace refines it, and the <b>refined</b> serum
- * always works. The roll is passed in (the item uses the server level's RNG) so tests can force either outcome.
+ * What drinking a Super Soldier Serum does (v0.14.8). The <b>unrefined</b> serum (v0.17.7: crafted from a Potion of Strength,
+ * Swiftness and Regeneration, a Golden Apple and a Glass Bottle) takes 1 time in 10 -- the other 9 the body rejects it and the
+ * drinker dies ({@link SuperSoldierDamage#SERUM_REJECTION}). Ten minutes in a Furnace (v0.17.7; was a Blast Furnace) refines it,
+ * and the <b>refined</b> serum always works. The roll is passed in (the item uses the server level's RNG) so tests can force
+ * either outcome.
+ *
+ * <p>v0.17.7: a serum that takes no longer grants on the spot -- {@link #take} (the item) starts the one-minute
+ * {@link SerumTransformation}, and the power comes at its end. {@link #drink} is the old instant version, kept for the admin
+ * paths and for tests that only need a Super Soldier.
  */
 public final class SuperSoldierSerum {
 	/** Chance the unrefined serum takes. */
@@ -21,7 +26,11 @@ public final class SuperSoldierSerum {
 	public enum Outcome {
 		GRANTED, REJECTED, ALREADY,
 		/** v0.16.1: projectheroUniquePowers -- someone else holds it; nothing happens (no roll, no rejection). */
-		TAKEN
+		TAKEN,
+		/** v0.17.7: the serum took -- the one-minute transformation has started (the power comes at its end). */
+		TRANSFORMING,
+		/** v0.17.7: a transformation is already running -- nothing happens (the serum is not used up). */
+		BUSY
 	}
 
 	private SuperSoldierSerum() {
@@ -32,6 +41,29 @@ public final class SuperSoldierSerum {
 		return refined || roll < UNREFINED_SUCCESS_CHANCE;
 	}
 
+	/**
+	 * v0.17.7: what drinking the serum item does -- a serum that takes starts the one-minute {@link SerumTransformation} instead of
+	 * granting at once (the unrefined one still rolls first: 10% the transformation, 90% death).
+	 */
+	public static Outcome take(ServerPlayer player, boolean refined, float roll) {
+		if (SuperSoldier.hasPower(player)) {
+			return Outcome.ALREADY;
+		}
+		if (SerumTransformation.active(player)) {
+			return Outcome.BUSY;
+		}
+		if (com.projecthero.mod.hero.UniquePowers.refuse(player, SuperSoldier.KEY)) {
+			return Outcome.TAKEN;
+		}
+		if (succeeds(refined, roll)) {
+			SerumTransformation.start(player);
+			return Outcome.TRANSFORMING;
+		}
+		reject(player);
+		return Outcome.REJECTED;
+	}
+
+	/** The serum's effect with no transformation: the power at once (admin paths, tests). The item uses {@link #take}. */
 	public static Outcome drink(ServerPlayer player, boolean refined, float roll) {
 		if (SuperSoldier.hasPower(player)) {
 			return Outcome.ALREADY;

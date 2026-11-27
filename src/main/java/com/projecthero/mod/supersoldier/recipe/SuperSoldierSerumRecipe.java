@@ -19,27 +19,39 @@ import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.level.Level;
 
 /**
- * v0.14.8: the Unrefined Super Soldier Serum -- a shapeless crafting-table recipe of exactly three drinkable potions, one
- * of Strength, one of Swiftness and one of Leaping (the long and strong versions count too), in any slots. Vanilla
- * potions are all one item told apart by the {@code potion_contents} component, which a plain JSON recipe cannot check,
- * so this is a special recipe with its own serializer ({@code projecthero:super_soldier_serum}); like vanilla's special
- * recipes it does not appear in the recipe book.
+ * v0.14.8: the Unrefined Super Soldier Serum -- a shapeless crafting-table recipe. v0.17.7 (user: "combine a strength potion,
+ * swiftness potion, regeneration potion, a golden apple and an empty glass bottle"): exactly one drinkable Potion of Strength, one
+ * of Swiftness and one of Regeneration (the long and strong versions count too), one Golden Apple (a plain one -- not the
+ * enchanted apple) and one empty Glass Bottle, in any slots (five items, so the crafting table's 3x3 grid only). Leaping is no
+ * longer part of it. Vanilla potions are all one item told apart by the {@code potion_contents} component, which a plain JSON
+ * recipe cannot check, so this is a special recipe with its own serializer ({@code projecthero:super_soldier_serum}); like
+ * vanilla's special recipes it does not appear in the recipe book (JEI shows it -- {@link #displayIngredients}).
  */
 public class SuperSoldierSerumRecipe extends CustomRecipe {
 	public static RecipeSerializer<SuperSoldierSerumRecipe> SERIALIZER;
 
-	private static final List<Holder<Potion>> STRENGTH = List.of(Potions.STRENGTH, Potions.LONG_STRENGTH, Potions.STRONG_STRENGTH);
-	private static final List<Holder<Potion>> SWIFTNESS = List.of(Potions.SWIFTNESS, Potions.LONG_SWIFTNESS, Potions.STRONG_SWIFTNESS);
-	private static final List<Holder<Potion>> LEAPING = List.of(Potions.LEAPING, Potions.LONG_LEAPING, Potions.STRONG_LEAPING);
+	public static final List<Holder<Potion>> STRENGTH = List.of(Potions.STRENGTH, Potions.LONG_STRENGTH, Potions.STRONG_STRENGTH);
+	public static final List<Holder<Potion>> SWIFTNESS = List.of(Potions.SWIFTNESS, Potions.LONG_SWIFTNESS, Potions.STRONG_SWIFTNESS);
+	public static final List<Holder<Potion>> REGENERATION = List.of(Potions.REGENERATION, Potions.LONG_REGENERATION,
+			Potions.STRONG_REGENERATION);
+
+	/** Kinds: one of each, nothing else. */
+	static final int K_STRENGTH = 0, K_SWIFTNESS = 1, K_REGENERATION = 2, K_APPLE = 3, K_BOTTLE = 4, KINDS = 5;
 
 	public SuperSoldierSerumRecipe(CraftingBookCategory category) {
 		super(category);
 	}
 
-	/** 0 = Strength, 1 = Swiftness, 2 = Leaping, -1 = anything else. */
+	/** Which of the five ingredients {@code stack} is, -1 = anything else. */
 	static int kind(ItemStack stack) {
+		if (stack.is(Items.GOLDEN_APPLE)) {
+			return K_APPLE;
+		}
+		if (stack.is(Items.GLASS_BOTTLE)) {
+			return K_BOTTLE;
+		}
 		if (!stack.is(Items.POTION)) {
-			return -1;
+			return -1; // splash / lingering potions, the enchanted golden apple, anything else
 		}
 		PotionContents contents = stack.get(DataComponents.POTION_CONTENTS);
 		if (contents == null || contents.potion().isEmpty() || !contents.customEffects().isEmpty()) {
@@ -47,20 +59,20 @@ public class SuperSoldierSerumRecipe extends CustomRecipe {
 		}
 		Holder<Potion> potion = contents.potion().get();
 		if (STRENGTH.stream().anyMatch(h -> h.value() == potion.value())) {
-			return 0;
+			return K_STRENGTH;
 		}
 		if (SWIFTNESS.stream().anyMatch(h -> h.value() == potion.value())) {
-			return 1;
+			return K_SWIFTNESS;
 		}
-		if (LEAPING.stream().anyMatch(h -> h.value() == potion.value())) {
-			return 2;
+		if (REGENERATION.stream().anyMatch(h -> h.value() == potion.value())) {
+			return K_REGENERATION;
 		}
 		return -1;
 	}
 
-	/** Exactly one of each of the three potions and nothing else. Public so tests can check any grid. */
+	/** Exactly one of each of the five ingredients and nothing else. Public so tests can check any grid. */
 	public static boolean matchesItems(List<ItemStack> items) {
-		int[] count = new int[3];
+		int[] count = new int[KINDS];
 		int total = 0;
 		for (ItemStack stack : items) {
 			if (stack.isEmpty()) {
@@ -73,7 +85,28 @@ public class SuperSoldierSerumRecipe extends CustomRecipe {
 			count[k]++;
 			total++;
 		}
-		return total == 3 && count[0] == 1 && count[1] == 1 && count[2] == 1;
+		if (total != KINDS) {
+			return false;
+		}
+		for (int c : count) {
+			if (c != 1) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * The five ingredient slots for a recipe viewer (JEI): every Strength / Swiftness / Regeneration potion it accepts, the Golden
+	 * Apple and the Glass Bottle.
+	 */
+	public static List<List<ItemStack>> displayIngredients() {
+		return List.of(potions(STRENGTH), potions(SWIFTNESS), potions(REGENERATION), List.of(new ItemStack(Items.GOLDEN_APPLE)),
+				List.of(new ItemStack(Items.GLASS_BOTTLE)));
+	}
+
+	private static List<ItemStack> potions(List<Holder<Potion>> kinds) {
+		return kinds.stream().map(h -> PotionContents.createItemStack(Items.POTION, h)).toList();
 	}
 
 	@Override
@@ -88,7 +121,7 @@ public class SuperSoldierSerumRecipe extends CustomRecipe {
 
 	@Override
 	public boolean canCraftInDimensions(int width, int height) {
-		return width * height >= 3;
+		return width * height >= KINDS;
 	}
 
 	@Override

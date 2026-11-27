@@ -23,6 +23,8 @@ public final class SuperSoldierClient {
 
 	public static void initialize() {
 		HudRenderCallback.EVENT.register(SuperSoldierHud::render);
+		HudRenderCallback.EVENT.register(SerumTransformationHud::render); // v0.17.7: the serum minute's unlabeled blue bar
+		SerumTransformationHud.initialize();
 		EntityRendererRegistry.register(SuperSoldierEntities.SOLDIER_SHIELD, SoldierShieldRenderer::new);
 		BuiltinItemRendererRegistry.INSTANCE.register(SuperSoldierItems.ADAMANTIUM_SHIELD, new AdamantiumShieldRenderer());
 		// v0.17.5: the Soldier's Shield is the same stepped dish (its classic painted art); no "blocking" model swap any more --

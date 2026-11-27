@@ -18,7 +18,9 @@ selector), strong but deliberately below the Hulk / Thor / All Might.
 | `SuperSoldierAbilityManager` | Slot dispatch (Shift read server-side), per-tick upkeep (incl. the suit gate, for every player), cooldown lookups for the HUD |
 | `SuperSoldierArmorGate` | v0.14.9: only a Super Soldier may wear the suit -- ejects it from anyone else every tick |
 | `SuperSoldierDamage` | ALLOW_DAMAGE: 30% reduction, the Bash's i-frames, no fall damage from his leaps / dashes / bashes or while blocking with a shield and looking down; AFTER_DAMAGE: combat timer; the `projecthero:serum_rejection` damage type key |
-| `SuperSoldierSerum` | Drink outcome with an injected roll (`drink(player, refined, roll)`) |
+| `SuperSoldierSerum` | Drink outcome with an injected roll: `take(player, refined, roll)` (the item; v0.17.7 starts the transformation) and `drink(...)` (instant grant, admin paths / tests) |
+| `SerumTransformation` | v0.17.7: the one-minute transformation after a serum takes -- attachment `projecthero:serum_transformation`, tick, sting, death rules, the `projecthero:serum_transformation` damage type key |
+| client `SerumTransformationHud` | v0.17.7: the unlabeled blue Slab bar, bottom right, for that minute (and the `muteOthers` chain that hides the Primary HUD meanwhile) |
 | `SuperSoldierConfig` | Every number |
 | `SuperSoldierSetup` | One init call: items, recipe serializer, entity type, damage rules |
 | `data/SuperSoldierState` | The synced, persistent, copy-on-death attachment `projecthero:super_soldier_state` |
@@ -35,16 +37,42 @@ selector), strong but deliberately below the Hulk / Thor / All Might.
 
 ## Obtaining
 
-- **Unrefined Super Soldier Serum**: crafting table, shapeless special recipe
+- **Unrefined Super Soldier Serum** (v0.17.7, the user's recipe): crafting table, shapeless special recipe
   (`data/projecthero/recipe/unrefined_super_soldier_serum.json`): exactly one drinkable Potion of Strength, one of
-  Swiftness and one of Leaping (long / strong variants accepted; splash, lingering, custom-effect and other potions
-  rejected). Special recipes are not in the recipe book -- the guide says so.
-- Drinking it: **10%** grant, **90%** death (`projecthero:serum_rejection`, tagged `bypasses_armor`, `bypasses_effects`,
+  Swiftness and one of Regeneration (long / strong variants accepted; splash, lingering, custom-effect and other potions
+  rejected), one **Golden Apple** (plain only -- the enchanted golden apple is refused) and one empty **Glass Bottle**, any
+  slots. Five items, so 3x3 only. Leaping is no longer used (it was Strength + Swiftness + Leaping before v0.17.7). Special
+  recipes are not in the recipe book; JEI gets a display-only shapeless copy in its crafting category
+  (`ProjectHeroJeiPlugin.superSoldierSerum`, potions cycling through their long / strong variants) plus info pages on both serums.
+- Drinking it: **10%** the transformation (below), **90%** death (`projecthero:serum_rejection`, tagged `bypasses_armor`, `bypasses_effects`,
   `bypasses_enchantments`, `bypasses_invulnerability`, `bypasses_resistance`, `no_knockback`; message "X's body
   rejected the unrefined serum"). Creative included. A power's own death save (Symbiote, Khonshu) may still intervene.
   The roll is the server level's RNG.
-- **Refined**: blasting recipe, `cookingtime` 12000 (10 minutes), `refined_super_soldier_serum_blasting.json`. Always
-  grants.
+- **Refined** -- display name **"Super Soldier Serum"** since v0.17.7 (item id still `refined_super_soldier_serum`): a plain
+  **Furnace** (smelting) recipe, `cookingtime` 12000 (10 minutes), `refined_super_soldier_serum_smelting.json` (v0.17.7; the
+  Blast Furnace recipe is gone). Always takes.
+- **The transformation** (v0.17.7, `SerumTransformation`; user: "upon drinking the super soldier serum you get nauseous for 1
+  minute, you get weak and slow aswell and you keep taking tick damage but you wont drop below half a heart ... after the minute
+  you get the powers"): a serum that takes (refined, or the lucky unrefined roll -- my call: the same minute for both) starts
+  **1200 ticks**. Elapsed ticks in attachment `projecthero:serum_transformation` (persistent -> survives a relog; NOT
+  copyOnDeath; synced to the drinker only). Ticked from `END_SERVER_TICK` for every online player who has it.
+  - Nausea, Weakness I, Slowness I (non-ambient, icons shown) for the rest of the minute, re-applied the tick one is missing or
+    shorter than what is left -- milk does not skip it.
+  - Every 40 ticks (2 s) a sting of 1 (half a heart), damage type `projecthero:serum_transformation` (tagged
+    `bypasses_armor`, `bypasses_effects`, `bypasses_enchantments`, `no_knockback`; not invulnerability, so creative is spared;
+    death message "X's body gave out mid-transformation"), cut to `health - 1` so it never takes him below 1 health; an
+    `ALLOW_DEATH` guard sets health 1 if that damage type would ever be fatal.
+  - Super Soldier passives are not on yet (no power until the end).
+  - At 1200: the three effects removed, the attachment removed (bar hidden), `SuperSoldier.grant` (one-Primary rule, title, chat,
+    full health). If the power is granted another way mid-way (admin command), the transformation just ends.
+  - Death (`AFTER_DEATH`, or a dead player on tick): attachment removed, nothing granted.
+  - One at a time: `take` returns `BUSY`, the item's `use` fails with "Your body is still changing." and `finishUsingItem`
+    keeps the stack -- a second serum is never consumed.
+  - HUD (`SerumTransformationHud`): one bare blue **Slab** bar (boss-bar blue, no label, no numbers), `VanillaHud.width(6)` = 122 px
+    wide, its top 6 px above the bottom-right power column's bottom edge (`Stack.bottomRightOwned`: 4 px from the right / bottom
+    edges, lifted to 41 px above the bottom in a window too narrow to clear the hotbar). Fills over the minute, interpolated with the
+    partial tick. While it runs, `VanillaHud.muteOthers` also answers true (chained on `CLIENT_STARTED`, after Power Armour sets
+    it), so the Primary power about to be replaced hides its HUD instead of overlapping the bar.
 - Granting calls `HeroTiers.claimPrimary(player, "super_soldier")` (one Primary power: the old one is replaced) and
   shows a title + chat message. Also: `/projecthero power grant super_soldier [player]`, and the Heroic random serum.
 
