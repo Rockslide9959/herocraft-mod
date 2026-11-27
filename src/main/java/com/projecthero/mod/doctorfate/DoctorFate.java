@@ -44,7 +44,7 @@ public final class DoctorFate {
 
 	private static final ResourceLocation HEALTH_ID = PowerToggles.id("doctor_fate_health");
 	/** v0.17.4 (user: "melee bonus +8"): +8 attack damage while the helmet is on. */
-	private static final ResourceLocation MELEE_ID = PowerToggles.id("doctor_fate_melee");
+	private static final ResourceLocation MELEE_ID = com.projecthero.mod.combat.MeleeBonus.register(PowerToggles.id("doctor_fate_melee"));
 	/** v0.17.4 round 2 (user: "in this mode the player is twice as strong"): x2 attack damage while Nabu holds the body. */
 	private static final ResourceLocation POSSESSED_MELEE_ID = PowerToggles.id("doctor_fate_possessed_melee");
 

@@ -51,7 +51,7 @@ public final class Spin {
 
 	private static final ResourceLocation HEALTH_ID = PowerToggles.id("spin_health");
 	private static final ResourceLocation SPEED_ID = PowerToggles.id("spin_speed");
-	private static final ResourceLocation ATTACK_ID = PowerToggles.id("spin_attack");
+	private static final ResourceLocation ATTACK_ID = com.projecthero.mod.combat.MeleeBonus.register(PowerToggles.id("spin_attack"));
 
 	static final int GOLD = 0xFFC83A;
 	static final int GREEN = 0x4FB86A;

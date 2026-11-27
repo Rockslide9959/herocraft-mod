@@ -186,7 +186,7 @@ public final class ThorKit {
 	public static final int GOD_CHAIN_GAP = 8;
 	public static final double GOD_KNOCKBACK_RESIST = 0.5;
 
-	private static final ResourceLocation MELEE_ID = ProjectHeroMod.id("thor_state_melee");
+	private static final ResourceLocation MELEE_ID = com.projecthero.mod.combat.MeleeBonus.exact(ProjectHeroMod.id("thor_state_melee"));
 	private static final ResourceLocation SWING_ID = ProjectHeroMod.id("thor_state_swing");
 	private static final ResourceLocation GOD_KB_ID = ProjectHeroMod.id("thor_god_of_thunder_knockback");
 	private static final ResourceLocation SPRINT_ID = ProjectHeroMod.id("thor_storm_sprint");
@@ -596,7 +596,8 @@ public final class ThorKit {
 				want = true;
 			}
 		}
-		modifier(p, Attributes.ATTACK_DAMAGE, MELEE_ID, delta, AttributeModifier.Operation.ADD_VALUE, want && delta != 0.0);
+		// v0.17.7: kept on even at 0 -- it is a MeleeBonus.exact id, and while it is on the shared weapon top-up stays off
+		modifier(p, Attributes.ATTACK_DAMAGE, MELEE_ID, delta, AttributeModifier.Operation.ADD_VALUE, want);
 		modifier(p, Attributes.ATTACK_SPEED, SWING_ID, swing, AttributeModifier.Operation.ADD_VALUE, want && swing != 0.0);
 	}
 

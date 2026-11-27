@@ -53,7 +53,7 @@ public final class BeastBoy {
 	public static final int GREEN = 0x58C83C;
 
 	private static final ResourceLocation SPEED_ID = PowerToggles.id("beast_boy_speed");
-	private static final ResourceLocation ATTACK_ID = PowerToggles.id("beast_boy_attack");
+	private static final ResourceLocation ATTACK_ID = com.projecthero.mod.combat.MeleeBonus.register(PowerToggles.id("beast_boy_attack"));
 	private static final ResourceLocation STEP_ID = PowerToggles.id("beast_boy_step");
 	private static final ResourceLocation SAFE_FALL_ID = PowerToggles.id("beast_boy_safe_fall");
 	/** v0.17.5: the sea animals mine underwater at full speed (submerged x0.2 -> x1.0). */

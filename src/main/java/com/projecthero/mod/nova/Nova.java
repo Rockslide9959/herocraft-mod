@@ -46,7 +46,7 @@ public final class Nova {
 	public static final String KEY = "nova";
 
 	private static final ResourceLocation SAFE_FALL_ID = PowerToggles.id("nova_safe_fall");
-	private static final ResourceLocation MELEE_ID = PowerToggles.id("nova_melee");
+	private static final ResourceLocation MELEE_ID = com.projecthero.mod.combat.MeleeBonus.register(PowerToggles.id("nova_melee"));
 	/** v0.15.19: the suit is diamond-level armour (a full diamond set: 20 armour, 8 toughness). */
 	private static final ResourceLocation ARMOR_ID = PowerToggles.id("nova_armor");
 	private static final ResourceLocation TOUGHNESS_ID = PowerToggles.id("nova_armor_toughness");

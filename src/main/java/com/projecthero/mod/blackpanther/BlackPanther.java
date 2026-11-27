@@ -62,7 +62,7 @@ public final class BlackPanther {
 	private static final ResourceLocation TOUGHNESS_ID = PowerToggles.id("black_panther_toughness");
 	private static final ResourceLocation ABSORB_ID = PowerToggles.id("black_panther_absorb");
 	/** The herb's (and the suit's) melee: 5 a bare-handed hit out of the suit, 10 in it. */
-	private static final ResourceLocation HERB_ID = PowerToggles.id("black_panther_herb");
+	private static final ResourceLocation HERB_ID = com.projecthero.mod.combat.MeleeBonus.register(PowerToggles.id("black_panther_herb"));
 	/** v0.17.7: the herb's jump (2 blocks out of the suit, 3 in it), a jump-strength modifier in place of the old Jump Boost. */
 	private static final ResourceLocation JUMP_ID = PowerToggles.id("black_panther_jump");
 
@@ -587,8 +587,9 @@ public final class BlackPanther {
 		}
 		if (power) {
 			// v0.17.7 (user): unsuited melee 8, suited 10 (the bare fist's 1 is already there)
-			double melee = (suited ? BlackPantherConfig.SUITED_MELEE : BlackPantherConfig.UNSUITED_MELEE) - 1.0;
-			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, HERB_ID, melee, AttributeModifier.Operation.ADD_VALUE);
+			// v0.17.7 (user: "+5 on top of tools and weapons ... do this for black panthers"): the shared melee rule -- a weapon or tool
+			// hits for its own damage + 8 / + 10 (MeleeBonus)
+			com.projecthero.mod.combat.MeleeBonus.fist(player, HERB_ID, suited ? BlackPantherConfig.SUITED_MELEE : BlackPantherConfig.UNSUITED_MELEE);
 			// v0.17.7 (user): Regeneration I without the suit, II with it (our own endless II is taken off first: vanilla never
 			// lowers an effect's level by adding the weaker one; a timed buff such as Wakanda Forever is left alone)
 			int regen = suited ? BlackPantherConfig.REGEN_SUITED : BlackPantherConfig.REGEN_UNSUITED;
@@ -614,7 +615,7 @@ public final class BlackPanther {
 			PowerToggles.modifier(player, Attributes.JUMP_STRENGTH, JUMP_ID, suited ? BlackPantherConfig.JUMP_SUITED : BlackPantherConfig.JUMP_UNSUITED,
 					AttributeModifier.Operation.ADD_VALUE);
 		} else {
-			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, HERB_ID);
+			com.projecthero.mod.combat.MeleeBonus.clear(player, HERB_ID);
 			PowerToggles.clearModifier(player, Attributes.JUMP_STRENGTH, JUMP_ID);
 		}
 		if (power && st.absorbing) { // Absorb Stance in the suit, Block out of it: he moves slowly while it is up

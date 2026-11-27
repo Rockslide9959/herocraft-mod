@@ -61,7 +61,7 @@ public final class SuperStrengthHandlers {
 	public static final String KEY = "power_01_super_strength";
 
 	/** +10 unarmed damage, only while the main hand carries no attack-damage item of its own. */
-	public static final ResourceLocation PASSIVE_ATK = id("strength_passive_attack");
+	public static final ResourceLocation PASSIVE_ATK = com.projecthero.mod.combat.MeleeBonus.register(id("strength_passive_attack"));
 	/** 150% knockback on melee hits. */
 	public static final ResourceLocation PASSIVE_ATK_KB = id("strength_passive_attack_kb");
 	/** Pre-v0.14.5 passives: never applied any more, only cleared so a live session drops them. */

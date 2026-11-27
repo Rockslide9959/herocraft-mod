@@ -90,7 +90,7 @@ public final class GladiatorAbilities {
 	public static final DustParticleOptions BRONZE = new DustParticleOptions(new Vector3f(0.85f, 0.6f, 0.25f), 1.4f);
 	private static final DustParticleOptions BLOOD = new DustParticleOptions(new Vector3f(0.6f, 0.05f, 0.05f), 1.0f);
 
-	private static final ResourceLocation ROAR_ATTACK_ID = PowerToggles.id("gladiator_roar_attack");
+	private static final ResourceLocation ROAR_ATTACK_ID = com.projecthero.mod.combat.MeleeBonus.register(PowerToggles.id("gladiator_roar_attack"));
 	private static final ResourceLocation ROAR_KNOCKBACK_ID = PowerToggles.id("gladiator_roar_knockback");
 
 	private record Away(int entityId, long since) {

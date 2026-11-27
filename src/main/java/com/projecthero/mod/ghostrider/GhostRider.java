@@ -66,7 +66,7 @@ public final class GhostRider {
 
 	private static final ResourceLocation BLOOD_PRICE_ID = PowerToggles.id("ghost_rider_blood_price");
 	private static final ResourceLocation HEALTH_ID = PowerToggles.id("ghost_rider_health");
-	private static final ResourceLocation ATTACK_ID = PowerToggles.id("ghost_rider_attack");
+	private static final ResourceLocation ATTACK_ID = com.projecthero.mod.combat.MeleeBonus.register(PowerToggles.id("ghost_rider_attack"));
 	private static final ResourceLocation ARMOR_ID = PowerToggles.id("ghost_rider_armor");
 	private static final ResourceLocation TOUGHNESS_ID = PowerToggles.id("ghost_rider_toughness");
 

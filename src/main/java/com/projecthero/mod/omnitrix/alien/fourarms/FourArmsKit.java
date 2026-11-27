@@ -211,7 +211,7 @@ public final class FourArmsKit extends AlienKit {
 
 	// (the id stays the old Iron Stance one so a modifier left from an older build is cleared too)
 	private static final ResourceLocation KB = PowerToggles.id("omnitrix_four_arms_stance");
-	private static final ResourceLocation RAGE_DAMAGE = PowerToggles.id("omnitrix_four_arms_rage_damage");
+	private static final ResourceLocation RAGE_DAMAGE = com.projecthero.mod.combat.MeleeBonus.register(PowerToggles.id("omnitrix_four_arms_rage_damage"));
 	private static final ResourceLocation RAGE_SPEED = PowerToggles.id("omnitrix_four_arms_rage_speed");
 	private static final ResourceLocation RAGE_MOVE = PowerToggles.id("omnitrix_four_arms_rage_move");
 

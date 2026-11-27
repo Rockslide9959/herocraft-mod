@@ -29,7 +29,7 @@ import net.minecraft.world.food.FoodData;
  * themselves when {@link SymbioteHostType#SPIDER_MAN} is active.
  */
 public final class SymbiotePassives {
-	private static final ResourceLocation ATTACK = ProjectHeroMod.id("symbiote_host_attack");
+	private static final ResourceLocation ATTACK = com.projecthero.mod.combat.MeleeBonus.register(ProjectHeroMod.id("symbiote_host_attack"));
 	/** v0.17.7 City tier: the suit's bare fist lands 11 (vanilla 1 + this; was +5 = 6). */
 	public static final double SUIT_MELEE_BONUS = 10.0;
 	/**

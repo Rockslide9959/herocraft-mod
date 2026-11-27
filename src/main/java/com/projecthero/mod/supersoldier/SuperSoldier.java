@@ -46,7 +46,7 @@ public final class SuperSoldier {
 
 	static final ResourceLocation SPEED_ID = PowerToggles.id("super_soldier_speed");
 	static final ResourceLocation HEALTH_ID = PowerToggles.id("super_soldier_health");
-	static final ResourceLocation UNARMED_ID = PowerToggles.id("super_soldier_unarmed");
+	static final ResourceLocation UNARMED_ID = com.projecthero.mod.combat.MeleeBonus.register(PowerToggles.id("super_soldier_unarmed"));
 	/** v0.17.7: the old Onslaught melee bonus -- no longer given, still stripped so a save from before the rework carries nothing. */
 	static final ResourceLocation ONSLAUGHT_ID = PowerToggles.id("super_soldier_onslaught");
 	static final ResourceLocation JUMP_ID = PowerToggles.id("super_soldier_jump");
@@ -195,14 +195,14 @@ public final class SuperSoldier {
 
 	/**
 	 * Brings every attribute modifier in line with the state. Idempotent -- fixed ids, and {@link PowerToggles#modifier}
-	 * only writes when the value changes -- so it runs every tick (the unarmed bonus follows the main hand).
+	 * only writes when the value changes -- so it runs every tick (the weapon top-up follows the main hand, see MeleeBonus).
 	 */
 	public static void reconcile(ServerPlayer player) {
 		SuperSoldierState s = state(player);
 		if (!s.hasPower) {
 			PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, SPEED_ID);
 			PowerToggles.clearModifier(player, Attributes.MAX_HEALTH, HEALTH_ID);
-			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, UNARMED_ID);
+			com.projecthero.mod.combat.MeleeBonus.clear(player, UNARMED_ID);
 			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, ONSLAUGHT_ID);
 			PowerToggles.clearModifier(player, Attributes.JUMP_STRENGTH, JUMP_ID);
 			PowerToggles.clearModifier(player, Attributes.SAFE_FALL_DISTANCE, SAFE_FALL_ID);
@@ -219,10 +219,9 @@ public final class SuperSoldier {
 		PowerToggles.modifier(player, Attributes.MOVEMENT_SPEED, SPEED_ID, SuperSoldierConfig.SPEED_BONUS,
 				AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		PowerToggles.modifier(player, Attributes.MAX_HEALTH, HEALTH_ID, SuperSoldierConfig.HEALTH_BONUS, AttributeModifier.Operation.ADD_VALUE);
-		// v0.14.11: melee bonus whatever is held. v0.17.7 (Street tier): +7 bare-handed, +2 holding something (a sword stays at 10)
-		PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, UNARMED_ID,
-				player.getMainHandItem().isEmpty() ? SuperSoldierConfig.UNARMED_BONUS : SuperSoldierConfig.ARMED_BONUS,
-				AttributeModifier.Operation.ADD_VALUE);
+		// v0.17.7 (user: "their melee should deal 5 damage and should be +5 on top of tools and weapons"): the shared melee rule --
+		// a punch 5, a weapon or tool its own damage + 5 (MeleeBonus; replaces the old +7 bare / +2 holding-anything split)
+		com.projecthero.mod.combat.MeleeBonus.fist(player, UNARMED_ID, SuperSoldierConfig.MELEE);
 		PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, ONSLAUGHT_ID); // v0.17.7: Assemble gives Strength I instead
 		PowerToggles.modifier(player, Attributes.JUMP_STRENGTH, JUMP_ID, jumpModifier(SuperSoldierConfig.JUMP_BLOCKS),
 				AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);

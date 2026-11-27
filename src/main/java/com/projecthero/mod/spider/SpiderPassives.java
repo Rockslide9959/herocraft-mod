@@ -28,7 +28,7 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
  * so nothing can accumulate across a relog and {@link #reconcile} can be called as often as it likes.
  */
 public final class SpiderPassives {
-	private static final ResourceLocation ATTACK = ProjectHeroMod.id("spider_man_attack");
+	private static final ResourceLocation ATTACK = com.projecthero.mod.combat.MeleeBonus.register(ProjectHeroMod.id("spider_man_attack"));
 	private static final ResourceLocation SPEED = ProjectHeroMod.id("spider_man_speed");
 	private static final ResourceLocation JUMP = ProjectHeroMod.id("spider_man_jump");
 	private static final ResourceLocation KNOCKBACK = ProjectHeroMod.id("spider_man_knockback");

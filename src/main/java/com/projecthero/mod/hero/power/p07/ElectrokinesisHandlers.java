@@ -112,7 +112,7 @@ public final class ElectrokinesisHandlers {
 	static final int WHITE_BLUE = 0xC8EEFF;
 
 	private static final net.minecraft.resources.ResourceLocation CHARGED_MELEE =
-			com.projecthero.mod.ProjectHeroMod.id("electro_charged_melee");
+			com.projecthero.mod.combat.MeleeBonus.register(com.projecthero.mod.ProjectHeroMod.id("electro_charged_melee"));
 
 	/** One target's static stacks. Mutable, only touched on the server thread. */
 	private static final class Stack {

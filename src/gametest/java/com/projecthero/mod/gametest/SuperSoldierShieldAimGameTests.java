@@ -144,7 +144,7 @@ public class SuperSoldierShieldAimGameTests implements FabricGameTest {
 		helper.assertTrue(angleDeg(s.getDeltaMovement(), toZ) < 0.5, "bent onto it");
 		helper.assertTrue(angleDeg(s.getDeltaMovement(), look) <= SuperSoldierConfig.SHIELD_ASSIST_CONE_DEG + 1.0, "a nudge, not a lock-on");
 		helper.startSequence()
-				.thenWaitUntil(() -> helper.assertTrue(Math.abs(took(z) - SuperSoldierConfig.SHIELD_DAMAGE) < 0.05f, "hit for 9, took " + took(z)))
+				.thenWaitUntil(() -> helper.assertTrue(Math.abs(took(z) - SuperSoldierConfig.SHIELD_DAMAGE) < 0.05f, "hit for 6, took " + took(z)))
 				.thenWaitUntil(() -> helper.assertTrue(shieldOf(helper, p) == null, "it came back"))
 				.thenSucceed();
 	}

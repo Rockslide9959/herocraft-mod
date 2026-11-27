@@ -265,8 +265,8 @@ public final class RipjawsKit extends AlienKit {
 
 	private static final ResourceLocation SWIM = PowerToggles.id("omnitrix_ripjaws_swim");
 	private static final ResourceLocation DIG_WET = PowerToggles.id("omnitrix_ripjaws_dig");
-	private static final ResourceLocation FIST_WET = PowerToggles.id("omnitrix_ripjaws_wet_fist");
-	private static final ResourceLocation FRENZY_FIST = PowerToggles.id("omnitrix_ripjaws_frenzy_fist");
+	private static final ResourceLocation FIST_WET = com.projecthero.mod.combat.MeleeBonus.register(PowerToggles.id("omnitrix_ripjaws_wet_fist"));
+	private static final ResourceLocation FRENZY_FIST = com.projecthero.mod.combat.MeleeBonus.register(PowerToggles.id("omnitrix_ripjaws_frenzy_fist"));
 	private static final ResourceLocation FRENZY_SPEED = PowerToggles.id("omnitrix_ripjaws_frenzy_speed");
 
 	/** player -> the whirlpool they spun up. */

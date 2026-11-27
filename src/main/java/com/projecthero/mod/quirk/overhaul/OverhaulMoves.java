@@ -116,7 +116,7 @@ public final class OverhaulMoves {
 
 	/** The Fusion size modifier on Attributes.SCALE. */
 	public static final ResourceLocation SCALE_ID = PowerToggles.id("quirk_overhaul_fusion_scale");
-	private static final ResourceLocation ATTACK_ID = PowerToggles.id("quirk_overhaul_fusion_attack");
+	private static final ResourceLocation ATTACK_ID = com.projecthero.mod.combat.MeleeBonus.register(PowerToggles.id("quirk_overhaul_fusion_attack"));
 	private static final ResourceLocation ARMOR_ID = PowerToggles.id("quirk_overhaul_fusion_armor");
 	private static final ResourceLocation TOUGH_ID = PowerToggles.id("quirk_overhaul_fusion_toughness");
 	private static final ResourceLocation KB_ID = PowerToggles.id("quirk_overhaul_fusion_knockback");

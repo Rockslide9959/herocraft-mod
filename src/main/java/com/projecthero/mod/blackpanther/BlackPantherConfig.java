@@ -23,7 +23,8 @@ public final class BlackPantherConfig {
 
 	/**
 	 * v0.17.7 (user: "make his melee deal 8 damage and 10 with the suit please so its more similar to super soldier"): a bare-handed
-	 * hit out of the suit deals 8 (the fist's 1 + 7 from the herb; was 5)...
+	 * hit out of the suit deals 8 (the fist's 1 + 7 from the herb; was 5)... (v0.17.7, user: "+5 on top of tools and weapons ... do
+	 * this for black panthers": under the shared rule, {@code combat.MeleeBonus}, a weapon or tool hits for its own damage + 8 / + 10)
 	 */
 	public static final double UNSUITED_MELEE = 8.0;
 	/** ...and 10 in it (user: the vibranium claws are always out, there is no claw toggle any more). */

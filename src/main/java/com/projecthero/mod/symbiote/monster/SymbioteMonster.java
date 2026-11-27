@@ -76,7 +76,7 @@ public final class SymbioteMonster {
 	private static final ResourceLocation STEP_ID = ProjectHeroMod.id("symbiote_monster_step");
 	private static final ResourceLocation REACH_ID = ProjectHeroMod.id("symbiote_monster_reach");
 	private static final ResourceLocation BLOCK_REACH_ID = ProjectHeroMod.id("symbiote_monster_block_reach");
-	public static final ResourceLocation ATTACK_ID = ProjectHeroMod.id("symbiote_monster_attack");
+	public static final ResourceLocation ATTACK_ID = com.projecthero.mod.combat.MeleeBonus.register(ProjectHeroMod.id("symbiote_monster_attack"));
 	/** v0.17.7 City tier: max health while the monster (a flat +16, was +100% -- a Primary's own health is never doubled). */
 	public static final float HEALTH_BONUS = 16.0f;
 	/** v0.17.7 City tier: the claws' extra melee (was 8): with the suit's +10 a claw lands 15. */

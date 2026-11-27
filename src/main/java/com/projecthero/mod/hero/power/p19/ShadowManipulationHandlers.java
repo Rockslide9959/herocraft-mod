@@ -903,7 +903,7 @@ public final class ShadowManipulationHandlers {
 	}
 
 	private static final net.minecraft.resources.ResourceLocation CLOAK_ATK =
-			com.projecthero.mod.ProjectHeroMod.id("shadow_cloak_atk");
+			com.projecthero.mod.combat.MeleeBonus.register(com.projecthero.mod.ProjectHeroMod.id("shadow_cloak_atk"));
 
 	/** One active Shadow Zone: 20-block radius, 11s, sinks/slows/blinds/damages everything caught. */
 	private static final class Zone {

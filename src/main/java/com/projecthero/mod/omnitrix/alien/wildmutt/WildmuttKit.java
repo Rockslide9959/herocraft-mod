@@ -293,7 +293,7 @@ public final class WildmuttKit extends AlienKit {
 
 	private static final ResourceLocation GALLOP_ID = PowerToggles.id("omnitrix_wildmutt_gallop");
 	private static final ResourceLocation FRENZY_SPEED_ID = PowerToggles.id("omnitrix_wildmutt_frenzy_speed");
-	private static final ResourceLocation FRENZY_CLAWS_ID = PowerToggles.id("omnitrix_wildmutt_frenzy_claws");
+	private static final ResourceLocation FRENZY_CLAWS_ID = com.projecthero.mod.combat.MeleeBonus.register(PowerToggles.id("omnitrix_wildmutt_frenzy_claws"));
 	private static final ResourceLocation FRENZY_ATTACK_SPEED_ID = PowerToggles.id("omnitrix_wildmutt_frenzy_attack_speed");
 	private static final DustParticleOptions FUR = new DustParticleOptions(new Vector3f(0.94f, 0.54f, 0.14f), 1.1f);
 	private static final DustParticleOptions SCENT = new DustParticleOptions(new Vector3f(1.0f, 0.78f, 0.45f), 0.8f);

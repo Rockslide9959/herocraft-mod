@@ -283,6 +283,7 @@ public class ProjectHeroMod implements ModInitializer {
 		// v0.14.4: Symbiote Pets (share / recall interaction, loyalty damage veto, goal re-install on load)
 		com.projecthero.mod.symbiote.SymbiotePet.initialize();
 		com.projecthero.mod.combat.SonicTriggers.initialize();
+		com.projecthero.mod.combat.MeleeBonus.init(); // v0.17.7 (user): melee N bare, weapon + N for every power
 		ModNetworking.initialize();
 		com.projecthero.mod.ironman.scan.IronManScan.initialize(); // v0.16.7 (user): the Iron Man target scanner threat assessment
 		// ---- Zombie Raid / world-event framework ----

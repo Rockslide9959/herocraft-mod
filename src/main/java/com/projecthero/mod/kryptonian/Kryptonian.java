@@ -53,7 +53,7 @@ public final class Kryptonian {
 	public static final String KEY = "kryptonian";
 
 	private static final ResourceLocation HEALTH_ID = PowerToggles.id("kryptonian_health");
-	private static final ResourceLocation ATTACK_ID = PowerToggles.id("kryptonian_attack");
+	private static final ResourceLocation ATTACK_ID = com.projecthero.mod.combat.MeleeBonus.register(PowerToggles.id("kryptonian_attack"));
 	private static final ResourceLocation KNOCKBACK_ID = PowerToggles.id("kryptonian_knockback");
 	private static final ResourceLocation SPEED_ID = PowerToggles.id("kryptonian_speed");
 	private static final ResourceLocation STEP_ID = PowerToggles.id("kryptonian_step");

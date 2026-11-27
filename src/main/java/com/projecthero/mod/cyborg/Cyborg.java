@@ -46,7 +46,7 @@ public final class Cyborg {
 
 	private static final ResourceLocation ARMOR_ID = PowerToggles.id("cyborg_plating");
 	private static final ResourceLocation TOUGHNESS_ID = PowerToggles.id("cyborg_plating_toughness");
-	private static final ResourceLocation MELEE_ID = PowerToggles.id("cyborg_strength");
+	private static final ResourceLocation MELEE_ID = com.projecthero.mod.combat.MeleeBonus.register(PowerToggles.id("cyborg_strength"));
 
 	public static final DustParticleOptions BLUE = new DustParticleOptions(new Vector3f(0.35f, 0.75f, 1.0f), 1.2f);
 	public static final DustParticleOptions BLUE_BIG = new DustParticleOptions(new Vector3f(0.45f, 0.85f, 1.0f), 2.2f);

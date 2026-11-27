@@ -20,13 +20,13 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
  */
 public final class MaxSteelAttributes {
 	// base-mode passives
-	private static final ResourceLocation BASE_MELEE = ProjectHeroMod.id("max_steel_base_melee");
+	private static final ResourceLocation BASE_MELEE = com.projecthero.mod.combat.MeleeBonus.register(ProjectHeroMod.id("max_steel_base_melee"));
 	private static final ResourceLocation BASE_KB_RESIST = ProjectHeroMod.id("max_steel_base_kb_resist");
 	private static final ResourceLocation BASE_JUMP = ProjectHeroMod.id("max_steel_base_jump");
 	private static final ResourceLocation BASE_SAFE_FALL = ProjectHeroMod.id("max_steel_base_safe_fall");
 	private static final ResourceLocation BASE_FALL_MULT = ProjectHeroMod.id("max_steel_base_fall_mult");
 	// strength-mode stack
-	private static final ResourceLocation STR_MELEE = ProjectHeroMod.id("max_steel_strength_melee");
+	private static final ResourceLocation STR_MELEE = com.projecthero.mod.combat.MeleeBonus.register(ProjectHeroMod.id("max_steel_strength_melee"));
 	private static final ResourceLocation STR_KB_RESIST = ProjectHeroMod.id("max_steel_strength_kb_resist");
 	private static final ResourceLocation STR_SPRINT = ProjectHeroMod.id("max_steel_strength_sprint");
 	/** v0.6.21: Strength Mode also slows the player's attack speed by 20%. */
