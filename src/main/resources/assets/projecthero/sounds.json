@@ -4418,5 +4418,45 @@
       { "name": "minecraft:random/fizz", "volume": 0.4, "pitch": 1.6 },
       { "name": "minecraft:random/fizz", "volume": 0.4, "pitch": 1.9 }
     ]
+  },
+  "black_panther_nanotech_start": {
+    "subtitle": "subtitles.projecthero.black_panther_nanotech_build",
+    "sounds": [
+      { "name": "minecraft:block/beacon/activate", "volume": 0.45, "pitch": 1.9 }
+    ]
+  },
+  "black_panther_nanotech_skitter": {
+    "subtitle": "subtitles.projecthero.black_panther_nanotech_build",
+    "sounds": [
+      { "name": "minecraft:block/sculk/spread1", "volume": 0.5, "pitch": 1.7 },
+      { "name": "minecraft:block/sculk/spread2", "volume": 0.5, "pitch": 1.75 },
+      { "name": "minecraft:block/sculk/spread3", "volume": 0.5, "pitch": 1.8 },
+      { "name": "minecraft:block/sculk/spread4", "volume": 0.5, "pitch": 1.7 },
+      { "name": "minecraft:block/sculk/spread5", "volume": 0.5, "pitch": 1.85 }
+    ]
+  },
+  "black_panther_nanotech_shimmer": {
+    "subtitle": "subtitles.projecthero.black_panther_nanotech_build",
+    "sounds": [
+      { "name": "minecraft:block/amethyst/resonate1", "volume": 0.3, "pitch": 1.8 },
+      { "name": "minecraft:block/amethyst/resonate2", "volume": 0.3, "pitch": 1.85 },
+      { "name": "minecraft:block/amethyst/resonate3", "volume": 0.3, "pitch": 1.8 },
+      { "name": "minecraft:block/amethyst/resonate4", "volume": 0.3, "pitch": 1.9 },
+      { "name": "minecraft:block/amethyst/shimmer", "volume": 0.35, "pitch": 1.6 }
+    ]
+  },
+  "black_panther_nanotech_seal": {
+    "subtitle": "subtitles.projecthero.black_panther_nanotech_seal",
+    "sounds": [
+      { "name": "minecraft:block/beacon/power1", "volume": 0.45, "pitch": 1.9 },
+      { "name": "minecraft:block/beacon/power2", "volume": 0.45, "pitch": 1.9 },
+      { "name": "minecraft:block/beacon/power3", "volume": 0.45, "pitch": 1.9 }
+    ]
+  },
+  "black_panther_nanotech_retract": {
+    "subtitle": "subtitles.projecthero.black_panther_nanotech_retract",
+    "sounds": [
+      { "name": "minecraft:block/beacon/deactivate", "volume": 0.35, "pitch": 1.7 }
+    ]
   }
 }

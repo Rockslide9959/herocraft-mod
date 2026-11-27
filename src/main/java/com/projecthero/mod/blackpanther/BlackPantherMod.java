@@ -33,6 +33,7 @@ public final class BlackPantherMod {
 		BlackPantherItems.initialize();
 		BlackPantherEntityTypes.initialize();
 		BlackPantherDamage.initialize();
+		BlackPantherSounds.initialize(); // v0.17.7: the nanotech suit sounds
 		PayloadTypeRegistry.playS2C().register(PantherSensesPayload.TYPE, PantherSensesPayload.CODEC);
 		// v0.17.7 (user): H with the necklace on lets the suit out / draws it back in (the Flash Ring's pattern)
 		PayloadTypeRegistry.playC2S().register(BlackPantherSuitPayload.TYPE, BlackPantherSuitPayload.CODEC);

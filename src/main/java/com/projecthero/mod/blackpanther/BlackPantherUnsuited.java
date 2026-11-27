@@ -649,6 +649,14 @@ public final class BlackPantherUnsuited {
 		if (!begin(p, RESOLVE)) {
 			return;
 		}
+		wakanda(p);
+	}
+
+	/**
+	 * Wakanda Forever itself, for both kits (v0.17.7: suited Shift+V is Wakanda Forever too, {@link BlackPantherAbilities#wakandaForever}):
+	 * the 100 s cooldown on the one shared {@link #RESOLVE} entry, the four timed buffs, the aura. The caller has checked the cooldown.
+	 */
+	static void wakanda(ServerPlayer p) {
 		cooldown(p, RESOLVE, BlackPantherConfig.RESOLVE_COOLDOWN);
 		anim(p, BlackPantherState.ANIM_RESOLVE);
 		int t = BlackPantherConfig.RESOLVE_TICKS;
@@ -664,6 +672,12 @@ public final class BlackPantherUnsuited {
 		level(p).sendParticles(ParticleTypes.ENCHANT, c.x, c.y + 0.6, c.z, 30, 0.4, 0.4, 0.4, 0.4);
 		sound(p, SoundEvents.BEACON_ACTIVATE, 0.6f, 1.6f);
 		sound(p, SoundEvents.PLAYER_BREATH, 0.8f, 0.8f);
+	}
+
+	/** Ticks of Wakanda Forever left (0 if it is not running). */
+	public static int wakandaRemaining(ServerPlayer p) {
+		Long until = WAKANDA.get(p.getUUID());
+		return until == null ? 0 : (int) Math.max(0L, until - p.level().getGameTime());
 	}
 
 	// ---------------------------------------------------------------- passive: Hunter's Instinct

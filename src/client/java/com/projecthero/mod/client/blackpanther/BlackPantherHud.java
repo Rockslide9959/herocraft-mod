@@ -25,9 +25,9 @@ import net.minecraft.util.Mth;
  * v0.17.3: the Black Panther HUD on the Minecraft-style look of the newest powers ({@link VanillaHud.Stack}, bottom-right):
  * <pre>
  *   Black Panther                       v0.17.7 (user): always this title, suit or no suit, and no status words
- *   Absorb  [Hairline ====---]  60%    what the suit can still absorb, only while absorbing
  *   Kinetic [Meter ======-]  84        the Kinetic charge (purple), v0.17.7 (user): in the Meter style; flashes red / white
- *                                      when a Shift move is refused for want of Kinetic; it never drains on its own
+ *                                      when a Shift move is refused for want of Kinetic; suited it never drains, out of the
+ *                                      suit it leaks slowly and stays on show until empty. (No Absorb bar since v0.17.7, user.)
  *   +----+----+----+----+----+----+    R G Z X C V: shown move's cooldown (sweep + seconds), the Shift move's as the durability
  *   | R  | G  | Z  | X  | C  | V  |    bar; V lit while stalking / the Shroud / Tracking run, C while absorbing; yellow while Shift shows the
  *   +----+----+----+----+----+----+    Shift moves
@@ -38,7 +38,6 @@ public final class BlackPantherHud {
 	private static final int NAME = 0xFFE2E2E2;
 	private static final int KINETIC = 0xFF9A4CFF;
 	private static final int KINETIC_TEXT = 0xFFC08CFF;
-	private static final int ABSORB = 0xFFD9B8FF;
 	private static final int DENIED_RED = 0xFFFF4A4A;
 	private static final int DENIED_WHITE = 0xFFFFFFFF;
 
@@ -91,7 +90,8 @@ public final class BlackPantherHud {
 			st.slot(i, VanillaHud.keyLabel(slot), true, shift, Math.min(1f, frac), VanillaHud.seconds(cd), Math.min(1f, otherFrac), active);
 		}
 
-		if (suited) {
+		// v0.17.7: out of the suit the bar slowly leaks (1 every 2 s), so it stays on show while anything is left in it
+		if (suited || s.kinetic > 0.01f) {
 			// v0.17.7: a Shift move refused for want of Kinetic flashes the bar red / white for a moment
 			boolean denied = BlackPantherAbilities.kineticDenied(p);
 			boolean red = (mc.level.getGameTime() / 2) % 2 == 0;
@@ -101,11 +101,8 @@ public final class BlackPantherHud {
 			float frac = s.kinetic / BlackPantherConfig.KINETIC_MAX;
 			st.meter(Component.translatable("hud.projecthero.black_panther.kinetic"), denied ? Math.max(frac, 0.04f) : frac, barColour,
 					String.valueOf(Math.round(s.kinetic)), textColour, MutationMeters.Style.METER);
-			if (s.absorbing) {
-				float left = Mth.clamp(1f - s.absorbed / BlackPantherConfig.ABSORB_MAX, 0f, 1f);
-				st.meter(Component.translatable("hud.projecthero.black_panther.absorb"), left, ABSORB, Math.round(left * 100) + "%", ABSORB,
-						MutationMeters.Style.HAIRLINE);
-			}
+			// v0.17.7 (user: "remove the absorb bar please when using absorb stance please"): no Absorb bar; the stance still takes
+			// at most ABSORB_MAX a stance, and the Kinetic Meter filling is the only feedback (the C box stays lit while it is up)
 		}
 		// v0.17.7 (user): "the only text on the hud should be the name of the ability" -- no T'Challa title, no status words
 		st.title(Component.translatable("hud.projecthero.black_panther.title"), NAME);

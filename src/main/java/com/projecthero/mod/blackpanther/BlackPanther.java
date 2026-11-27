@@ -49,7 +49,8 @@ import org.joml.Vector3f;
  *
  * <h2>Kinetic Energy</h2>
  * 0..100. The suit soaks 40% of every hit and stores it (1 damage = 4 Kinetic); the suited kit's plain moves add a little when
- * they land, the Shift moves spend it. v0.17.7: it never drains over time (only spending and a death lower it). The bar lights
+ * they land, the Shift moves spend it. v0.17.7: it never drains while suited; with the suit in the necklace it slowly leaks (1 every
+ * 2 s); spending and a death lower it too. The bar lights
  * the suit's trim purple as it fills.
  */
 public final class BlackPanther {
@@ -198,6 +199,11 @@ public final class BlackPanther {
 		BlackPantherState n = state(player).copy();
 		n.lastFightAt = player.level().getGameTime();
 		save(player, n);
+	}
+
+	/** v0.17.7: game time {@code now} is one of the unsuited Kinetic leak's steps (one every {@code KINETIC_UNSUITED_DRAIN_EVERY} ticks). */
+	public static boolean kineticDrains(long now) {
+		return now % BlackPantherConfig.KINETIC_UNSUITED_DRAIN_EVERY == 0L;
 	}
 
 	static boolean spend(ServerPlayer player, float cost) {
@@ -501,15 +507,15 @@ public final class BlackPanther {
 		n.stalking = false;
 		n.absorbing = false;
 		n.suitChangeAt = now;
-		n.animId = BlackPantherState.ANIM_SUIT_UP;
+		// v0.17.7 (user: "when transforming into the suit remove the animation for it"): no body clip -- he keeps his own pose and
+		// full control while the suit builds over him texel by texel out of the necklace (any running clip is cut)
+		n.animId = BlackPantherState.ANIM_NONE;
 		n.animStart = now;
 		n.unmasked = false;
 		save(player, n);
 		reconcile(player);
 		ServerLevel level = (ServerLevel) player.level();
-		Vec3 c = player.position().add(0, 1.4, 0);
-		level.playSound(null, c.x, c.y, c.z, SoundEvents.ARMOR_EQUIP_NETHERITE.value(), SoundSource.PLAYERS, 1.0f, 1.4f);
-		level.playSound(null, c.x, c.y, c.z, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 1.2f, 0.8f);
+		BlackPantherSounds.step(player, 0, true); // the nanotech build starts (the rest from tick)
 		Vec3 neck = necklacePos(player);
 		level.sendParticles(PURPLE, neck.x, neck.y, neck.z, 14, 0.22, 0.12, 0.22, 0.0);
 		level.sendParticles(net.minecraft.core.particles.ParticleTypes.WITCH, neck.x, neck.y, neck.z, 6, 0.2, 0.1, 0.2, 0.0);
@@ -537,15 +543,12 @@ public final class BlackPanther {
 		n.absorbing = false;
 		n.senses = false;
 		n.unmasked = false;
-		n.animId = BlackPantherState.ANIM_SUIT_DOWN;
+		n.animId = BlackPantherState.ANIM_NONE; // v0.17.7: no body clip, the suit just collapses back into the necklace
 		n.animStart = now;
 		save(player, n);
 		reconcile(player);
 		nightEyes(player, n); // v0.17.5: in the dark the herb's Night Eyes carries straight on, no blink
-		ServerLevel level = (ServerLevel) player.level();
-		Vec3 c = player.position().add(0, 1.4, 0);
-		level.playSound(null, c.x, c.y, c.z, SoundEvents.ARMOR_EQUIP_NETHERITE.value(), SoundSource.PLAYERS, 1.0f, 0.8f);
-		level.playSound(null, c.x, c.y, c.z, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 1.0f, 0.6f);
+		BlackPantherSounds.step(player, 0, false); // the softer nanotech retract starts (the rest from tick)
 	}
 
 	/** Shift+N: the mask off or back on. Suited only. */
@@ -583,7 +586,7 @@ public final class BlackPanther {
 			PowerToggles.clearModifier(player, Attributes.ARMOR_TOUGHNESS, TOUGHNESS_ID);
 		}
 		if (power) {
-			// v0.17.7 (user): unsuited melee 5, suited 10 (the bare fist's 1 is already there)
+			// v0.17.7 (user): unsuited melee 8, suited 10 (the bare fist's 1 is already there)
 			double melee = (suited ? BlackPantherConfig.SUITED_MELEE : BlackPantherConfig.UNSUITED_MELEE) - 1.0;
 			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, HERB_ID, melee, AttributeModifier.Operation.ADD_VALUE);
 			// v0.17.7 (user): Regeneration I without the suit, II with it (our own endless II is taken off first: vanilla never
@@ -592,6 +595,13 @@ public final class BlackPanther {
 			net.minecraft.world.effect.MobEffectInstance cur = player.getEffect(MobEffects.REGENERATION);
 			if (cur != null && cur.isInfiniteDuration() && cur.getAmplifier() > regen) {
 				player.removeEffect(MobEffects.REGENERATION);
+				// v0.17.7: Wakanda Forever cast in the suit (or the suit put on during it) had its timed Regeneration II merged into the
+				// suit's endless II; taking that off must not cut the buff short, so the rest of it goes back on
+				int left = BlackPantherUnsuited.wakandaRemaining(player);
+				if (left > 0) {
+					player.addEffect(new net.minecraft.world.effect.MobEffectInstance(MobEffects.REGENERATION, left, BlackPantherConfig.RESOLVE_REGEN,
+							false, true, true));
+				}
 			}
 			PowerToggles.effect(player, MobEffects.REGENERATION, regen, false);
 			// v0.17.7 (user: "give player passive resistance one"): Resistance I, suit on or off
@@ -703,8 +713,17 @@ public final class BlackPanther {
 		if (player.tickCount % 10 == 0) {
 			nightEyes(player, s);
 		}
-		// v0.17.7 (user: "make it so that the kinetic energy bar doesnt dissipate"): no drain over time -- suited, unsuited, after the
-		// suit goes, across a relog (the attachment is persistent). Only spending lowers it; a death empties it (onDeath).
+		// v0.17.7: the nanotech build / retract sound, off the synced suit clock (step 0 played by suitUp / suitDown)
+		if (s.suitChangeAt > 0L && now > s.suitChangeAt) {
+			BlackPantherSounds.step(player, (int) Math.min(Integer.MAX_VALUE, now - s.suitChangeAt), s.suited);
+		}
+		// v0.17.7 (user: "make it so that the kinetic energy bar doesnt dissipate"): it never drains while suited. Later the same day
+		// (user: "make kinetic energy dissipate slowly when suit is in necklace mode please"): with the suit away (in the necklace, or
+		// no suit at all) it slowly leaks -- KINETIC_UNSUITED_DRAIN every KINETIC_UNSUITED_DRAIN_EVERY ticks, only while he is online
+		// (a relog keeps the bar). A death still empties it (onDeath).
+		if (!s.suited && s.kinetic > 0f && kineticDrains(now)) {
+			setKinetic(player, s.kinetic - BlackPantherConfig.KINETIC_UNSUITED_DRAIN);
+		}
 		BlackPantherAbilities.tick(player);
 		BlackPantherUnsuited.tick(player);
 	}

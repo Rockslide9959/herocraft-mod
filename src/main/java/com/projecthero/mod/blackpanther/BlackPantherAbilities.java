@@ -46,7 +46,7 @@ import net.minecraft.world.phys.Vec3;
  *   G  Pounce (+Kinetic on hit)                Shift+G  Kinetic Pounce (cost; ground burst on landing)
  *   X  Panther Leap                            Shift+X  Kinetic Dash (cost; i-frames, follows the aim, pitch too)
  *   Z  Vibranium Dagger (+Kinetic on hit)      Shift+Z  Kinetic Overload (the whole bar, only when full)
- *   V  Stalk                                   Shift+V  Kinetic Shroud (cost; damage cut + thorns)
+ *   V  Stalk                                   Shift+V  Wakanda Forever (free; + the Kinetic Shroud for 30 if stored)
  *   C  Absorb Stance (hold, fills)             Shift+C  Kinetic Return (spends)
  * </pre>
  * The timed moves are small per-player runs stepped from {@link #tick}; every map here is dropped by {@link #clear} and
@@ -62,15 +62,22 @@ public final class BlackPantherAbilities {
 	public static final String DAGGER = "vibranium_dagger";
 	public static final String OVERLOAD = "kinetic_overload";
 	public static final String STALK = "stalk";
-	public static final String SHROUD = "kinetic_shroud";
+	/** v0.17.7: the separate Kinetic Shroud move is gone (suited Shift+V is Wakanda Forever, {@link BlackPantherUnsuited#RESOLVE}). */
+	public static final String WAKANDA = BlackPantherUnsuited.RESOLVE;
 	public static final String ABSORB = "absorb_stance";
 	public static final String RETURN = "kinetic_return";
-	/** Synced timers kept in {@code abilityReadyAt} (no codec change): the Shroud is up until, the HUD's "not enough" flash until. */
+	/**
+	 * Synced timers kept in {@code abilityReadyAt} (no codec change): the Shroud (the suited Wakanda Forever's 30-Kinetic extra) is up
+	 * until, the HUD's "not enough" flash until.
+	 */
 	public static final String SHROUD_ACTIVE = "kinetic_shroud_active";
 	public static final String KINETIC_DENIED = "kinetic_denied";
 
-	/** A pounce in flight or pinning: the target, when it started, when it landed (0 = still flying), charged or not. */
-	private record Pounce(int target, long start, long landedAt, boolean kinetic) {
+	/**
+	 * A pounce in flight or pinning: the assisted target (-1 = none) or, once landed, the creature landed on; when it started, when it
+	 * landed (0 = still flying), charged or not; v0.17.7: the direction fixed at launch and for how many ticks it is driven along it.
+	 */
+	private record Pounce(int target, long start, long landedAt, boolean kinetic, Vec3 dir, int push) {
 	}
 
 	/** A Kinetic Dash: the direction (pitch included), when it started, the creatures already struck. */
@@ -349,48 +356,113 @@ public final class BlackPantherAbilities {
 		startPounce(p, true);
 	}
 
+	/**
+	 * v0.17.7 (user: "dont make it need an enemy in order to activate, give it slight aim assist tho so that it cant track targets
+	 * still"): G / Shift+G always fire. At the press only, {@link #assistTarget} may pick a creature close to the crosshair and the
+	 * leap is aimed at where it stands right then; otherwise he leaps straight along his aim. The direction is fixed for the whole
+	 * flight -- nothing steers him after launch. Kinetic Pounce still costs its Kinetic (refused, nothing spent, when short).
+	 */
 	private static void startPounce(ServerPlayer p, boolean kinetic) {
 		String id = kinetic ? KINETIC_POUNCE : POUNCE;
 		if (POUNCES.containsKey(p.getUUID()) || !begin(p, id)) {
 			return;
 		}
-		LivingEntity target = AbilityHelpers.raycastEntity(p, BlackPantherConfig.POUNCE_RANGE);
-		if (target == null || !BlackPantherCombat.isTarget(p, target)) {
-			BlackPanther.say(p, "message.projecthero.black_panther.pounce_nothing", ChatFormatting.GRAY);
-			return; // nothing aimed at: nothing spent
-		}
 		if (kinetic && !pay(p, BlackPantherConfig.KINETIC_POUNCE_COST)) {
 			return;
 		}
+		LivingEntity target = assistTarget(p);
+		Vec3 dir;
+		int push;
+		if (target != null) {
+			Vec3 to = target.position().add(0, target.getBbHeight() * 0.5, 0).subtract(p.position().add(0, 0.6, 0));
+			dir = to.lengthSqr() < 1.0e-4 ? p.getLookAngle() : to.normalize();
+			push = (int) Math.ceil(to.length() / BlackPantherConfig.POUNCE_SPEED) + 1;
+		} else {
+			dir = p.getLookAngle().normalize();
+			push = (int) Math.ceil(BlackPantherConfig.POUNCE_RANGE / BlackPantherConfig.POUNCE_SPEED);
+		}
+		if (p.onGround() && dir.y < BlackPantherConfig.POUNCE_MIN_RISE) {
+			dir = new Vec3(dir.x, BlackPantherConfig.POUNCE_MIN_RISE, dir.z).normalize(); // a flat / low aim skims, never scrapes
+		}
 		cooldown(p, id, kinetic ? BlackPantherConfig.KINETIC_POUNCE_COOLDOWN : BlackPantherConfig.POUNCE_COOLDOWN);
 		anim(p, BlackPantherState.ANIM_POUNCE);
-		POUNCES.put(p.getUUID(), new Pounce(target.getId(), p.level().getGameTime(), 0L, kinetic));
+		LEAPS.remove(p.getUUID());
+		POUNCES.put(p.getUUID(), new Pounce(target == null ? -1 : target.getId(), p.level().getGameTime(), 0L, kinetic, dir, push));
+		AbilityHelpers.launchSelf(p, dir.scale(BlackPantherConfig.POUNCE_SPEED));
 		sound(p, SoundEvents.PHANTOM_SWOOP, 1.0f, kinetic ? 1.0f : 1.3f);
 		if (kinetic) {
 			sound(p, SoundEvents.AMETHYST_BLOCK_RESONATE, 1.0f, 1.1f);
 		}
 	}
 
-	private static void tickPounce(ServerPlayer p, Pounce run, long now) {
-		Entity e = p.level().getEntity(run.target());
-		if (!(e instanceof LivingEntity target) || !target.isAlive()) {
-			POUNCES.remove(p.getUUID());
-			return;
+	/**
+	 * The Pounce's slight, launch-only aim assist: the living target nearest the crosshair whose centre lies within
+	 * {@link BlackPantherConfig#POUNCE_ASSIST_DEGREES} of his look, within {@link BlackPantherConfig#POUNCE_RANGE} and in sight; null
+	 * if there is none (he then leaps along his aim).
+	 */
+	public static LivingEntity assistTarget(ServerPlayer p) {
+		Vec3 eye = p.getEyePosition();
+		Vec3 look = p.getLookAngle().normalize();
+		double range = BlackPantherConfig.POUNCE_RANGE;
+		LivingEntity best = null;
+		double bestAngle = Double.MAX_VALUE;
+		for (LivingEntity e : BlackPantherCombat.within(p, eye, range + 1.0, e -> BlackPantherCombat.isTarget(p, e) && e.isAlive())) {
+			double angle = assistAngle(eye, look, e.position().add(0, e.getBbHeight() * 0.5, 0), range);
+			if (angle < bestAngle && p.hasLineOfSight(e)) {
+				best = e;
+				bestAngle = angle;
+			}
 		}
+		return best;
+	}
+
+	/**
+	 * Degrees between the look and the way to {@code point}, if the point is in range and inside the assist cone; otherwise
+	 * {@link Double#MAX_VALUE}. Pure (the gametests check the cone with it).
+	 */
+	public static double assistAngle(Vec3 eye, Vec3 look, Vec3 point, double range) {
+		Vec3 to = point.subtract(eye);
+		double d = to.length();
+		if (d < 1.0e-4 || d > range) {
+			return Double.MAX_VALUE;
+		}
+		double angle = Math.toDegrees(Math.acos(Math.max(-1.0, Math.min(1.0, to.scale(1.0 / d).dot(look.normalize())))));
+		return angle <= BlackPantherConfig.POUNCE_ASSIST_DEGREES ? angle : Double.MAX_VALUE;
+	}
+
+	/** The fixed direction of a pounce in flight (null if none is flying). For the gametests: it never changes after launch. */
+	public static Vec3 pounceDirection(ServerPlayer p) {
+		Pounce run = POUNCES.get(p.getUUID());
+		return run == null || run.landedAt() != 0L ? null : run.dir();
+	}
+
+	/** The creature a pounce in flight was aimed at by the assist (-1: none, he leapt along his aim; also -1 when nothing is flying). */
+	public static int pounceTarget(ServerPlayer p) {
+		Pounce run = POUNCES.get(p.getUUID());
+		return run == null ? -1 : run.target();
+	}
+
+	private static void tickPounce(ServerPlayer p, Pounce run, long now) {
 		if (run.landedAt() == 0L) {
 			p.resetFallDistance();
 			if (run.kinetic()) {
 				level(p).sendParticles(BlackPanther.PURPLE, p.getX(), p.getY() + 0.8, p.getZ(), 3, 0.2, 0.3, 0.2, 0.0);
 			}
-			Vec3 to = target.position().add(0, target.getBbHeight() * 0.5, 0).subtract(p.position());
-			if (to.length() <= Math.max(2.0, target.getBbWidth() + 1.2)) {
+			LivingEntity contact = contact(p, run);
+			long age = now - run.start();
+			if (contact != null) {
 				AbilityHelpers.launchSelf(p, Vec3.ZERO);
-				land(p, target, run.kinetic());
-				POUNCES.put(p.getUUID(), new Pounce(run.target(), run.start(), now, run.kinetic()));
-			} else if (now - run.start() > BlackPantherConfig.POUNCE_MAX_FLIGHT_TICKS) {
+				land(p, contact, run.kinetic());
+				POUNCES.put(p.getUUID(), new Pounce(contact.getId(), run.start(), now, run.kinetic(), run.dir(), run.push()));
+			} else if (age > BlackPantherConfig.POUNCE_MAX_FLIGHT_TICKS || (age >= 2 && p.onGround())) {
+				// nothing reached: he lands where he is (Kinetic Pounce still bursts there)
 				POUNCES.remove(p.getUUID());
-			} else {
-				AbilityHelpers.launchSelf(p, to.normalize().scale(BlackPantherConfig.POUNCE_SPEED));
+				if (run.kinetic()) {
+					land(p, null, true);
+				}
+			} else if (age < run.push()) {
+				// the same direction every tick: the aim was fixed at launch, nothing steers it now
+				AbilityHelpers.launchSelf(p, run.dir().scale(BlackPantherConfig.POUNCE_SPEED));
 			}
 			return;
 		}
@@ -399,9 +471,34 @@ public final class BlackPantherAbilities {
 		}
 	}
 
-	/** The landing: plain, the claws (+Kinetic on a hit) and a pin; charged, a violet ground burst round him instead, and the pin. */
+	/** The creature he has reached in flight: the assisted one first, else the first living target within contact. */
+	private static LivingEntity contact(ServerPlayer p, Pounce run) {
+		Entity aimed = run.target() >= 0 ? p.level().getEntity(run.target()) : null;
+		if (aimed instanceof LivingEntity t && t.isAlive() && touching(p, t)) {
+			return t;
+		}
+		double reach = BlackPantherConfig.POUNCE_CONTACT + 1.0;
+		for (LivingEntity e : BlackPantherCombat.within(p, p.position().add(0, 0.9, 0), reach, e -> BlackPantherCombat.isTarget(p, e) && e.isAlive())) {
+			if (touching(p, e)) {
+				return e;
+			}
+		}
+		return null;
+	}
+
+	private static boolean touching(ServerPlayer p, LivingEntity t) {
+		Vec3 to = t.position().add(0, t.getBbHeight() * 0.5, 0).subtract(p.position());
+		return to.length() <= Math.max(BlackPantherConfig.POUNCE_CONTACT, t.getBbWidth() + 1.2);
+	}
+
+	/**
+	 * The landing: plain, the claws (+Kinetic on a hit) and a pin; charged, a violet ground burst round the creature (or, with none
+	 * reached, round where he came down) instead, and the pin.
+	 */
 	private static void land(ServerPlayer p, LivingEntity target, boolean kinetic) {
-		AbilityHelpers.applyControl(target, MobEffects.MOVEMENT_SLOWDOWN, BlackPantherConfig.POUNCE_PIN_TICKS, 6);
+		if (target != null) {
+			AbilityHelpers.applyControl(target, MobEffects.MOVEMENT_SLOWDOWN, BlackPantherConfig.POUNCE_PIN_TICKS, 6);
+		}
 		if (!kinetic) {
 			anim(p, BlackPantherState.ANIM_POUNCE_STRIKE);
 			if (hit(p, target, p.position(), BlackPantherConfig.POUNCE_LAND_DAMAGE, 0.0, 0.0)) {
@@ -411,7 +508,8 @@ public final class BlackPantherAbilities {
 			return;
 		}
 		anim(p, BlackPantherState.ANIM_KINETIC_BURST);
-		Vec3 c = new Vec3(target.getX(), Math.min(p.getY(), target.getY()) + 0.3, target.getZ());
+		Vec3 c = target != null ? new Vec3(target.getX(), Math.min(p.getY(), target.getY()) + 0.3, target.getZ())
+				: p.position().add(0, 0.3, 0);
 		for (LivingEntity e : BlackPantherCombat.within(p, c, BlackPantherConfig.KINETIC_POUNCE_RADIUS, e -> BlackPantherCombat.isTarget(p, e))) {
 			hit(p, e, c, BlackPantherConfig.KINETIC_POUNCE_DAMAGE, e == target ? 0.3 : BlackPantherConfig.KINETIC_POUNCE_KNOCKBACK,
 					e == target ? 0.0 : 0.4);
@@ -431,11 +529,23 @@ public final class BlackPantherAbilities {
 		}
 		cooldown(p, LEAP, BlackPantherConfig.LEAP_COOLDOWN);
 		anim(p, BlackPantherState.ANIM_LEAP);
-		Vec3 f = flatLook(p).scale(BlackPantherConfig.LEAP_FORWARD);
-		AbilityHelpers.launchSelf(p, new Vec3(f.x, BlackPantherConfig.LEAP_SPEED, f.z));
+		AbilityHelpers.launchSelf(p, leapVelocity(p.getLookAngle(), p.onGround()));
 		LEAPS.put(p.getUUID(), p.level().getGameTime() + BlackPantherConfig.LEDGE_TICKS);
 		level(p).sendParticles(BlackPanther.PURPLE, p.getX(), p.getY(), p.getZ(), 14, 0.3, 0.1, 0.3, 0.0);
 		sound(p, SoundEvents.ENDER_DRAGON_FLAP, 0.6f, 1.6f);
+	}
+
+	/**
+	 * v0.17.7 (user: "make it dash player in direction theyre aiming in instead of just up and forward please"): Panther Leap's launch,
+	 * {@link BlackPantherConfig#LEAP_SPEED} along the full look (pitch included); off the ground with a flat or downward aim it keeps
+	 * {@link BlackPantherConfig#LEAP_MIN_LIFT} of upward speed so he still leaves the ground. Pure.
+	 */
+	public static Vec3 leapVelocity(Vec3 look, boolean onGround) {
+		Vec3 v = look.normalize().scale(BlackPantherConfig.LEAP_SPEED);
+		if (onGround && v.y < BlackPantherConfig.LEAP_MIN_LIFT) {
+			v = new Vec3(v.x, BlackPantherConfig.LEAP_MIN_LIFT, v.z);
+		}
+		return v;
 	}
 
 	/** Falling past a wall with open air on top of it: he catches the ledge and pulls himself up. */
@@ -577,7 +687,7 @@ public final class BlackPantherAbilities {
 		return (float) (BlackPantherConfig.OVERLOAD_DAMAGE + (BlackPantherConfig.OVERLOAD_EDGE_DAMAGE - BlackPantherConfig.OVERLOAD_DAMAGE) * t);
 	}
 
-	// ---------------------------------------------------------------- V: Stalk / Shift+V: Kinetic Shroud
+	// ---------------------------------------------------------------- V: Stalk / Shift+V: Wakanda Forever (+ the Kinetic Shroud)
 
 	public static void toggleStalk(ServerPlayer p) {
 		if (BlackPanther.stalking(p)) {
@@ -617,14 +727,25 @@ public final class BlackPantherAbilities {
 		}
 	}
 
-	/** Shift+V: for a few seconds the suit takes less from every hit and throws a little back at whoever lands one. */
-	public static void shroud(ServerPlayer p) {
-		if (!begin(p, SHROUD) || !pay(p, BlackPantherConfig.SHROUD_COST)) {
+	/**
+	 * Shift+V in the suit: Wakanda Forever (v0.17.7, user: "Kinetic Shroud: Make this the Wakanda forever ability, can be activated
+	 * whenever, if player has 30 kinetic energy then activate the violet shimmer and 50% less damage and the other stuff"). Always
+	 * usable: the unsuited Wakanda Forever's buffs, aura and 100 s cooldown ({@link BlackPantherUnsuited#wakanda}, the cooldown is the
+	 * same entry for both kits, so suiting up never gives a second cast). With {@link BlackPantherConfig#SHROUD_COST} or more stored
+	 * it spends that and adds the Kinetic Shroud for {@link BlackPantherConfig#SHROUD_TICKS} (the same 50 s): every hit 50% less, a
+	 * living attacker takes 4 back, the violet shimmer on the suit. Short of it: the buffs alone, nothing spent, no refusal.
+	 */
+	public static void wakandaForever(ServerPlayer p) {
+		if (!begin(p, BlackPantherUnsuited.RESOLVE)) {
+			return;
+		}
+		boolean shroud = BlackPanther.spend(p, BlackPantherConfig.SHROUD_COST);
+		BlackPantherUnsuited.wakanda(p);
+		if (!shroud) {
 			return;
 		}
 		long now = p.level().getGameTime();
 		BlackPantherState n = BlackPanther.state(p).copy();
-		n.abilityReadyAt.put(SHROUD, now + BlackPantherConfig.SHROUD_COOLDOWN);
 		n.abilityReadyAt.put(SHROUD_ACTIVE, now + BlackPantherConfig.SHROUD_TICKS);
 		n.animId = BlackPantherState.ANIM_SHROUD;
 		n.animStart = now;

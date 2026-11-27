@@ -33,7 +33,7 @@ import net.minecraft.world.item.Items;
 /**
  * v0.17.7 Black Panther rework (user): the crafted necklace plus H forms the suit and switches the kit (H again, or the necklace
  * off, puts it away; the necklace model whenever it is worn, suited or not; suited armour 20 / 8; Resistance I always; the Flying Kick follows the aim; old suits become one necklace); the claws are always out (no toggle, no model);
- * melee 5 unsuited / 10 suited; Regeneration I / II; the Warrior's Combo 5 / 7 / 10 (8 / 9 / 10 suited, and it is the suited R
+ * melee 8 unsuited / 10 suited; Regeneration I / II; the Warrior's Combo 5 / 7 / 10 (8 / 9 / 10 suited, and it is the suited R
  * too); Takedown reaches 3 blocks for 10; Block cuts frontal hits; Shift+R Kinetic Pulse 10; the new Ground Pound, Flying Kick and
  * Rising Uppercut. Vindicators (no natural armour, they do not burn in daylight) with 200 health take the exact numbers. Mock players are not ticked by the
  * server, so moves over time are stepped with {@link BlackPanther#tick}.
@@ -79,17 +79,18 @@ public class BlackPantherV0177GameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void meleeIsFiveUnsuitedAndTenSuited(GameTestHelper helper) {
+	public void meleeIsEightUnsuitedAndTenSuited(GameTestHelper helper) {
 		double fist = fist(helper); // 1, the vanilla fist
 		ServerPlayer p = BlackPantherGameTests.bare(helper);
-		helper.assertTrue(BlackPantherConfig.UNSUITED_MELEE == 5.0 && BlackPantherConfig.SUITED_MELEE == 10.0, "the user's numbers");
-		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - (fist + 4.0)) < 1.0e-6,
-				"unsuited fist 5, got " + p.getAttributeValue(Attributes.ATTACK_DAMAGE));
+		helper.assertTrue(BlackPantherConfig.UNSUITED_MELEE == 8.0 && BlackPantherConfig.SUITED_MELEE == 10.0,
+				"the user's numbers (\"make his melee deal 8 damage and 10 with the suit\")");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - (fist + 7.0)) < 1.0e-6,
+				"unsuited fist 8, got " + p.getAttributeValue(Attributes.ATTACK_DAMAGE));
 		BlackPantherGameTests.wearSuit(p);
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - (fist + 9.0)) < 1.0e-6,
 				"suited fist 10, got " + p.getAttributeValue(Attributes.ATTACK_DAMAGE));
 		BlackPantherGameTests.takeOffSuit(p);
-		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - (fist + 4.0)) < 1.0e-6, "back to 5 with a piece off");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - (fist + 7.0)) < 1.0e-6, "back to 8 with the suit off");
 		BlackPanther.revoke(p);
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - fist) < 1.0e-6, "nothing once the power is gone");
 		helper.succeed();
@@ -211,8 +212,8 @@ public class BlackPantherV0177GameTests implements FabricGameTest {
 		// H: the suit runs out, the suited kit is live, the armour and Regeneration II come with it
 		BlackPanther.toggleSuit(p);
 		helper.assertTrue(BlackPanther.suited(p) && BlackPanther.suitedKit(p), "H: the suit forms");
-		helper.assertTrue(BlackPanther.changing(p) && BlackPanther.state(p).animId == com.projecthero.mod.blackpanther.data.BlackPantherState.ANIM_SUIT_UP,
-				"the suit-up build plays");
+		helper.assertTrue(BlackPanther.changing(p) && BlackPanther.state(p).animId != com.projecthero.mod.blackpanther.data.BlackPantherState.ANIM_SUIT_UP,
+				"the suit-up build plays, with no body clip (user: \"remove the animation for it\")");
 		helper.assertTrue(BlackPantherConfig.SUIT_ARMOR == 20.0 && BlackPantherConfig.SUIT_TOUGHNESS == 8.0,
 				"user: \"make the black panther armour diamond level armour\" -- full diamond, 20 / 8");
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ARMOR) - baseArmour - 20.0) < 1.0e-4,
@@ -228,8 +229,8 @@ public class BlackPantherV0177GameTests implements FabricGameTest {
 		helper.assertTrue(BlackPanther.cooldownRemaining(p, BlackPantherAbilities.LEAP) > 0, "suited X: Panther Leap");
 		// H again: the suit drains back into the necklace, which stays on
 		BlackPanther.toggleSuit(p);
-		helper.assertTrue(!BlackPanther.suited(p) && BlackPanther.state(p).animId == com.projecthero.mod.blackpanther.data.BlackPantherState.ANIM_SUIT_DOWN,
-				"H again: the suit drains away");
+		helper.assertTrue(!BlackPanther.suited(p) && BlackPanther.state(p).animId != com.projecthero.mod.blackpanther.data.BlackPantherState.ANIM_SUIT_DOWN,
+				"H again: the suit collapses into the necklace, no body clip");
 		helper.assertTrue(BlackPanther.wearsNecklace(p), "the necklace stays on");
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ARMOR) - baseArmour) < 1.0e-4, "the suit's armour goes with it");
 		press(p, AbilitySlot.SLOT_2, true);

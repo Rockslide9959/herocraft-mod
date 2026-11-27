@@ -23,7 +23,7 @@ import net.minecraft.server.level.ServerPlayer;
  *   G (2)  Pounce            / Shift Kinetic Pounce          Takedown          / Shift Ground Pound
  *   X (3)  Panther Leap      / Shift Kinetic Dash            Vault             / Shift Flying Kick
  *   Z (4)  Vibranium Dagger  / Shift Kinetic Overload (*)    Throwing Knife    / Shift Kimoyo Scan
- *   V (5)  Stalk             / Shift Kinetic Shroud          Rising Uppercut   / Shift Hunter's Tracking
+ *   V (5)  Stalk             / Shift Wakanda Forever         Rising Uppercut   / Shift Hunter's Tracking
  *   C (6)  Absorb Stance (hold) / Shift Kinetic Return       Block (hold)      / Shift Wakanda Forever
  *   N (8)  -- / Shift Mask (toggle, suited; no HUD box, listed in the Left-Alt move list)
  *   (*) the ultimate: only on a full Kinetic bar, which it empties. Shift moves spend Kinetic (refused, nothing spent, when short)
@@ -120,7 +120,7 @@ public final class BlackPantherAbilityManager {
 			case SLOT_5 -> {
 				if (pressed) {
 					if (shift) {
-						BlackPantherAbilities.shroud(player);
+						BlackPantherAbilities.wakandaForever(player); // v0.17.7: Wakanda Forever (+ the Kinetic Shroud for 30 if stored)
 					} else {
 						BlackPantherAbilities.toggleStalk(player);
 					}
@@ -235,7 +235,7 @@ public final class BlackPantherAbilityManager {
 			case SLOT_2 -> new String[] { BlackPantherAbilities.POUNCE, BlackPantherAbilities.KINETIC_POUNCE };
 			case SLOT_3 -> new String[] { BlackPantherAbilities.LEAP, BlackPantherAbilities.DASH };
 			case SLOT_4 -> new String[] { BlackPantherAbilities.DAGGER, BlackPantherAbilities.OVERLOAD };
-			case SLOT_5 -> new String[] { BlackPantherAbilities.STALK, BlackPantherAbilities.SHROUD };
+			case SLOT_5 -> new String[] { BlackPantherAbilities.STALK, BlackPantherAbilities.WAKANDA };
 			case SLOT_6 -> new String[] { BlackPantherAbilities.ABSORB, BlackPantherAbilities.RETURN };
 			default -> new String[0];
 		};
@@ -252,7 +252,6 @@ public final class BlackPantherAbilityManager {
 			case BlackPantherAbilities.DAGGER -> BlackPantherConfig.DAGGER_COOLDOWN;
 			case BlackPantherAbilities.OVERLOAD -> BlackPantherConfig.OVERLOAD_COOLDOWN;
 			case BlackPantherAbilities.STALK -> BlackPantherConfig.STALK_COOLDOWN;
-			case BlackPantherAbilities.SHROUD -> BlackPantherConfig.SHROUD_COOLDOWN;
 			case BlackPantherAbilities.ABSORB -> BlackPantherConfig.ABSORB_COOLDOWN;
 			case BlackPantherAbilities.RETURN -> BlackPantherConfig.RETURN_COOLDOWN;
 			case BlackPantherUnsuited.COMBO -> BlackPantherConfig.COMBO_COOLDOWN;

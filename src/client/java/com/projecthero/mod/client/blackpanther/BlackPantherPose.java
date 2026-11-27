@@ -134,17 +134,8 @@ public final class BlackPantherPose {
 			kx(20f, SMOOTH, -0.25f, 0f, 1.2f, -0.25f, 0f, -1.2f, 0f, -0.15f, N, N, 0.1f, -0.1f, 0f, -0.35f));
 
 	// ---- suited
-	private static final Clip SUIT_UP = clip(BlackPantherConfig.SUIT_UP_TICKS + 4f, 2f, 6f,
-			// the right hand to the necklace...
-			k(6f, SMOOTH, -1.25f, -0.75f, 0f, 0.05f, 0f, -0.1f, 0f, 0.05f, N, N, 0f),
-			k(12f, LINEAR, -1.25f, -0.75f, 0f, 0.05f, 0f, -0.1f, 0f, 0.05f, N, N, 0f),
-			// ...then the arms open as the suit runs out over them, head back as the mask closes
-			kx(26f, SMOOTH, -0.15f, 0f, 0.55f, -0.15f, 0f, -0.55f, 0f, -0.05f, N, N, 0.08f, -0.08f, 0f, -0.25f),
-			kx(36f, SMOOTH, -0.55f, -0.2f, 0.25f, -0.55f, 0.2f, -0.25f, 0f, 0.1f, N, N, 0.05f, -0.05f, 0.2f, 0.1f));
-	private static final Clip SUIT_DOWN = clip(BlackPantherConfig.SUIT_DOWN_TICKS + 4f, 2f, 5f,
-			kx(8f, SMOOTH, -0.15f, 0f, 0.55f, -0.15f, 0f, -0.55f, 0f, -0.05f, N, N, 0.08f, -0.08f, 0f, -0.2f),
-			k(22f, SMOOTH, -1.25f, -0.75f, 0f, 0.05f, 0f, -0.1f, 0f, 0.05f, N, N, 0f),
-			k(30f, LINEAR, -1.25f, -0.75f, 0f, 0.05f, 0f, -0.1f, 0f, 0.05f, N, N, 0f));
+	// v0.17.7 (user: "when transforming into the suit remove the animation for it"): no suit-up / retract clip any more -- he keeps
+	// his own pose and full control while the suit builds texel by texel out of the necklace (ANIM_SUIT_UP / _DOWN are retired).
 	/** R Vibranium Combo: three claw strikes {@code S} ticks apart (the third rakes both claws down, leaving the slash mark). */
 	private static final int S = BlackPantherConfig.VIBRANIUM_COMBO_STEP;
 	private static final Clip CLAW = clip(S * 3 + 4f, 1f, 4f,
@@ -230,8 +221,6 @@ public final class BlackPantherPose {
 			case BlackPantherState.ANIM_SCAN -> SCAN;
 			case BlackPantherState.ANIM_UPPERCUT -> UPPERCUT;
 			case BlackPantherState.ANIM_RESOLVE -> RESOLVE;
-			case BlackPantherState.ANIM_SUIT_UP -> SUIT_UP;
-			case BlackPantherState.ANIM_SUIT_DOWN -> SUIT_DOWN;
 			case BlackPantherState.ANIM_CLAW -> CLAW;
 			case BlackPantherState.ANIM_KINETIC_COMBO -> KINETIC_COMBO;
 			case BlackPantherState.ANIM_OVERLOAD -> OVERLOAD;
@@ -532,15 +521,6 @@ public final class BlackPantherPose {
 			fk(10f, LINEAR, f(-0.5f, 0.22f, 0.05f, 20f, -40f, -45f), f(-0.5f, 0.22f, 0.05f, 20f, -40f, -45f)),
 			fk(13f, SNAP, f(0.32f, -0.2f, 0.1f, -20f, 0f, 40f), f(0.32f, -0.2f, 0.1f, -20f, 0f, 40f)),
 			fk(20f, SMOOTH, f(0.28f, -0.18f, 0.1f, -18f, 0f, 36f), f(0.28f, -0.18f, 0.1f, -18f, 0f, 36f)) });
-	private static final FClip F_SUIT_UP = new FClip(BlackPantherConfig.SUIT_UP_TICKS + 4f, 2f, 6f, new FKey[] {
-			fk(6f, SMOOTH, f(-0.55f, 0.08f, 0.1f, 10f, -50f, -40f), null),
-			fk(12f, LINEAR, f(-0.55f, 0.08f, 0.1f, 10f, -50f, -40f), null),
-			fk(26f, SMOOTH, f(0.25f, -0.2f, 0.05f, -15f, 0f, 30f), f(0.25f, -0.2f, 0.05f, -15f, 0f, 30f)),
-			fk(36f, SMOOTH, REST, REST) });
-	private static final FClip F_SUIT_DOWN = new FClip(BlackPantherConfig.SUIT_DOWN_TICKS + 4f, 2f, 5f, new FKey[] {
-			fk(8f, SMOOTH, f(0.25f, -0.2f, 0.05f, -15f, 0f, 30f), f(0.25f, -0.2f, 0.05f, -15f, 0f, 30f)),
-			fk(22f, SMOOTH, f(-0.55f, 0.08f, 0.1f, 10f, -50f, -40f), REST),
-			fk(30f, LINEAR, f(-0.55f, 0.08f, 0.1f, 10f, -50f, -40f), REST) });
 	private static final FClip F_CLAW = new FClip(S * 3 + 4f, 1f, 4f, new FKey[] {
 			fk(0.8f, SMOOTH, f(0.15f, 0.28f, 0.1f, 40f, -30f, -25f), REST),
 			fk(2.6f, SNAP, f(-0.52f, -0.15f, -0.2f, -25f, 35f, 35f), REST),
@@ -612,8 +592,6 @@ public final class BlackPantherPose {
 			case BlackPantherState.ANIM_SCAN -> F_SCAN;
 			case BlackPantherState.ANIM_UPPERCUT -> F_UPPERCUT;
 			case BlackPantherState.ANIM_RESOLVE -> F_RESOLVE;
-			case BlackPantherState.ANIM_SUIT_UP -> F_SUIT_UP;
-			case BlackPantherState.ANIM_SUIT_DOWN -> F_SUIT_DOWN;
 			case BlackPantherState.ANIM_CLAW -> F_CLAW;
 			case BlackPantherState.ANIM_KINETIC_COMBO -> F_KINETIC_COMBO;
 			case BlackPantherState.ANIM_OVERLOAD -> F_OVERLOAD;

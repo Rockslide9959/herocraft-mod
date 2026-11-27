@@ -3,18 +3,29 @@ package com.projecthero.mod.blackpanther;
 /** v0.17.3: every Black Panther number in one place. Ticks unless named otherwise; damage in half hearts. */
 public final class BlackPantherConfig {
 	public static final int VISION_TICKS = 200; // the Ancestral Plane, 10 s
-	public static final int SUIT_UP_TICKS = 40;
-	public static final int SUIT_DOWN_TICKS = 32;
+	/** v0.17.7: the nanotech build (no body clip any more, user), a little quicker than the old 40 / 32. */
+	public static final int SUIT_UP_TICKS = 36;
+	public static final int SUIT_DOWN_TICKS = 30;
 
 	public static final float KINETIC_MAX = 100f;
 	/** The suit soaks this share of a hit... */
 	public static final float SOAK = 0.4f;
 	/** ...and stores this much Kinetic per point soaked. */
 	public static final float KINETIC_PER_DAMAGE = 4f;
-	// v0.17.7 (user: "it doesnt dissipate in the movies"): the bar never drains over time; it only goes down when spent.
+	// v0.17.7 (user: "it doesnt dissipate in the movies"): the bar never drains while the suit is on; it only goes down when spent.
+	/**
+	 * v0.17.7, later the same day (user: "make kinetic energy dissipate slowly when suit is in necklace mode please"): with the suit
+	 * away in the necklace (or no suit at all) the bar leaks this much...
+	 */
+	public static final float KINETIC_UNSUITED_DRAIN = 1f;
+	/** ...every this many ticks (1 every 2 s: a full bar empties in about 3 min 20 s). Only while he is online. */
+	public static final int KINETIC_UNSUITED_DRAIN_EVERY = 40;
 
-	/** v0.17.7 (user): a bare-handed hit out of the suit deals 5 (the fist's 1 + 4 from the herb)... */
-	public static final double UNSUITED_MELEE = 5.0;
+	/**
+	 * v0.17.7 (user: "make his melee deal 8 damage and 10 with the suit please so its more similar to super soldier"): a bare-handed
+	 * hit out of the suit deals 8 (the fist's 1 + 7 from the herb; was 5)...
+	 */
+	public static final double UNSUITED_MELEE = 8.0;
 	/** ...and 10 in it (user: the vibranium claws are always out, there is no claw toggle any more). */
 	public static final double SUITED_MELEE = 10.0;
 	/** The necklace suit's armour and toughness while suited (user: "make the black panther armour diamond level armour"). */
@@ -77,26 +88,39 @@ public final class BlackPantherConfig {
 	public static final double KINETIC_COMBO_WAVE_ARC = 0.5;
 	public static final int KINETIC_COMBO_COOLDOWN = 40;
 
-	// ---- G: Pounce (aimed leap onto a target; damage on landing, then pinned)
+	// ---- G: Pounce (a leap along the aim; damage on landing on a creature, then pinned)
+	// v0.17.7 (user: "dont make it need an enemy in order to activate, give it slight aim assist tho so that it cant track targets
+	// still"): it always fires. At launch only, a creature within POUNCE_ASSIST_DEGREES of the crosshair (in range, in sight) is picked
+	// and the leap is aimed at where it stands; the direction is then fixed -- no steering in the air. With nothing picked he leaps
+	// straight along his aim (pitch included). The first creature he reaches in flight is the one he lands on.
 	public static final double POUNCE_RANGE = 8.0;
 	public static final double POUNCE_SPEED = 1.6;
-	/** The leap gives up if it has not reached the target in this many ticks. */
+	/** The launch-only aim assist's cone: half-angle round the crosshair (deg). */
+	public static final double POUNCE_ASSIST_DEGREES = 8.0;
+	/** He lands on a creature once it is this close to him (or its width + 1.2, whichever is more). */
+	public static final double POUNCE_CONTACT = 2.0;
+	/** Launched off the ground with a flat or downward aim, the leap rises at least this much (y of the unit direction). */
+	public static final double POUNCE_MIN_RISE = 0.15;
+	/** The leap gives up (lands where he is) after this many ticks. */
 	public static final int POUNCE_MAX_FLIGHT_TICKS = 16;
-	public static final float POUNCE_LAND_DAMAGE = 9f;
+	public static final float POUNCE_LAND_DAMAGE = 12f; // v0.17.7 (user: "Pounce: increase damage to 12"): was 9
 	public static final int POUNCE_PIN_TICKS = 20;
 	public static final float POUNCE_KINETIC_GAIN = 10f;
 	public static final int POUNCE_COOLDOWN = 120;
 
-	// ---- Shift+G: Kinetic Pounce (the same leap, ending in a violet ground burst instead of the claws)
+	// ---- Shift+G: Kinetic Pounce (the same leap and launch-only assist, ending in a violet ground burst instead of the claws;
+	// always fires: with no creature reached the burst goes off where he lands)
 	public static final float KINETIC_POUNCE_COST = 30f;
-	public static final float KINETIC_POUNCE_DAMAGE = 10f;
+	public static final float KINETIC_POUNCE_DAMAGE = 25f; // v0.17.7 (user: "Kinetic Pounce: increase damage to 25"): was 10
 	public static final double KINETIC_POUNCE_RADIUS = 3.0;
 	public static final double KINETIC_POUNCE_KNOCKBACK = 1.4;
 	public static final int KINETIC_POUNCE_COOLDOWN = 160;
 
-	// ---- X: Panther Leap (unchanged)
-	public static final double LEAP_SPEED = 1.62; // about 12 blocks up
-	public static final double LEAP_FORWARD = 0.55;
+	// ---- X: Panther Leap (v0.17.7, user: "make it dash player in direction theyre aiming in instead of just up and forward please")
+	/** Launch speed along the full look direction (pitch included): straight up that is still about 12 blocks. */
+	public static final double LEAP_SPEED = 1.62;
+	/** Off the ground with a flat or downward aim, the launch keeps at least this much upward speed (so he leaves the ground). */
+	public static final double LEAP_MIN_LIFT = 0.42;
 	public static final int LEAP_COOLDOWN = 60;
 	public static final int LEDGE_TICKS = 60;
 
@@ -106,7 +130,7 @@ public final class BlackPantherConfig {
 	public static final int DASH_TICKS = 5;
 	/** Damage-immune for the dash plus this many ticks. */
 	public static final int DASH_IFRAME_EXTRA_TICKS = 2;
-	public static final float DASH_DAMAGE = 8f; // each creature passed through, once
+	public static final float DASH_DAMAGE = 18f; // each creature passed through, once (v0.17.7 user: "Kinetic Dash: increase to 18 damage", was 8)
 	public static final double DASH_HIT_RADIUS = 0.6;
 	public static final int DASH_COOLDOWN = 60;
 
@@ -116,7 +140,7 @@ public final class BlackPantherConfig {
 	public static final double DAGGER_SPEED = 1.7;
 	public static final double DAGGER_RANGE = 14.0; // was 24
 	public static final double DAGGER_HOP = 6.0; // was 10
-	public static final int DAGGER_COOLDOWN = 140; // was 100
+	public static final int DAGGER_COOLDOWN = 60; // v0.17.7 (user: "Lower dagger throw cooldown in suit and not in suit"): 3 s, was 7 s
 	public static final float DAGGER_KINETIC_GAIN = 5f; // each target struck
 
 	// ---- Shift+Z: Kinetic Overload (ULTIMATE: needs a FULL bar and spends all of it; ground slam + violet dome)
@@ -133,14 +157,16 @@ public final class BlackPantherConfig {
 	/** Hunter's Tracking (unsuited Shift+V): footprints kept per creature. */
 	public static final int FOOTPRINTS = 10;
 
-	// ---- Shift+V: Kinetic Shroud (damage cut + thorns, violet shimmer on the suit)
+	// ---- Shift+V: Wakanda Forever in the suit (v0.17.7, user: "Kinetic Shroud: Make this the Wakanda forever ability, can be
+	// activated whenever, if player has 30 kinetic energy then activate the violet shimmer and 50% less damage and the other stuff for
+	// the kinetic shroud ability please, should still last the same amount of time as unsuited Wakanda forever"). Always usable: the
+	// unsuited Wakanda Forever's buffs (RESOLVE_*, below) and its cooldown, shared between both kits. With SHROUD_COST or more stored at
+	// the cast it spends that and adds the old Kinetic Shroud for SHROUD_TICKS (the same 50 s).
 	public static final float SHROUD_COST = 30f;
-	public static final int SHROUD_TICKS = 80;
-	/** Share of each hit taken off while it is up. */
+	/** Share of each hit taken off while the Shroud is up. */
 	public static final float SHROUD_REDUCTION = 0.5f;
 	/** Damage thrown back at a creature or player that lands a hit on him. */
 	public static final float SHROUD_THORNS = 4f;
-	public static final int SHROUD_COOLDOWN = 240; // from the cast
 
 	// ---- C: Absorb Stance (unchanged) / Shift+C: Kinetic Return (unchanged)
 	public static final float ABSORB_MAX = 40f;
@@ -216,7 +242,7 @@ public final class BlackPantherConfig {
 	// Z
 	public static final float KNIFE_DAMAGE = 8f; // v0.17.7 (user): was 5
 	public static final double KNIFE_RANGE = 12.0;
-	public static final int KNIFE_COOLDOWN = 80;
+	public static final int KNIFE_COOLDOWN = 40; // v0.17.7 (user: "Lower dagger throw cooldown in suit and not in suit"): 2 s, was 4 s
 	public static final double SCAN_RANGE = 32.0;
 	public static final int SCAN_TICKS = 200;
 	/** A Kimoyo-scanned creature takes this much more from his hits. */
@@ -244,7 +270,10 @@ public final class BlackPantherConfig {
 	public static final int RESOLVE_TICKS = 50 * 20;
 	/** Effect amplifiers: Speed II, Strength II, Regeneration II, Resistance II. */
 	public static final int RESOLVE_SPEED = 1, RESOLVE_STRENGTH = 1, RESOLVE_REGEN = 1, RESOLVE_RESISTANCE = 1;
+	/** From the cast; one cooldown for the suited and the unsuited Wakanda Forever (suiting up does not reset it). */
 	public static final int RESOLVE_COOLDOWN = 100 * 20;
+	/** v0.17.7: the suited Wakanda Forever's Kinetic Shroud lasts as long as the buffs. */
+	public static final int SHROUD_TICKS = RESOLVE_TICKS;
 	/** The purple aura is puffed out every this many ticks while it lasts. */
 	public static final int RESOLVE_PARTICLE_EVERY = 3;
 

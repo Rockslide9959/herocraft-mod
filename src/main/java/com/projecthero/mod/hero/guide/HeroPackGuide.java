@@ -2105,7 +2105,7 @@ public final class HeroPackGuide {
 			// v0.17.7 suited kit: plain keys fill a little Kinetic when they land, Shift keys spend it
 			for (String[] row : new String[][] { { "H", "suit" }, { "R", "vibranium_combo" }, { "Shift+R", "kinetic_combo" }, { "G", "pounce" },
 					{ "Shift+G", "kinetic_pounce" }, { "X", "panther_leap" }, { "Shift+X", "kinetic_dash" }, { "Z", "vibranium_dagger" },
-					{ "Shift+Z", "kinetic_overload" }, { "V", "stalk" }, { "Shift+V", "kinetic_shroud" }, { "C", "absorb_stance" },
+					{ "Shift+Z", "kinetic_overload" }, { "V", "stalk" }, { "Shift+V", "wakanda_forever_suit" }, { "C", "absorb_stance" },
 					{ "Shift+C", "kinetic_return" }, { "Shift+N", "mask" } }) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.black_panther.ability." + row[1]).withStyle(ChatFormatting.WHITE)));

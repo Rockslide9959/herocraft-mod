@@ -23,7 +23,8 @@ import net.minecraft.world.phys.Vec3;
 /**
  * v0.17.7 Black Panther suited kit (user-approved): plain keys are free and add Kinetic when they land, Shift keys spend it; short
  * on Kinetic a Shift move does nothing and spends nothing; Kinetic Overload (Shift+Z) needs a full bar and empties it; the bar never
- * decays and a death empties it. The numbers are read from {@link BlackPantherConfig} so the user's own values drop in. Targets are
+ * decays in the suit, leaks slowly with the suit in the necklace, and a death empties it. Later v0.17.7 round: Pounce / Kinetic Pounce
+ * always fire with a launch-only aim assist, Panther Leap follows the aim, suited Shift+V is Wakanda Forever (+ the Shroud for 30). The numbers are read from {@link BlackPantherConfig} so the user's own values drop in. Targets are
  * Vindicators (no natural armour) with 200 health. The player stands at 2.5, 2, 2.5 facing south (+z). Mock players are not
  * ticked by the server, so moves over time are stepped with {@link BlackPanther#tick}.
  */
@@ -104,18 +105,22 @@ public class BlackPantherSuitedV0177GameTests implements FabricGameTest {
 		p.lookAt(EntityAnchorArgument.Anchor.EYES, s.getEyePosition().add(0, -0.4, 0));
 		BlackPanther.setKinetic(p, 10f);
 		Vec3 at = p.position();
-		for (AbilitySlot slot : new AbilitySlot[] { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_3, AbilitySlot.SLOT_4, AbilitySlot.SLOT_5 }) {
+		for (AbilitySlot slot : new AbilitySlot[] { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_3, AbilitySlot.SLOT_4 }) {
 			press(p, slot, true);
 		}
 		helper.assertTrue(BlackPanther.kinetic(p) == 10f, "nothing spent, got " + BlackPanther.kinetic(p));
 		helper.assertTrue(s.getHealth() == 200f, "nothing fired");
 		helper.assertTrue(p.position().distanceToSqr(at) < 1.0e-4, "no dash");
-		helper.assertTrue(!BlackPantherAbilities.shrouded(p), "no shroud");
+		helper.assertTrue(BlackPantherAbilities.pounceDirection(p) == null, "no Kinetic Pounce leap");
 		for (String id : new String[] { BlackPantherAbilities.KINETIC_COMBO, BlackPantherAbilities.KINETIC_POUNCE, BlackPantherAbilities.DASH,
-				BlackPantherAbilities.OVERLOAD, BlackPantherAbilities.SHROUD }) {
+				BlackPantherAbilities.OVERLOAD }) {
 			helper.assertTrue(BlackPanther.cooldownRemaining(p, id) == 0, id + ": no cooldown on a refusal");
 		}
 		helper.assertTrue(BlackPantherAbilities.kineticDenied(p), "the HUD's Kinetic bar flashes");
+		// v0.17.7: Shift+V (Wakanda Forever) is never refused -- short of 30 it is the buffs alone, nothing spent, no Shroud
+		press(p, AbilitySlot.SLOT_5, true);
+		helper.assertTrue(BlackPanther.kinetic(p) == 10f && !BlackPantherAbilities.shrouded(p), "Wakanda Forever under 30: nothing spent, no Shroud");
+		helper.assertTrue(BlackPanther.cooldownRemaining(p, BlackPantherAbilities.WAKANDA) > 0, "but it fired");
 		helper.succeed();
 	}
 
@@ -220,18 +225,38 @@ public class BlackPantherSuitedV0177GameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 400)
-	public void kineticNeverDecaysAndADeathEmptiesIt(GameTestHelper helper) {
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 500)
+	public void kineticHoldsInTheSuitLeaksInTheNecklaceAndADeathEmptiesIt(GameTestHelper helper) {
+		// user: "make kinetic energy dissipate slowly when suit is in necklace mode please" -- suited no decay; unsuited every change is
+		// exactly one drain step, only on a drain tick (step sizes, not elapsed totals: CI ticks mock players at its own rate)
 		ServerPlayer p = BlackPantherGameTests.suited(helper);
 		BlackPanther.setKinetic(p, 60f);
-		helper.onEachTick(() -> BlackPanther.tick(p));
-		helper.runAfterDelay(300, () -> {
-			helper.assertTrue(BlackPanther.kinetic(p) == 60f, "15 s idle in the suit: still 60, got " + BlackPanther.kinetic(p));
-			BlackPantherGameTests.takeOffSuit(p);
-			for (int i = 0; i < 40; i++) {
-				BlackPanther.tick(p);
+		float[] last = { 60f };
+		int[] steps = { 0 };
+		boolean[] off = { false, false }; // [0] the suit is put away, [1] the test is done (the death below empties it)
+		helper.onEachTick(() -> {
+			if (off[1]) {
+				return;
 			}
-			helper.assertTrue(BlackPanther.kinetic(p) == 60f, "the suit put away: still 60");
+			BlackPanther.tick(p);
+			float k = BlackPanther.kinetic(p);
+			if (k != last[0]) {
+				helper.assertTrue(off[0], "no change while suited, " + last[0] + " -> " + k);
+				helper.assertTrue(Math.abs(last[0] - k - BlackPantherConfig.KINETIC_UNSUITED_DRAIN) < 1.0e-4, "one drain step, " + last[0] + " -> " + k);
+				helper.assertTrue(BlackPanther.kineticDrains(p.level().getGameTime()), "only on a drain tick");
+				steps[0]++;
+				last[0] = k;
+			}
+		});
+		helper.runAfterDelay(200, () -> {
+			helper.assertTrue(BlackPanther.kinetic(p) == 60f, "10 s idle in the suit: still 60, got " + BlackPanther.kinetic(p));
+			BlackPantherGameTests.takeOffSuit(p);
+			off[0] = true;
+		});
+		helper.runAfterDelay(200 + 4 * BlackPantherConfig.KINETIC_UNSUITED_DRAIN_EVERY + 2, () -> {
+			helper.assertTrue(steps[0] >= 3, "the suit in the necklace: it leaks, " + steps[0] + " steps");
+			helper.assertTrue(BlackPantherConfig.KINETIC_UNSUITED_DRAIN == 1f && BlackPantherConfig.KINETIC_UNSUITED_DRAIN_EVERY == 40, "1 every 2 s");
+			off[1] = true;
 			BlackPanther.onDeath(p);
 			helper.assertTrue(BlackPanther.kinetic(p) == 0f, "a death empties it");
 			helper.succeed();
@@ -239,7 +264,7 @@ public class BlackPantherSuitedV0177GameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void shroudHalvesHitsAndThornsTheAttacker(GameTestHelper helper) {
+	public void suitedWakandaForeverWithThirtyAddsTheShroud(GameTestHelper helper) {
 		ServerPlayer p = BlackPantherGameTests.suited(helper);
 		Vindicator attacker = dummy(helper, new BlockPos(2, 2, 4));
 		// the soaked share of a hit is stored as Kinetic: the stored amount measures what the hit was, before armour
@@ -249,8 +274,13 @@ public class BlackPantherSuitedV0177GameTests implements FabricGameTest {
 		helper.assertTrue(attacker.getHealth() == 200f, "no thorns without the Shroud");
 		BlackPanther.setKinetic(p, 50f);
 		press(p, AbilitySlot.SLOT_5, true);
-		helper.assertTrue(BlackPantherAbilities.shrouded(p), "Shift+V: the Shroud is up");
-		helper.assertTrue(near(BlackPanther.kinetic(p), 50f - BlackPantherConfig.SHROUD_COST), "the cost");
+		helper.assertTrue(BlackPantherAbilities.shrouded(p), "Shift+V with 30+: Wakanda Forever and the Shroud");
+		helper.assertTrue(near(BlackPanther.kinetic(p), 50f - BlackPantherConfig.SHROUD_COST), "30 spent");
+		helper.assertTrue(BlackPanther.cooldownRemaining(p, BlackPantherAbilities.SHROUD_ACTIVE) == BlackPantherConfig.RESOLVE_TICKS,
+				"the Shroud lasts as long as Wakanda Forever (50 s)");
+		helper.assertTrue(BlackPanther.cooldownRemaining(p, BlackPantherAbilities.WAKANDA) == BlackPantherConfig.RESOLVE_COOLDOWN, "100 s cooldown");
+		var strength = p.getEffect(MobEffects.DAMAGE_BOOST);
+		helper.assertTrue(strength != null && strength.getAmplifier() == BlackPantherConfig.RESOLVE_STRENGTH, "the Wakanda Forever buffs");
 		BlackPanther.setKinetic(p, 0f);
 		p.invulnerableTime = 0;
 		p.hurt(p.damageSources().mobAttack(attacker), 10f);
@@ -285,6 +315,132 @@ public class BlackPantherSuitedV0177GameTests implements FabricGameTest {
 			}
 		}
 		helper.assertTrue(BlackPantherAbilityManager.idsOf(AbilitySlot.SLOT_4, true)[1].equals(BlackPantherAbilities.OVERLOAD), "Shift+Z: Overload");
+		helper.assertTrue(BlackPantherAbilityManager.idsOf(AbilitySlot.SLOT_5, true)[1].equals(BlackPantherAbilities.WAKANDA)
+				&& BlackPantherAbilities.WAKANDA.equals(com.projecthero.mod.blackpanther.BlackPantherUnsuited.RESOLVE),
+				"Shift+V in the suit: Wakanda Forever (the Kinetic Shroud is no separate move)");
+		helper.succeed();
+	}
+
+	// ================================================================ v0.17.7 round: the user's tuning requests
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void theUsersNumbers(GameTestHelper helper) {
+		helper.assertTrue(BlackPantherConfig.POUNCE_LAND_DAMAGE == 12f, "Pounce 12");
+		helper.assertTrue(BlackPantherConfig.KINETIC_POUNCE_DAMAGE == 25f, "Kinetic Pounce 25");
+		helper.assertTrue(BlackPantherConfig.DASH_DAMAGE == 18f, "Kinetic Dash 18");
+		helper.assertTrue(BlackPantherConfig.KNIFE_COOLDOWN == 40 && BlackPantherConfig.DAGGER_COOLDOWN == 60, "knife 2 s, dagger 3 s");
+		helper.assertTrue(BlackPantherConfig.SHROUD_TICKS == BlackPantherConfig.RESOLVE_TICKS, "the Shroud lasts as long as Wakanda Forever");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void daggerAndKnifeCooldownsAreShorter(GameTestHelper helper) {
+		ServerPlayer p = BlackPantherGameTests.bare(helper);
+		press(p, AbilitySlot.SLOT_4, false);
+		int knife = BlackPanther.cooldownRemaining(p, com.projecthero.mod.blackpanther.BlackPantherUnsuited.KNIFE);
+		helper.assertTrue(knife == BlackPantherConfig.KNIFE_COOLDOWN, "unsuited Z: Throwing Knife 2 s, got " + knife);
+		BlackPantherGameTests.wearSuit(p);
+		BlackPantherGameTests.finishChange(p);
+		press(p, AbilitySlot.SLOT_4, false);
+		int dagger = BlackPanther.cooldownRemaining(p, BlackPantherAbilities.DAGGER);
+		helper.assertTrue(dagger == BlackPantherConfig.DAGGER_COOLDOWN, "suited Z: Vibranium Dagger 3 s, got " + dagger);
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void pantherLeapFollowsTheAim(GameTestHelper helper) {
+		ServerPlayer p = BlackPantherGameTests.suited(helper);
+		p.setYRot(0f);
+		p.setXRot(-30f); // up and ahead
+		press(p, AbilitySlot.SLOT_3, false);
+		Vec3 v = p.getDeltaMovement();
+		Vec3 want = p.getLookAngle().scale(BlackPantherConfig.LEAP_SPEED);
+		helper.assertTrue(v.distanceTo(want) < 1.0e-3, "launched along the look, pitch included: want " + want + ", got " + v);
+		helper.assertTrue(v.z > 1.0 && v.y > 0.7, "forward as much as up at 30 degrees, " + v);
+		// straight up is still the old ~12-block leap; a level aim off the ground still leaves it; mid-air a downward aim dives
+		helper.assertTrue(Math.abs(BlackPantherAbilities.leapVelocity(new Vec3(0, 1, 0), true).y - BlackPantherConfig.LEAP_SPEED) < 1.0e-6, "up");
+		Vec3 level = BlackPantherAbilities.leapVelocity(new Vec3(0, 0, 1), true);
+		helper.assertTrue(Math.abs(level.z - BlackPantherConfig.LEAP_SPEED) < 1.0e-6 && level.y == BlackPantherConfig.LEAP_MIN_LIFT, "level: " + level);
+		helper.assertTrue(BlackPantherAbilities.leapVelocity(new Vec3(0, -1, 0), false).y < -1.0, "a mid-air dive");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void pounceAndKineticPounceFireWithNoTarget(GameTestHelper helper) {
+		ServerPlayer p = BlackPantherGameTests.suited(helper);
+		p.setYRot(0f);
+		p.setXRot(-20f);
+		BlackPanther.setKinetic(p, 0f);
+		press(p, AbilitySlot.SLOT_2, false);
+		helper.assertTrue(BlackPanther.cooldownRemaining(p, BlackPantherAbilities.POUNCE) > 0, "G with nothing to aim at still fires");
+		Vec3 dir = BlackPantherAbilities.pounceDirection(p);
+		helper.assertTrue(dir != null && BlackPantherAbilities.pounceTarget(p) == -1, "a leap along the aim, no target");
+		helper.assertTrue(dir.dot(p.getLookAngle()) > 0.98, "along the look (pitch included), " + dir);
+		ServerPlayer q = BlackPantherGameTests.suited(helper);
+		q.setYRot(0f);
+		BlackPanther.setKinetic(q, 50f);
+		press(q, AbilitySlot.SLOT_2, true);
+		helper.assertTrue(BlackPanther.cooldownRemaining(q, BlackPantherAbilities.KINETIC_POUNCE) > 0, "Shift+G with nothing to aim at fires too");
+		helper.assertTrue(near(BlackPanther.kinetic(q), 50f - BlackPantherConfig.KINETIC_POUNCE_COST), "and costs its 30");
+		helper.assertTrue(BlackPantherAbilities.pounceDirection(q) != null, "leaping");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void pounceAssistOnlyInsideTheConeAndNeverSteers(GameTestHelper helper) {
+		Vec3 eye = Vec3.ZERO, look = new Vec3(0, 0, 1);
+		double r = BlackPantherConfig.POUNCE_RANGE;
+		double a5 = Math.toRadians(5), a12 = Math.toRadians(12);
+		helper.assertTrue(BlackPantherAbilities.assistAngle(eye, look, new Vec3(Math.sin(a5) * 5, 0, Math.cos(a5) * 5), r) < 6.0, "5 degrees off: picked");
+		helper.assertTrue(BlackPantherAbilities.assistAngle(eye, look, new Vec3(Math.sin(a12) * 5, 0, Math.cos(a12) * 5), r) == Double.MAX_VALUE,
+				"12 degrees off: outside the 8-degree cone");
+		helper.assertTrue(BlackPantherAbilities.assistAngle(eye, look, new Vec3(0, 0, r + 1), r) == Double.MAX_VALUE, "out of range");
+		// in the world: a creature well off the crosshair is not picked...
+		ServerPlayer p = BlackPantherGameTests.suited(helper);
+		Vindicator s = dummy(helper, new BlockPos(5, 2, 5));
+		p.setYRot(0f);
+		p.setXRot(0f);
+		helper.assertTrue(BlackPantherAbilities.assistTarget(p) == null, "about 45 degrees off: no assist");
+		// ...one just off it is, and the leap is aimed at it once, at launch
+		p.lookAt(EntityAnchorArgument.Anchor.EYES, s.getEyePosition().add(0.3, -0.4, 0));
+		helper.assertTrue(BlackPantherAbilities.assistTarget(p) == s, "a few degrees off: assisted");
+		press(p, AbilitySlot.SLOT_2, false);
+		Vec3 dir = BlackPantherAbilities.pounceDirection(p);
+		helper.assertTrue(dir != null && BlackPantherAbilities.pounceTarget(p) == s.getId(), "aimed at the assisted creature");
+		// it moves away sideways: the leap does not follow
+		s.teleportTo(s.getX() - 3.0, s.getY(), s.getZ());
+		BlackPanther.tick(p);
+		Vec3 after = BlackPantherAbilities.pounceDirection(p);
+		helper.assertTrue(after != null && after.distanceTo(dir) < 1.0e-9, "the direction is fixed after launch: " + dir + " -> " + after);
+		helper.assertTrue(p.getDeltaMovement().normalize().distanceTo(dir) < 1.0e-3, "and he is still driven along it, " + p.getDeltaMovement());
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void wakandaForeverCooldownIsSharedAcrossTheSuit(GameTestHelper helper) {
+		ServerPlayer p = BlackPantherGameTests.bare(helper);
+		press(p, AbilitySlot.SLOT_6, true); // unsuited Shift+C
+		helper.assertTrue(BlackPanther.cooldownRemaining(p, BlackPantherAbilities.WAKANDA) > 0, "unsuited Wakanda Forever");
+		BlackPantherGameTests.wearSuit(p);
+		BlackPantherGameTests.finishChange(p);
+		BlackPanther.setKinetic(p, 50f);
+		press(p, AbilitySlot.SLOT_5, true); // suited Shift+V
+		helper.assertTrue(BlackPanther.kinetic(p) == 50f && !BlackPantherAbilities.shrouded(p), "suiting up gives no second cast (nothing spent, no Shroud)");
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void suitedWakandaForeverKeepsItsRegenerationWhenTheSuitGoes(GameTestHelper helper) {
+		ServerPlayer p = BlackPantherGameTests.suited(helper);
+		BlackPanther.setKinetic(p, 0f);
+		press(p, AbilitySlot.SLOT_5, true);
+		BlackPantherGameTests.takeOffSuit(p);
+		BlackPanther.reconcile(p);
+		var regen = p.getEffect(MobEffects.REGENERATION);
+		helper.assertTrue(regen != null && regen.getAmplifier() == BlackPantherConfig.RESOLVE_REGEN && !regen.isInfiniteDuration()
+				&& regen.getDuration() > BlackPantherConfig.RESOLVE_TICKS - 20, "Regeneration II carries on after the suit's own II goes, " + regen);
+		var res = p.getEffect(MobEffects.DAMAGE_RESISTANCE);
+		helper.assertTrue(res != null && res.getAmplifier() == BlackPantherConfig.RESOLVE_RESISTANCE, "Resistance II too, " + res);
 		helper.succeed();
 	}
 }

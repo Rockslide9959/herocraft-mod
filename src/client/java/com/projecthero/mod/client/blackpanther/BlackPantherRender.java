@@ -35,8 +35,8 @@ import net.minecraft.world.entity.player.Player;
  * same hair-larger player model as Blue Beetle ({@link BlueBeetleRender#posed}).
  *
  * <p>The user: "Make the suit retract into a necklace". v0.17.7: the suit IS the crafted necklace -- H with it worn runs the suit
- * out texel by texel across the skin (the Blue Beetle geodesic, seeded at the necklace), the head last, behind a glowing violet
- * edge; H again (or taking the necklace off) plays it backwards. The necklace model matches the gold necklace painted on the
+ * out texel by texel across the skin (the Blue Beetle geodesic, seeded at the necklace, spreading outward with a little noise; no
+ * body clip, user), behind a glowing violet edge; H again (or taking the necklace off) plays it backwards, into the necklace. The necklace model matches the gold necklace painted on the
  * suit skin and is drawn whenever the necklace is worn, suited or not ({@link #renderNecklace}). v0.17.7: the claw model
  * is gone (user: "remove the claw model it looks bad please"). Shift+N hides the suit's head. The trim glows purple with the Kinetic bar.
  */
@@ -52,8 +52,6 @@ public final class BlackPantherRender {
 	/** The necklace's Kinetic glow map: the same swatches, gold ones violet like {@link #GLOW}, the gaps dark. */
 	public static final ResourceLocation NECKLACE_GLOW = ProjectHeroMod.id("textures/entity/black_panther/necklace_glow.png");
 	public static final int FRAMES = 64;
-	/** The body takes this share of the build; the head takes the rest, so the mask closes last. */
-	private static final float BODY_SHARE = 0.74f;
 
 	private static ResourceLocation[] frames;
 	private static float[] orders;
@@ -331,21 +329,23 @@ public final class BlackPantherRender {
 
 	// ---------------------------------------------------------------- the order of the build
 
-	/** When base-layer texel (u, v) turns into suit, 0..1 (2 = unused); overlay texels follow the base texel under them. */
+	/**
+	 * When base-layer texel (u, v) turns into suit, 0..1 (2 = unused); overlay texels follow the base texel under them.
+	 *
+	 * <p>v0.17.7 (user: "the suit must just build itself onto the player pixel by pixel spreading out from the necklace"): the order is
+	 * the texel's distance over the body's surface from the necklace on the upper chest ({@link #NECKLACE_SEED}; the Blue Beetle
+	 * geodesic, so it can only travel texel to texel round the body -- up the neck, over the shoulders and down the arms, round the
+	 * sides to the back, down the legs), plus a little per-texel noise ({@link #ORDER_NOISE}) so the front is ragged pixels rather
+	 * than a clean circle. No separate head pass any more: the mask fills in as the spread climbs the neck. The retract plays the
+	 * same order backwards, so the suit collapses into the necklace. The second skin layer and the first-person arm use the same order
+	 * (the arm fills from the shoulder down).
+	 */
 	public static float order(int u, int v) {
 		if (orders == null) {
-			float[] from = BlueBeetleRender.geodesicFrom(0f, 1.5f, -2f);
-			float bodyMax = 0f, headMin = Float.MAX_VALUE, headMax = 0f;
-			for (int i = 0; i < from.length; i++) {
-				if (from[i] < 0f) {
-					continue;
-				}
-				if (head(i % 64, i / 64)) {
-					headMin = Math.min(headMin, from[i]);
-					headMax = Math.max(headMax, from[i]);
-				} else {
-					bodyMax = Math.max(bodyMax, from[i]);
-				}
+			float[] from = BlueBeetleRender.geodesicFrom(NECKLACE_SEED[0], NECKLACE_SEED[1], NECKLACE_SEED[2]);
+			float max = 0f;
+			for (float d : from) {
+				max = Math.max(max, d);
 			}
 			float[] o = new float[64 * 64];
 			java.util.Arrays.fill(o, 2f);
@@ -355,20 +355,48 @@ public final class BlackPantherRender {
 					if (base < 0 || from[base] < 0f) {
 						continue;
 					}
-					float jitter = 0.05f * Mth.frac(Mth.sin(x * 12.9898f + y * 78.233f) * 43758.547f);
-					float t = head(base % 64, base / 64)
-							? BODY_SHARE + (1f - BODY_SHARE) * (from[base] - headMin) / Math.max(1f, headMax - headMin)
-							: BODY_SHARE * from[base] / Math.max(1f, bodyMax);
-					o[y * 64 + x] = Mth.clamp(0.95f * t + jitter, 0f, 1f);
+					float jitter = Mth.frac(Mth.sin(x * 12.9898f + y * 78.233f) * 43758.547f);
+					o[y * 64 + x] = Mth.clamp((1f - ORDER_NOISE) * from[base] / Math.max(1f, max) + ORDER_NOISE * jitter, 0f, 1f);
 				}
 			}
 			orders = o;
+			// the high collar starts once the spread is over the shoulders (the top of the torso), the cape once it reaches the top of
+			// the back; both finish a little before the body does
+			float topMin = 2f, topMax = 0f;
+			for (int y = 16; y < 20; y++) {
+				for (int x = 20; x < 28; x++) {
+					topMin = Math.min(topMin, o[y * 64 + x]);
+					topMax = Math.max(topMax, o[y * 64 + x]);
+				}
+			}
+			float backTop = 2f;
+			for (int x = 33; x < 39; x++) {
+				backTop = Math.min(backTop, o[20 * 64 + x]);
+			}
+			collarFrom = topMin;
+			collarTo = Math.min(0.9f, topMax + 0.25f);
+			capeFrom = Math.min(0.8f, backTop);
+			capeTo = 0.96f;
 		}
 		return u < 0 || v < 0 || u >= 64 || v >= 64 ? 2f : orders[v * 64 + u];
 	}
 
-	private static boolean head(int u, int v) {
-		return v < 16 && u < 32;
+	/** Where the build starts, in model pixels (the necklace's centre plate on the upper chest: x, y down from the torso top, z front). */
+	private static final float[] NECKLACE_SEED = { 0f, 0.8f, -2f };
+	/** Share of a texel's build order that is per-texel noise (the rest is its distance from the necklace). */
+	private static final float ORDER_NOISE = 0.1f;
+	private static float collarFrom = 0.2f, collarTo = 0.6f, capeFrom = 0.3f, capeTo = 0.96f;
+
+	/** How much of the high collar has built at suit cover {@code cover} (0..1), in step with the spread reaching the shoulders. */
+	public static float collarProgress(float cover) {
+		order(0, 0);
+		return Mth.clamp((cover - collarFrom) / Math.max(0.05f, collarTo - collarFrom), 0f, 1f);
+	}
+
+	/** How much of the cape has built at suit cover {@code cover} (0..1): from when the spread reaches the top of the back. */
+	public static float capeProgress(float cover) {
+		order(0, 0);
+		return Mth.clamp((cover - capeFrom) / Math.max(0.05f, capeTo - capeFrom), 0f, 1f);
 	}
 
 	private static ResourceLocation frame(float cover) {

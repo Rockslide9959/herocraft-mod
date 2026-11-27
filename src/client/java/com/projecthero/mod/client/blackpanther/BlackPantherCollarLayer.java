@@ -29,7 +29,8 @@ import net.minecraft.world.phys.Vec3;
  * <p>It lives in the body's frame (so it follows the torso's turn and the crouch) and reacts: it turns with the head
  * a little (its inside clears the head's corners, so a look round never cuts through it), leans back when he looks up (up to 35 deg), and flares out with the same lagging
  * swing as the cape -- walking, running and jumping push it back, the cape's side sway twists it a little, a fast drop flares it
- * wide. It rises out of the yoke over the build ({@link BlackPantherRender#anim}) and sinks back first when the suit drains away.
+ * wide. v0.17.7: it builds pixel by pixel ({@link BlackPantherClothReveal#collar}) in step with the suit's spread reaching the
+ * shoulders ({@link BlackPantherRender#collarProgress}) and comes apart the same way, backwards, when the suit drains away.
  * Like every player layer it is not drawn in first person.
  */
 public class BlackPantherCollarLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
@@ -48,9 +49,6 @@ public class BlackPantherCollarLayer extends RenderLayer<AbstractClientPlayer, P
 	private static final float SKIRT = 1.9f;
 	/** The wall's outward lean at rest (deg). */
 	private static final float FLARE = 14f;
-	/** Build share at which the collar starts to rise, and the share over which it rises. */
-	private static final float RISE_FROM = 0.45f;
-	private static final float RISE_OVER = 0.3f;
 
 	// texture bands (v, of 32)
 	private static final float V_OUT0 = 0f, V_OUT1 = 12f / 32f, V_IN0 = 12f / 32f, V_IN1 = 24f / 32f;
@@ -67,10 +65,13 @@ public class BlackPantherCollarLayer extends RenderLayer<AbstractClientPlayer, P
 			return;
 		}
 		BlackPantherRender.Anim anim = BlackPantherRender.anim(player, partialTick);
-		float rise = Mth.clamp((anim.cover() - RISE_FROM) / RISE_OVER, 0f, 1f);
-		if (rise <= 0f) {
+		// v0.17.7 (user: "make the cape build itself pixel by pixel aswell"): the collar stands at full height and builds texel by texel
+		// (front ends over the shoulders first, round to the back of the neck) as the spread from the necklace reaches the shoulders
+		float built = BlackPantherRender.collarProgress(anim.cover());
+		if (built <= 0f) {
 			return;
 		}
+		float rise = 1f;
 		// the reactions: the cape's lagging swing (walk, run, jump, crouch) flares it, its side sway twists it
 		float[] cloak = MoonKnightCapeLayer.cloakSwing(player, partialTick);
 		float flare = FLARE + Mth.clamp((cloak[0] - 6f) * 0.12f, -4f, 16f);
@@ -84,7 +85,7 @@ public class BlackPantherCollarLayer extends RenderLayer<AbstractClientPlayer, P
 		getParentModel().body.translateAndRotate(pose);
 		pose.mulPose(Axis.YP.rotationDegrees(yaw));
 		pose.mulPose(Axis.XP.rotationDegrees(pitch));
-		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(TEXTURE));
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(BlackPantherClothReveal.collar(TEXTURE, built)));
 		draw(vc, pose.last(), light, rise, flare);
 		pose.popPose();
 	}
