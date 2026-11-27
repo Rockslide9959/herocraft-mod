@@ -481,7 +481,7 @@ public class WorthyLendV0177GameTests implements FabricGameTest {
 		float before = target.getHealth();
 		helper.assertTrue(WorthyMoves.hit(cap, target, WorthyConfig.STORM_BURST_DAMAGE, cap.position(), 0.0, 0.0), "the hit lands");
 		float dealt = before - target.getHealth();
-		helper.assertTrue(dealt > com.projecthero.mod.supersoldier.SuperSoldierConfig.MAX_HIT + 10f, "40 is not clamped to 20 (dealt " + dealt + ")");
+		helper.assertTrue(Math.abs(dealt - WorthyConfig.STORM_BURST_DAMAGE) < 0.05f, "a 40 lands whole, never clamped by his own cap (dealt " + dealt + ")");
 		target.discard();
 		cleanUp(helper, null, null, cap);
 		helper.succeed();
