@@ -54,7 +54,8 @@ selector), strong but deliberately below the Hulk / Thor / All Might.
 | Max health | +10 (+5 hearts) |
 | Unarmed melee | +7 while the main hand is empty |
 | Damage taken | x0.7 (cancel-and-reissue; not for /kill, the void, bypass-invulnerability) |
-| Jump | apex 2.25 blocks (JUMP_STRENGTH x(v/0.42 - 1), v solved by simulation) |
+| Jump | v0.17.7: apex 2.4 blocks (was 2.25) -- clears a 2-block wall (feet above it for 6 ticks), never a 3-block one (JUMP_STRENGTH x(v/0.42 - 1), v solved by simulation) |
+| Resistance | v0.17.7: Resistance I always (`SuperSoldier.passiveResistance`, every tick from `tick`): ambient, 300 ticks, topped up under 220; a stronger Resistance is left alone; `reconcile` removes ours (ambient, amplifier 0, <= 300 ticks) when the power goes |
 | Safe fall | +3 blocks |
 | Knockback resistance | +0.2 |
 | Attack speed | +15% |
@@ -71,11 +72,11 @@ selector), strong but deliberately below the Hulk / Thor / All Might.
 | Shift+G | Judo Takedown | grabs the enemy in front within 3.5 blocks, hoists it over his shoulder, 5 ticks later slams it to the ground behind him (in front if a wall is behind): 14 damage, Slowness IV + Weakness I 1.5 s. Bosses are not moved, just hit. No target = no cooldown | 10 s |
 | Z | Leaping Slam | leap 4 blocks up / 0.8 forward, lands (or after 3 s) for 12 damage in 5 blocks (60% at the edge), knockback 1.2, lift 0.4 | 12 s |
 | Shift+Z | **Peak Human Barrage** (ultimate, no shield) | v0.17.7: dash onto the enemy in front within 6 blocks (1.5 b/t, up to 8 ticks), both rooted; six blows 3 ticks apart for 7.5 each (right straight, left hook, right body, knee, left elbow, right uppercut), a 7-tick wind-up, then the haymaker for 20 (knockback 2.4, lift 0.9) with a 4-block burst for 10 on everyone else. No target = no cooldown | 95 s, shared |
-| Shift+Z + shield | **Shield Storm** (ultimate, a shield in either hand or slotted) | v0.17.7: leap 4.5 up; at tick 7 the shield is hurled (speed 2.1): up to 8 ricochets within 16 blocks for 15 each, a bright red / white / blue trail; he hangs in the air until it is back (max 5 s), catches it, front-flips and dives (2.2 b/t): a five-point star shockwave, 20 at the centre to 12 at 6 blocks, knockback 0.8, lift 0.85. No fall damage. No hostile within 16 = no cooldown | 95 s, shared |
+| Shift+Z + shield | **Shield Storm** (ultimate, a shield in either hand or slotted) | v0.17.7: leap 4.5 up; at tick 7 the shield is hurled where he aims by the C rules below (speed 1.3, was 2.1; light aim assist; up to 5 bounces to enemies within 6 blocks of the last one hit -- was 8 ricochets within 16 from a lock on the nearest hostile) for 15 each, a bright red / white / blue trail; he hangs in the air until it is back (max 5 s), catches it, front-flips and dives (2.2 b/t): a five-point star shockwave, 20 at the centre to 12 at 6 blocks, knockback 0.8, lift 0.85. No fall damage. No hostile within 16 = no cooldown | 95 s, shared |
 | X | Tactical Roll | 1.35 b/t dash in the movement (or look) direction, 10 ticks of invulnerability | 4 s |
 | Shift+X | High Leap | 5 blocks up, 1.25 forward, no fall damage for 5 s | 8 s |
 | V | **Counter Stance** | v0.17.7: braced for 1 s. The first melee hit (mob / player attack, attacker within 5 blocks) is negated and answered: 10 damage, knockback 1.3, lift 0.25, Slowness III + Weakness I 1.5 s, then 6 ticks of safety. With a shield (hand or slot) every projectile reaching him in the window is reflected at its shooter (and made his) | 6 s |
-| C | Shield Throw | needs a shield in either hand (main first). **Adamantium Shield**: 9 per hit, up to 4 enemies, range 24, 5 s. **Any other shield** (`ShieldItem`): 6 per hit, up to 3 enemies, range 16, 6 s. Homes on the enemy in the crosshair / cone first; ricochets to the nearest unhit hostile within 12 blocks (line of sight from its centre or 0.5 above to the target's centre or eyes; else the nearest within 6 blocks blind), homing through blocks once chosen; glances off walls only while flying free; returns through blocks. No shield = an action-bar hint, no cooldown | 5 s / 6 s |
+| C | Shield Throw | needs a shield in either hand (main first) or slotted. v0.17.7 aim rework (see **Shield throw: aim, assist and bounces**): flies along his look (pitch included) at 1.0 b/t (was 1.6); light aim assist (8-degree cone); bounces only off an enemy it hit, to the nearest unhit hostile within 6 blocks of it in sight, at most 5 bounces; walls stop it. **Adamantium Shield**: 9 per hit, 5 bounces, range 25. **Vibranium**: 10, 5 bounces, 30. **Any other shield** (`ShieldItem`): 8, 2 bounces, 25. No shield = an action-bar hint, no cooldown | none |
 | Shift+V | **Assemble** | v0.17.7 (Battle Cry + Tactical Focus + the Onslaught buff): "Assemble!" on the action bar; a rally ring knocks hostiles within 6 back (1.2, lift 0.3; no damage; never a boss); 10 s: self + squadmates in 16 Strength I, Speed I, Resistance I; hostiles in 16 Weakness I 10 s + Slowness I 6 s; every hostile in 30 glows (marked) 10 s; his hits on the marked x1.25 (punches and moves, never past 20); every punch shocks enemies within 3 of the target for 6 | 60 s |
 
 Bosses (max health >= 300, or `TitanCombat.isBoss`) take at most 6% of their max health per hit and are never knocked
@@ -88,6 +89,37 @@ moves' cooldowns. v0.14.9: **no bars** (the ultimate and Tactical Focus hairline
 an ultimate plays out, V's while Assemble runs or the Counter Stance is braced; Shift+Z's name follows the shield (Barrage / Shield Storm). A sixth box, **C**, appears stacked on top of V only while he holds a
 shield (or while a throw is cooling down, so the timer does not vanish while the shield is in the air); the five fixed
 boxes never move (a C box left of R ran under the hotbar on small screens). Left-Alt shows short move names.
+
+## Shield throw: aim, assist and bounces (v0.17.7)
+
+User: "change the shield targeting please its too op right now, make it so that the shield throws where the player aims with some
+aim assist, the shield can bounce between enemies if they are in close proximity to whats being hit, maximum 5 bounces, make the
+shield get thrown slower please". The old throw locked onto anything in a ~57-degree cone (`facing`, dot 0.55), ricocheted to any
+hostile within 12 blocks (6 blind, homing through blocks) and flew at 1.6. Now (`SoldierShieldEntity`, numbers in `SuperSoldierConfig`):
+
+- **Every throw path** uses it: C from either hand, C from the Battle Suit slot, and the Shield Storm (`stormThrow`; the Storm keeps its
+  own damage 15, trail, hover / dive / slam and its "an enemy within 16" gate, but no longer locks onto the nearest hostile).
+- **Aim**: `launch(owner, from, look, ...)` -- along the look vector, pitch included. `SHIELD_SPEED` 1.0 b/t (62.5% of the old 1.6);
+  `STORM_SHIELD_SPEED` 1.3 (was 2.1).
+- **Aim assist** (`assistTarget`): a hostile (`HeroTargets` rule 2) the shield may hit, in range, in his line of sight, whose centre is
+  within `SHIELD_ASSIST_CONE_DEG` 8 degrees of the aim (or whose box the crosshair is on) -- the closest to the aim wins. The launch
+  points at its centre; in flight it turns at most `SHIELD_ASSIST_TURN_DEG` 3 degrees a tick toward it and lets go when it is more than
+  `SHIELD_ASSIST_KEEP_DEG` 16 degrees off the heading or out of sight. Nothing in the cone: straight. `upgrade` / `storm` re-aim
+  (their range / speed differ).
+- **Walls** always stop the outbound flight (a glance sends it home); only the flight home passes through blocks.
+- **Bounces** (`pickBounce`): only off an enemy it struck -- the nearest unhit hostile within `SHIELD_BOUNCE_RANGE` 6 blocks of that
+  enemy's centre, in that enemy's line of sight (from its centre or 0.5 above). It then homes on it exactly; if the target dies or gets
+  more than 12 blocks away the shield goes home. `SHIELD_MAX_BOUNCES` 5 (Adamantium, Vibranium `THROW_BOUNCES` 5, `STORM_MAX_BOUNCES`
+  5), `NORMAL_SHIELD_MAX_BOUNCES` 2. No enemy close = no bounce.
+- **Never** the thrower, squadmates (friendly fire or not: `canHit` adds `Squads.areAllies`) or anyone's protected pets; bosses are
+  capped by `strike` as before.
+- **Return**: `SHIELD_RETURN_SPEED` 1.2 b/t, rising with distance (x0.12) to at most `SHIELD_RETURN_MAX_SPEED` 2.0 (was up to 3.0).
+- Tests: `SuperSoldierShieldAimGameTests` (aim + pitch + speed, the cone in and out, an assisted hit, an unassisted miss, the 5-bounce
+  cap with seven zombies, no bounce to an enemy 7.5 blocks away, the jump, Resistance I).
+- Seen in a real client (`scratchpad/SoldierShieldBounceHarness.v0177.java.txt`, `scratchpad/v0177/ss_shield_harness.js` / `ss_shield_film.js`;
+  MP4 + frame sheets in `docs/screenshots/v0177/ss_shield/`): a C throw into seven husks hit six for 9 each (first hit + 5 bounces) and
+  never the husk 8+ blocks off (wide / side / first person); aimed 6 degrees off a lone husk it bent on and hit; 16 degrees off it flew past.
+  Not seen: the Shield Storm with the new rules, multiplayer, a squadmate in the group.
 
 ## The shield item and the throw's item safety (v0.14.9)
 
@@ -290,7 +322,7 @@ cool animations and stuff make it good please". R, G, X, C, N and their Shift mo
 
 ## Tests
 
-`SuperSoldierGameTests` (listed in `src/gametest/resources/fabric.mod.json`). v0.17.5 adds the back-sling rules
+`SuperSoldierGameTests` and (v0.17.7 throw / jump / Resistance) `SuperSoldierShieldAimGameTests` (both listed in `src/gametest/resources/fabric.mod.json`). v0.17.5 adds the back-sling rules
 (`carriedShieldIsSlungOnTheBackOnlyWhileNeitherHandHoldsOne`) and the synced thrower / hand
 (`thrownShieldCarriesItsThrowerAndHandForTheClient`). v0.17.7 rework: `assembleBuffsDebuffsMarksAndBoostsHitsOnTheMarked`,
 `barragePicksWithoutAShieldAndHitsForSixFlurryPlusTheHaymaker` (incl. the shared cooldown holding the Storm),

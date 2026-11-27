@@ -635,8 +635,9 @@ public final class SuperSoldierAbilities {
 	}
 
 	/**
-	 * Throws the shield in his hand. The Adamantium Shield hits for 9 and bounces between up to 4 enemies over 24 blocks;
-	 * any other shield hits for 6 and bounces between up to 3 over 16. The stack leaves his hand while it flies and the
+	 * Throws the shield in his hand where he aims (v0.17.7: light aim assist, bounces only to enemies within 6 blocks of the
+	 * one hit). Adamantium Shield: 9 a hit, up to 5 bounces, 25 blocks; Vibranium: 10, 5 bounces, 30; any other shield: 8,
+	 * 2 bounces, 25. The stack leaves his hand while it flies and the
 	 * same stack comes back ({@link SoldierShieldEntity}). No shield: a hint, no cooldown.
 	 */
 	public static boolean shieldThrow(ServerPlayer p) {
@@ -666,15 +667,14 @@ public final class SuperSoldierAbilities {
 		p.swing(hand, true);
 		AbilityHelpers.sound(p, SoundEvents.TRIDENT_THROW, 1.0f, adamantium ? 1.3f : 1.5f);
 		Vec3 from = p.getEyePosition().add(0, -0.2, 0).add(p.getLookAngle().scale(0.6));
-		LivingEntity first = facing(p, vibranium ? com.projecthero.mod.ultron.contagion.item.VibraniumShieldItem.THROW_RANGE
-				: adamantium ? SuperSoldierConfig.SHIELD_RANGE : SuperSoldierConfig.NORMAL_SHIELD_RANGE);
-		SoldierShieldEntity thrown = SoldierShieldEntity.launch(p, from, p.getLookAngle(), held, hand, adamantium, first);
+		// v0.17.7: no lock-on -- it flies where he aims, with a light aim assist (SoldierShieldEntity.assistTarget)
+		SoldierShieldEntity thrown = SoldierShieldEntity.launch(p, from, p.getLookAngle(), held, hand, adamantium);
 		if (fromSlot) {
 			thrown.returnToSlot();
 		}
 		if (vibranium) {
 			thrown.upgrade(com.projecthero.mod.ultron.contagion.item.VibraniumShieldItem.THROW_DAMAGE,
-					com.projecthero.mod.ultron.contagion.item.VibraniumShieldItem.THROW_HITS,
+					com.projecthero.mod.ultron.contagion.item.VibraniumShieldItem.THROW_BOUNCES,
 					com.projecthero.mod.ultron.contagion.item.VibraniumShieldItem.THROW_RANGE);
 		}
 		return true;
@@ -900,12 +900,13 @@ public final class SuperSoldierAbilities {
 	// ---- with a shield: Shield Storm
 
 	/**
-	 * He leaps, hurls the shield (it ricochets between up to 8 enemies within 16 blocks for 15 each, a bright red / white / blue
-	 * trail), hangs in the air until it is back, catches it, flips forward and drives the shield into the ground: a star-shaped
+	 * He leaps, hurls the shield where he aims (v0.17.7: the C rules -- light aim assist, up to 5 bounces to enemies within 6
+	 * blocks of the one hit, 15 each, a bright red / white / blue trail), hangs in the air until it is back, catches it, flips forward and drives the shield into the ground: a star-shaped
 	 * shockwave for 20 at the centre (6 blocks, 60% at the edge) that knocks enemies up. No fall damage. No enemy within 16 = no
 	 * cooldown.
 	 */
 	public static boolean shieldStorm(ServerPlayer p) {
+		// the gate only (an enemy in front or anywhere within 16); the throw itself flies where he aims (v0.17.7)
 		LivingEntity first = facing(p, SuperSoldierConfig.STORM_RANGE);
 		if (first == null) {
 			first = nearestHostile(p, SuperSoldierConfig.STORM_RANGE);
@@ -962,13 +963,10 @@ public final class SuperSoldierAbilities {
 		}
 		st.fromSlot = fromSlot;
 		boolean adamantium = held.getItem() instanceof com.projecthero.mod.supersoldier.item.AdamantiumShieldItem;
-		LivingEntity first = facing(p, SuperSoldierConfig.STORM_RANGE);
-		if (first == null) {
-			first = nearestHostile(p, SuperSoldierConfig.STORM_RANGE);
-		}
 		Vec3 from = p.getEyePosition().add(0, -0.2, 0).add(p.getLookAngle().scale(0.6));
-		SoldierShieldEntity thrown = SoldierShieldEntity.launch(p, from, p.getLookAngle(), held, hand, adamantium, first);
-		thrown.storm(SuperSoldierConfig.STORM_HIT_DAMAGE, SuperSoldierConfig.STORM_MAX_HITS, SuperSoldierConfig.STORM_RANGE,
+		// v0.17.7: the same aim / assist / bounce rules as C (it used to lock onto the nearest hostile and ricochet 8 times within 16)
+		SoldierShieldEntity thrown = SoldierShieldEntity.launch(p, from, p.getLookAngle(), held, hand, adamantium);
+		thrown.storm(SuperSoldierConfig.STORM_HIT_DAMAGE, SuperSoldierConfig.STORM_MAX_BOUNCES, SuperSoldierConfig.STORM_RANGE,
 				SuperSoldierConfig.STORM_SHIELD_SPEED);
 		if (fromSlot) {
 			thrown.returnToSlot();

@@ -37,11 +37,24 @@ import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3f;
 
 /**
- * C: the thrown shield (v0.14.8 as G; v0.14.9 it is the real shield from his hand). It flies fast at the enemy he aimed
- * at (or straight on); every enemy it strikes takes the hit and the shield ricochets into the nearest other enemy within
- * {@link SuperSoldierConfig#SHIELD_RICOCHET_RANGE} (line of sight preferred; a close one is taken even round a corner,
- * and once it has picked a target it homes on it through anything in the way) until its hits run out. Then it turns
- * round and flies back to the thrower -- straight through blocks -- and is caught.
+ * C: the thrown shield (v0.14.8 as G; v0.14.9 it is the real shield from his hand).
+ *
+ * <h2>Flight (v0.17.7 rework)</h2>
+ * User: "make it so that the shield throws where the player aims with some aim assist, the shield can bounce between
+ * enemies if they are in close proximity to whats being hit, maximum 5 bounces, make the shield get thrown slower".
+ * <ul>
+ * <li>It flies along his look vector, pitch included, at {@link SuperSoldierConfig#SHIELD_SPEED}.</li>
+ * <li>Aim assist ({@link #assistTarget}): a hostile within {@link SuperSoldierConfig#SHIELD_ASSIST_CONE_DEG} of the aim, in
+ * range and in his sight, turns the throw onto its centre; in flight the shield keeps tracking it by at most
+ * {@link SuperSoldierConfig#SHIELD_ASSIST_TURN_DEG} a tick and lets go once it is more than
+ * {@link SuperSoldierConfig#SHIELD_ASSIST_KEEP_DEG} off the heading or out of sight. Nothing in the cone: dead straight.</li>
+ * <li>Blocks always stop it (a wall glance sends it home); it never flies through blocks on the way out.</li>
+ * <li>A bounce happens only off an enemy it hit: the nearest unhit hostile within {@link SuperSoldierConfig#SHIELD_BOUNCE_RANGE}
+ * of that enemy, in that enemy's line of sight. At most the throw's bounce count (5 for the Captain America shields, 2 for
+ * an ordinary one), then -- or with nothing close -- it turns for home.</li>
+ * <li>The flight home goes straight through blocks and is caught.</li>
+ * <li>Never the thrower, squadmates or pets ({@link #canHit}); bosses follow {@link SuperSoldierAbilities#strike}.</li>
+ * </ul>
  *
  * <h2>The item is never lost or duplicated</h2>
  * The thrown {@link ItemStack} is <em>moved</em> out of his hand into this entity (and synced, so the renderer draws the
@@ -71,12 +84,17 @@ public class SoldierShieldEntity extends Entity {
 	// server-only
 	private UUID ownerId;
 	private Vec3 origin;
+	/** v0.17.7: the look vector it was thrown along (re-aimed by {@link #storm} / {@link #upgrade}, which change speed and range). */
+	private Vec3 look;
+	/** A chosen bounce target: it homes on this exactly (it was picked in sight, close to the enemy just hit). */
 	private int targetId = -1;
-	private int hitsLeft = SuperSoldierConfig.SHIELD_MAX_HITS;
+	/** v0.17.7: the aim-assist target -- only a gentle pull, dropped when it drifts off the heading or out of sight. */
+	private int assistId = -1;
+	/** Hits still allowed: the first hit plus the bounces. */
+	private int hitsLeft = SuperSoldierConfig.SHIELD_MAX_BOUNCES + 1;
+	private int bounces;
 	private float damage = SuperSoldierConfig.SHIELD_DAMAGE;
 	private double range = SuperSoldierConfig.SHIELD_RANGE;
-	/** v0.17.7: how far it looks for the next ricochet, and how fast it flies (the Shield Storm raises both). */
-	private double ricochetRange = SuperSoldierConfig.SHIELD_RICOCHET_RANGE;
 	private double speed = SuperSoldierConfig.SHIELD_SPEED;
 	private InteractionHand hand = InteractionHand.MAIN_HAND;
 	/** v0.17.5: thrown from the Battle Suit's shield slot -- it goes back into the slot (the hand only if the slot is gone). */
@@ -91,30 +109,100 @@ public class SoldierShieldEntity extends Entity {
 	}
 
 	/**
-	 * Throw {@code thrown} (already taken out of {@code hand}) from {@code from} along {@code dir}; {@code firstTarget}
-	 * (may be null) is homed on at once. {@code adamantium} picks the full-strength numbers.
+	 * Throw {@code thrown} (already taken out of {@code hand}) from {@code from} along {@code dir} (his look vector). v0.17.7:
+	 * no lock-on any more -- the aim assist ({@link #assistTarget}) only bends the throw onto an enemy within a few degrees of
+	 * the aim. {@code adamantium} picks the full-strength numbers.
 	 */
 	public static SoldierShieldEntity launch(ServerPlayer owner, Vec3 from, Vec3 dir, ItemStack thrown, InteractionHand hand,
-			boolean adamantium, LivingEntity firstTarget) {
+			boolean adamantium) {
 		SoldierShieldEntity shield = new SoldierShieldEntity(SuperSoldierEntities.SOLDIER_SHIELD, owner.level());
 		shield.ownerId = owner.getUUID();
 		shield.origin = from;
+		shield.look = dir.normalize();
 		shield.hand = hand;
 		shield.stack = thrown;
 		shield.entityData.set(ITEM, thrown);
 		shield.entityData.set(OWNER_ID, owner.getId());
 		shield.entityData.set(OFF_HAND, hand == InteractionHand.OFF_HAND);
 		shield.damage = adamantium ? SuperSoldierConfig.SHIELD_DAMAGE : SuperSoldierConfig.NORMAL_SHIELD_DAMAGE;
-		shield.hitsLeft = adamantium ? SuperSoldierConfig.SHIELD_MAX_HITS : SuperSoldierConfig.NORMAL_SHIELD_MAX_HITS;
+		shield.hitsLeft = (adamantium ? SuperSoldierConfig.SHIELD_MAX_BOUNCES : SuperSoldierConfig.NORMAL_SHIELD_MAX_BOUNCES) + 1;
 		shield.range = adamantium ? SuperSoldierConfig.SHIELD_RANGE : SuperSoldierConfig.NORMAL_SHIELD_RANGE;
 		shield.setPos(from.x, from.y, from.z);
-		Vec3 aim = firstTarget != null ? firstTarget.getBoundingBox().getCenter().subtract(from) : dir;
-		if (firstTarget != null) {
-			shield.targetId = firstTarget.getId();
-		}
-		shield.setDeltaMovement(aim.normalize().scale(SuperSoldierConfig.SHIELD_SPEED));
+		shield.aim(owner);
 		owner.level().addFreshEntity(shield);
 		return shield;
+	}
+
+	/** v0.17.7: points the throw along his look, bent onto the aim-assist target if there is one (at launch, and again on a re-tune). */
+	private void aim(ServerPlayer owner) {
+		if (look == null || owner == null || !hit.isEmpty()) {
+			return;
+		}
+		Vec3 dir = look;
+		LivingEntity assist = assistTarget(owner, owner.getEyePosition(), look, range);
+		assistId = -1;
+		if (assist != null) {
+			Vec3 to = assist.getBoundingBox().getCenter().subtract(position());
+			if (to.lengthSqr() > 1.0e-6) {
+				dir = to.normalize();
+				assistId = assist.getId();
+			}
+		}
+		setDeltaMovement(dir.scale(speed));
+	}
+
+	/**
+	 * v0.17.7, the aim assist: the hostile {@code owner} may hit whose centre is within
+	 * {@link SuperSoldierConfig#SHIELD_ASSIST_CONE_DEG} of {@code look} from {@code eye}, within {@code range} and in his line
+	 * of sight -- the one closest to the aim (one the crosshair is actually on counts as dead centre, nearest first). Null if
+	 * none: the throw flies straight.
+	 */
+	public static LivingEntity assistTarget(ServerPlayer owner, Vec3 eye, Vec3 look, double range) {
+		Vec3 dir = look.normalize();
+		Vec3 end = eye.add(dir.scale(range));
+		double minCos = Math.cos(Math.toRadians(SuperSoldierConfig.SHIELD_ASSIST_CONE_DEG));
+		LivingEntity best = null;
+		double bestScore = -Double.MAX_VALUE;
+		for (LivingEntity e : owner.level().getEntitiesOfClass(LivingEntity.class, new AABB(eye, eye).inflate(range),
+				e -> canHit(owner, e) && SuperSoldierAbilities.isHostile(owner, e))) {
+			Vec3 to = e.getBoundingBox().getCenter().subtract(eye);
+			double d = to.length();
+			if (d < 1.0e-3 || d > range) {
+				continue;
+			}
+			double cos = to.dot(dir) / d;
+			boolean crosshair = e.getBoundingBox().clip(eye, end).isPresent();
+			if (!crosshair && cos < minCos) {
+				continue;
+			}
+			if (!inSight(owner.level(), owner, eye, e)) {
+				continue;
+			}
+			double score = crosshair ? 2.0 - d / range : cos;
+			if (score > bestScore) {
+				bestScore = score;
+				best = e;
+			}
+		}
+		return best;
+	}
+
+	/** v0.17.7: what the shield may strike -- the shared rule, and never a squadmate (friendly fire or not). */
+	public static boolean canHit(ServerPlayer owner, LivingEntity e) {
+		if (!SuperSoldierAbilities.canTarget(owner, e)) {
+			return false;
+		}
+		return !(e instanceof Player other && com.projecthero.mod.squad.Squads.areAllies(owner, other));
+	}
+
+	private static boolean inSight(Level level, Entity viewer, Vec3 from, LivingEntity e) {
+		Vec3[] tos = { e.getBoundingBox().getCenter(), e.getEyePosition() };
+		for (Vec3 b : tos) {
+			if (level.clip(new ClipContext(from, b, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, viewer)).getType() == HitResult.Type.MISS) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** v0.17.5: this throw came from the Battle Suit's shield slot and goes home into it. */
@@ -128,17 +216,16 @@ public class SoldierShieldEntity extends Entity {
 	}
 
 	/**
-	 * v0.17.7: the Shield Storm ultimate -- its own damage, bounces, ricochet reach and speed, the storm trail, and the catch
-	 * hands over to {@link SuperSoldierAbilities#stormCaught} (the dive and the slam).
+	 * v0.17.7: the Shield Storm ultimate -- its own damage, bounce count, reach and speed, the storm trail, and the catch hands
+	 * over to {@link SuperSoldierAbilities#stormCaught} (the dive and the slam). It flies and bounces by the same rules as C.
 	 */
-	public void storm(float damage, int hits, double ricochet, double speed) {
+	public void storm(float damage, int bounces, double range, double speed) {
 		this.damage = damage;
-		this.hitsLeft = hits;
-		this.range = Math.max(this.range, ricochet);
-		this.ricochetRange = ricochet;
+		this.hitsLeft = bounces + 1;
+		this.range = Math.max(this.range, range);
 		this.speed = speed;
 		this.entityData.set(STORM, true);
-		setDeltaMovement(getDeltaMovement().normalize().scale(speed));
+		aim(owner());
 	}
 
 	/** v0.17.7: thrown by the Shield Storm (either side). */
@@ -158,11 +245,12 @@ public class SoldierShieldEntity extends Entity {
 		}
 	}
 
-	/** v0.16.1: a stronger shield (the Vibranium Shield): its own damage, bounces and range. */
-	public void upgrade(float damage, int hits, double range) {
+	/** v0.16.1: a stronger shield (the Vibranium Shield): its own damage, bounces (v0.17.7: after the first hit) and range. */
+	public void upgrade(float damage, int bounces, double range) {
 		this.damage = damage;
-		this.hitsLeft = hits;
+		this.hitsLeft = bounces + 1;
 		this.range = range;
+		aim(owner()); // the longer range can reach an assist target the first aim could not
 	}
 
 	@Override
@@ -200,6 +288,21 @@ public class SoldierShieldEntity extends Entity {
 
 	public int hitCount() {
 		return hit.size();
+	}
+
+	/** v0.17.7: bounces made so far this throw (tests). */
+	public int bounceCount() {
+		return bounces;
+	}
+
+	/** v0.17.7: the aim-assist target's entity id, -1 for none (tests). */
+	public int assistTargetId() {
+		return assistId;
+	}
+
+	/** v0.17.7: the outbound speed (blocks / tick; tests). */
+	public double flightSpeed() {
+		return speed;
 	}
 
 	public float damagePerHit() {
@@ -260,29 +363,25 @@ public class SoldierShieldEntity extends Entity {
 		}
 		Vec3 pos = position();
 		Vec3 vel = getDeltaMovement();
-		boolean homing = false;
 		if (targetId >= 0) {
+			// a bounce: straight at the enemy it chose (in sight and close when chosen); gone or run off -> home
 			Entity t = level().getEntity(targetId);
-			if (t instanceof LivingEntity living && living.isAlive() && !hit.contains(t.getId())) {
+			if (t instanceof LivingEntity living && living.isAlive() && !hit.contains(t.getId())
+					&& living.getBoundingBox().getCenter().distanceTo(pos) <= SuperSoldierConfig.SHIELD_BOUNCE_RANGE * 2.0) {
 				vel = living.getBoundingBox().getCenter().subtract(pos).normalize().scale(speed);
-				homing = true;
 			} else {
-				targetId = -1;
-				if (!pickNext(owner)) {
-					startReturn();
-					tickReturn(owner);
-					return;
-				}
-				vel = getDeltaMovement();
-				homing = true;
+				startReturn();
+				tickReturn(owner);
+				return;
 			}
+		} else if (assistId >= 0) {
+			vel = steer(pos, vel);
 		}
 		Vec3 next = pos.add(vel);
 		LivingEntity struck = firstEntity(owner, pos, next);
-		// homing on a chosen enemy it flies through anything; flying free it glances off walls
-		BlockHitResult block = homing ? null
-				: level().clip(new ClipContext(pos, next, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this));
-		boolean blockFirst = block != null && block.getType() != HitResult.Type.MISS
+		// v0.17.7: blocks always stop it on the way out (no flying through walls to a target)
+		BlockHitResult block = level().clip(new ClipContext(pos, next, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this));
+		boolean blockFirst = block.getType() != HitResult.Type.MISS
 				&& (struck == null || block.getLocation().distanceToSqr(pos) < struck.getBoundingBox().getCenter().distanceToSqr(pos));
 		setDeltaMovement(vel);
 		if (struck != null && !blockFirst) {
@@ -297,15 +396,49 @@ public class SoldierShieldEntity extends Entity {
 			level().playSound(null, at.x, at.y, at.z, SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.35f, 1.9f);
 			((ServerLevel) level()).sendParticles(ParticleTypes.CRIT, at.x, at.y, at.z, 6, 0.1, 0.1, 0.1, 0.2);
 			((ServerLevel) level()).sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, 8, 0.05, 0.05, 0.05, 0.35); // v0.17.5: ricochet sparks
-			if (!pickNext(owner)) {
-				startReturn();
-			}
+			startReturn(); // v0.17.7: a wall glance sends it home (bounces come only off enemies)
 			return;
 		}
 		setPos(next.x, next.y, next.z);
-		if (!homing && origin != null && next.distanceTo(origin) > range) {
+		if (targetId < 0 && origin != null && next.distanceTo(origin) > range) {
 			startReturn();
 		}
+	}
+
+	/**
+	 * v0.17.7, the in-flight aim assist: turn the heading toward the assist target by at most
+	 * {@link SuperSoldierConfig#SHIELD_ASSIST_TURN_DEG}; let it go (straight on) if it is gone, already hit, out of sight or more
+	 * than {@link SuperSoldierConfig#SHIELD_ASSIST_KEEP_DEG} off the heading.
+	 */
+	private Vec3 steer(Vec3 pos, Vec3 vel) {
+		Entity t = level().getEntity(assistId);
+		if (!(t instanceof LivingEntity living) || !living.isAlive() || hit.contains(t.getId()) || vel.lengthSqr() < 1.0e-9) {
+			assistId = -1;
+			return vel;
+		}
+		Vec3 to = living.getBoundingBox().getCenter().subtract(pos);
+		if (to.lengthSqr() < 1.0e-6) {
+			return vel;
+		}
+		Vec3 cur = vel.normalize();
+		Vec3 want = to.normalize();
+		double angle = Math.acos(Math.max(-1.0, Math.min(1.0, cur.dot(want))));
+		if (angle > Math.toRadians(SuperSoldierConfig.SHIELD_ASSIST_KEEP_DEG) || !inSight(level(), this, pos, living)) {
+			assistId = -1;
+			return vel;
+		}
+		return turnToward(cur, want, angle, Math.toRadians(SuperSoldierConfig.SHIELD_ASSIST_TURN_DEG)).scale(speed);
+	}
+
+	/** {@code cur} turned toward {@code want} (both unit, {@code angle} apart) by at most {@code max} radians. */
+	static Vec3 turnToward(Vec3 cur, Vec3 want, double angle, double max) {
+		if (angle <= max || angle < 1.0e-6) {
+			return want;
+		}
+		double sin = Math.sin(angle);
+		double a = Math.sin(angle - max) / sin;
+		double b = Math.sin(max) / sin;
+		return cur.scale(a).add(want.scale(b)).normalize();
 	}
 
 	/** v0.17.5: the streak colours -- red / white / blue for the painted shields, steel for Adamantium, violet-blue for Vibranium. */
@@ -338,6 +471,7 @@ public class SoldierShieldEntity extends Entity {
 		hit.add(target.getId());
 		hitsLeft--;
 		targetId = -1;
+		assistId = -1;
 		Vec3 from = position().subtract(getDeltaMovement());
 		SuperSoldierAbilities.strike(owner, target, damage, from, SuperSoldierConfig.SHIELD_KNOCKBACK, 0.1);
 		level().playSound(null, getX(), getY(), getZ(), SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.5f, 1.7f);
@@ -347,61 +481,36 @@ public class SoldierShieldEntity extends Entity {
 		// v0.17.5: the ricochet -- a burst of sparks and crits off the rim
 		((ServerLevel) level()).sendParticles(ParticleTypes.ELECTRIC_SPARK, getX(), getY(), getZ(), 14, 0.1, 0.1, 0.1, 0.45);
 		((ServerLevel) level()).sendParticles(ParticleTypes.CRIT, getX(), getY(), getZ(), 8, 0.15, 0.15, 0.15, 0.35);
-		if (hitsLeft <= 0 || !pickNext(owner)) {
+		if (hitsLeft > 0 && pickBounce(owner, target)) {
+			bounces++;
+		} else {
 			startReturn();
 		}
 	}
 
 	/**
-	 * The nearest enemy within ricochet range that it has not hit yet: one it can see (from its centre or from just
-	 * above, to its centre or its eyes), or failing that the nearest one within the blind range. False if there is none.
+	 * v0.17.7: the bounce -- the nearest hostile it has not hit within {@link SuperSoldierConfig#SHIELD_BOUNCE_RANGE} of the
+	 * enemy just struck (centre to centre) and in that enemy's line of sight. False if there is none (it goes home).
 	 */
-	private boolean pickNext(ServerPlayer owner) {
-		if (hitsLeft <= 0) {
-			return false;
-		}
-		Vec3 pos = position();
-		double r = ricochetRange;
-		double blind = SuperSoldierConfig.SHIELD_RICOCHET_BLIND_RANGE;
-		LivingEntity seen = null;
-		double seenD = Double.MAX_VALUE;
-		LivingEntity near = null;
-		double nearD = Double.MAX_VALUE;
-		for (LivingEntity e : level().getEntitiesOfClass(LivingEntity.class, new AABB(pos, pos).inflate(r),
-				e -> !hit.contains(e.getId()) && SuperSoldierAbilities.isHostile(owner, e))) { // v0.14.20: auto ricochet, rule 2
-			Vec3 c = e.getBoundingBox().getCenter();
-			double d = c.distanceToSqr(pos);
-			if (d > r * r) {
-				continue;
-			}
-			if (d < seenD && canSee(pos, e)) {
-				seen = e;
-				seenD = d;
-			} else if (d < nearD && d <= blind * blind) {
-				near = e;
-				nearD = d;
+	private boolean pickBounce(ServerPlayer owner, LivingEntity struck) {
+		Vec3 from = struck.getBoundingBox().getCenter();
+		double r = SuperSoldierConfig.SHIELD_BOUNCE_RANGE;
+		LivingEntity best = null;
+		double bestD = r * r;
+		for (LivingEntity e : level().getEntitiesOfClass(LivingEntity.class, new AABB(from, from).inflate(r),
+				e -> e != struck && !hit.contains(e.getId()) && canHit(owner, e) && SuperSoldierAbilities.isHostile(owner, e))) {
+			double d = e.getBoundingBox().getCenter().distanceToSqr(from);
+			if (d <= bestD && (inSight(level(), this, from, e) || inSight(level(), this, from.add(0, 0.5, 0), e))) {
+				bestD = d;
+				best = e;
 			}
 		}
-		LivingEntity best = seen != null ? seen : near;
 		if (best == null) {
 			return false;
 		}
 		targetId = best.getId();
-		setDeltaMovement(best.getBoundingBox().getCenter().subtract(pos).normalize().scale(speed));
+		setDeltaMovement(best.getBoundingBox().getCenter().subtract(position()).normalize().scale(speed));
 		return true;
-	}
-
-	private boolean canSee(Vec3 from, LivingEntity e) {
-		Vec3[] froms = { from, from.add(0, 0.5, 0) };
-		Vec3[] tos = { e.getBoundingBox().getCenter(), e.getEyePosition() };
-		for (Vec3 a : froms) {
-			for (Vec3 b : tos) {
-				if (level().clip(new ClipContext(a, b, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this)).getType() == HitResult.Type.MISS) {
-					return true;
-				}
-			}
-		}
-		return false;
 	}
 
 	private LivingEntity firstEntity(ServerPlayer owner, Vec3 from, Vec3 to) {
@@ -409,7 +518,7 @@ public class SoldierShieldEntity extends Entity {
 		LivingEntity best = null;
 		double bestD = Double.MAX_VALUE;
 		for (LivingEntity e : level().getEntitiesOfClass(LivingEntity.class, sweep,
-				e -> !hit.contains(e.getId()) && SuperSoldierAbilities.canTarget(owner, e))) {
+				e -> !hit.contains(e.getId()) && canHit(owner, e))) {
 			AABB box = e.getBoundingBox().inflate(0.35);
 			if (!box.contains(from) && box.clip(from, to).isEmpty()) {
 				continue;
@@ -426,6 +535,7 @@ public class SoldierShieldEntity extends Entity {
 	private void startReturn() {
 		entityData.set(RETURNING, true);
 		targetId = -1;
+		assistId = -1;
 	}
 
 	private void tickReturn(ServerPlayer owner) {
@@ -438,7 +548,9 @@ public class SoldierShieldEntity extends Entity {
 			deliver(owner);
 			return;
 		}
-		double speed = Math.max(this.speed, Math.min(3.0, dist * 0.25));
+		// v0.17.7: a calmer flight home -- 1.2 b/t, picking up speed with distance to at most 2.0 (was up to 3.0)
+		double speed = Math.max(SuperSoldierConfig.SHIELD_RETURN_SPEED,
+				Math.min(SuperSoldierConfig.SHIELD_RETURN_MAX_SPEED, dist * SuperSoldierConfig.SHIELD_RETURN_ACCEL));
 		Vec3 vel = to.normalize().scale(Math.min(speed, dist));
 		setDeltaMovement(vel);
 		setPos(getX() + vel.x, getY() + vel.y, getZ() + vel.z);

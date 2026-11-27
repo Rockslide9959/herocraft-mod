@@ -208,10 +208,12 @@ public class SuperSoldierGameTests implements FabricGameTest {
 		// a fresh (mock) player is spawn-invulnerable for 60 ticks
 		helper.runAfterDelay(70, () -> {
 			p.setHealth(p.getMaxHealth());
+			SuperSoldierAbilityManager.serverTick(p); // v0.17.7: the passive Resistance I is on
 			float before = p.getHealth();
 			p.hurt(p.damageSources().generic(), 10.0f);
 			float taken = before - p.getHealth();
-			helper.assertTrue(Math.abs(taken - 7.0f) < 0.05f, "10 damage -> 7 taken, got " + taken);
+			// v0.17.7: x0.7 and Resistance I's x0.8 stack -> 5.6
+			helper.assertTrue(Math.abs(taken - 5.6f) < 0.05f, "10 damage -> 5.6 taken (30% less, then Resistance I), got " + taken);
 			helper.assertTrue(Math.abs(SuperSoldier.damageTakenFactor(p) - 0.7f) < 1.0e-6f, "factor 0.7");
 			helper.succeed();
 		});

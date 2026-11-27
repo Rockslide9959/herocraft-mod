@@ -21,8 +21,16 @@ public final class SuperSoldierConfig {
 	public static final float MAX_HIT = com.projecthero.mod.hero.PowerRank.STREET.ultimateMax;
 	/** Damage taken is multiplied by this (30% less). */
 	public static final float DAMAGE_TAKEN_FACTOR = 0.7f;
-	/** Jump apex height in blocks (vanilla is about 1.25). 2.25 lets him hop up a two-block ledge. */
-	public static final double JUMP_BLOCKS = 2.25;
+	/**
+	 * Jump apex height in blocks (vanilla is about 1.25). v0.17.7 (user: "players should be able to jump 2 blocks"): 2.4 --
+	 * his feet stay above a two-block wall for 6 ticks, so he clears it comfortably, and a three-block wall stays out of reach.
+	 */
+	public static final double JUMP_BLOCKS = 2.4;
+	/** v0.17.7 (user): passive Resistance I (amplifier 0) the whole time he has the power. */
+	public static final int PASSIVE_RESISTANCE_AMPLIFIER = 0;
+	/** The passive Resistance is (re)applied for this long, topped up whenever it drops under {@link #PASSIVE_RESISTANCE_REFRESH}. */
+	public static final int PASSIVE_RESISTANCE_TICKS = 300;
+	public static final int PASSIVE_RESISTANCE_REFRESH = 220;
 	/** Safe fall distance on top of vanilla's 3 blocks (matches the higher jump). */
 	public static final double SAFE_FALL_BONUS = 3.0;
 	/** Knockback resistance (0..1). */
@@ -82,21 +90,34 @@ public final class SuperSoldierConfig {
 	public static final int TAKEDOWN_STUN_TICKS = 30;
 
 	// ---------------------------------------------------------------- C: Shield Throw (v0.14.9: the shield in his hand)
-	/** Adamantium Shield: damage per hit, enemies per throw (the first plus ricochets), range, cooldown. */
+	// v0.17.7 (user: "change the shield targeting please its too op right now, make it so that the shield throws where the
+	// player aims with some aim assist, the shield can bounce between enemies if they are in close proximity to whats being
+	// hit, maximum 5 bounces, make the shield get thrown slower please"). Every throw -- C (hand or Battle Suit slot) and the
+	// Shield Storm -- flies along his look (pitch included) with a light aim assist, and bounces only from an enemy it hit.
+	/** Adamantium Shield: damage per hit, bounces per throw after the first hit (so up to 6 enemies), range, cooldown. */
 	public static final float SHIELD_DAMAGE = 9.0f;
-	public static final int SHIELD_MAX_HITS = 4;
+	public static final int SHIELD_MAX_BOUNCES = 5;
 	public static final double SHIELD_RANGE = 25.0; // v0.14.11: was 24
 	public static final int SHIELD_THROW_COOLDOWN = 0; // v0.14.11: no cooldown (was 5 s) -- throw again as soon as it is back in your hand
-	/** An ordinary shield: weaker and shorter, but it still bounces between three enemies and still comes back. */
+	/** An ordinary shield: weaker, two bounces (three enemies), and it still comes back. */
 	public static final float NORMAL_SHIELD_DAMAGE = 8.0f; // v0.17.7 Street: was 6
-	public static final int NORMAL_SHIELD_MAX_HITS = 3;
+	public static final int NORMAL_SHIELD_MAX_BOUNCES = 2;
 	public static final double NORMAL_SHIELD_RANGE = 25.0; // v0.14.11: was 16, every shield flies 25 blocks
 	public static final int NORMAL_SHIELD_THROW_COOLDOWN = 0; // v0.14.11: no cooldown (was 6 s)
-	public static final double SHIELD_SPEED = 1.6;
-	/** How far the shield looks for the next enemy to ricochet into. */
-	public static final double SHIELD_RICOCHET_RANGE = 12.0;
-	/** A ricochet target this close is taken even without a clean line of sight (the shield flies through blocks). */
-	public static final double SHIELD_RICOCHET_BLIND_RANGE = 6.0;
+	/** Outbound flight speed (blocks / tick). v0.17.7: 1.0, was 1.6 (62.5%) -- you can watch it fly and bounce. */
+	public static final double SHIELD_SPEED = 1.0;
+	/** The flight home: starts at this speed and speeds up with distance (dist x {@link #SHIELD_RETURN_ACCEL}) to at most the max. */
+	public static final double SHIELD_RETURN_SPEED = 1.2;
+	public static final double SHIELD_RETURN_MAX_SPEED = 2.0;
+	public static final double SHIELD_RETURN_ACCEL = 0.12;
+	/** Aim assist: an enemy within this many degrees of his aim (and in range, in sight) pulls the throw onto it. */
+	public static final double SHIELD_ASSIST_CONE_DEG = 8.0;
+	/** In flight it keeps tracking that enemy, turning at most this many degrees a tick... */
+	public static final double SHIELD_ASSIST_TURN_DEG = 3.0;
+	/** ...and lets go if it drifts more than this far off the shield's heading or out of sight (no curving round corners). */
+	public static final double SHIELD_ASSIST_KEEP_DEG = 16.0;
+	/** A bounce goes to the nearest unhit enemy this close to the one just hit (centre to centre), in its line of sight. */
+	public static final double SHIELD_BOUNCE_RANGE = 6.0;
 	public static final double SHIELD_KNOCKBACK = 0.6;
 	/** A throw that has not been caught by then drops the shield where it is (never lost). */
 	public static final int SHIELD_MAX_LIFE = 240;
@@ -137,14 +158,20 @@ public final class SuperSoldierConfig {
 	public static final float BARRAGE_BURST_DAMAGE = 10.0f;
 
 	// ---- with a shield: Shield Storm
-	/** Enemies must be this close for the throw to start (and ricochets look this far for the next one). */
+	/**
+	 * An enemy must be this close for the Storm to start, and the throw flies at most this far. v0.17.7: the throw itself follows
+	 * the C rules -- along his aim with the same light assist, bouncing only to enemies within {@link #SHIELD_BOUNCE_RANGE} of
+	 * the one it hit, at most {@link #STORM_MAX_BOUNCES} times.
+	 */
 	public static final double STORM_RANGE = 16.0;
 	/** The leap before the throw (blocks up), and the throw this many ticks after take-off. */
 	public static final double STORM_LEAP_HEIGHT = 4.5;
 	public static final int STORM_THROW_DELAY = 7;
 	public static final float STORM_HIT_DAMAGE = 15.0f;
-	public static final int STORM_MAX_HITS = 8;
-	public static final double STORM_SHIELD_SPEED = 2.1;
+	/** v0.17.7: 5 bounces (6 enemies), was 8 ricochets anywhere within 16 blocks. */
+	public static final int STORM_MAX_BOUNCES = 5;
+	/** v0.17.7: 1.3, was 2.1 -- slowed by the same 62.5% as the C throw, still a touch faster than it. */
+	public static final double STORM_SHIELD_SPEED = 1.3;
 	/** He hangs in the air until the shield is back -- at most this long, then it is delivered and he drops anyway. */
 	public static final int STORM_MAX_HOVER_TICKS = 100;
 	/** His vertical speed while he hangs there (blocks / tick): a slow sink, never "floating" to the anti-fly check. */

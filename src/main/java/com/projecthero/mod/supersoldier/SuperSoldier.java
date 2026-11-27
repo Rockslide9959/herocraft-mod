@@ -213,6 +213,7 @@ public final class SuperSoldier {
 			PowerToggles.clearModifier(player, Attributes.SAFE_FALL_DISTANCE, SAFE_FALL_ID);
 			PowerToggles.clearModifier(player, Attributes.KNOCKBACK_RESISTANCE, KNOCKBACK_ID);
 			PowerToggles.clearModifier(player, Attributes.ATTACK_SPEED, ATTACK_SPEED_ID);
+			clearPassiveResistance(player); // v0.17.7
 			if (player.getHealth() > player.getMaxHealth()) {
 				player.setHealth(player.getMaxHealth());
 			}
@@ -274,6 +275,34 @@ public final class SuperSoldier {
 		if (now % 10L == 0L) {
 			shrug(player, MobEffects.POISON);
 			shrug(player, MobEffects.CONFUSION);
+		}
+		passiveResistance(player);
+	}
+
+	/**
+	 * v0.17.7 (user: "player should have passive resistance 1"): Resistance I the whole time he has the power -- ambient (no
+	 * swirl), topped back up to 15 s whenever it drops under 11 s, so it never runs out. A stronger Resistance (a potion) is
+	 * left alone. Taken away by {@link #reconcile} when the power goes.
+	 */
+	public static void passiveResistance(ServerPlayer player) {
+		if (!player.isAlive()) {
+			return;
+		}
+		MobEffectInstance cur = player.getEffect(MobEffects.DAMAGE_RESISTANCE);
+		if (cur != null && (cur.getAmplifier() > SuperSoldierConfig.PASSIVE_RESISTANCE_AMPLIFIER || cur.isInfiniteDuration()
+				|| cur.getDuration() >= SuperSoldierConfig.PASSIVE_RESISTANCE_REFRESH)) {
+			return;
+		}
+		player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, SuperSoldierConfig.PASSIVE_RESISTANCE_TICKS,
+				SuperSoldierConfig.PASSIVE_RESISTANCE_AMPLIFIER, true, false, true));
+	}
+
+	/** The passive Resistance (ours: Resistance I, ambient, no longer than we give it) comes off with the power. */
+	private static void clearPassiveResistance(ServerPlayer player) {
+		MobEffectInstance cur = player.getEffect(MobEffects.DAMAGE_RESISTANCE);
+		if (cur != null && cur.isAmbient() && cur.getAmplifier() == SuperSoldierConfig.PASSIVE_RESISTANCE_AMPLIFIER
+				&& !cur.isInfiniteDuration() && cur.getDuration() <= SuperSoldierConfig.PASSIVE_RESISTANCE_TICKS) {
+			player.removeEffect(MobEffects.DAMAGE_RESISTANCE);
 		}
 	}
 
