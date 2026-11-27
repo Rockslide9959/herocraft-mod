@@ -72,6 +72,8 @@ public final class BlackPantherItems {
 				new PantherHabitItem(new Item.Properties().rarity(Rarity.EPIC).stacksTo(1).fireResistant()));
 		NECKLACE = Registry.register(BuiltInRegistries.ITEM, ProjectHeroMod.id("black_panther_necklace"),
 				new BlackPantherNecklaceItem(new Item.Properties().rarity(Rarity.EPIC).stacksTo(1).fireResistant()));
+		// v0.17.7: a dispenser fits it only onto a Black Panther with the chest slot free; anyone else, it is shot out
+		net.minecraft.world.level.block.DispenserBlock.registerBehavior(NECKLACE, BlackPantherNecklaceItem.DISPENSE);
 		SUIT_HELMET = legacyPiece("black_panther_helmet");
 		SUIT_CHESTPLATE = legacyPiece("black_panther_chestplate");
 		SUIT_LEGGINGS = legacyPiece("black_panther_leggings");

@@ -2085,7 +2085,7 @@ public final class HeroPackGuide {
 				head(lines, "projecthero.guide.black_panther." + section);
 				para(lines, "projecthero.guide.black_panther." + section + ".body");
 				if (section.equals("passives")) {
-					for (String passive : new String[] { "herb_strength", "regeneration", "cat_landing", "night_eyes", "instinct", "claws", "kinetic",
+					for (String passive : new String[] { "herb_strength", "regeneration", "resistance", "cat_landing", "night_eyes", "instinct", "claws", "kinetic",
 							"weave", "silent" }) {
 						para(lines, "projecthero.guide.black_panther.passive." + passive);
 					}

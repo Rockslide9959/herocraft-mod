@@ -24,7 +24,7 @@ import net.minecraft.server.level.ServerPlayer;
  *   X (3)  Panther Leap      / Shift Kinetic Dash            Vault             / Shift Flying Kick
  *   Z (4)  Vibranium Dagger  / Shift Kinetic Overload (*)    Throwing Knife    / Shift Kimoyo Scan
  *   V (5)  Stalk             / Shift Kinetic Shroud          Rising Uppercut   / Shift Hunter's Tracking
- *   C (6)  Absorb Stance (hold) / Shift Kinetic Return       Block (hold)      / Shift Ancestral Resolve
+ *   C (6)  Absorb Stance (hold) / Shift Kinetic Return       Block (hold)      / Shift Wakanda Forever
  *   N (8)  -- / Shift Mask (toggle, suited; no HUD box, listed in the Left-Alt move list)
  *   (*) the ultimate: only on a full Kinetic bar, which it empties. Shift moves spend Kinetic (refused, nothing spent, when short)
  * </pre>

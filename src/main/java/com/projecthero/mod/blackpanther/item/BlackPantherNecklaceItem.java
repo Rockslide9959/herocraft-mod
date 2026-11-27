@@ -41,6 +41,26 @@ public class BlackPantherNecklaceItem extends Item implements Equipable {
 		return swapWithEquipmentSlot(this, level, player, hand);
 	}
 
+	/**
+	 * v0.17.7 (user: "black panther necklace can only be worn by players with black panther ability"): a dispenser puts it on a
+	 * Black Panther in front with the chest slot free; for anyone else (or no one) it is shot out like any item. The other paths:
+	 * {@code LivingEntitySupermanSuitMixin} (armour slot, shift-click, hotbar swap, creative screen), {@link #use} (right-click)
+	 * and {@code BlackPanther.ejectNecklace} (every tick, and when the power is lost: a worn necklace pops off).
+	 */
+	public static final net.minecraft.core.dispenser.DefaultDispenseItemBehavior DISPENSE = new net.minecraft.core.dispenser.DefaultDispenseItemBehavior() {
+		@Override
+		protected ItemStack execute(net.minecraft.core.dispenser.BlockSource source, ItemStack stack) {
+			net.minecraft.core.BlockPos pos = source.pos().relative(source.state().getValue(net.minecraft.world.level.block.DispenserBlock.FACING));
+			List<Player> targets = source.level().getEntitiesOfClass(Player.class, new net.minecraft.world.phys.AABB(pos),
+					p -> p.isAlive() && !p.isSpectator() && p.getItemBySlot(EquipmentSlot.CHEST).isEmpty() && BlackPanther.hasPower(p));
+			if (targets.isEmpty()) {
+				return super.execute(source, stack);
+			}
+			targets.get(0).setItemSlot(EquipmentSlot.CHEST, stack.split(1));
+			return stack;
+		}
+	};
+
 	@Override
 	public EquipmentSlot getEquipmentSlot() {
 		return EquipmentSlot.CHEST;

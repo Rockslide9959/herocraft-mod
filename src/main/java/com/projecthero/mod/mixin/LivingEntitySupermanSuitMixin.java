@@ -26,7 +26,9 @@ public abstract class LivingEntitySupermanSuitMixin {
 	private void projecthero$supermanSuitKryptoniansOnly(ItemStack stack, CallbackInfoReturnable<EquipmentSlot> cir) {
 		if ((Object) this instanceof Player player && (SupermanSuit.isSuit(stack) && !SupermanSuit.mayWear(player)
 				// v0.14.11: and the Flash Suit, speedsters only
-				|| com.projecthero.mod.flash.FlashSuit.isSuit(stack) && !com.projecthero.mod.flash.FlashSuit.mayWear(player))) {
+				|| com.projecthero.mod.flash.FlashSuit.isSuit(stack) && !com.projecthero.mod.flash.FlashSuit.mayWear(player)
+				// v0.17.7 (user: "black panther necklace can only be worn by players with black panther ability")
+				|| com.projecthero.mod.blackpanther.BlackPanther.isNecklace(stack) && !com.projecthero.mod.blackpanther.BlackPanther.hasPower(player))) {
 			cir.setReturnValue(EquipmentSlot.MAINHAND);
 		}
 	}

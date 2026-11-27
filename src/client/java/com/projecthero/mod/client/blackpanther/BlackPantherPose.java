@@ -437,6 +437,13 @@ public final class BlackPantherPose {
 		float age = player.level().getGameTime() - s.animStart + partial;
 		return switch (s.animId) {
 			case BlackPantherState.ANIM_VAULT -> -360f * ease(SMOOTH, Mth.clamp((age - 1.5f) / 11f, 0f, 1f)) * (age < 17f ? 1f : 0f);
+			// v0.17.7 (user: "make the flying kick ability go where the player aims"): the kick dashes along the look, so the whole
+			// body tilts with the aim -- aim up and the kicking leg points up, aim down and he dives foot first (look down = lean in)
+			case BlackPantherState.ANIM_FLYING_KICK -> {
+				float in = ease(SMOOTH, Mth.clamp((age - 1.5f) / 2f, 0f, 1f));
+				float out = 1f - ease(SMOOTH, Mth.clamp((age - 10f) / 3f, 0f, 1f));
+				yield -Mth.clamp(player.getXRot(), -80f, 80f) * in * out;
+			}
 			default -> 0f;
 		};
 	}
