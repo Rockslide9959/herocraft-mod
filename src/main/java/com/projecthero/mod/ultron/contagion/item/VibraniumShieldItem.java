@@ -12,12 +12,12 @@ import net.minecraft.world.item.TooltipFlag;
 /**
  * v0.16.1: the <b>Vibranium Shield</b> (the v0.15.12 TODO) -- a better tier of the Super Soldier's Adamantium Shield. It
  * is one (it extends {@link AdamantiumShieldItem}: a real, unbreakable shield, round, and the Super Soldier's C throw uses
- * it), and thrown it hits harder, bounces more and flies further ({@link #THROW_DAMAGE}, {@link #THROW_HITS},
- * {@link #THROW_RANGE}; Adamantium: 9 / 4 / 25). Forged from Vibranium Ingots and an Adamantium Shield.
+ * it), and thrown it hits harder and flies further (v0.17.7: the same 5 bounces) ({@link #THROW_DAMAGE}, {@link #THROW_BOUNCES},
+ * {@link #THROW_RANGE}; Adamantium: 9 / 5 / 25). Forged from Vibranium Ingots and an Adamantium Shield.
  */
 public class VibraniumShieldItem extends AdamantiumShieldItem {
 	public static final float THROW_DAMAGE = 10.0f; // v0.17.7 Street tier: was 12
-	public static final int THROW_HITS = 5;
+	public static final int THROW_BOUNCES = 5; // v0.17.7: bounces after the first hit (was 5 hits in all)
 	public static final double THROW_RANGE = 30.0;
 
 	public VibraniumShieldItem(Properties properties) {
