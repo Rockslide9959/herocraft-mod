@@ -1,0 +1,314 @@
+// v0.17.7 Rebalance harness (power tiers removed): home, the Rebalance tile + chapter (+ a hovered link), Marvel list with the
+// Balanced pills, Super Soldier chapter + I menu (no tier banner), and the 1280x720 layout. No film.
+// To use: copy to src/client/java/com/projecthero/mod/client/GuideHarness.java, add
+// "com.projecthero.mod.client.GuideHarness" to fabric.mod.json client entrypoints, write run/guide.flag = <out dir>.
+// Then copy run/guide_out/screenshots/*.png to docs/screenshots/v0177/rebalance/. Remove both from src before committing.
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import com.projecthero.mod.client.gui.HeroPackGuideScreen;
+import com.projecthero.mod.hero.guide.HeroPackGuide;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+
+/** TEMP-HARNESS (not shipped). Kept as scratchpad/GuideHarness.rebalance.v0177.java.txt. */
+public final class GuideHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks, planTick;
+	private static final List<Runnable> PLAN = new ArrayList<>();
+	private static File out;
+	private static File film;
+	private static int filmFrom = -1, filmTo = -1, frame;
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("guide.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			out = new File(Files.readString(flag).trim());
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		film = new File(out, "film_book");
+		film.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(GuideHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(300_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "guide-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		mc.gui.getChat().clearMessages(false);
+		mc.getToasts().clear();
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	static void at(int ticks, Runnable r) {
+		while (PLAN.size() < ticks) {
+			PLAN.add(() -> {
+			});
+		}
+		Runnable prev = PLAN.get(ticks - 1);
+		PLAN.set(ticks - 1, () -> {
+			try {
+				prev.run();
+				r.run();
+			} catch (Throwable e) {
+				System.out.println("[HARNESS] step failed: " + e);
+				e.printStackTrace();
+			}
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.getWindow().setWindowed(854, 480);
+				mc.execute(GuideHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 30) {
+			mc.options.guiScale().set(2);
+			mc.resizeDisplay();
+			mc.options.tutorialStep = net.minecraft.client.tutorial.TutorialSteps.NONE;
+		}
+		if (t == 46) {
+			buildPlan(mc);
+		}
+		if (t < 50) {
+			return;
+		}
+		if (planTick < PLAN.size()) {
+			int p = planTick;
+			PLAN.get(planTick++).run();
+			if (filmFrom >= 0 && p >= filmFrom && p <= filmTo && (p - filmFrom) % 2 == 0) {
+				Screenshot.grab(film, String.format("f%03d.png", frame++), mc.getMainRenderTarget(), m -> {
+				});
+			}
+		} else if (PLAN.size() > 0) {
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	// ---- reflection into the screen
+
+	private static Object call(Object target, String name, Object... args) {
+		try {
+			for (Method m : target.getClass().getDeclaredMethods()) {
+				if (m.getName().equals(name) && m.getParameterCount() == args.length) {
+					m.setAccessible(true);
+					return m.invoke(target, args);
+				}
+			}
+			System.out.println("[HARNESS] no method " + name);
+		} catch (Exception e) {
+			System.out.println("[HARNESS] " + name + " failed: " + e);
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+	private static Object get(Object target, String name) {
+		try {
+			Field f = target.getClass().getDeclaredField(name);
+			f.setAccessible(true);
+			return f.get(target);
+		} catch (Exception e) {
+			System.out.println("[HARNESS] field " + name + " failed: " + e);
+			return null;
+		}
+	}
+
+	private static int rec(Object record, String component) {
+		return (int) call(record, component);
+	}
+
+	/** Puts the (virtual) mouse at GUI coordinates (x, y), so hover highlights draw. */
+	private static void mouse(Minecraft mc, double x, double y) {
+		try {
+			double s = mc.getWindow().getGuiScale();
+			Field fx = net.minecraft.client.MouseHandler.class.getDeclaredField("xpos");
+			Field fy = net.minecraft.client.MouseHandler.class.getDeclaredField("ypos");
+			fx.setAccessible(true);
+			fy.setAccessible(true);
+			fx.setDouble(mc.mouseHandler, x * s);
+			fy.setDouble(mc.mouseHandler, y * s);
+		} catch (Exception e) {
+			System.out.println("[HARNESS] mouse failed: " + e);
+		}
+	}
+
+	private static void hoverTile(Minecraft mc, HeroPackGuide.Category c) {
+		if (!(mc.screen instanceof HeroPackGuideScreen s)) {
+			return;
+		}
+		for (Object t : (List<?>) call(s, "homeLayout")) {
+			if (call(t, "category") == c) {
+				mouse(mc, rec(t, "x") + rec(t, "w") / 2.0, rec(t, "y") + rec(t, "h") / 2.0);
+			}
+		}
+	}
+
+	/** Hovers the chapter row that links to {@code target} on the open spread. */
+	private static void hoverLink(Minecraft mc, int target) {
+		if (!(mc.screen instanceof HeroPackGuideScreen s)) {
+			return;
+		}
+		@SuppressWarnings("unchecked")
+		List<Integer> links = (List<Integer>) get(s, "rowLink");
+		@SuppressWarnings("unchecked")
+		List<int[]> pages = (List<int[]>) get(s, "pages");
+		int spread = (int) get(s, "spread"), columns = (int) get(s, "columns"), colW = (int) get(s, "colW"), bx = (int) get(s, "bx");
+		int top = (int) call(s, "pageTop");
+		for (int c = 0; c < columns; c++) {
+			int p = spread * columns + c;
+			if (p >= pages.size()) {
+				continue;
+			}
+			for (int r = pages.get(p)[0]; r < pages.get(p)[1]; r++) {
+				if (links.get(r) == target) {
+					mouse(mc, bx + 2 + c * (colW + 18) + 40, top + (r - pages.get(p)[0]) * 10 + 4);
+					return;
+				}
+			}
+		}
+	}
+
+	private static void type(Minecraft mc, String text) {
+		for (char ch : text.toCharArray()) {
+			mc.screen.charTyped(ch, 0);
+		}
+	}
+
+	private static HeroPackGuideScreen book(Minecraft mc) {
+		return mc.screen instanceof HeroPackGuideScreen s ? s : null;
+	}
+
+	private static void buildPlan(Minecraft mc) {
+		List<HeroPackGuide.Chapter> all = HeroPackGuide.chapters();
+		int cap = all.indexOf(HeroPackGuide.superSoldierChapter());
+		int panther = all.indexOf(HeroPackGuide.blackPantherChapter());
+		int t = 10;
+		at(t, () -> {
+			HeroPackGuideScreen.open();
+			call(book(mc), "goHome");
+			mouse(mc, 5, 5);
+		});
+		at(t + 6, () -> shot(mc, "r01_home"));
+		at(t + 10, () -> hoverTile(mc, HeroPackGuide.Category.REBALANCE));
+		at(t + 16, () -> shot(mc, "r02_home_hover_rebalance"));
+		at(t + 20, () -> {
+			call(book(mc), "openCategory", HeroPackGuide.Category.REBALANCE);
+			mouse(mc, 5, 5);
+		});
+		at(t + 28, () -> shot(mc, "r03_rebalance_chapter"));
+		at(t + 32, () -> hoverLink(mc, panther));
+		at(t + 38, () -> shot(mc, "r04_rebalance_hover_black_panther"));
+		at(t + 42, () -> call(book(mc), "turn", 1));
+		at(t + 48, () -> {
+			mouse(mc, 5, 5);
+			shot(mc, "r05_rebalance_chapter_p2");
+		});
+		at(t + 54, () -> call(book(mc), "turn", 1));
+		at(t + 60, () -> shot(mc, "r06_rebalance_chapter_p3"));
+		at(t + 66, () -> {
+			call(book(mc), "goHome");
+			call(book(mc), "openCategory", HeroPackGuide.Category.MARVEL);
+			mouse(mc, 5, 5);
+		});
+		at(t + 74, () -> shot(mc, "r07_marvel_balanced_pills"));
+		at(t + 80, () -> call(book(mc), "openChapter", cap, -1));
+		at(t + 88, () -> shot(mc, "r08_super_soldier_no_banner"));
+		at(t + 92, () -> mc.setScreen(null));
+		at(t + 96, () -> server(mc, p -> {
+			com.projecthero.mod.hero.HeroTiers.wipeAll(p);
+			System.out.println("[HARNESS] super_soldier=" + com.projecthero.mod.hero.PowerGrants.grantHero(p, "super_soldier").message().getString());
+		}));
+		at(t + 116, () -> mc.setScreen(com.projecthero.mod.client.gui.PowerInfoScreen.create()));
+		at(t + 124, () -> shot(mc, "r09_imenu_super_soldier"));
+		at(t + 126, () -> mc.setScreen(null));
+		at(t + 130, () -> {
+			mc.getWindow().setWindowed(1280, 720);
+			mc.resizeDisplay();
+		});
+		at(t + 134, () -> {
+			HeroPackGuideScreen.open();
+			call(book(mc), "goHome");
+			mouse(mc, 5, 5);
+		});
+		at(t + 142, () -> shot(mc, "r10_home_1280"));
+		at(t + 146, () -> call(book(mc), "openCategory", HeroPackGuide.Category.REBALANCE));
+		at(t + 154, () -> shot(mc, "r11_rebalance_1280"));
+		at(t + 158, () -> {
+			System.out.println("[HARNESS] guidebook failures=" + HeroPackGuideScreen.failures);
+			mc.setScreen(null);
+		});
+		at(t + 166, () -> {
+		});
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		rules.getRule(com.projecthero.mod.calling.SpawnCallings.RULE).set(false, null);
+		LevelSettings settings = new LevelSettings("GUIDE_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+				rules, WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(17051L, true, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

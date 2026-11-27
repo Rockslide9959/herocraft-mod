@@ -1,4 +1,10 @@
-# Power Tiers (v0.17.7) — reference
+# Power Tiers (v0.17.7) — reference (RETIRED)
+
+> **Retired.** The user dropped tier balancing on 2026-11-27; powers are rebalanced one by one, tracked in the Guidebook's
+> Rebalance chapter (`hero/guide/Rebalance.java`: add a chapter key to `BALANCED` when the user signs a power off).
+> `PowerRank`, the Power Tiers chapter, Powers by Tier, the tier pills / filter / banner and the `projecthero.rank.*` keys are
+> gone. The `MAX_HIT` caps that read `PowerRank.X.ultimateMax` are now plain constants with the same values (Street 20, City 30,
+> Planet 40, Cosmic 60; Power Armour 10 / 10 / 20), so no damage changed. Everything below is kept as history.
 
 The user's balance framework. Damage in health points (2 = one heart). Code: `hero/PowerRank.java` (ranges, colours,
 badge, `ofGuideKey` placement). The Guidebook chapter builder (`HeroPackGuide.chapter`) inserts the tier line under a

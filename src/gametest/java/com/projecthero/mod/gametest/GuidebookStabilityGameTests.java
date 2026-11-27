@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.projecthero.mod.hero.guide.HeroPackGuide;
+import com.projecthero.mod.hero.guide.Rebalance;
 import com.projecthero.mod.network.VersionCheck;
 import com.projecthero.mod.omnitrix.OmnitrixFeature;
 
@@ -209,22 +210,20 @@ public class GuidebookStabilityGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	// ---------------------------------------------------------------- v0.17.7: Power Tiers in the book
+	// ---------------------------------------------------------------- v0.17.7: the Rebalance chapter (power tiers removed)
 
-	/** The tier a line names: "projecthero.rank.<id>" anywhere in it (a tier heading), or "unranked" for the Not yet ranked heading. */
-	private static String tierNamed(Component line) {
+	/** "balanced" / "pending" for the Rebalance chapter's two group headings, else null. */
+	private static String groupNamed(Component line) {
 		if (line.getContents() instanceof TranslatableContents t) {
-			for (com.projecthero.mod.hero.PowerRank r : com.projecthero.mod.hero.PowerRank.values()) {
-				if (t.getKey().equals("projecthero.rank." + r.id)) {
-					return r.id;
-				}
+			if (t.getKey().equals("projecthero.guide.rebalance.balanced")) {
+				return "balanced";
 			}
-			if (t.getKey().equals("projecthero.guide.tiers.unranked")) {
-				return "unranked";
+			if (t.getKey().equals("projecthero.guide.rebalance.pending")) {
+				return "pending";
 			}
 		}
 		for (Component sib : line.getSiblings()) {
-			String s = tierNamed(sib);
+			String s = groupNamed(sib);
 			if (s != null) {
 				return s;
 			}
@@ -233,88 +232,89 @@ public class GuidebookStabilityGameTests implements FabricGameTest {
 	}
 
 	/**
-	 * v0.17.7 (user: "can you add the tiers to the guidebook aswell please i didnt see it"): the Power Tiers chapter is filed second on
-	 * the home page and first in its own category, every placed power is listed (as a link) under its own tier and every other power
-	 * under "Not yet ranked", and the same holds for the Powers by Tier list.
+	 * v0.17.7 (user: "remove the power tiers from the mod please, in the guidebook at a rebalance section; for now I'd say black
+	 * panther and captain america is balanced"): the Rebalance chapter is the second home tile and its own category, every power
+	 * chapter is linked in it exactly once, Black Panther and Super Soldier sit under Balanced and every other power under Not yet
+	 * rebalanced, and nothing tier-shaped is left in the book.
 	 */
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void everyPlacedPowerIsListedUnderItsTier(GameTestHelper helper) {
+	public void everyPowerIsListedOnceInTheRebalanceChapter(GameTestHelper helper) {
 		List<HeroPackGuide.Chapter> all = HeroPackGuide.chapters();
-		int tiers = HeroPackGuide.powerTiersChapterIndex();
-		helper.assertTrue(HeroPackGuide.validChapter(tiers), "the Power Tiers chapter exists (" + tiers + " of " + all.size() + ")");
-		helper.assertTrue(HeroPackGuide.titleKey(tiers).equals("projecthero.guide.power_tiers"), "chapter " + tiers + " is Power Tiers");
-		helper.assertTrue(HeroPackGuide.categoryOf(tiers) == HeroPackGuide.Category.TIERS, "Power Tiers is filed under its own category");
-		helper.assertTrue(HeroPackGuide.Category.TIERS.ordinal() <= 1, "the Power Tiers category is first or second");
-		helper.assertTrue(HeroPackGuide.HOME_SHELVES[0].length >= 2 && HeroPackGuide.HOME_SHELVES[0][1] == HeroPackGuide.Category.TIERS,
-				"Power Tiers is the second tile on the home page");
-		// in the book's outline, Power Tiers is the first or second chapter
-		int seen = 0;
-		boolean nearStart = false;
-		for (HeroPackGuide.IndexEntry e : HeroPackGuide.index()) {
-			if (!e.isHeading() && seen++ < 2) {
-				nearStart |= e.chapterIndex() == tiers;
+		int rb = HeroPackGuide.rebalanceChapterIndex();
+		helper.assertTrue(HeroPackGuide.validChapter(rb), "the Rebalance chapter exists (" + rb + " of " + all.size() + ")");
+		helper.assertTrue(HeroPackGuide.titleKey(rb).equals("projecthero.guide.rebalance"), "chapter " + rb + " is Rebalance");
+		helper.assertTrue(HeroPackGuide.categoryOf(rb) == HeroPackGuide.Category.REBALANCE, "Rebalance is filed under its own category");
+		helper.assertTrue(HeroPackGuide.HOME_SHELVES[0].length >= 2 && HeroPackGuide.HOME_SHELVES[0][1] == HeroPackGuide.Category.REBALANCE,
+				"Rebalance is the second tile on the home page");
+		for (HeroPackGuide.Category[] shelf : HeroPackGuide.HOME_SHELVES) {
+			for (HeroPackGuide.Category c : shelf) {
+				helper.assertTrue(c != null, "no null (old Powers by Tier) tile on the home page");
 			}
 		}
-		helper.assertTrue(nearStart, "Power Tiers is one of the first two chapters in the outline");
 
-		// where each link in the roster sits
+		// where each link sits
 		java.util.Map<Integer, String> listedUnder = new java.util.HashMap<>();
 		String current = null;
-		for (Component line : all.get(tiers).lines()) {
+		for (Component line : all.get(rb).lines()) {
 			int target = HeroPackGuide.linkTarget(line);
 			if (target < 0) {
-				String t = tierNamed(line);
-				if (t != null) {
-					current = t;
+				String g = groupNamed(line);
+				if (g != null) {
+					current = g;
 				}
 				continue;
 			}
-			helper.assertTrue(HeroPackGuide.validChapter(target), "a roster link points at a real chapter: " + line.getString());
+			helper.assertTrue(HeroPackGuide.validChapter(target), "a Rebalance link points at a real chapter: " + line.getString());
+			helper.assertTrue(HeroPackGuide.isPowerChapter(target), "a Rebalance link points at a power chapter: " + line.getString());
 			helper.assertTrue(listedUnder.put(target, current) == null, "each power is listed once: " + line.getString());
 		}
-		int placed = 0;
+		int powers = 0;
 		for (int i = 0; i < all.size(); i++) {
-			com.projecthero.mod.hero.PowerRank r = HeroPackGuide.rankOf(i);
-			if (r != null) {
-				placed++;
-				helper.assertTrue(HeroPackGuide.isPowerChapter(i), all.get(i).title().getString() + " (placed) is a power chapter");
-				helper.assertTrue(r.id.equals(listedUnder.get(i)), all.get(i).title().getString() + " is listed under " + r.id + ", got "
-						+ listedUnder.get(i));
-				boolean hasLine = false;
-				for (Component line : all.get(i).lines()) {
-					hasLine |= HeroPackGuide.tierOfLine(line) == r;
-				}
-				helper.assertTrue(hasLine, all.get(i).title().getString() + " carries its tier banner line");
-			} else if (HeroPackGuide.isPowerChapter(i)) {
-				helper.assertTrue("unranked".equals(listedUnder.get(i)), all.get(i).title().getString() + " is listed as Not yet ranked, got "
-						+ listedUnder.get(i));
-			}
-		}
-		helper.assertTrue(placed >= 6, "the user's placements are in (" + placed + ")");
-		int thor = all.indexOf(HeroPackGuide.thorChapter());
-		int cap = all.indexOf(HeroPackGuide.superSoldierChapter());
-		int shazam = all.indexOf(HeroPackGuide.shazamChapter());
-		helper.assertTrue(HeroPackGuide.rankOf(thor) == com.projecthero.mod.hero.PowerRank.COSMIC, "Thor is Cosmic");
-		helper.assertTrue(HeroPackGuide.rankOf(cap) == com.projecthero.mod.hero.PowerRank.STREET, "Super Soldier is Street");
-		helper.assertTrue(HeroPackGuide.rankOf(shazam) == com.projecthero.mod.hero.PowerRank.PLANET, "Shazam is Planet");
-
-		// the Powers by Tier list agrees
-		String under = null;
-		for (HeroPackGuide.IndexEntry e : HeroPackGuide.powersByTier()) {
-			if (e.isHeading()) {
-				under = tierNamed(e.label());
+			if (!HeroPackGuide.isPowerChapter(i)) {
 				continue;
 			}
-			com.projecthero.mod.hero.PowerRank r = HeroPackGuide.rankOf(e.chapterIndex());
-			helper.assertTrue((r == null ? "unranked" : r.id).equals(under), e.label().getString() + " sits under " + under);
+			powers++;
+			String want = Rebalance.isBalanced(HeroPackGuide.titleKey(i)) ? "balanced" : "pending";
+			helper.assertTrue(want.equals(listedUnder.get(i)), all.get(i).title().getString() + " is listed under " + want + ", got "
+					+ listedUnder.get(i));
 		}
-		// the tier line is a banner, not a section heading (search sections, page breaks)
-		for (Component line : all.get(thor).lines()) {
-			if (HeroPackGuide.tierOfLine(line) != null) {
-				helper.assertFalse(HeroPackGuide.isSectionLine(line), "the tier line is not a section heading");
+		helper.assertTrue(powers > 20 && listedUnder.size() == powers, "every power chapter is listed (" + listedUnder.size() + " of " + powers + ")");
+
+		int panther = all.indexOf(HeroPackGuide.blackPantherChapter());
+		int cap = all.indexOf(HeroPackGuide.superSoldierChapter());
+		helper.assertTrue(panther >= 0 && "balanced".equals(listedUnder.get(panther)), "Black Panther is Balanced");
+		helper.assertTrue(cap >= 0 && "balanced".equals(listedUnder.get(cap)), "Super Soldier (Captain America) is Balanced");
+		helper.assertTrue(HeroPackGuide.isBalanced(panther) && HeroPackGuide.isBalanced(cap), "isBalanced agrees");
+		int thor = all.indexOf(HeroPackGuide.thorChapter());
+		helper.assertTrue("pending".equals(listedUnder.get(thor)), "Thor is not yet rebalanced");
+		int[] bc = HeroPackGuide.balancedCount();
+		helper.assertTrue(bc[0] == Rebalance.BALANCED.size() && bc[1] == powers, "balancedCount " + bc[0] + " / " + bc[1]);
+		boolean aka = false;
+		for (Component line : all.get(rb).lines()) {
+			aka |= HeroPackGuide.linkTarget(line) == cap && line.getString().contains("Captain America");
+		}
+		helper.assertTrue(aka, "the Super Soldier line mentions Captain America");
+
+		// nothing tier-shaped is left: no chapter line names a projecthero.rank.* key
+		for (HeroPackGuide.Chapter ch : all) {
+			for (Component line : ch.lines()) {
+				helper.assertFalse(mentionsRank(line), ch.title().getString() + " still shows a tier: " + line.getString());
 			}
 		}
-		helper.assertFalse(HeroPackGuide.search("Not yet ranked").isEmpty(), "the roster is searchable");
+		helper.assertFalse(HeroPackGuide.search("Not yet rebalanced").isEmpty(), "the Rebalance lists are searchable");
 		helper.succeed();
+	}
+
+	private static boolean mentionsRank(Component line) {
+		if (line.getContents() instanceof TranslatableContents t && (t.getKey().startsWith("projecthero.rank.")
+				|| t.getKey().startsWith("projecthero.guide.tiers.") || t.getKey().startsWith("projecthero.guide.power_tiers"))) {
+			return true;
+		}
+		for (Component sib : line.getSiblings()) {
+			if (mentionsRank(sib)) {
+				return true;
+			}
+		}
+		return false;
 	}
 }

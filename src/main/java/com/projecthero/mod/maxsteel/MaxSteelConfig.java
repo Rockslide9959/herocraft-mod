@@ -20,7 +20,7 @@ public final class MaxSteelConfig {
 	 * than this, whatever stacks on it (a held weapon plus the melee bonuses, a crit, a charge). Enforced in
 	 * {@link MaxSteelDamage}; boss caps still apply on top.
 	 */
-	public static final float MAX_HIT = com.projecthero.mod.hero.PowerRank.CITY.ultimateMax;
+	public static final float MAX_HIT = 30f; // v0.17.7: was PowerRank.CITY.ultimateMax (tiers removed; the user rebalances powers one by one)
 
 	// ---------------- T.U.R.B.O. Energy ----------------
 

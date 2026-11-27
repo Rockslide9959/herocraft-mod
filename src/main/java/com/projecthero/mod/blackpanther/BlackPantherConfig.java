@@ -45,7 +45,7 @@ public final class BlackPantherConfig {
 	public static final double JUMP_UNSUITED = 0.19;
 	public static final double JUMP_SUITED = 0.32;
 	/** v0.17.7 (Street tier): no single hit goes over this, whatever stacks (Stalk, Kimoyo Scan, Kinetic Return). */
-	public static final float MAX_HIT = com.projecthero.mod.hero.PowerRank.STREET.ultimateMax;
+	public static final float MAX_HIT = 20f; // v0.17.7: was PowerRank.STREET.ultimateMax (tiers removed; the user rebalances powers one by one)
 	/** Arrows and bullets below this much damage bounce off (the Iron Man bulletproof rule). */
 	public static final float DEFLECT_LIMIT = 15f;
 

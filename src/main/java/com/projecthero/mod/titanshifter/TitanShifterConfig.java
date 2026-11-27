@@ -27,7 +27,7 @@ public final class TitanShifterConfig {
 	 * multiplies it (Rage, Crystal Fists); applied in {@link TitanCombat#scaled} before the player factor and the boss cap.
 	 * Static, so it is not a config key.
 	 */
-	public static final float MAX_HIT = com.projecthero.mod.hero.PowerRank.CITY.ultimateMax;
+	public static final float MAX_HIT = 30f; // v0.17.7: was PowerRank.CITY.ultimateMax (tiers removed; the user rebalances powers one by one)
 
 	public Stats stats = new Stats();
 	public Damage damage = new Damage();
