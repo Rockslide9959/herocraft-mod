@@ -2,6 +2,7 @@ package com.projecthero.mod.supersoldier.item;
 
 import java.util.List;
 
+import com.projecthero.mod.supersoldier.SerumTransformation;
 import com.projecthero.mod.supersoldier.SuperSoldier;
 import com.projecthero.mod.supersoldier.SuperSoldierSerum;
 
@@ -23,7 +24,8 @@ import net.minecraft.world.level.Level;
 /**
  * v0.14.8: the Super Soldier Serum, unrefined or refined. Drunk like a potion (32 ticks), it leaves a glass bottle.
  * Unrefined: 10% it takes, 90% the body rejects it and the drinker dies (creative included). Refined (the unrefined
- * serum after ten minutes in a Blast Furnace): it always takes. See {@link SuperSoldierSerum}.
+ * serum after ten minutes in a Furnace -- v0.17.7, was a Blast Furnace): it always takes. v0.17.7: a serum that takes starts
+ * the one-minute {@link SerumTransformation}; during it another serum cannot be drunk (it is kept). See {@link SuperSoldierSerum}.
  */
 public class SuperSoldierSerumItem extends Item {
 	private static final int DRINK_TICKS = 32;
@@ -47,6 +49,14 @@ public class SuperSoldierSerumItem extends Item {
 			}
 			return InteractionResultHolder.fail(player.getItemInHand(hand));
 		}
+		// v0.17.7: one transformation at a time -- another serum during it is refused (and kept)
+		if (SerumTransformation.active(player)) {
+			if (!level.isClientSide()) {
+				player.displayClientMessage(Component.translatable("message.projecthero.super_soldier.busy")
+						.withStyle(ChatFormatting.GRAY), true);
+			}
+			return InteractionResultHolder.fail(player.getItemInHand(hand));
+		}
 		// v0.16.1: projectheroUniquePowers -- refused before drinking
 		if (player instanceof ServerPlayer sp && com.projecthero.mod.hero.UniquePowers.refuse(sp, SuperSoldier.KEY)) {
 			return InteractionResultHolder.fail(player.getItemInHand(hand));
@@ -56,8 +66,9 @@ public class SuperSoldierSerumItem extends Item {
 
 	@Override
 	public ItemStack finishUsingItem(ItemStack stack, Level level, LivingEntity entity) {
-		if (level.isClientSide() || !(entity instanceof ServerPlayer player) || SuperSoldier.hasPower(player)) {
-			return stack;
+		if (level.isClientSide() || !(entity instanceof ServerPlayer player) || SuperSoldier.hasPower(player)
+				|| SerumTransformation.active(player)) {
+			return stack; // v0.17.7: mid-transformation the serum is kept
 		}
 		// v0.16.1: projectheroUniquePowers -- someone else took it while this one was drinking: the serum is kept
 		if (com.projecthero.mod.hero.UniquePowers.refuse(player, SuperSoldier.KEY)) {
@@ -74,7 +85,7 @@ public class SuperSoldierSerumItem extends Item {
 				player.drop(bottle, false);
 			}
 		}
-		SuperSoldierSerum.drink(player, refined, roll);
+		SuperSoldierSerum.take(player, refined, roll); // v0.17.7: a serum that takes starts the one-minute transformation
 		return result;
 	}
 

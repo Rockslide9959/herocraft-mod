@@ -24,6 +24,7 @@ public final class SuperSoldierSetup {
 				ProjectHeroMod.id("super_soldier_serum"), new SimpleCraftingRecipeSerializer<>(SuperSoldierSerumRecipe::new));
 		SuperSoldierEntities.initialize();
 		SuperSoldierDamage.initialize();
+		SerumTransformation.initialize(); // v0.17.7: the one-minute transformation after a serum takes (its attachment, tick, death rules)
 		CapShieldStow.initialize(); // v0.17.5: a carried, unheld Captain America shield is slung on the back
 		CapShieldSlot.initialize(); // v0.17.5: the Battle Suit top's shield slot (N) and the slotted-shield guard packet
 	}

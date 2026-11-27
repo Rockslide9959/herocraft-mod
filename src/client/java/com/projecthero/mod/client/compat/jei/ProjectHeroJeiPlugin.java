@@ -39,6 +39,7 @@ public final class ProjectHeroJeiPlugin implements IModPlugin {
 	public void registerRecipes(IRecipeRegistration registration) {
 		registration.addRecipes(FABRICATOR, FabricatorRecipes.all());
 		lootInfo(registration);
+		superSoldierSerum(registration);
 		// v0.17.7: Thor acquisition -- the Star Forge, the Living Branch, the Stormbreaker Head, the Destroyer's egg
 		registration.addItemStackInfo(new ItemStack(com.projecthero.mod.thoracquire.ThorAcquire.STAR_FORGE_ITEM),
 				net.minecraft.network.chat.Component.translatable("projecthero.jei.star_forge"));
@@ -72,6 +73,29 @@ public final class ProjectHeroJeiPlugin implements IModPlugin {
 				new ItemStack(com.projecthero.mod.falcon.item.FalconItems.BOOTS)),
 				net.minecraft.network.chat.Component.translatable("projecthero.jei.falcon_gear"),
 				net.minecraft.network.chat.Component.translatable("projecthero.guide.falcon.stacking.body"));
+	}
+
+	/**
+	 * v0.17.7: the Unrefined Super Soldier Serum is a special recipe (the potions are told apart by a component), which JEI's crafting
+	 * category skips like vanilla's special recipes -- so a display-only shapeless copy of it (every Strength / Swiftness / Regeneration
+	 * potion it takes cycling in its slot, the Golden Apple, the Glass Bottle) goes into the crafting category, plus an info page on
+	 * both serums. The Furnace refinement is a plain smelting recipe and shows on its own.
+	 */
+	private static void superSoldierSerum(IRecipeRegistration registration) {
+		net.minecraft.core.NonNullList<net.minecraft.world.item.crafting.Ingredient> in = net.minecraft.core.NonNullList.create();
+		for (java.util.List<ItemStack> slot : com.projecthero.mod.supersoldier.recipe.SuperSoldierSerumRecipe.displayIngredients()) {
+			in.add(net.minecraft.world.item.crafting.Ingredient.of(slot.stream()));
+		}
+		net.minecraft.world.item.crafting.ShapelessRecipe shown = new net.minecraft.world.item.crafting.ShapelessRecipe("",
+				net.minecraft.world.item.crafting.CraftingBookCategory.MISC,
+				new ItemStack(com.projecthero.mod.supersoldier.item.SuperSoldierItems.UNREFINED_SERUM), in);
+		registration.addRecipes(mezz.jei.api.constants.RecipeTypes.CRAFTING, java.util.List.of(
+				new net.minecraft.world.item.crafting.RecipeHolder<net.minecraft.world.item.crafting.CraftingRecipe>(
+						ProjectHeroMod.id("jei/unrefined_super_soldier_serum"), shown)));
+		registration.addItemStackInfo(new ItemStack(com.projecthero.mod.supersoldier.item.SuperSoldierItems.UNREFINED_SERUM),
+				net.minecraft.network.chat.Component.translatable("projecthero.jei.unrefined_super_soldier_serum"));
+		registration.addItemStackInfo(new ItemStack(com.projecthero.mod.supersoldier.item.SuperSoldierItems.REFINED_SERUM),
+				net.minecraft.network.chat.Component.translatable("projecthero.jei.refined_super_soldier_serum"));
 	}
 
 	/** v0.17.5: JEI info pages for Power Armour -- the frames, platings, board, cores, charger and every module. */

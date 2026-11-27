@@ -1,6 +1,5 @@
 package com.projecthero.mod.gametest;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import com.projecthero.mod.ProjectHeroMod;
@@ -15,7 +14,6 @@ import com.projecthero.mod.supersoldier.SuperSoldierSerum;
 import com.projecthero.mod.supersoldier.data.SuperSoldierState;
 import com.projecthero.mod.supersoldier.entity.SoldierShieldEntity;
 import com.projecthero.mod.supersoldier.item.SuperSoldierItems;
-import com.projecthero.mod.supersoldier.recipe.SuperSoldierSerumRecipe;
 
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 
@@ -29,20 +27,14 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.alchemy.Potion;
-import net.minecraft.world.item.alchemy.PotionContents;
-import net.minecraft.world.item.alchemy.Potions;
-import net.minecraft.world.item.crafting.CraftingInput;
-import net.minecraft.world.item.crafting.RecipeType;
-import net.minecraft.world.item.crafting.SingleRecipeInput;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
  * Server-side coverage for the Super Soldier (v0.14.8): the serums (grant / rejection with an injected roll, creative
- * included), the passives and their removal, the 30% damage reduction, the potion-trio crafting recipe and the blasting
- * refinement, every one of the eleven moves activating and starting its cooldown and the
+ * included), the passives and their removal, the 30% damage reduction, the crafting recipe and the refinement (v0.17.7: moved to
+ * SuperSoldierSerumV0177GameTests), every one of the eleven moves activating and starting its cooldown and the
  * one-Primary-power rule. v0.14.9: the Flying Kick and Judo Takedown, the C shield throw with the Adamantium Shield vs an
  * ordinary one (three zombies each, 9 vs 6, the same stack back intact, never duplicated, dropped if the thrower dies),
  * the shield / suit recipes and the suit's wear restriction. Mock players are not reliably ticked by the server, so tests that need
@@ -89,21 +81,6 @@ public class SuperSoldierGameTests implements FabricGameTest {
 	private static boolean hasModifier(ServerPlayer p, Holder<net.minecraft.world.entity.ai.attributes.Attribute> attr, String id) {
 		var inst = p.getAttribute(attr);
 		return inst != null && inst.getModifier(ProjectHeroMod.id(id)) != null;
-	}
-
-	private static ItemStack potion(Holder<Potion> potion) {
-		return PotionContents.createItemStack(Items.POTION, potion);
-	}
-
-	private static List<ItemStack> grid(ItemStack... stacks) {
-		List<ItemStack> out = new ArrayList<>();
-		for (ItemStack s : stacks) {
-			out.add(s);
-		}
-		while (out.size() < 9) {
-			out.add(ItemStack.EMPTY);
-		}
-		return out;
 	}
 
 	// ---------------------------------------------------------------- serums / passives
@@ -197,8 +174,11 @@ public class SuperSoldierGameTests implements FabricGameTest {
 		ServerPlayer p = player(helper);
 		ItemStack serum = new ItemStack(SuperSoldierItems.REFINED_SERUM);
 		ItemStack result = serum.finishUsingItem(helper.getLevel(), p);
-		helper.assertTrue(SuperSoldier.hasPower(p), "the refined serum item grants the power");
+		// v0.17.7: the item starts the one-minute transformation; the power comes at its end (SuperSoldierSerumV0177GameTests)
+		helper.assertTrue(com.projecthero.mod.supersoldier.SerumTransformation.active(p) && !SuperSoldier.hasPower(p),
+				"the refined serum item starts the transformation");
 		helper.assertTrue(result.is(Items.GLASS_BOTTLE), "and leaves a glass bottle, got " + result);
+		com.projecthero.mod.supersoldier.SerumTransformation.cancel(p);
 		helper.succeed();
 	}
 
@@ -233,40 +213,7 @@ public class SuperSoldierGameTests implements FabricGameTest {
 
 	// ---------------------------------------------------------------- recipes
 
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void craftingRecipeMatchesOnlyTheRightPotionTrio(GameTestHelper helper) {
-		ItemStack str = potion(Potions.STRENGTH);
-		ItemStack spd = potion(Potions.SWIFTNESS);
-		ItemStack jmp = potion(Potions.LEAPING);
-		helper.assertTrue(SuperSoldierSerumRecipe.matchesItems(grid(str, spd, jmp)), "strength + swiftness + leaping");
-		helper.assertTrue(SuperSoldierSerumRecipe.matchesItems(grid(ItemStack.EMPTY, jmp, ItemStack.EMPTY, str, ItemStack.EMPTY, spd)), "any slots");
-		helper.assertTrue(SuperSoldierSerumRecipe.matchesItems(grid(potion(Potions.STRONG_STRENGTH), potion(Potions.LONG_SWIFTNESS),
-				potion(Potions.STRONG_LEAPING))), "long / strong variants count");
-		helper.assertFalse(SuperSoldierSerumRecipe.matchesItems(grid(str, str, jmp)), "two strength, no swiftness");
-		helper.assertFalse(SuperSoldierSerumRecipe.matchesItems(grid(str, spd)), "only two potions");
-		helper.assertFalse(SuperSoldierSerumRecipe.matchesItems(grid(str, spd, jmp, potion(Potions.LEAPING))), "four potions");
-		helper.assertFalse(SuperSoldierSerumRecipe.matchesItems(grid(str, spd, jmp, new ItemStack(Items.DIRT))), "an extra item");
-		helper.assertFalse(SuperSoldierSerumRecipe.matchesItems(grid(str, spd, potion(Potions.AWKWARD))), "an awkward potion");
-		helper.assertFalse(SuperSoldierSerumRecipe.matchesItems(grid(str, spd,
-				PotionContents.createItemStack(Items.SPLASH_POTION, Potions.LEAPING))), "a splash potion");
-		helper.assertFalse(SuperSoldierSerumRecipe.matchesItems(grid(str, spd, new ItemStack(Items.POTION))), "a water bottle");
-
-		// the real recipe manager finds it from the JSON (projecthero:super_soldier_serum)
-		var level = helper.getLevel();
-		var hit = level.getRecipeManager().getRecipeFor(RecipeType.CRAFTING, CraftingInput.of(3, 3, grid(jmp, str, spd)), level);
-		helper.assertTrue(hit.isPresent(), "the crafting table knows the recipe");
-		helper.assertTrue(hit.get().value().assemble(CraftingInput.of(3, 3, grid(jmp, str, spd)), level.registryAccess())
-				.is(SuperSoldierItems.UNREFINED_SERUM), "it makes the unrefined serum");
-		helper.assertTrue(level.getRecipeManager().getRecipeFor(RecipeType.CRAFTING, CraftingInput.of(3, 3, grid(str, str, spd)), level)
-				.map(h -> !(h.value() instanceof SuperSoldierSerumRecipe)).orElse(true), "a wrong trio is not our recipe");
-
-		var blast = level.getRecipeManager().getRecipeFor(RecipeType.BLASTING,
-				new SingleRecipeInput(new ItemStack(SuperSoldierItems.UNREFINED_SERUM)), level);
-		helper.assertTrue(blast.isPresent(), "the blast furnace refines it");
-		helper.assertTrue(blast.get().value().getResultItem(level.registryAccess()).is(SuperSoldierItems.REFINED_SERUM), "into the refined serum");
-		helper.assertTrue(blast.get().value().getCookingTime() == 12000, "in 10 minutes, got " + blast.get().value().getCookingTime());
-		helper.succeed();
-	}
+	// v0.17.7: the five-ingredient crafting recipe and the Furnace refinement are covered by SuperSoldierSerumV0177GameTests
 
 	// ---------------------------------------------------------------- moves
 

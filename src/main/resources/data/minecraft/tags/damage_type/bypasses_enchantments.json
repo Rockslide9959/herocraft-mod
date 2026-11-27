@@ -2,6 +2,7 @@
   "replace": false,
   "values": [
     "projecthero:serum_rejection",
+    "projecthero:serum_transformation",
     "projecthero:omnitrix_extraction",
     "projecthero:kryptonite_strike",
     "projecthero:bled_out"
