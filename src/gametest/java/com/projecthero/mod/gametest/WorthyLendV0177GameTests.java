@@ -564,4 +564,38 @@ public class WorthyLendV0177GameTests implements FabricGameTest {
 			helper.succeed();
 		});
 	}
+
+	/** v0.17.7: with the melee-bonus rule's weapon top-up in play, a lent Mjolnir's left click is still exactly 17. */
+	@GameTest(template = EMPTY_STRUCTURE, batch = "worthy_v0177_melee", timeoutTicks = 100)
+	public void lentMjolnirLeftClickStaysSeventeen(GameTestHelper helper) {
+		ServerPlayer thor = thor(helper, 2.5, 2.5, false);
+		ServerPlayer cap = soldier(helper, 5.5, 5.5);
+		Squad squad = squad(helper, thor, cap);
+		UUID hammer = id(thor.getMainHandItem());
+		helper.assertTrue(WorthyLending.lend(thor, cap), "lent");
+		for (int i = 0; i < cap.getInventory().getContainerSize(); i++) {
+			ItemStack s = cap.getInventory().getItem(i);
+			if (hammer.equals(id(s))) {
+				cap.getInventory().setItem(i, cap.getMainHandItem().copy());
+				cap.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, s);
+				break;
+			}
+		}
+		helper.runAfterDelay(2, () -> {
+			try { // mock players are not ticked: run the worthy melee reconcile (package-private) and the melee-bonus top-up by hand
+				java.lang.reflect.Method m = com.projecthero.mod.worthy.WorthyMoves.class.getDeclaredMethod("reconcileMelee", ServerPlayer.class);
+				m.setAccessible(true);
+				m.invoke(null, cap);
+			} catch (ReflectiveOperationException e) {
+				throw new RuntimeException(e);
+			}
+			com.projecthero.mod.combat.MeleeBonus.reconcile(cap);
+			double attack = cap.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE);
+			// Mjolnir's own +10 item modifier is only applied when an (unticked) mock equips it, so add it here as the real hit would
+			double hit = attack + WorthyConfig.MJOLNIR_ITEM_BONUS;
+			helper.assertTrue(Math.abs(hit - WorthyConfig.MJOLNIR_MELEE) < 1e-3, "left click exactly 17 (no melee-bonus top-up), got " + hit);
+			cleanUp(helper, squad, hammer, thor, cap);
+			helper.succeed();
+		});
+	}
 }

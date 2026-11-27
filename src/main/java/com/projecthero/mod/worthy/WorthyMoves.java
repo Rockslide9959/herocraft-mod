@@ -46,7 +46,8 @@ import net.minecraft.world.phys.Vec3;
  * net: persistent, handed back before death, never rebuilt) and the client draws their flight from {@link WorthyState}.
  */
 public final class WorthyMoves {
-	private static final ResourceLocation MELEE_ID = ResourceLocation.fromNamespaceAndPath("projecthero", "worthy_melee");
+	// exact: tunes the lent weapon's hit to WorthyConfig's total, so MeleeBonus adds no weapon top-up on top while it is on
+	private static final ResourceLocation MELEE_ID = com.projecthero.mod.combat.MeleeBonus.exact(ResourceLocation.fromNamespaceAndPath("projecthero", "worthy_melee"));
 	/** The Super Soldier's own melee modifier ({@code SuperSoldier.UNARMED_ID}: bare-hand / held-item bonus). */
 	private static final ResourceLocation SUPER_SOLDIER_MELEE_ID = com.projecthero.mod.hero.power.PowerToggles.id("super_soldier_unarmed");
 
