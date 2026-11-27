@@ -42,7 +42,7 @@ import net.minecraft.world.phys.Vec3;
 /**
  * Server-side coverage for the Super Soldier (v0.14.8): the serums (grant / rejection with an injected roll, creative
  * included), the passives and their removal, the 30% damage reduction, the potion-trio crafting recipe and the blasting
- * refinement, every one of the eleven moves activating and starting its cooldown, the roll's invulnerability and the
+ * refinement, every one of the eleven moves activating and starting its cooldown and the
  * one-Primary-power rule. v0.14.9: the Flying Kick and Judo Takedown, the C shield throw with the Adamantium Shield vs an
  * ordinary one (three zombies each, 9 vs 6, the same stack back intact, never duplicated, dropped if the thrower dies),
  * the shield / suit recipes and the suit's wear restriction. Mock players are not reliably ticked by the server, so tests that need
@@ -278,10 +278,10 @@ public class SuperSoldierGameTests implements FabricGameTest {
 		p.setItemInHand(net.minecraft.world.InteractionHand.OFF_HAND, new ItemStack(SuperSoldierItems.ADAMANTIUM_SHIELD));
 		Object[][] moves = {
 				{ 1, false, SuperSoldierAbilities.COMBO }, { 1, true, SuperSoldierAbilities.UPPERCUT },
-				{ 2, false, SuperSoldierAbilities.FLYING_KICK }, { 5, false, SuperSoldierAbilities.COUNTER },
+				{ 2, false, SuperSoldierAbilities.FLYING_KICK }, { 5, false, SuperSoldierAbilities.ROUNDHOUSE },
 				{ 5, true, SuperSoldierAbilities.ASSEMBLE }, { 4, true, SuperSoldierAbilities.SHIELD_STORM },
 				{ 2, true, SuperSoldierAbilities.TAKEDOWN }, { 6, false, SuperSoldierAbilities.SHIELD_THROW },
-				{ 3, false, SuperSoldierAbilities.ROLL }, { 3, true, SuperSoldierAbilities.HIGH_LEAP },
+				{ 3, false, SuperSoldierAbilities.DASH }, { 3, true, SuperSoldierAbilities.SHIELD_BASH },
 				{ 4, false, SuperSoldierAbilities.SLAM } };
 		for (Object[] m : moves) {
 			unlock(p);
@@ -301,11 +301,12 @@ public class SuperSoldierGameTests implements FabricGameTest {
 		}
 		p.setShiftKeyDown(false);
 		helper.assertTrue(z.getHealth() < 200.0f, "the attacks hurt the zombie");
-		helper.assertTrue(SuperSoldier.assembleActive(p) && SuperSoldierAbilities.markCount(p) >= 1, "Assemble is running and marked the zombie");
+		helper.assertTrue(SuperSoldier.assembleActive(p), "Assemble is running");
 		helper.assertFalse(hasModifier(p, Attributes.ATTACK_DAMAGE, "super_soldier_onslaught"), "the old Onslaught bonus is never given");
-		helper.assertTrue(z.hasEffect(net.minecraft.world.effect.MobEffects.GLOWING), "the marked zombie glows");
-		helper.assertTrue(z.hasEffect(net.minecraft.world.effect.MobEffects.WEAKNESS), "Assemble weakened it");
-		helper.assertTrue(p.hasEffect(net.minecraft.world.effect.MobEffects.DAMAGE_BOOST), "and gave him Strength");
+		// v0.17.7: Assemble is buffs only (Strength II ...), no marks or debuffs on enemies
+		helper.assertFalse(z.hasEffect(net.minecraft.world.effect.MobEffects.GLOWING), "no marks any more");
+		helper.assertTrue(p.hasEffect(net.minecraft.world.effect.MobEffects.DAMAGE_BOOST)
+				&& p.getEffect(net.minecraft.world.effect.MobEffects.DAMAGE_BOOST).getAmplifier() == 1, "and gave him Strength II");
 		// a cooling-down move does nothing
 		unlock(p);
 		p.setShiftKeyDown(true);
@@ -330,8 +331,9 @@ public class SuperSoldierGameTests implements FabricGameTest {
 		float afterFirst = z.getHealth();
 		helper.assertTrue(afterFirst < 200.0f, "the first punch lands at once");
 		helper.startSequence()
-				.thenWaitUntil(() -> helper.assertTrue(z.getHealth() <= 200.0f - (2 * SuperSoldierConfig.COMBO_HIT_DAMAGE
-						+ SuperSoldierConfig.COMBO_FINISHER_DAMAGE) + 0.01f, "all three punches landed, health " + z.getHealth()))
+				.thenWaitUntil(() -> helper.assertTrue(z.getHealth() <= 200.0f - (SuperSoldierConfig.COMBO_HIT_1_DAMAGE
+						+ SuperSoldierConfig.COMBO_HIT_2_DAMAGE + SuperSoldierConfig.COMBO_FINISHER_DAMAGE) + 0.01f,
+						"all three punches landed (5 + 7 + 10), health " + z.getHealth()))
 				.thenSucceed();
 	}
 
@@ -354,7 +356,7 @@ public class SuperSoldierGameTests implements FabricGameTest {
 		Zombie z = zombieAt(helper, p, 2.0, 0.0);
 		pump(helper, p);
 		helper.assertTrue(SuperSoldierAbilities.flyingKick(p), "kicked");
-		helper.assertTrue(Math.abs(z.getHealth() - (200.0f - SuperSoldierConfig.KICK_DAMAGE)) < 0.05f, "10 up close, at once: " + z.getHealth());
+		helper.assertTrue(Math.abs(z.getHealth() - (200.0f - SuperSoldierConfig.KICK_DAMAGE)) < 0.05f, "12 up close, at once: " + z.getHealth());
 		helper.assertFalse(SuperSoldierAbilities.kicking(p), "no lunge needed");
 		helper.assertTrue(SuperSoldier.cooldownRemaining(p, SuperSoldierAbilities.FLYING_KICK) > 0, "cooldown started");
 
@@ -394,7 +396,7 @@ public class SuperSoldierGameTests implements FabricGameTest {
 		helper.assertTrue(z.getHealth() == 200.0f, "the hit comes with the slam, not the grab");
 		helper.startSequence()
 				.thenWaitUntil(() -> helper.assertTrue(Math.abs(z.getHealth() - (200.0f - SuperSoldierConfig.TAKEDOWN_DAMAGE)) < 0.05f,
-						"the slam hits for 14: " + z.getHealth()))
+						"the slam hits for 15: " + z.getHealth()))
 				.thenExecute(() -> {
 					var slow = z.getEffect(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN);
 					helper.assertTrue(slow != null && slow.getAmplifier() == 3, "stunned (Slowness IV)");
@@ -593,61 +595,11 @@ public class SuperSoldierGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
-	public void tacticalRollGivesInvulnerabilityFrames(GameTestHelper helper) {
-		ServerPlayer p = soldier(helper);
-		helper.runAfterDelay(70, () -> { // past the spawn invulnerability, so only the roll can protect him
-			p.setHealth(p.getMaxHealth());
-			helper.assertTrue(SuperSoldierAbilities.tacticalRoll(p), "rolled");
-			helper.assertTrue(SuperSoldierAbilities.rolling(p), "in the roll's frames");
-			p.hurt(p.damageSources().generic(), 10.0f);
-			helper.assertTrue(p.getHealth() == p.getMaxHealth(), "nothing hurts him mid-roll");
-			helper.succeed();
-		});
-	}
-
-	// ---------------------------------------------------------------- v0.17.7 rework: Assemble, the two ultimates, Counter Stance
+	// ---------------------------------------------------------------- v0.17.7 rework: the two ultimates (Assemble, X / Shift+X and V since the
+	// user's later list: SuperSoldierKitV0177GameTests)
 
 	private static boolean has(net.minecraft.world.entity.LivingEntity e, Holder<net.minecraft.world.effect.MobEffect> effect) {
 		return e.hasEffect(effect);
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void assembleBuffsDebuffsMarksAndBoostsHitsOnTheMarked(GameTestHelper helper) {
-		ServerPlayer p = soldier(helper);
-		Zombie near = zombieAt(helper, p, 2.0, 0.0);
-		Zombie side = zombieAt(helper, p, 2.0, 1.5); // within 3 of "near": the punch shock
-		Zombie capped = zombieAt(helper, p, -4.0, 0.0); // well away from "near" (no shock) and from each other
-		Zombie moved = zombieAt(helper, p, 0.0, -4.0);
-		helper.assertTrue(SuperSoldierAbilities.assemble(p), "Assemble");
-		helper.assertTrue(SuperSoldier.assembleActive(p), "running");
-		// him: Strength I, Speed I, Resistance I for 10 s
-		for (Holder<net.minecraft.world.effect.MobEffect> e : List.of(net.minecraft.world.effect.MobEffects.DAMAGE_BOOST,
-				net.minecraft.world.effect.MobEffects.MOVEMENT_SPEED, net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE)) {
-			helper.assertTrue(has(p, e) && p.getEffect(e).getAmplifier() == 0 && p.getEffect(e).getDuration() >= 190,
-					"he has " + e.getRegisteredName() + " I for 10 s");
-		}
-		// them: marked (glowing), Weakness, Slowness, knocked back by the ring -- and no damage from it
-		// (>= : neighbouring tests' zombies within 30 blocks get marked too)
-		helper.assertTrue(SuperSoldierAbilities.markCount(p) >= 4, "all four marked, got " + SuperSoldierAbilities.markCount(p));
-		for (Zombie z : List.of(near, side, capped, moved)) {
-			helper.assertTrue(SuperSoldierAbilities.isMarked(p, z), "marked");
-			helper.assertTrue(has(z, net.minecraft.world.effect.MobEffects.GLOWING), "glowing");
-			helper.assertTrue(has(z, net.minecraft.world.effect.MobEffects.WEAKNESS), "weakened");
-			helper.assertTrue(has(z, net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN), "slowed");
-			helper.assertTrue(z.getHealth() == 200.0f, "the rally ring does no damage, health " + z.getHealth());
-		}
-		helper.assertTrue(near.getDeltaMovement().horizontalDistanceSqr() > 1.0e-3, "the ring knocked the near one back");
-		// a punch on a marked enemy: x1.25, and it shocks the one beside it for 6 (x1.25 = 7.5: it is marked too)
-		near.hurt(p.damageSources().playerAttack(p), 8.0f);
-		helper.assertTrue(Math.abs((200.0f - near.getHealth()) - 10.0f) < 0.05f, "8 -> 10 on the marked, took " + (200.0f - near.getHealth()));
-		helper.assertTrue(Math.abs((200.0f - side.getHealth()) - 7.5f) < 0.05f, "the punch shock, took " + (200.0f - side.getHealth()));
-		// never past 20: a 19 punch and an 18 move both stop at 20
-		capped.hurt(p.damageSources().playerAttack(p), 19.0f);
-		helper.assertTrue(Math.abs((200.0f - capped.getHealth()) - 20.0f) < 0.05f, "19 x1.25 capped at 20, took " + (200.0f - capped.getHealth()));
-		SuperSoldierAbilities.strike(p, moved, 18.0f, p.position(), 0.0, 0.0);
-		helper.assertTrue(Math.abs((200.0f - moved.getHealth()) - 20.0f) < 0.05f, "an 18 move x1.25 capped at 20, took " + (200.0f - moved.getHealth()));
-		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
@@ -738,42 +690,6 @@ public class SuperSoldierGameTests implements FabricGameTest {
 					helper.assertTrue(boss.getDeltaMovement().y < 0.3, "and not knocked up");
 				})
 				.thenSucceed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
-	public void counterStanceNegatesAMeleeHitAndCounters(GameTestHelper helper) {
-		ServerPlayer p = soldier(helper);
-		Zombie z = zombieAt(helper, p, 1.5, 0.0);
-		helper.runAfterDelay(70, () -> { // past the spawn invulnerability
-			p.setHealth(p.getMaxHealth());
-			helper.assertTrue(SuperSoldierAbilities.counterStance(p), "braced");
-			helper.assertTrue(SuperSoldier.counterActive(p), "in the window");
-			helper.assertTrue(SuperSoldier.cooldownRemaining(p, SuperSoldierAbilities.COUNTER) == SuperSoldierConfig.COUNTER_COOLDOWN, "6 s cooldown");
-			p.hurt(p.damageSources().mobAttack(z), 8.0f);
-			helper.assertTrue(p.getHealth() == p.getMaxHealth(), "the hit is negated, health " + p.getHealth());
-			helper.assertTrue(Math.abs((200.0f - z.getHealth()) - SuperSoldierConfig.COUNTER_DAMAGE) < 0.05f,
-					"countered for 10, took " + (200.0f - z.getHealth()));
-			helper.assertTrue(has(z, net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN) && has(z, net.minecraft.world.effect.MobEffects.WEAKNESS),
-					"staggered");
-			helper.assertFalse(SuperSoldier.counterActive(p), "one counter per stance");
-			helper.assertTrue(SuperSoldier.state(p).animId == SuperSoldierState.ANIM_COUNTER_HIT, "the counter clip");
-			helper.succeed();
-		});
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void counterStanceWithAShieldSendsAnArrowBack(GameTestHelper helper) {
-		ServerPlayer p = soldier(helper);
-		p.setItemInHand(net.minecraft.world.InteractionHand.OFF_HAND, new ItemStack(SuperSoldierItems.ADAMANTIUM_SHIELD));
-		helper.assertTrue(SuperSoldierAbilities.counterStance(p), "braced");
-		net.minecraft.world.entity.projectile.Arrow arrow = new net.minecraft.world.entity.projectile.Arrow(helper.getLevel(), p.getX(),
-				p.getY() + 1.2, p.getZ() + 2.0, new ItemStack(Items.ARROW), null);
-		arrow.setDeltaMovement(0.0, 0.0, -1.5);
-		helper.getLevel().addFreshEntity(arrow);
-		SuperSoldierAbilityManager.serverTick(p);
-		helper.assertTrue(arrow.getDeltaMovement().z > 0.0, "sent back the way it came, vz " + arrow.getDeltaMovement().z);
-		helper.assertTrue(arrow.getOwner() == p, "now his");
-		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)

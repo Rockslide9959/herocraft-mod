@@ -8,7 +8,7 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 
 /**
  * The whole Super Soldier power for one player in one attachment ({@code projecthero:super_soldier_state}): persistent,
- * {@code copyOnDeath} and synced to every client (the owner's HUD reads the cooldowns and the Assemble / Counter timers; every
+ * {@code copyOnDeath} and synced to every client (the owner's HUD reads the cooldowns and the Assemble timer; every
  * viewer reads the animation id to pose him). The server is authoritative; this is only ever mutated through {@code SuperSoldier}.
  *
  * <p>v0.17.7 rework: {@code onslaughtUntil} / {@code focusUntil} became {@link #assembleUntil}; {@link #counterUntil} (V: Counter
@@ -19,10 +19,7 @@ public final class SuperSoldierState {
 	public static final int ANIM_NONE = 0;
 	/** Shift+V: feet planted, fist (or shield) raised -- "Assemble!". */
 	public static final int ANIM_ASSEMBLE = 1;
-	/** V: the brace (held for the window). */
-	public static final int ANIM_COUNTER = 2;
-	/** V: the counter strike after a negated hit. */
-	public static final int ANIM_COUNTER_HIT = 3;
+	// 2 / 3 were the Counter Stance's brace and counter (removed in v0.17.7 -- V is the Spinning Roundhouse now)
 	/** Shift+Z unarmed: the dash in. */
 	public static final int ANIM_BARRAGE_DASH = 4;
 	/** Shift+Z unarmed: the flurry, wind-up and haymaker (timed from his arrival). */
@@ -33,17 +30,25 @@ public final class SuperSoldierState {
 	public static final int ANIM_STORM_CATCH = 7;
 	/** Shift+Z with a shield: the slam into the ground. */
 	public static final int ANIM_STORM_SLAM = 8;
+	/** X (v0.17.7): the Dash -- leaning into it, arms swept back. */
+	public static final int ANIM_DASH = 9;
+	/** Shift+X bare-handed (v0.17.7): the Shoulder Bash -- lead shoulder lowered, driving in. */
+	public static final int ANIM_SHOULDER_BASH = 10;
+	/** Shift+X with a shield (v0.17.7): the Shield Bash -- the shield arm thrust out in front, braced behind it. */
+	public static final int ANIM_SHIELD_BASH = 11;
+	/** V (v0.17.7): the Spinning Roundhouse -- the chamber, a full turn and the kick. */
+	public static final int ANIM_ROUNDHOUSE = 12;
 
 	public boolean hasPower;
 	/** No new move may start before this game time (the Combo Strike's three punches, the Bash charge). */
 	public long busyUntil;
-	/** The Tactical Roll's invulnerability frames run until this game time. */
+	/** He cannot be hurt until this game time (v0.17.7: the Shoulder / Shield Bash; was the Tactical Roll). */
 	public long iframeUntil;
 	/** Fall damage is cancelled until this game time (his own leaps). */
 	public long noFallUntil;
 	/** Assemble (Shift+V) runs until this game time; 0 when it is off. */
 	public long assembleUntil;
-	/** Counter Stance (V) is braced until this game time; 0 when it is off. */
+	/** Unused since v0.17.7 (was the Counter Stance's window); kept so the save format does not change. */
 	public long counterUntil;
 	/** Last game time he hurt or was hurt by something (the out-of-combat regeneration waits on it). */
 	public long lastCombatTick;

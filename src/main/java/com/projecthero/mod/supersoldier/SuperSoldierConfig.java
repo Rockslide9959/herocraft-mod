@@ -31,6 +31,21 @@ public final class SuperSoldierConfig {
 	/** The passive Resistance is (re)applied for this long, topped up whenever it drops under {@link #PASSIVE_RESISTANCE_REFRESH}. */
 	public static final int PASSIVE_RESISTANCE_TICKS = 300;
 	public static final int PASSIVE_RESISTANCE_REFRESH = 220;
+	/**
+	 * v0.17.7 (user: "player should have passive regen 1" / "player should have passive speed 1"): Regeneration I and Speed I the
+	 * whole time he has the power -- infinite, ambient (no swirl), re-given every tick if missing; a stronger one (a potion, Assemble's
+	 * II) is left alone and ours comes back when it ends. Taken away with the power. Infinite, not a topped-up timer: Regeneration
+	 * heals on its own clock, and a timer reset every few seconds would make it heal unevenly.
+	 */
+	public static final int PASSIVE_REGEN_AMPLIFIER = 0;
+	public static final int PASSIVE_SPEED_AMPLIFIER = 0;
+	/** v0.17.7 (user: "The armour should have diamond level durability"): the Captain America suit's durability multiplier (diamond 33). */
+	public static final int SUIT_DURABILITY_MULTIPLIER = 33;
+	/**
+	 * v0.17.7 (user: "if player is blocking with shield and looking at ground then they dont take fall damage"): blocking with a
+	 * shield (a raised vanilla-style shield or the Battle Suit slot's guard) while looking at least this far down cancels fall damage.
+	 */
+	public static final float SHIELD_LANDING_MIN_PITCH = 60.0f;
 	/** Safe fall distance on top of vanilla's 3 blocks (matches the higher jump). */
 	public static final double SAFE_FALL_BONUS = 3.0;
 	/** Knockback resistance (0..1). */
@@ -53,8 +68,10 @@ public final class SuperSoldierConfig {
 
 	// ---------------------------------------------------------------- R: Combo Strike
 	public static final int COMBO_COOLDOWN = 100;
-	public static final float COMBO_HIT_DAMAGE = 7.0f; // v0.17.7 Street: was 5
-	public static final float COMBO_FINISHER_DAMAGE = 9.0f; // v0.17.7 Street: was 7
+	/** v0.17.7 (user: "match black panther combo damage please"): Black Panther's unsuited Warrior's Combo, 5 / 7 / 10 (was 7 / 7 / 9). */
+	public static final float COMBO_HIT_1_DAMAGE = 5.0f;
+	public static final float COMBO_HIT_2_DAMAGE = 7.0f;
+	public static final float COMBO_FINISHER_DAMAGE = 10.0f;
 	/** Ticks between the three punches. */
 	public static final int COMBO_INTERVAL = 5;
 	public static final double COMBO_RANGE = 4.0;
@@ -69,7 +86,7 @@ public final class SuperSoldierConfig {
 
 	// ---------------------------------------------------------------- G: Flying Kick (v0.14.9)
 	public static final int KICK_COOLDOWN = 160;
-	public static final float KICK_DAMAGE = 10.0f; // v0.17.7 Street: was 12
+	public static final float KICK_DAMAGE = 12.0f; // v0.17.7 (user: "increase to 12 damage please"; the Street pass had it at 10)
 	/** How far away the enemy he lunges at may be. */
 	public static final double KICK_RANGE = 8.0;
 	/** Within this distance (feet to the target's box) the kick lands -- at once if he starts this close. */
@@ -82,7 +99,7 @@ public final class SuperSoldierConfig {
 
 	// ---------------------------------------------------------------- Shift+G: Judo Takedown (v0.14.9)
 	public static final int TAKEDOWN_COOLDOWN = 200;
-	public static final float TAKEDOWN_DAMAGE = 10.0f; // v0.17.7 Street: was 14
+	public static final float TAKEDOWN_DAMAGE = 15.0f; // v0.17.7 (user: "increase to 15 damage"; the Street pass had it at 10)
 	public static final double TAKEDOWN_RANGE = 3.5;
 	/** Ticks between the grab (the enemy hoisted over his shoulder) and the slam behind him. */
 	public static final int TAKEDOWN_SLAM_DELAY = 5;
@@ -185,51 +202,57 @@ public final class SuperSoldierConfig {
 	public static final double STORM_SLAM_KNOCKBACK = 0.8;
 	public static final double STORM_SLAM_LIFT = 0.85;
 
-	// ---------------------------------------------------------------- X: Tactical Roll
-	public static final int ROLL_COOLDOWN = 80;
-	public static final double ROLL_SPEED = 1.35;
-	public static final int ROLL_IFRAMES = 10;
+	// ---------------------------------------------------------------- X: Dash (v0.17.7; was the Tactical Roll)
+	// user: "X - Dash ability that dashs player in direction they aim"
+	public static final int DASH_COOLDOWN = 60;
+	/** Along his full look (pitch included): this fast (blocks / tick) for this many ticks -- about 8 blocks. */
+	public static final double DASH_SPEED = 1.6;
+	public static final int DASH_TICKS = 5;
+	/** No fall damage for this long after a dash starts (a dash off a ledge or straight down). */
+	public static final int DASH_NO_FALL_TICKS = 60;
 
-	// ---------------------------------------------------------------- Shift+X: High Leap
-	public static final int HIGH_LEAP_COOLDOWN = 160;
-	public static final double HIGH_LEAP_HEIGHT = 5.0;
-	public static final double HIGH_LEAP_FORWARD = 1.25;
+	// ---------------------------------------------------------------- Shift+X: Shoulder Bash / Shield Bash (v0.17.7; was the High Leap)
+	// user: "Shift+X - Shoulder bash without shield, shield bash ability with shield, dash player and deals damage in direction theyre
+	// looking, knocks enemies back too, player doesn't take damage when using this move, shoulder bash deals 10 damage, shield bash
+	// deals 14 damage"
+	public static final int BASH_COOLDOWN = 160;
+	/** The charge: along his look, this fast for this many ticks (about 8 blocks). */
+	public static final double BASH_SPEED = 1.35;
+	public static final int BASH_TICKS = 6;
+	public static final float SHOULDER_BASH_DAMAGE = 10.0f;
+	public static final float SHIELD_BASH_DAMAGE = 14.0f;
+	/** Anything this close to his path (blocks around his body, swept a tick ahead) is hit -- once per bash. */
+	public static final double BASH_HIT_RADIUS = 1.2;
+	/** Knocked along the charge's direction, and up a little. */
+	public static final double BASH_KNOCKBACK = 1.4;
+	public static final double BASH_LIFT = 0.35;
+	/** He cannot be hurt for the whole charge plus this many ticks. */
+	public static final int BASH_IFRAME_EXTRA = 2;
 
-	// ---------------------------------------------------------------- V: Counter Stance (v0.17.7)
-	public static final int COUNTER_COOLDOWN = 120;
-	/** He braces for this long; the first melee hit in the window is negated and answered. */
-	public static final int COUNTER_WINDOW = 20;
-	public static final float COUNTER_DAMAGE = 10.0f;
-	public static final double COUNTER_KNOCKBACK = 1.3;
-	public static final double COUNTER_LIFT = 0.25;
-	/** The stagger on whoever he countered: Slowness III + Weakness I for this long. */
-	public static final int COUNTER_STAGGER_TICKS = 30;
-	/** A melee attacker further than this (blocks, his feet to its box) is not "in reach" to counter. */
-	public static final double COUNTER_REACH = 5.0;
-	/** After a counter he is untouchable this long, so a second swing in the same instant does not land. */
-	public static final int COUNTER_AFTER_IFRAMES = 6;
-	/** Holding a shield, projectiles this close (plus their speed) and coming at him are sent back at the shooter. */
-	public static final double COUNTER_REFLECT_REACH = 1.6;
+	// ---------------------------------------------------------------- V: Spinning Roundhouse (v0.17.7; replaced the Counter Stance)
+	// user: "counter stance: replace this move with another attack ability"
+	public static final int ROUNDHOUSE_COOLDOWN = 120;
+	/** The chamber (knee drawn up as he turns) before the kick lands. */
+	public static final int ROUNDHOUSE_WINDUP = 3;
+	public static final float ROUNDHOUSE_DAMAGE = 11.0f;
+	/** Everything in front of him in this arc (degrees, centred on his facing) within this reach (blocks, his feet to its box). */
+	public static final double ROUNDHOUSE_ARC_DEG = 150.0;
+	public static final double ROUNDHOUSE_RANGE = 3.5;
+	public static final double ROUNDHOUSE_KNOCKBACK = 1.2;
+	public static final double ROUNDHOUSE_LIFT = 0.3;
+	/** Dazed: Slowness II for this long. */
+	public static final int ROUNDHOUSE_DAZE_TICKS = 20;
 
-	// ---------------------------------------------------------------- Shift+V: Assemble (v0.17.7: Battle Cry + Tactical Focus + the
-	// old Onslaught buff in one)
-	/** 60 s: ten seconds of team buffs, debuffs and marks -- one sixth uptime, the old Battle Cry (30 s) and Focus (25 s) together. */
-	public static final int ASSEMBLE_COOLDOWN = 1200;
-	public static final int ASSEMBLE_DURATION = 200;
-	/** The rally ring: knocks enemies this close back (no damage). */
+	// ---------------------------------------------------------------- Shift+V: Assemble (v0.17.7)
+	// user: "Assemble: For 50 seconds player and squad mates get buffed, strength 2, resistance 2, regeneration 2, speed 2, 100 second
+	// cooldown on activation". Buffs only now -- the debuffs, marks, x1.25 on the marked, punch shock and the ring's knockback (from the
+	// merged Battle Cry / Tactical Focus / Onslaught) are gone; the call, the animation and the gold / blue ring stay as visuals.
+	public static final int ASSEMBLE_COOLDOWN = 2000;
+	public static final int ASSEMBLE_DURATION = 1000;
+	/** He and every squadmate this close get the buffs. */
+	public static final double ASSEMBLE_ALLY_RADIUS = 24.0;
+	/** Strength, Resistance, Regeneration and Speed at this amplifier (1 = II). */
+	public static final int ASSEMBLE_AMPLIFIER = 1;
+	/** The size of the gold / blue rally ring (visual only). */
 	public static final double ASSEMBLE_RING_RADIUS = 6.0;
-	public static final double ASSEMBLE_RING_KNOCKBACK = 1.2;
-	public static final double ASSEMBLE_RING_LIFT = 0.3;
-	/** He and squadmates this close: Strength I, Speed I, Resistance I for the duration. */
-	public static final double ASSEMBLE_ALLY_RADIUS = 16.0;
-	/** Hostiles this close: Weakness I (the duration) and Slowness I (this long). */
-	public static final double ASSEMBLE_DEBUFF_RADIUS = 16.0;
-	public static final int ASSEMBLE_SLOW_TICKS = 120;
-	/** Every enemy this close glows (marked) for the duration. */
-	public static final double ASSEMBLE_MARK_RADIUS = 30.0;
-	/** His hits on a marked enemy while it runs (punches and moves; capped at MAX_HIT). */
-	public static final float ASSEMBLE_MARK_MULTIPLIER = 1.25f;
-	/** Every punch while it runs shocks enemies this close to the target for this much. */
-	public static final float ASSEMBLE_SHOCK_DAMAGE = 6.0f;
-	public static final double ASSEMBLE_SHOCK_RADIUS = 3.0;
 }

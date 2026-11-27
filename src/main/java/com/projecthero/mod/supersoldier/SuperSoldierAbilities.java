@@ -25,19 +25,12 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.damagesource.DamageSource;
-import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.entity.projectile.AbstractArrow;
-import net.minecraft.world.entity.projectile.Projectile;
-import net.minecraft.world.entity.projectile.ProjectileDeflection;
-import net.minecraft.world.entity.projectile.ThrownTrident;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ShieldItem;
 import net.minecraft.world.level.block.state.BlockState;
@@ -50,7 +43,7 @@ import org.joml.Vector3f;
  * The Super Soldier moves (v0.14.8; v0.14.9 G / Shift+G became bare-handed attacks and the shield throw moved to C, thrown from
  * his hand; v0.17.7 rework: Battle Cry, Tactical Focus and the Onslaught buff merged into Assemble on Shift+V, V became the
  * Counter Stance attack, and Shift+Z is an ultimate in two versions -- the Peak Human Barrage bare-handed, the Shield Storm with a
- * shield). Every one is server-validated by {@link #begin}: power, alive, not locked by a running move, cooldown ready -- and only
+ * shield; later in v0.17.7, user's list: X the Dash, Shift+X the Shoulder / Shield Bash, V the Spinning Roundhouse, Assemble buffs only). Every one is server-validated by {@link #begin}: power, alive, not locked by a running move, cooldown ready -- and only
  * then is the cooldown started. Multi-tick moves (the Combo Strike's punches, the Flying Kick's lunge, the Takedown's slam, the
  * Leaping Slam's landing, the Barrage, the Storm) run from small per-player tables ticked by {@link #tick}, and are dropped if the
  * player dies, logs out or loses the power ({@link #clear}; every table is emptied by {@code ServerStateReset}).
@@ -59,8 +52,8 @@ import org.joml.Vector3f;
  *   R        Combo Strike         Shift+R  Uppercut Launcher
  *   G        Flying Kick          Shift+G  Judo Takedown
  *   Z        Leaping Slam         Shift+Z  ULTIMATE: Peak Human Barrage (no shield) / Shield Storm (a shield held or slotted)
- *   X        Tactical Roll        Shift+X  High Leap
- *   V        Counter Stance       Shift+V  Assemble
+ *   X        Dash                 Shift+X  Shoulder Bash (no shield) / Shield Bash (a shield held or slotted)
+ *   V        Spinning Roundhouse  Shift+V  Assemble
  *   C        Shield Throw (needs a shield in either hand: the Adamantium Shield at full power, any other shield weaker)
  * </pre>
  */
@@ -76,10 +69,15 @@ public final class SuperSoldierAbilities {
 	public static final String SHIELD_STORM = "shield_storm";
 	/** The cooldown key both ultimates write and read. */
 	public static final String ULTIMATE = "ultimate";
-	public static final String ROLL = "tactical_roll";
-	public static final String HIGH_LEAP = "high_leap";
-	/** v0.17.7: V. */
-	public static final String COUNTER = "counter_stance";
+	/** v0.17.7 (user's list): X, the Dash (was the Tactical Roll). */
+	public static final String DASH = "dash";
+	/** v0.17.7: Shift+X -- the Shoulder Bash bare-handed, the Shield Bash with a shield (was the High Leap); one cooldown, {@link #BASH}. */
+	public static final String SHOULDER_BASH = "shoulder_bash";
+	public static final String SHIELD_BASH = "shield_bash";
+	/** The cooldown key both bashes write and read. */
+	public static final String BASH = "bash";
+	/** v0.17.7: V, the Spinning Roundhouse (replaced the Counter Stance). */
+	public static final String ROUNDHOUSE = "spinning_roundhouse";
 	/** v0.17.7: Shift+V (Battle Cry + Tactical Focus + the Onslaught buff). */
 	public static final String ASSEMBLE = "assemble";
 
@@ -88,13 +86,16 @@ public final class SuperSoldierAbilities {
 			{ "R", COMBO }, { "Shift+R", UPPERCUT },
 			{ "G", FLYING_KICK }, { "Shift+G", TAKEDOWN },
 			{ "Z", SLAM }, { "Shift+Z", BARRAGE }, { "Shift+Z (shield)", SHIELD_STORM },
-			{ "X", ROLL }, { "Shift+X", HIGH_LEAP },
-			{ "V", COUNTER }, { "Shift+V", ASSEMBLE },
+			{ "X", DASH }, { "Shift+X", SHOULDER_BASH }, { "Shift+X (shield)", SHIELD_BASH },
+			{ "V", ROUNDHOUSE }, { "Shift+V", ASSEMBLE },
 			{ "C", SHIELD_THROW },
 			{ "N", "shield_slot" } }; // v0.17.5: only in the Captain America Battle Suit top
 
-	/** The cooldown key an ability id writes: both ultimates share {@link #ULTIMATE}. */
+	/** The cooldown key an ability id writes: both ultimates share {@link #ULTIMATE}, both bashes {@link #BASH}. */
 	public static String cooldownKey(String id) {
+		if (SHOULDER_BASH.equals(id) || SHIELD_BASH.equals(id)) {
+			return BASH;
+		}
 		return BARRAGE.equals(id) || SHIELD_STORM.equals(id) ? ULTIMATE : id;
 	}
 
@@ -137,15 +138,35 @@ public final class SuperSoldierAbilities {
 		}
 	}
 
+	/** v0.17.7: a Dash or a Bash carrying him -- its line (fixed at the start), timing, and the entity ids it has already hit. */
+	private static final class Charge {
+		final Vec3 dir;
+		final long start;
+		final int ticks;
+		final double speed;
+		final boolean bash;
+		final boolean shield;
+		final Set<Integer> hit = new HashSet<>();
+
+		Charge(Vec3 dir, long start, int ticks, double speed, boolean bash, boolean shield) {
+			this.dir = dir;
+			this.start = start;
+			this.ticks = ticks;
+			this.speed = speed;
+			this.bash = bash;
+			this.shield = shield;
+		}
+	}
+
 	private static final Map<UUID, List<Task>> TASKS = new HashMap<>();
 	private static final Map<UUID, Kick> KICKS = new HashMap<>();
 	/** Leaping Slam in the air: game time of take-off. */
 	private static final Map<UUID, Long> SLAMS = new HashMap<>();
-	/** Assemble: the entity ids each player has marked. */
-	private static final Map<UUID, Set<Integer>> MARKS = new HashMap<>();
 	/** v0.17.7: the ultimates in progress (entity ids only -- no entities or worlds held). */
 	private static final Map<UUID, Barrage> BARRAGES = new HashMap<>();
 	private static final Map<UUID, Storm> STORMS = new HashMap<>();
+	/** v0.17.7: the Dash / Bash in progress (entity ids only). */
+	private static final Map<UUID, Charge> CHARGES = new HashMap<>();
 	/** Set while a move is applying its damage, so the melee hooks do not treat it as a punch. */
 	private static final ThreadLocal<Boolean> ABILITY_HIT = ThreadLocal.withInitial(() -> false);
 
@@ -156,32 +177,22 @@ public final class SuperSoldierAbilities {
 		TASKS.clear();
 		KICKS.clear();
 		SLAMS.clear();
-		MARKS.clear();
 		BARRAGES.clear();
 		STORMS.clear();
+		CHARGES.clear();
 	}
 
 	public static void clear(UUID id) {
 		TASKS.remove(id);
 		KICKS.remove(id);
 		SLAMS.remove(id);
-		MARKS.remove(id);
 		BARRAGES.remove(id);
 		STORMS.remove(id);
-	}
-
-	static void clearMarks(UUID id) {
-		MARKS.remove(id);
+		CHARGES.remove(id);
 	}
 
 	public static boolean isAbilityHit() {
 		return ABILITY_HIT.get();
-	}
-
-	/** True while Assemble has {@code target} marked for {@code player}. */
-	public static boolean isMarked(ServerPlayer player, LivingEntity target) {
-		Set<Integer> m = MARKS.get(player.getUUID());
-		return m != null && m.contains(target.getId()) && SuperSoldier.assembleActive(player);
 	}
 
 	/** True while the Leaping Slam is in the air (tests + the fall-damage rule). */
@@ -326,19 +337,13 @@ public final class SuperSoldierAbilities {
 	}
 
 	/**
-	 * One move hitting one target: damage (x1.25 on an enemy Assemble has marked, at most {@link SuperSoldierConfig#MAX_HIT},
-	 * boss-capped) and knockback away from {@code origin} plus {@code lift} (never on a boss). True if it landed.
+	 * One move hitting one target: damage (at most {@link SuperSoldierConfig#MAX_HIT}, boss-capped) and knockback away from {@code origin} plus {@code lift} (never on a boss). True if it landed.
 	 */
 	public static boolean strike(ServerPlayer p, LivingEntity target, float baseDamage, Vec3 origin, double knockback, double lift) {
 		if (!canTarget(p, target)) {
 			return false;
 		}
-		float dmg = baseDamage;
-		boolean marked = isMarked(p, target);
-		if (marked) {
-			dmg *= SuperSoldierConfig.ASSEMBLE_MARK_MULTIPLIER;
-		}
-		dmg = Math.min(dmg, SuperSoldierConfig.MAX_HIT); // v0.17.7: Street tier ceiling
+		float dmg = Math.min(baseDamage, SuperSoldierConfig.MAX_HIT); // v0.17.7: Street tier ceiling
 		boolean boss = isBoss(target);
 		if (boss) {
 			dmg = Math.min(dmg, target.getMaxHealth() * SuperSoldierConfig.BOSS_MAX_FRACTION_PER_HIT);
@@ -364,7 +369,7 @@ public final class SuperSoldierAbilities {
 		SuperSoldier.markCombat(p);
 		ServerLevel level = (ServerLevel) p.level();
 		Vec3 c = target.position().add(0, target.getBbHeight() * 0.6, 0);
-		level.sendParticles(marked ? ParticleTypes.ENCHANTED_HIT : ParticleTypes.CRIT, c.x, c.y, c.z, marked ? 12 : 6, 0.3, 0.3, 0.3, 0.3);
+		level.sendParticles(ParticleTypes.CRIT, c.x, c.y, c.z, 6, 0.3, 0.3, 0.3, 0.3);
 		return true;
 	}
 
@@ -441,7 +446,7 @@ public final class SuperSoldierAbilities {
 				if (t == null) {
 					return;
 				}
-				strike(p, t, finisher ? SuperSoldierConfig.COMBO_FINISHER_DAMAGE : SuperSoldierConfig.COMBO_HIT_DAMAGE,
+				strike(p, t, comboDamage(hit),
 						p.position(), finisher ? SuperSoldierConfig.COMBO_FINISHER_KNOCKBACK : 0.15, finisher ? 0.2 : 0.0);
 				Vec3 c = t.position().add(0, t.getBbHeight() * 0.6, 0);
 				((ServerLevel) p.level()).sendParticles(ParticleTypes.SWEEP_ATTACK, c.x, c.y, c.z, 1, 0, 0, 0, 0);
@@ -453,6 +458,11 @@ public final class SuperSoldierAbilities {
 			}
 		}
 		return true;
+	}
+
+	/** v0.17.7: the three punches -- 5, 7, 10 (Black Panther's unsuited Warrior's Combo). */
+	public static float comboDamage(int hit) {
+		return hit == 0 ? SuperSoldierConfig.COMBO_HIT_1_DAMAGE : hit == 1 ? SuperSoldierConfig.COMBO_HIT_2_DAMAGE : SuperSoldierConfig.COMBO_FINISHER_DAMAGE;
 	}
 
 	private static boolean t0Reach(ServerPlayer p, LivingEntity t) {
@@ -487,7 +497,7 @@ public final class SuperSoldierAbilities {
 
 	// ---------------------------------------------------------------- G: Flying Kick
 
-	/** A lunging flying kick into the enemy in front (up to 8 blocks away): 12 damage, a hard knockback. */
+	/** A lunging flying kick into the enemy in front (up to 8 blocks away): 12 damage (v0.17.7), a hard knockback. */
 	public static boolean flyingKick(ServerPlayer p) {
 		LivingEntity target = facing(p, SuperSoldierConfig.KICK_RANGE);
 		if (target == null) {
@@ -557,7 +567,7 @@ public final class SuperSoldierAbilities {
 
 	/**
 	 * Grab the enemy in front, hoist it over his shoulder and slam it into the ground behind him a quarter-second later:
-	 * 14 damage and a short stun (Slowness IV + Weakness). Bosses are too big to throw -- they just take the (capped) hit.
+	 * 15 damage (v0.17.7) and a short stun (Slowness IV + Weakness). Bosses are too big to throw -- they just take the (capped) hit.
 	 */
 	public static boolean takedown(ServerPlayer p) {
 		LivingEntity target = facing(p, SuperSoldierConfig.TAKEDOWN_RANGE);
@@ -1112,178 +1122,253 @@ public final class SuperSoldierAbilities {
 		}
 	}
 
-	// ---------------------------------------------------------------- X: Tactical Roll
+	// ---------------------------------------------------------------- X: Dash / Shift+X: Shoulder Bash, Shield Bash (v0.17.7)
 
-	public static boolean tacticalRoll(ServerPlayer p) {
-		if (!begin(p, ROLL, SuperSoldierConfig.ROLL_COOLDOWN, 6)) {
+	/**
+	 * The way a Dash or a Bash goes: his full look, pitch included. Standing on the ground and looking down, it runs level instead (it
+	 * would only drive him into the floor); looking straight down on the ground, his facing.
+	 */
+	public static Vec3 dashDirection(Player p) {
+		Vec3 look = p.getLookAngle().normalize();
+		if (p.onGround() && look.y < 0.0) {
+			return flatLook(p);
+		}
+		return look;
+	}
+
+	/** X: about 8 blocks along his aim in a quarter of a second. Stops at a wall; no fall damage from it. */
+	public static boolean dash(ServerPlayer p) {
+		if (!begin(p, DASH, SuperSoldierConfig.DASH_COOLDOWN, SuperSoldierConfig.DASH_TICKS)) {
 			return false;
 		}
-		Vec3 motion = p.getDeltaMovement();
-		Vec3 flat = new Vec3(motion.x, 0.0, motion.z);
-		Vec3 dir = flat.lengthSqr() > 0.0025 ? flat.normalize() : flatLook(p);
 		long now = p.level().getGameTime();
-		edit(p, n -> {
-			n.iframeUntil = now + SuperSoldierConfig.ROLL_IFRAMES;
-			n.noFallUntil = Math.max(n.noFallUntil, now + 20L);
-		});
-		AbilityHelpers.launchSelf(p, new Vec3(dir.x * SuperSoldierConfig.ROLL_SPEED, p.onGround() ? 0.15 : Math.max(motion.y, 0.0),
-				dir.z * SuperSoldierConfig.ROLL_SPEED));
-		AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.8f, 1.5f);
-		ServerLevel level = (ServerLevel) p.level();
-		level.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.2, p.getZ(), 10, 0.3, 0.1, 0.3, 0.03);
+		edit(p, n -> n.noFallUntil = Math.max(n.noFallUntil, now + SuperSoldierConfig.DASH_NO_FALL_TICKS));
+		SuperSoldier.anim(p, SuperSoldierState.ANIM_DASH, false);
+		AbilityHelpers.sound(p, SoundEvents.BREEZE_JUMP, 0.7f, 1.6f);
+		AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.5f, 1.7f);
+		((ServerLevel) p.level()).sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.1, p.getZ(), 6, 0.25, 0.05, 0.25, 0.03);
+		startCharge(p, new Charge(dashDirection(p), now, SuperSoldierConfig.DASH_TICKS, SuperSoldierConfig.DASH_SPEED, false, false));
 		return true;
 	}
 
-	/** True while the Tactical Roll's invulnerability frames run. */
-	public static boolean rolling(ServerPlayer p) {
+	/**
+	 * Shift+X: a charge along his aim (about 8 blocks). Bare-handed it is the Shoulder Bash (10), with a shield (either hand or slotted
+	 * -- the {@link #hasShield} rule the whole kit uses) the Shield Bash (14). Everything along the path is hit once and knocked along the
+	 * charge; nothing can hurt him for the charge plus 2 ticks. One cooldown for both.
+	 */
+	public static boolean bash(ServerPlayer p) {
+		boolean shield = hasShield(p);
+		if (!begin(p, shield ? SHIELD_BASH : SHOULDER_BASH, SuperSoldierConfig.BASH_COOLDOWN, SuperSoldierConfig.BASH_TICKS)) {
+			return false;
+		}
+		long now = p.level().getGameTime();
+		edit(p, n -> {
+			n.iframeUntil = Math.max(n.iframeUntil, now + SuperSoldierConfig.BASH_TICKS + SuperSoldierConfig.BASH_IFRAME_EXTRA);
+			n.noFallUntil = Math.max(n.noFallUntil, now + SuperSoldierConfig.DASH_NO_FALL_TICKS);
+		});
+		// the shield arm leads the Shield Bash (a slotted shield: the off arm, where the suit's guard raises it)
+		boolean off = shield && shieldHand(p) != InteractionHand.MAIN_HAND;
+		SuperSoldier.anim(p, shield ? SuperSoldierState.ANIM_SHIELD_BASH : SuperSoldierState.ANIM_SHOULDER_BASH, off);
+		if (shield) {
+			AbilityHelpers.sound(p, SoundEvents.ARMOR_EQUIP_NETHERITE.value(), 1.0f, 0.8f);
+		}
+		AbilityHelpers.sound(p, SoundEvents.BREEZE_JUMP, 0.9f, 0.9f);
+		AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.7f, 0.6f);
+		QuirkCamera.fovPunch(p, 0.08f, 5);
+		((ServerLevel) p.level()).sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.1, p.getZ(), 10, 0.3, 0.05, 0.3, 0.05);
+		startCharge(p, new Charge(dashDirection(p), now, SuperSoldierConfig.BASH_TICKS, SuperSoldierConfig.BASH_SPEED, true, shield));
+		SuperSoldier.markCombat(p);
+		return true;
+	}
+
+	private static void startCharge(ServerPlayer p, Charge c) {
+		CHARGES.put(p.getUUID(), c);
+		if (!tickCharge(p, c)) {
+			CHARGES.remove(p.getUUID());
+		}
+	}
+
+	/** True while a Dash or a Bash is carrying him (tests). */
+	public static boolean charging(ServerPlayer p) {
+		return CHARGES.containsKey(p.getUUID());
+	}
+
+	/** True while he cannot be hurt (the Bash's frames). */
+	public static boolean invulnerable(ServerPlayer p) {
 		return SuperSoldier.state(p).iframeUntil > p.level().getGameTime();
 	}
 
-	// ---------------------------------------------------------------- Shift+X: High Leap
-
-	public static boolean highLeap(ServerPlayer p) {
-		if (!begin(p, HIGH_LEAP, SuperSoldierConfig.HIGH_LEAP_COOLDOWN, 6)) {
+	/** One tick of a Dash / Bash: the step along its line (level along the floor, stopped by a wall). False once it is over. */
+	private static boolean tickCharge(ServerPlayer p, Charge c) {
+		if (!alive(p)) {
 			return false;
 		}
-		long now = p.level().getGameTime();
-		edit(p, n -> n.noFallUntil = now + SuperSoldierConfig.LEAP_NO_FALL_TICKS);
-		Vec3 f = flatLook(p).scale(SuperSoldierConfig.HIGH_LEAP_FORWARD);
-		AbilityHelpers.launchSelf(p, new Vec3(f.x, SuperSoldier.verticalSpeedForHeight(SuperSoldierConfig.HIGH_LEAP_HEIGHT), f.z));
-		AbilityHelpers.sound(p, SoundEvents.BREEZE_JUMP, 1.0f, 1.1f);
 		ServerLevel level = (ServerLevel) p.level();
-		level.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.1, p.getZ(), 16, 0.5, 0.05, 0.5, 0.06);
-		level.sendParticles(blue(1.0f), p.getX(), p.getY() + 0.5, p.getZ(), 10, 0.3, 0.4, 0.3, 0.0);
-		return true;
-	}
-
-
-	// ---------------------------------------------------------------- V: Counter Stance (v0.17.7)
-
-	/**
-	 * V: he braces for a second. The first melee hit in the window is negated and answered at once -- 10 damage, a knockback and a
-	 * stagger (Slowness III + Weakness I, 1.5 s). Holding a shield (or with one slotted), projectiles that reach him in the window are
-	 * sent straight back at the shooter.
-	 */
-	public static boolean counterStance(ServerPlayer p) {
-		if (!begin(p, COUNTER, SuperSoldierConfig.COUNTER_COOLDOWN, 4)) {
+		long age = level.getGameTime() - c.start;
+		if (age >= c.ticks) {
+			endCharge(p);
 			return false;
 		}
-		long now = p.level().getGameTime();
-		edit(p, n -> n.counterUntil = now + SuperSoldierConfig.COUNTER_WINDOW);
-		SuperSoldier.anim(p, SuperSoldierState.ANIM_COUNTER, shieldHand(p) == InteractionHand.OFF_HAND);
-		AbilityHelpers.sound(p, SoundEvents.ARMOR_EQUIP_NETHERITE.value(), 0.9f, 1.3f);
-		AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_NODAMAGE, 0.8f, 0.7f);
-		ServerLevel level = (ServerLevel) p.level();
-		ring(level, p.position(), 0.1, 0.9, 12, blue(0.9f), white(0.9f));
-		return true;
-	}
-
-	/**
-	 * From {@link SuperSoldierDamage}'s ALLOW_DAMAGE: an incoming hit during the Counter Stance. True when it is negated (a melee hit
-	 * from something in reach -- answered with the counter -- or, with a shield, a projectile -- sent back).
-	 */
-	public static boolean tryCounter(ServerPlayer p, DamageSource source) {
-		if (!SuperSoldier.counterActive(p)) {
-			return false;
-		}
-		if (source.getDirectEntity() instanceof Projectile proj) {
-			if (!hasShield(p) || !source.is(DamageTypeTags.IS_PROJECTILE)) {
+		Vec3 step = c.dir.scale(c.speed);
+		AABB box = p.getBoundingBox().deflate(1.0e-3);
+		if (!level.noCollision(p, box.move(step))) {
+			Vec3 flat = new Vec3(step.x, 0.0, step.z);
+			if (flat.lengthSqr() > 1.0e-4 && level.noCollision(p, box.move(flat.normalize().scale(c.speed)))) {
+				step = flat.normalize().scale(c.speed); // skimming a floor or a ceiling: carry on level
+			} else {
+				// a wall: stop here (the move itself never pushes him into a block -- vanilla collision does the rest)
+				if (c.bash) {
+					bashHits(p, c, Vec3.ZERO);
+				}
+				endCharge(p);
 				return false;
 			}
-			if (proj.isAlive()) {
-				reflect(p, proj);
-			}
-			return true;
 		}
-		if (!(source.is(DamageTypes.MOB_ATTACK) || source.is(DamageTypes.MOB_ATTACK_NO_AGGRO) || source.is(DamageTypes.PLAYER_ATTACK))) {
-			return false;
+		if (c.bash) {
+			bashHits(p, c, step);
 		}
-		if (!(source.getEntity() instanceof LivingEntity attacker) || source.getDirectEntity() != attacker || attacker == p
-				|| AbilityHelpers.distanceSqToBox(attacker, p.position()) > SuperSoldierConfig.COUNTER_REACH * SuperSoldierConfig.COUNTER_REACH) {
-			return false;
+		AbilityHelpers.launchSelf(p, step);
+		// the trail: subtle for the Dash, red / white / blue for the Bash
+		Vec3 at = p.position().add(0, p.getBbHeight() * 0.5, 0);
+		if (c.bash) {
+			level.sendParticles(age % 2 == 0 ? red(1.1f) : white(1.1f), at.x, at.y, at.z, 3, 0.2, 0.35, 0.2, 0.0);
+			level.sendParticles(blue(1.2f), at.x, at.y, at.z, 3, 0.2, 0.35, 0.2, 0.0);
+			level.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.2, p.getZ(), 2, 0.15, 0.05, 0.15, 0.02);
+		} else {
+			level.sendParticles(blue(0.8f), at.x, at.y, at.z, 2, 0.15, 0.3, 0.15, 0.0);
+			level.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.15, p.getZ(), 1, 0.1, 0.05, 0.1, 0.01);
 		}
-		counterHit(p, attacker);
 		return true;
 	}
 
-	/** The answer: the stance ends, a few frames of safety, the counter strike and the stagger. */
-	private static void counterHit(ServerPlayer p, LivingEntity attacker) {
-		long now = p.level().getGameTime();
-		edit(p, n -> {
-			n.counterUntil = 0L; // first, so a counter between two braced Super Soldiers cannot ping-pong
-			n.iframeUntil = Math.max(n.iframeUntil, now + SuperSoldierConfig.COUNTER_AFTER_IFRAMES);
-		});
-		boolean shield = hasShield(p);
-		SuperSoldier.anim(p, SuperSoldierState.ANIM_COUNTER_HIT, shieldHand(p) == InteractionHand.OFF_HAND);
-		if (strike(p, attacker, SuperSoldierConfig.COUNTER_DAMAGE, p.position(), SuperSoldierConfig.COUNTER_KNOCKBACK,
-				SuperSoldierConfig.COUNTER_LIFT)) {
-			AbilityHelpers.applyControl(attacker, MobEffects.MOVEMENT_SLOWDOWN, SuperSoldierConfig.COUNTER_STAGGER_TICKS, 2);
-			AbilityHelpers.applyControl(attacker, MobEffects.WEAKNESS, SuperSoldierConfig.COUNTER_STAGGER_TICKS, 0);
-		}
-		AbilityHelpers.sound(p, shield ? SoundEvents.SHIELD_BLOCK : SoundEvents.PLAYER_ATTACK_STRONG, 1.0f, shield ? 0.9f : 0.8f);
-		AbilityHelpers.sound(p, SoundEvents.ANVIL_LAND, 0.35f, 2.0f);
-		AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_KNOCKBACK, 1.0f, 0.9f);
-		ServerLevel level = (ServerLevel) p.level();
-		Vec3 c = p.position().add(0, 1.2, 0).add(attacker.getBoundingBox().getCenter().subtract(p.position().add(0, 1.2, 0)).scale(0.5));
-		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, 16, 0.1, 0.1, 0.1, 0.45);
-		level.sendParticles(ParticleTypes.CRIT, c.x, c.y, c.z, 12, 0.2, 0.2, 0.2, 0.4);
-		level.sendParticles(blue(1.2f), c.x, c.y, c.z, 8, 0.25, 0.25, 0.25, 0.0);
-		level.sendParticles(ParticleTypes.SWEEP_ATTACK, c.x, c.y, c.z, 1, 0, 0, 0, 0);
-		QuirkCamera.shake(p, 0.2f, 4);
-		SuperSoldier.markCombat(p);
+	/** The charge is over: most of the speed comes off (no long slide, no shooting on upward). */
+	private static void endCharge(ServerPlayer p) {
+		Vec3 v = p.getDeltaMovement();
+		AbilityHelpers.launchSelf(p, new Vec3(v.x * 0.3, Math.min(v.y, 0.15), v.z * 0.3));
 	}
 
-	/** A projectile sent back at whoever shot it (arrows too, never picked up again). */
-	static void reflect(ServerPlayer p, Projectile proj) {
-		Vec3 at = proj.position();
-		Entity shooter = proj.getOwner();
-		proj.deflect(ProjectileDeflection.REVERSE, p, p, true);
-		proj.setOwner(p);
-		if (shooter != null && shooter != p && shooter.isAlive() && !(proj instanceof ThrownTrident)) {
-			Vec3 to = shooter.position().add(0, shooter.getBbHeight() * 0.6, 0).subtract(at);
-			double speed = Math.max(0.9, proj.getDeltaMovement().length());
-			if (to.lengthSqr() > 1.0e-4) {
-				proj.setDeltaMovement(to.normalize().scale(speed));
-				proj.hurtMarked = true;
-			}
-		}
-		if (proj instanceof AbstractArrow arrow) {
-			arrow.pickup = AbstractArrow.Pickup.DISALLOWED;
-		}
+	/** Everything near his body and the step he is about to take (swept), hit once each and knocked along the charge. */
+	private static void bashHits(ServerPlayer p, Charge c, Vec3 step) {
+		double r = SuperSoldierConfig.BASH_HIT_RADIUS;
+		AABB body = p.getBoundingBox();
+		AABB sweep = body.minmax(body.move(step)).inflate(r - 0.3);
+		Vec3 flatDir = new Vec3(c.dir.x, 0.0, c.dir.z);
+		flatDir = flatDir.lengthSqr() < 1.0e-4 ? flatLook(p) : flatDir.normalize();
+		float damage = c.shield ? SuperSoldierConfig.SHIELD_BASH_DAMAGE : SuperSoldierConfig.SHOULDER_BASH_DAMAGE;
 		ServerLevel level = (ServerLevel) p.level();
-		level.playSound(null, at.x, at.y, at.z, SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 1.0f, 1.3f);
-		level.playSound(null, at.x, at.y, at.z, SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.3f, 2.0f);
-		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, 10, 0.05, 0.05, 0.05, 0.4);
-		level.sendParticles(ParticleTypes.CRIT, at.x, at.y, at.z, 6, 0.1, 0.1, 0.1, 0.3);
-	}
-
-	/** Every tick of the stance with a shield: projectiles about to reach him are sent back before they land. */
-	private static void counterReflectTick(ServerPlayer p) {
-		ServerLevel level = (ServerLevel) p.level();
-		Vec3 c = p.position().add(0, p.getBbHeight() * 0.55, 0);
-		double r = SuperSoldierConfig.COUNTER_REFLECT_REACH;
-		for (Projectile proj : level.getEntitiesOfClass(Projectile.class, p.getBoundingBox().inflate(r + 4.0), Entity::isAlive)) {
-			if (proj.getOwner() == p) {
+		for (LivingEntity e : targets(p, sweep)) {
+			if (!c.hit.add(e.getId())) {
 				continue;
 			}
-			Vec3 v = proj.getDeltaMovement();
-			if (proj.position().distanceTo(c) > r + 0.6 && proj.position().add(v).distanceTo(c) > r + 0.6) {
-				continue; // not within reach this tick or the next
+			// knocked along the charge: the knockback's origin sits behind the target on the charge's line
+			Vec3 origin = e.position().subtract(flatDir);
+			if (!strike(p, e, damage, origin, SuperSoldierConfig.BASH_KNOCKBACK, SuperSoldierConfig.BASH_LIFT)) {
+				continue;
 			}
-			if (v.lengthSqr() > 1.0e-4 && v.dot(c.subtract(proj.position())) <= 0.0) {
-				continue; // moving away
+			Vec3 hit = e.position().add(0, e.getBbHeight() * 0.55, 0).subtract(flatDir.scale(e.getBbWidth() * 0.5));
+			if (c.shield) {
+				level.playSound(null, hit.x, hit.y, hit.z, SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 1.0f, 0.75f);
+				level.playSound(null, hit.x, hit.y, hit.z, SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.35f, 1.7f);
+				level.sendParticles(ParticleTypes.ELECTRIC_SPARK, hit.x, hit.y, hit.z, 14, 0.15, 0.15, 0.15, 0.4);
+			} else {
+				level.playSound(null, hit.x, hit.y, hit.z, SoundEvents.PLAYER_ATTACK_KNOCKBACK, SoundSource.PLAYERS, 1.0f, 0.7f);
+				level.playSound(null, hit.x, hit.y, hit.z, SoundEvents.IRON_GOLEM_ATTACK, SoundSource.PLAYERS, 0.7f, 1.0f);
+				level.sendParticles(ParticleTypes.CLOUD, hit.x, hit.y, hit.z, 6, 0.2, 0.2, 0.2, 0.05);
 			}
-			reflect(p, proj);
+			level.sendParticles(ParticleTypes.EXPLOSION, hit.x, hit.y, hit.z, 1, 0, 0, 0, 0);
+			level.sendParticles(blue(1.3f), hit.x, hit.y, hit.z, 10, 0.3, 0.3, 0.3, 0.0);
+			QuirkCamera.shake(p, c.shield ? 0.22f : 0.16f, 4);
 		}
+	}
+
+	// ---------------------------------------------------------------- V: Spinning Roundhouse (v0.17.7; replaced the Counter Stance)
+
+	/**
+	 * V: he chambers the kick as he turns, spins a full circle and lands a roundhouse a quarter-second later: everything in a 150-degree
+	 * arc in front of him within 3.5 blocks takes 11, is knocked away and dazed (Slowness II, 1 s). No target needed -- it is a sweep.
+	 */
+	public static boolean roundhouse(ServerPlayer p) {
+		if (!begin(p, ROUNDHOUSE, SuperSoldierConfig.ROUNDHOUSE_COOLDOWN, SuperSoldierConfig.ROUNDHOUSE_WINDUP + 4)) {
+			return false;
+		}
+		SuperSoldier.anim(p, SuperSoldierState.ANIM_ROUNDHOUSE, false);
+		AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.8f, 0.7f);
+		AbilityHelpers.sound(p, SoundEvents.BREEZE_JUMP, 0.5f, 1.3f);
+		schedule(p, SuperSoldierConfig.ROUNDHOUSE_WINDUP, () -> roundhouseKick(p));
+		return true;
+	}
+
+	/** The kick lands (public for tests). Returns how many it hit. */
+	public static int roundhouseKick(ServerPlayer p) {
+		if (!alive(p)) {
+			return 0;
+		}
+		ServerLevel level = (ServerLevel) p.level();
+		Vec3 feet = p.position();
+		Vec3 fwd = flatLook(p);
+		double range = SuperSoldierConfig.ROUNDHOUSE_RANGE;
+		double minDot = Math.cos(Math.toRadians(SuperSoldierConfig.ROUNDHOUSE_ARC_DEG * 0.5));
+		int n = 0;
+		for (LivingEntity e : targets(p, p.getBoundingBox().inflate(range, 1.5, range))) {
+			if (AbilityHelpers.distanceSqToBox(e, feet) > range * range && AbilityHelpers.distanceSqToBox(e, p.getEyePosition()) > range * range) {
+				continue;
+			}
+			Vec3 to = new Vec3(e.getX() - feet.x, 0.0, e.getZ() - feet.z);
+			if (to.lengthSqr() > 0.36 && to.normalize().dot(fwd) < minDot) {
+				continue; // behind or beside him (anything right against him is always caught)
+			}
+			if (strike(p, e, SuperSoldierConfig.ROUNDHOUSE_DAMAGE, feet, SuperSoldierConfig.ROUNDHOUSE_KNOCKBACK, SuperSoldierConfig.ROUNDHOUSE_LIFT)) {
+				AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, SuperSoldierConfig.ROUNDHOUSE_DAZE_TICKS, 1);
+				Vec3 c = e.position().add(0, e.getBbHeight() * 0.6, 0);
+				level.sendParticles(ParticleTypes.SWEEP_ATTACK, c.x, c.y, c.z, 1, 0, 0, 0, 0);
+				level.sendParticles(ParticleTypes.CRIT, c.x, c.y, c.z, 10, 0.25, 0.25, 0.25, 0.35);
+				n++;
+			}
+		}
+		// the kick's arc: red / white / blue at hip height
+		for (int i = 0; i <= 12; i++) {
+			double a = Math.toRadians(-SuperSoldierConfig.ROUNDHOUSE_ARC_DEG * 0.5 + SuperSoldierConfig.ROUNDHOUSE_ARC_DEG * i / 12.0);
+			Vec3 d = fwd.yRot((float) a).scale(2.2);
+			DustParticleOptions col = i % 3 == 0 ? red(1.2f) : i % 3 == 1 ? white(1.2f) : blue(1.2f);
+			level.sendParticles(col, feet.x + d.x, feet.y + 1.0, feet.z + d.z, 1, 0.03, 0.03, 0.03, 0.0);
+		}
+		AbilityHelpers.sound(p, n > 0 ? SoundEvents.PLAYER_ATTACK_KNOCKBACK : SoundEvents.PLAYER_ATTACK_NODAMAGE, 1.0f, 0.8f);
+		if (n > 0) {
+			AbilityHelpers.sound(p, SoundEvents.IRON_GOLEM_ATTACK, 0.8f, 1.15f);
+			QuirkCamera.shake(p, 0.15f, 4);
+			SuperSoldier.markCombat(p);
+		}
+		return n;
+	}
+
+	// ---------------------------------------------------------------- fall damage: landing on the shield (v0.17.7)
+
+	/**
+	 * v0.17.7 (user: "if player is blocking with shield and looking at ground then they dont take fall damage"): blocking with a shield
+	 * -- a raised shield in either hand (vanilla's use) or the Battle Suit slot's guard -- and looking at least 60 degrees down.
+	 */
+	public static boolean shieldLanding(ServerPlayer p) {
+		boolean blocking = (p.isUsingItem() && p.getUseItem().getItem() instanceof ShieldItem) || CapShieldSlot.isGuarding(p);
+		return blocking && p.getXRot() >= SuperSoldierConfig.SHIELD_LANDING_MIN_PITCH;
+	}
+
+	/** The shield takes the landing: a heavy thud, sparks and the ground's dust. */
+	public static void shieldLandingFx(ServerPlayer p) {
+		ServerLevel level = (ServerLevel) p.level();
+		Vec3 c = p.position();
+		level.playSound(null, c.x, c.y, c.z, SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 1.0f, 0.6f);
+		level.playSound(null, c.x, c.y, c.z, SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.3f, 1.4f);
+		level.sendParticles(ParticleTypes.CRIT, c.x, c.y + 0.1, c.z, 12, 0.4, 0.05, 0.4, 0.25);
+		level.sendParticles(ParticleTypes.CLOUD, c.x, c.y + 0.1, c.z, 8, 0.4, 0.05, 0.4, 0.04);
+		groundDust(level, c, 16, 0.5);
 	}
 
 	// ---------------------------------------------------------------- Shift+V: Assemble (v0.17.7)
 
 	/**
-	 * Shift+V: he plants his feet, raises a fist (or the shield) and calls "Assemble!". A gold / blue rally ring knocks enemies within
-	 * 6 blocks back (no damage). For 10 s he and squadmates within 16 get Strength I, Speed I and Resistance I; hostiles within 16 get
-	 * Weakness (10 s) and Slowness (6 s); every enemy within 30 glows (marked) for 10 s. While it runs his hits on the marked deal
-	 * x1.25 and every punch shocks enemies within 3 blocks of the target for 6. Nothing over 20.
+	 * Shift+V: he plants his feet, raises a fist (or the shield) and calls "Assemble!". For 50 s he and every squadmate within 24 blocks
+	 * get Strength II, Resistance II, Regeneration II and Speed II. 100 s cooldown from the call. (The gold / blue rally ring is only a
+	 * visual now: no knockback, debuffs or marks.)
 	 */
 	public static boolean assemble(ServerPlayer p) {
 		if (!begin(p, ASSEMBLE, SuperSoldierConfig.ASSEMBLE_COOLDOWN, 10)) {
@@ -1291,50 +1376,26 @@ public final class SuperSoldierAbilities {
 		}
 		long now = p.level().getGameTime();
 		int dur = SuperSoldierConfig.ASSEMBLE_DURATION;
+		int amp = SuperSoldierConfig.ASSEMBLE_AMPLIFIER;
 		edit(p, n -> n.assembleUntil = now + dur);
 		boolean off = shieldHand(p) == InteractionHand.OFF_HAND;
 		SuperSoldier.anim(p, SuperSoldierState.ANIM_ASSEMBLE, off);
 		ServerLevel level = (ServerLevel) p.level();
 		Vec3 c = p.position();
 		Component call = Component.translatable("message.projecthero.super_soldier.assemble").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
-		// himself and every squad-mate in range
-		for (Player other : level.getEntitiesOfClass(Player.class, p.getBoundingBox().inflate(SuperSoldierConfig.ASSEMBLE_ALLY_RADIUS),
+		double r = SuperSoldierConfig.ASSEMBLE_ALLY_RADIUS;
+		for (Player other : level.getEntitiesOfClass(Player.class, p.getBoundingBox().inflate(r),
 				o -> o.isAlive() && !o.isSpectator() && (o == p || com.projecthero.mod.squad.Squads.areAllies(p, o)))) {
-			if (other.distanceToSqr(p) > SuperSoldierConfig.ASSEMBLE_ALLY_RADIUS * SuperSoldierConfig.ASSEMBLE_ALLY_RADIUS) {
+			if (other.distanceToSqr(p) > r * r) {
 				continue;
 			}
-			other.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, dur, 0, false, true, true));
-			other.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, dur, 0, false, true, true));
-			other.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, dur, 0, false, true, true));
+			other.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, dur, amp, false, true, true));
+			other.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, dur, amp, false, true, true));
+			other.addEffect(new MobEffectInstance(MobEffects.REGENERATION, dur, amp, false, true, true));
+			other.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, dur, amp, false, true, true));
 			other.displayClientMessage(call, true);
 			level.sendParticles(gold(1.1f), other.getX(), other.getY() + 1.0, other.getZ(), 10, 0.4, 0.6, 0.4, 0.0);
 		}
-		// enemies: knocked back by the ring, weakened and slowed, marked
-		Set<Integer> marked = new HashSet<>();
-		double ring = SuperSoldierConfig.ASSEMBLE_RING_RADIUS;
-		double debuff = SuperSoldierConfig.ASSEMBLE_DEBUFF_RADIUS;
-		double mark = SuperSoldierConfig.ASSEMBLE_MARK_RADIUS;
-		for (LivingEntity e : targets(p, p.getBoundingBox().inflate(mark))) {
-			if (!isHostile(p, e)) { // v0.14.20: rule 2
-				continue;
-			}
-			double d2 = e.distanceToSqr(p);
-			if (d2 > mark * mark) {
-				continue;
-			}
-			e.addEffect(new MobEffectInstance(MobEffects.GLOWING, dur, 0, false, false, false));
-			marked.add(e.getId());
-			level.sendParticles(ParticleTypes.ENCHANTED_HIT, e.getX(), e.getY() + e.getBbHeight() + 0.3, e.getZ(), 4, 0.1, 0.1, 0.1, 0.0);
-			if (d2 <= debuff * debuff) {
-				AbilityHelpers.applyControl(e, MobEffects.WEAKNESS, dur, 0);
-				AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, SuperSoldierConfig.ASSEMBLE_SLOW_TICKS, 0);
-			}
-			if (d2 <= ring * ring && !isBoss(e)) {
-				AbilityHelpers.knockbackFrom(e, c, SuperSoldierConfig.ASSEMBLE_RING_KNOCKBACK);
-				AbilityHelpers.push(e, new Vec3(0.0, SuperSoldierConfig.ASSEMBLE_RING_LIFT, 0.0));
-			}
-		}
-		MARKS.put(p.getUUID(), marked);
 		SuperSoldier.markCombat(p);
 		AbilityHelpers.sound(p, SoundEvents.RAID_HORN, 0.45f, 1.55f);
 		AbilityHelpers.sound(p, SoundEvents.BELL_BLOCK, 1.0f, 0.75f);
@@ -1343,13 +1404,14 @@ public final class SuperSoldierAbilities {
 		level.sendParticles(ParticleTypes.END_ROD, c.x, c.y + 2.4, c.z, 24, 0.15, 0.6, 0.15, 0.08);
 		level.sendParticles(ParticleTypes.CLOUD, c.x, c.y + 0.1, c.z, 14, 0.5, 0.05, 0.5, 0.06);
 		groundDust(level, c, 24, 0.8);
-		// the rally ring rolls out over three ticks, gold and blue
+		// the rally ring rolls out over three ticks, gold and blue (a visual only)
+		double ring = SuperSoldierConfig.ASSEMBLE_RING_RADIUS;
 		for (int w = 0; w < 4; w++) {
-			final double r = ring * (w + 1) / 4.0;
+			final double rr = ring * (w + 1) / 4.0;
 			final int pts = 16 + w * 10;
 			Runnable draw = () -> {
-				ring(level, c, 0.25, r, pts, gold(1.5f), blue(1.5f));
-				ring(level, c, 0.9, r * 0.92, pts / 2, gold(1.0f), gold(1.0f));
+				ring(level, c, 0.25, rr, pts, gold(1.5f), blue(1.5f));
+				ring(level, c, 0.9, rr * 0.92, pts / 2, gold(1.0f), gold(1.0f));
 			};
 			if (w == 0) {
 				draw.run();
@@ -1359,31 +1421,6 @@ public final class SuperSoldierAbilities {
 		}
 		QuirkCamera.shake(p, 0.12f, 5);
 		return true;
-	}
-
-	/** How many enemies the current Assemble has marked (tests / HUD). */
-	public static int markCount(ServerPlayer p) {
-		Set<Integer> m = MARKS.get(p.getUUID());
-		return m == null ? 0 : m.size();
-	}
-
-	/** Assemble's melee shock: every enemy close to the one he just punched takes a jolt. */
-	static void assembleShock(ServerPlayer p, LivingEntity punched) {
-		ServerLevel level = (ServerLevel) p.level();
-		Vec3 c = punched.position().add(0, punched.getBbHeight() * 0.5, 0);
-		double r = SuperSoldierConfig.ASSEMBLE_SHOCK_RADIUS;
-		AABB box = new AABB(c, c).inflate(r);
-		for (LivingEntity e : targets(p, box)) {
-			if (e == punched || AbilityHelpers.distanceSqToBox(e, c) > r * r) {
-				continue;
-			}
-			if (strike(p, e, SuperSoldierConfig.ASSEMBLE_SHOCK_DAMAGE, c, 0.6, 0.1)) {
-				AbilityHelpers.line(level, c, e.position().add(0, e.getBbHeight() * 0.5, 0), ParticleTypes.ELECTRIC_SPARK, 3.0);
-			}
-		}
-		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, 10, 0.4, 0.4, 0.4, 0.2);
-		level.sendParticles(gold(1.1f), c.x, c.y, c.z, 6, 0.5, 0.5, 0.5, 0.0);
-		level.sendParticles(blue(1.2f), c.x, c.y, c.z, 6, 0.5, 0.5, 0.5, 0.0);
 	}
 
 	// ---------------------------------------------------------------- tick
@@ -1426,7 +1463,7 @@ public final class SuperSoldierAbilities {
 				p.hurtMarked = true;
 			}
 		}
-		// v0.17.7: the ultimates and the Counter Stance's shield
+		// v0.17.7: the ultimates, the Dash and the Bash
 		Barrage b = BARRAGES.get(id);
 		if (b != null && now > b.start && !tickBarrage(p, b)) {
 			BARRAGES.remove(id);
@@ -1435,8 +1472,9 @@ public final class SuperSoldierAbilities {
 		if (st != null && now > st.start && STORMS.get(id) == st && !tickStorm(p, st)) {
 			STORMS.remove(id);
 		}
-		if (SuperSoldier.counterActive(p) && hasShield(p)) {
-			counterReflectTick(p);
+		Charge ch = CHARGES.get(id);
+		if (ch != null && now > ch.start && CHARGES.get(id) == ch && !tickCharge(p, ch)) {
+			CHARGES.remove(id);
 		}
 	}
 }

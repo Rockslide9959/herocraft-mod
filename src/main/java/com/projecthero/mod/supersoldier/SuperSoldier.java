@@ -35,7 +35,8 @@ import org.joml.Vector3f;
  * {@link SuperSoldierConfig}.
  *
  * <h2>Passives (always on while he has the power)</h2>
- * +50% movement speed, +5 hearts, +7 unarmed melee, 30% less damage taken, a 2.25-block jump with a matching safe
+ * (v0.17.7: Resistance I, Regeneration I and Speed I effects too -- {@link #passiveResistance}, {@link #passiveEffect})
+ * +50% movement speed, +5 hearts, +7 unarmed melee, 30% less damage taken, a 2.4-block jump with a matching safe
  * fall, 20% knockback resistance, +15% attack speed, out-of-combat healing and immunity to Poison and Nausea. All of
  * it is fixed-id transient attribute modifiers set by {@link #reconcile} every tick, so nothing can stack and revoking
  * the power (or a relog) strips every one of them.
@@ -79,16 +80,10 @@ public final class SuperSoldier {
 		return s != null && s.hasPower;
 	}
 
-	/** v0.17.7: Assemble (Shift+V) is running -- the team buffs, the marks, his x1.25 on the marked and the punch shock. */
+	/** v0.17.7: Assemble (Shift+V) is running (its buffs are ordinary timed effects; this drives the HUD and the rally glow). */
 	public static boolean assembleActive(Player player) {
 		SuperSoldierState s = player.getAttachedOrElse(ModAttachments.SUPER_SOLDIER_STATE, null);
 		return s != null && s.hasPower && s.assembleUntil > player.level().getGameTime();
-	}
-
-	/** v0.17.7: Counter Stance (V) is braced. */
-	public static boolean counterActive(Player player) {
-		SuperSoldierState s = player.getAttachedOrElse(ModAttachments.SUPER_SOLDIER_STATE, null);
-		return s != null && s.hasPower && s.counterUntil > player.level().getGameTime();
 	}
 
 	/** v0.17.7: starts a move animation (synced to every viewer). {@code offArm}: the off hand's arm leads (the shield arm). */
@@ -214,6 +209,8 @@ public final class SuperSoldier {
 			PowerToggles.clearModifier(player, Attributes.KNOCKBACK_RESISTANCE, KNOCKBACK_ID);
 			PowerToggles.clearModifier(player, Attributes.ATTACK_SPEED, ATTACK_SPEED_ID);
 			clearPassiveResistance(player); // v0.17.7
+			clearPassive(player, MobEffects.REGENERATION, SuperSoldierConfig.PASSIVE_REGEN_AMPLIFIER); // v0.17.7
+			clearPassive(player, MobEffects.MOVEMENT_SPEED, SuperSoldierConfig.PASSIVE_SPEED_AMPLIFIER); // v0.17.7
 			if (player.getHealth() > player.getMaxHealth()) {
 				player.setHealth(player.getMaxHealth());
 			}
@@ -253,18 +250,11 @@ public final class SuperSoldier {
 			SuperSoldierState n = s.copy();
 			n.assembleUntil = 0L;
 			save(player, n);
-			SuperSoldierAbilities.clearMarks(player.getUUID());
 			say(player, "message.projecthero.super_soldier.assemble_end", ChatFormatting.GRAY);
 		} else if (s.assembleUntil > now && now % 4L == 0L) {
 			// v0.17.7: a gold / blue rally glow while Assemble runs
 			((ServerLevel) player.level()).sendParticles(new DustParticleOptions(now % 8L == 0L ? new Vector3f(1.0f, 0.78f, 0.2f)
 					: new Vector3f(0.3f, 0.5f, 1.0f), 1.0f), player.getX(), player.getY() + 1.0, player.getZ(), 3, 0.35, 0.6, 0.35, 0.0);
-		}
-		SuperSoldierState c = state(player);
-		if (c.counterUntil != 0L && now >= c.counterUntil) {
-			SuperSoldierState n = c.copy();
-			n.counterUntil = 0L;
-			save(player, n);
 		}
 		// out-of-combat healing: 1 HP every 2 s after 5 s without a fight (not while starving)
 		if (now % SuperSoldierConfig.REGEN_INTERVAL == 0L && now - s.lastCombatTick >= SuperSoldierConfig.REGEN_DELAY
@@ -277,6 +267,37 @@ public final class SuperSoldier {
 			shrug(player, MobEffects.CONFUSION);
 		}
 		passiveResistance(player);
+		passiveEffect(player, MobEffects.REGENERATION, SuperSoldierConfig.PASSIVE_REGEN_AMPLIFIER); // v0.17.7
+		passiveEffect(player, MobEffects.MOVEMENT_SPEED, SuperSoldierConfig.PASSIVE_SPEED_AMPLIFIER); // v0.17.7
+	}
+
+	/**
+	 * v0.17.7 (user: "player should have passive regen 1" / "player should have passive speed 1"): an infinite, ambient effect at
+	 * {@code amplifier} while he has the power, given back the tick it goes missing (milk, a clear). Anything stronger already there --
+	 * a potion, Assemble's level II -- is left alone (vanilla keeps ours underneath a stronger timed one and brings it back when that
+	 * ends). Taken away by {@link #reconcile} when the power goes.
+	 */
+	public static void passiveEffect(ServerPlayer player, Holder<MobEffect> effect, int amplifier) {
+		if (!player.isAlive()) {
+			return;
+		}
+		MobEffectInstance cur = player.getEffect(effect);
+		if (cur != null && (cur.getAmplifier() > amplifier || cur.isInfiniteDuration())) {
+			return;
+		}
+		if (cur != null) {
+			// an equal-strength timed one (a Speed I potion): ours replaces it -- same strength, never runs out
+			player.removeEffect(effect);
+		}
+		player.addEffect(new MobEffectInstance(effect, MobEffectInstance.INFINITE_DURATION, amplifier, true, false, true));
+	}
+
+	/** One of the infinite passives (ours: ambient, infinite, at {@code amplifier}) comes off with the power. */
+	private static void clearPassive(ServerPlayer player, Holder<MobEffect> effect, int amplifier) {
+		MobEffectInstance cur = player.getEffect(effect);
+		if (cur != null && cur.isAmbient() && cur.isInfiniteDuration() && cur.getAmplifier() == amplifier) {
+			player.removeEffect(effect);
+		}
 	}
 
 	/**
@@ -332,7 +353,6 @@ public final class SuperSoldier {
 		n.noFallUntil = 0L;
 		n.assembleUntil = 0L;
 		n.animId = SuperSoldierState.ANIM_NONE;
-		n.counterUntil = 0L;
 		n.lastCombatTick = 0L;
 		n.abilityReadyAt.entrySet().removeIf(e -> e.getValue() > now + 20L * 150L);
 		save(player, n);
@@ -350,7 +370,6 @@ public final class SuperSoldier {
 		n.noFallUntil = 0L;
 		n.assembleUntil = 0L;
 		n.animId = SuperSoldierState.ANIM_NONE;
-		n.counterUntil = 0L;
 		n.lastCombatTick = 0L;
 		save(player, n);
 		reconcile(player);
@@ -366,8 +385,7 @@ public final class SuperSoldier {
 			SuperSoldierState n = s.copy();
 			n.busyUntil = 0L;
 			n.iframeUntil = 0L;
-			n.counterUntil = 0L;
-			n.animId = SuperSoldierState.ANIM_NONE;
+				n.animId = SuperSoldierState.ANIM_NONE;
 			save(player, n);
 		}
 	}

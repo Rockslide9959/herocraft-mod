@@ -26,7 +26,7 @@ import net.minecraft.network.chat.Component;
  * <pre>
  *   SUPER SOLDIER
  *   +----+----+----+----+----+----+    R G Z X C V: shown move's cooldown (sweep + seconds), the Shift move's as the durability
- *   | R  | G  | Z  | X  | C  | V  |    bar; Z lit while an ultimate plays, V while Assemble / the Counter Stance runs; yellow while Shift shows the
+ *   | R  | G  | Z  | X  | C  | V  |    bar; Z lit while an ultimate plays, X while a Dash / Bash plays, V while Assemble runs; yellow while Shift shows the
  *   +----+----+----+----+----+----+    Shift moves
  * </pre>
  * C (the shield throw) used to be a box stacked on V only while he held a shield or a throw was cooling down; it now sits in its
@@ -74,9 +74,12 @@ public final class SuperSoldierHud {
 			float frac = cd / (float) Math.max(1, SuperSoldierAbilityManager.maxCooldown(shown));
 			float otherFrac = other == null ? 0f
 					: SuperSoldier.cooldownRemaining(p, other) / (float) Math.max(1, SuperSoldierAbilityManager.maxCooldown(other));
-			// v0.17.7: Z lit while an ultimate plays out, V while Assemble runs or the Counter Stance is braced
+			// v0.17.7: Z lit while an ultimate plays out, X while a Dash / Bash carries him, V while Assemble runs (Shift+X / Shift+Z name
+			// the move the shield picks)
 			boolean ult = s.animId >= SuperSoldierState.ANIM_BARRAGE_DASH && s.animId <= SuperSoldierState.ANIM_STORM_SLAM && now - s.animStart < 40;
-			boolean active = (slot == AbilitySlot.SLOT_4 && ult) || (slot == AbilitySlot.SLOT_5 && (s.assembleUntil > now || s.counterUntil > now));
+			boolean charge = s.animId >= SuperSoldierState.ANIM_DASH && s.animId <= SuperSoldierState.ANIM_SHIELD_BASH && now - s.animStart < 8;
+			boolean active = (slot == AbilitySlot.SLOT_4 && ult) || (slot == AbilitySlot.SLOT_3 && charge)
+					|| (slot == AbilitySlot.SLOT_5 && s.assembleUntil > now);
 			boolean usable = slot != AbilitySlot.SLOT_6 || shield;
 			st.slot(i, VanillaHud.keyLabel(slot), usable, shift, Math.min(1f, frac), VanillaHud.seconds(cd), Math.min(1f, otherFrac), active);
 		}
