@@ -37,10 +37,16 @@ public abstract class ShazamJourneyCameraMixin {
 			return;
 		}
 		double[] cam = JourneyClient.camera(player, partialTick);
+		boolean pov = JourneyClient.pov();
+		if (cam == null) {
+			// v0.17.7: the Black Panther Ancestral Plane's cutscenes share this camera hook
+			cam = com.projecthero.mod.client.blackpanther.plane.AncestralPlaneClient.camera(player, partialTick);
+			pov = com.projecthero.mod.client.blackpanther.plane.AncestralPlaneClient.pov();
+		}
 		if (cam == null) {
 			return;
 		}
-		this.detached = !JourneyClient.pov();
+		this.detached = !pov;
 		setRotation((float) cam[3], (float) cam[4]);
 		setPosition(new Vec3(cam[0], cam[1], cam[2]));
 	}

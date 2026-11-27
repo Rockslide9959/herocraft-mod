@@ -282,6 +282,7 @@
       "com.projecthero.mod.gametest.BlackPantherGameTests",
       "com.projecthero.mod.gametest.BlackPantherV0177GameTests",
       "com.projecthero.mod.gametest.BlackPantherSuitedV0177GameTests",
+      "com.projecthero.mod.gametest.BlackPantherPlaneV0177GameTests",
       "com.projecthero.mod.gametest.SaiyanGameTests",
       "com.projecthero.mod.gametest.SaiyanUltraInstinctGameTests",
       "com.projecthero.mod.gametest.BeamClashGameTests",

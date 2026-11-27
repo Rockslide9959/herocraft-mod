@@ -228,7 +228,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.speedforce.SpeedForceMod.clearSessionState();
 		// v0.16.5: Blue Beetle move sessions, bubbles, Adaptation counts, Khaji-Da's lines, lent flight
 		com.projecthero.mod.bluebeetle.BlueBeetleMod.clearSessionState();
-		com.projecthero.mod.blackpanther.BlackPantherMod.clearSessionState(); // v0.17.3
+		com.projecthero.mod.blackpanther.BlackPantherMod.clearSessionState(); // v0.17.3 (v0.17.7: + Ancestral Plane dreams, pending wake-ups, slot builds)
 		com.projecthero.mod.undead.UndeadMod.clearSessionState(); // v0.17.3
 		com.projecthero.mod.saiyan.SaiyanMod.clearSessionState(); // v0.17.3
 		com.projecthero.mod.spin.SpinMod.clearSessionState(); // v0.17.3: Spin -- marked creatures, Valkyrie calls, strikes, witnesses

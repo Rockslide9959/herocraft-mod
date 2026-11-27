@@ -227,17 +227,28 @@ public final class BlackPanther {
 		if (s.visionUntil > 0L) {
 			return false;
 		}
+		// v0.17.7 Ancestral Plane: not while the blessing is already on you, or mid-dream
+		if (com.projecthero.mod.blackpanther.plane.AncestralPlane.inPlane(player)) {
+			return false;
+		}
+		if (com.projecthero.mod.blackpanther.plane.BastBlessing.has(player)) {
+			say(player, "message.projecthero.black_panther.blessed_already", ChatFormatting.LIGHT_PURPLE);
+			return false;
+		}
 		return !com.projecthero.mod.hero.UniquePowers.refuse(player, KEY);
 	}
 
-	/** The soup is drunk: the Ancestral Plane opens. The power follows when it closes ({@link #tick}), even after a death. */
+	/**
+	 * The soup is drunk. v0.17.7 (user: "drinking this gives you Bast's Blessing for 1 minute / then player needs to sleep"): no
+	 * power and no 10 s vision any more -- Bast's Blessing for 60 s; falling asleep in a bed while it lasts opens the Ancestral
+	 * Plane ({@link com.projecthero.mod.blackpanther.plane.AncestralPlane}), which grants the power at its end.
+	 */
 	public static void drink(ServerPlayer player) {
-		BlackPantherState n = state(player).copy();
-		n.visionUntil = player.level().getGameTime() + BlackPantherConfig.VISION_TICKS;
-		save(player, n);
+		com.projecthero.mod.blackpanther.plane.BastBlessing.give(player);
 		ServerLevel level = (ServerLevel) player.level();
-		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 1.0f, 0.5f);
-		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.AMBIENT_CAVE.value(), SoundSource.PLAYERS, 0.8f, 0.6f);
+		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 0.8f, 0.6f);
+		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS, 1.0f, 0.7f);
+		level.sendParticles(PURPLE_BIG, player.getX(), player.getY() + 1.0, player.getZ(), 16, 0.4, 0.6, 0.4, 0.0);
 		player.displayClientMessage(Component.translatable("message.projecthero.black_panther.vision").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.ITALIC), false);
 	}
 

@@ -184,6 +184,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.thor.BifrostTravelClient.initialize(); // v0.17.7: Bifrost Travel cinematic -- axe arcs, rider screen flashes
 		com.projecthero.mod.client.thoracquire.ThorAcquireClient.initialize(); // v0.17.7: crater clouds, lift cutscene, Valor bar, Star Forge, the Destroyer
 		com.projecthero.mod.client.shazam.journey.JourneyClient.initialize(); // v0.17.7: Shazam journey -- illusion, train, cutscenes, prompt
+		com.projecthero.mod.client.blackpanther.plane.AncestralPlaneClient.initialize(); // v0.17.7: Black Panther Ancestral Plane -- sky, ancestors, shades, cutscenes, HUD
 		com.projecthero.mod.client.targetdummy.TargetDummyClient.initialize(); // v0.17.5 (user): Target Dummy numbers + readout
 		com.projecthero.mod.client.backpack.BackpackClient.initialize(); // v0.17.5 (user): backpack screen, worn layer, icons, Open Backpack key
 		com.projecthero.mod.client.powerarmour.PowerArmourClient.initialize(); // v0.17.5 (user): Power Armour -- voxel suit, frame, HUD, editor
