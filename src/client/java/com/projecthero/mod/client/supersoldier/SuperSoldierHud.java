@@ -57,6 +57,11 @@ public final class SuperSoldierHud {
 		if (s == null) {
 			return;
 		}
+		// v0.17.7 Thor x Super Soldier: a lent Mjolnir / Stormbreaker in hand -- the lent-weapon kit's boxes and move list
+		if (com.projecthero.mod.client.worthy.WorthyHud.owns(p)) {
+			com.projecthero.mod.client.worthy.WorthyHud.render(g, p);
+			return;
+		}
 		long now = mc.level.getGameTime();
 		// v0.17.5: a shield in the Battle Suit's slot always counts as held
 		boolean shield = SuperSoldierAbilities.shieldHand(p) != null || CapShieldSlot.hasThrowable(p);

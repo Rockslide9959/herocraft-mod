@@ -134,7 +134,18 @@ public final class MjolnirRecall {
 			return false;
 		}
 		MjolnirRegistry registry = MjolnirRegistry.get(player.serverLevel());
+		// v0.17.7 Thor x Super Soldier: everything R could call is lent to a squadmate -- say so (the weapon screen calls it back)
+		boolean hammerFree = ThorWeaponSelection.isActive(player, ThorWeapon.MJOLNIR)
+				&& !com.projecthero.mod.worthy.WorthyLending.lentOut(player, ThorWeapon.MJOLNIR);
+		boolean axeFree = ThorWeaponSelection.isActive(player, ThorWeapon.STORMBREAKER)
+				&& !com.projecthero.mod.worthy.WorthyLending.lentOut(player, ThorWeapon.STORMBREAKER);
 		ThorWeapon weapon = chooseWeapon(player);
+		if ((!hammerFree && !axeFree) || (weapon != null && boundId(player, weapon) == null
+				&& com.projecthero.mod.worthy.WorthyLending.lentOut(player, weapon.other()))) {
+			player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.projecthero.worthy.all_lent")
+					.withStyle(net.minecraft.ChatFormatting.GRAY), true);
+			return false;
+		}
 		if (weapon == null) {
 			// v0.17.7: both already on him -- R puts them in both hands (Twin Gods without the inventory juggling); a weapon
 			// still out on a throw comes back to its hand by itself, so nothing is moved then
@@ -158,6 +169,10 @@ public final class MjolnirRecall {
 		// the only weapon (rule 3); with both off there is nothing to call (call() says so before getting here).
 		boolean hammerOn = ThorWeaponSelection.isActive(player, ThorWeapon.MJOLNIR);
 		boolean axeOn = ThorWeaponSelection.isActive(player, ThorWeapon.STORMBREAKER);
+		// v0.17.7 Thor x Super Soldier: a weapon lent to a squadmate is left with him -- it comes back through the weapon screen's
+		// Call back (WorthyLending.callBack), never by R, which would otherwise tear it out of his hands whenever it is the nearer one
+		hammerOn &= !com.projecthero.mod.worthy.WorthyLending.lentOut(player, ThorWeapon.MJOLNIR);
+		axeOn &= !com.projecthero.mod.worthy.WorthyLending.lentOut(player, ThorWeapon.STORMBREAKER);
 		if (!hammerOn && !axeOn) {
 			return null;
 		}
@@ -193,6 +208,17 @@ public final class MjolnirRecall {
 		double toAxe = distanceTo(player, registry, ThorWeapon.STORMBREAKER, axeId);
 		// a tie (both unreachable included) goes to Mjolnir, whose "no hammer" feedback is the familiar one
 		return toAxe < toHammer ? ThorWeapon.STORMBREAKER : ThorWeapon.MJOLNIR;
+	}
+
+	/**
+	 * v0.17.7 Thor x Super Soldier: brings back one specific weapon ({@code hammerId}) -- a lent one being called back or returned
+	 * ({@code worthy.WorthyLending.end}) -- through the same resolution as R (torn from the holder's hand / pack, a loaded entity or
+	 * container, else rebuilt at a new generation so the old copy retires itself), ignoring the N selector.
+	 *
+	 * @return true if it is on its way (or already with him)
+	 */
+	public static boolean callBack(ServerPlayer player, ThorWeapon weapon, UUID hammerId) {
+		return callWeapon(player, MjolnirRegistry.get(player.serverLevel()), weapon, hammerId);
 	}
 
 	/** The id of the weapon of this kind bound to {@code player}, or null. */

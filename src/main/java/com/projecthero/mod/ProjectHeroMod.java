@@ -179,6 +179,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.shazam.ShazamMod.initialize(); // v0.17.3: Shazam -- the word, the Wizard, damage, flight payload
 		com.projecthero.mod.doctorfate.DoctorFateMod.initialize(); // v0.17.3: Doctor Fate -- items, Tomb of Nabu, damage, payloads
 		com.projecthero.mod.vision.VisionMod.initialize(); // v0.17.3: Vision -- the Synthezoid Cradle, damage, flight payload
+		com.projecthero.mod.worthy.WorthyMod.initialize(); // v0.17.7: Thor x Super Soldier -- lending Mjolnir / Stormbreaker, the lent-weapon kits
 		com.projecthero.mod.sentry.SentryMod.initialize(); // v0.17.5: Sentry & the Void -- serum, vat, void matter, gamerule, payloads
 		com.projecthero.mod.beamclash.BeamClash.initialize(); // v0.17.3
 		com.projecthero.mod.saiyan.kit.SaiyanSpiritBomb.initialize(); // v0.17.3: the Spirit Bomb (Shift+Z)

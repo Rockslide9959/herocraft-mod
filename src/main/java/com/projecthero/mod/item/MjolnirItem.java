@@ -148,6 +148,12 @@ public class MjolnirItem extends Item {
 	public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
 		ItemStack stack = player.getItemInHand(hand);
 
+		// v0.17.7 Thor x Super Soldier: a Super Soldier's lent Mjolnir -- the kit's throw (or the shield's block in the dual kit)
+		InteractionResultHolder<ItemStack> lent = com.projecthero.mod.worthy.WorthyKit.use(level, player, hand);
+		if (lent != null) {
+			return lent;
+		}
+
 		if (hand != InteractionHand.MAIN_HAND) {
 			return InteractionResultHolder.pass(stack);
 		}

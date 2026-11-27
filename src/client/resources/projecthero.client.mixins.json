@@ -178,6 +178,8 @@
 		"ItemInHandRendererShazamMixin",
 		"ShazamPoseMixin",
 		"SuperSoldierBodyMixin",
+		"WorthyPoseMixin",
+		"ItemInHandRendererWorthyMixin",
 		"BeamClashInputMixin",
 		"BeamClashKeyMixin",
 		"RyukoFirstPersonArmMixin",

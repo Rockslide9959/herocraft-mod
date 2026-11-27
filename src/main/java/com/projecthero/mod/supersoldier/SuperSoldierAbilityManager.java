@@ -53,6 +53,10 @@ public final class SuperSoldierAbilityManager {
 	}
 
 	public static void handle(ServerPlayer player, AbilitySlot slot, boolean pressed) {
+		// v0.17.7 Thor x Super Soldier: holding a lent Mjolnir / Stormbreaker, the lent-weapon kit owns the keys
+		if (com.projecthero.mod.worthy.WorthyKit.handle(player, slot, pressed)) {
+			return;
+		}
 		if (!pressed) {
 			return;
 		}

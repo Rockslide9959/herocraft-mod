@@ -1075,7 +1075,8 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 		if (getState() != State.RESTING || pickupDelay > 0) {
 			return net.minecraft.world.InteractionResult.PASS;
 		}
-		if (Worthiness.canLift(player)) {
+		// v0.17.7 Thor x Super Soldier: the Super Soldier it is lent to may pick it back up
+		if (Worthiness.canLift(player) || com.projecthero.mod.worthy.WorthyLending.mayLift(player, getItem())) {
 			if (giveTo(player, null, false)) {
 				level().playSound(null, player.blockPosition(), SoundEvents.ITEM_PICKUP, SoundSource.PLAYERS, 1.0f, 1.2f);
 				this.discard();

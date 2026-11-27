@@ -218,6 +218,7 @@
       "com.projecthero.mod.gametest.SuperSoldierGameTests",
       "com.projecthero.mod.gametest.SuperSoldierShieldAimGameTests",
       "com.projecthero.mod.gametest.SuperSoldierKitV0177GameTests",
+      "com.projecthero.mod.gametest.WorthyLendV0177GameTests",
       "com.projecthero.mod.gametest.V0148MiscGameTests",
       "com.projecthero.mod.gametest.KryptonianGameTests",
       "com.projecthero.mod.gametest.DirectionalFlightGameTests",

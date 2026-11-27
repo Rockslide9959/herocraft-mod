@@ -177,6 +177,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.doctorfate.DoctorFateClient.initialize(); // v0.17.3: Doctor Fate -- HUD, suit, Avatar, bargains, possession
 		com.projecthero.mod.client.sentry.SentryClient.initialize(); // v0.17.5: Sentry & the Void -- suit, HUD, beam, takeover view, Shame Rooms
 		com.projecthero.mod.client.vision.VisionClient.initialize(); // v0.17.3: Vision -- suit, hologram, cape, HUD, beams
+		com.projecthero.mod.client.worthy.WorthyClient.initialize(); // v0.17.7: Thor x Super Soldier -- the lend click, the thrown lent weapon
 		com.projecthero.mod.client.saiyan.kit.SpiritBombFx.initialize(); // v0.17.3: the Spirit Bomb's look and sound
 		com.projecthero.mod.client.saiyan.kit.SaiyanKitClient.initialize(); // v0.17.3 Saiyan revamp: the move kit's effects and poses
 		com.projecthero.mod.client.beamclash.BeamClashClient.initialize(); // v0.17.3
@@ -1612,6 +1613,13 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		if (!player.onGround() && ThorPowers.wieldsThorWeapon(player)) {
 			ticksSinceJumpPress = Integer.MAX_VALUE;
 			ClientPlayNetworking.send(new ThorActionPayload(ThorActionPayload.Action.TOGGLE_FLIGHT));
+			return;
+		}
+
+		// v0.17.7 Thor x Super Soldier: a Super Soldier with a lent Mjolnir / Stormbreaker -- double-tap Space in the air takes off / lands
+		if (com.projecthero.mod.client.worthy.WorthyClient.wantsFlightToggle(player)) {
+			ticksSinceJumpPress = Integer.MAX_VALUE;
+			com.projecthero.mod.client.worthy.WorthyClient.toggleFlight();
 			return;
 		}
 

@@ -184,6 +184,10 @@ public final class ThorPowers {
 	 * carrying Stormbreaker must keep their own mutation keys and HUD. Worthiness is synced to the owning client.
 	 */
 	public static boolean wieldsThorWeapon(Player player) {
+		// v0.17.7 Thor x Super Soldier: a Super Soldier holding a LENT weapon keeps his own keys and HUD (the lent-weapon kit)
+		if (!Worthiness.isWorthy(player) && com.projecthero.mod.worthy.WorthyLending.lentHand(player) != null) {
+			return false;
+		}
 		// v0.17.7: and while a weapon is out on a scripted throw (Twin Throw, Judgement, Ragnarok), so keys and HUD stay Thor's
 		return isHoldingMjolnir(player) || (isHoldingStormbreaker(player) && Worthiness.isWorthy(player))
 				|| (ThorThrown.any(player) && Worthiness.isWorthy(player));

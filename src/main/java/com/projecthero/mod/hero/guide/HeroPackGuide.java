@@ -1096,6 +1096,12 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.thor.dual.call");
 			para(lines, "projecthero.guide.thor.dual.thrown");
 			para(lines, "projecthero.guide.thor.dual.twin_thunder");
+			// v0.17.7 Thor x Super Soldier: lending Mjolnir / Stormbreaker to a Super Soldier squadmate, and calling it back
+			blank(lines);
+			head(lines, "projecthero.guide.thor.lend");
+			para(lines, "projecthero.guide.thor.lend.body");
+			para(lines, "projecthero.guide.thor.lend.recall");
+			para(lines, "projecthero.guide.thor.lend.rules");
 			// v0.16.1: the thunderstorm buff
 			blank(lines);
 			head(lines, "projecthero.guide.thor.storm");
@@ -1749,6 +1755,24 @@ public final class HeroPackGuide {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.super_soldier.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
 				para(lines, "projecthero.super_soldier.ability." + row[1] + ".desc");
+			}
+			// v0.17.7 Thor x Super Soldier: a lent Mjolnir / Stormbreaker -- the two movesets and flight
+			blank(lines);
+			head(lines, "projecthero.guide.super_soldier.worthy");
+			para(lines, "projecthero.guide.super_soldier.worthy.body");
+			para(lines, "projecthero.guide.super_soldier.worthy.flight");
+			for (com.projecthero.mod.worthy.WorthyKit.Kit kit : new com.projecthero.mod.worthy.WorthyKit.Kit[] {
+					com.projecthero.mod.worthy.WorthyKit.Kit.MJOLNIR, com.projecthero.mod.worthy.WorthyKit.Kit.STORMBREAKER,
+					com.projecthero.mod.worthy.WorthyKit.Kit.SHIELD_MJOLNIR }) {
+				blank(lines);
+				head(lines, "projecthero.guide.super_soldier.worthy." + kit.id);
+				for (String[] row : com.projecthero.mod.worthy.WorthyKit.guideRows(kit)) {
+					String key = row[1].equals(com.projecthero.mod.worthy.WorthyKit.SHIELD_THROW)
+							? "projecthero.super_soldier.ability." + row[1] : "projecthero.worthy.ability." + row[1];
+					lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
+							.append(Component.translatable(key).withStyle(ChatFormatting.WHITE)));
+					para(lines, key + ".desc");
+				}
 			}
 			blank(lines);
 			head(lines, "projecthero.guide.super_soldier.commands");

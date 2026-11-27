@@ -233,6 +233,10 @@ public final class WeaponComboPose {
 			return;
 		}
 		int weapon = WeaponCombo.comboWeapon(player);
+		// v0.17.7 Thor x Super Soldier: a lent weapon has no Thor combo (WeaponCombo.beforeAttack skips it too)
+		if (com.projecthero.mod.worthy.WorthyLending.lentHand(player) != null) {
+			return;
+		}
 		if (weapon == WeaponComboState.WEAPON_NONE || player.getAttackStrengthScale(0.5f) < WeaponCombo.MIN_STRENGTH) {
 			return;
 		}

@@ -44,6 +44,8 @@ public final class ThorWeaponScreen extends Screen {
 	private static final int ROW_OFF = 0x40181C2C;
 
 	private final Button[] toggles = new Button[ThorWeapon.values().length];
+	/** v0.17.7 Thor x Super Soldier: per weapon, the Call back button shown (instead of the toggle) while it is lent to a squadmate. */
+	private final Button[] callBacks = new Button[ThorWeapon.values().length];
 	private List<FormattedCharSequence> intro = List.of();
 	private List<FormattedCharSequence> warning = List.of();
 	private int panelH;
@@ -65,6 +67,12 @@ public final class ThorWeaponScreen extends Screen {
 		Player p = player();
 		return p != null && p.getAttachedOrElse(weapon == ThorWeapon.STORMBREAKER
 				? ModAttachments.BOUND_STORMBREAKER_ID : ModAttachments.BOUND_HAMMER_ID, null) != null;
+	}
+
+	/** v0.17.7 Thor x Super Soldier: the squadmate {@code weapon} is lent to (the synced view of the loans), or null. */
+	private static String lentTo(ThorWeapon weapon) {
+		Player p = player();
+		return p == null ? null : com.projecthero.mod.worthy.WorthyState.of(p).lentTo(weapon.ordinal());
 	}
 
 	private int left() {
@@ -93,6 +101,10 @@ public final class ThorWeaponScreen extends Screen {
 			int y = y0 + weapon.ordinal() * ROW_H;
 			toggles[weapon.ordinal()] = addRenderableWidget(Button.builder(label(weapon), b -> toggle(weapon))
 					.bounds(l + PANEL_W - 82, y + 5, 70, 18).build());
+			callBacks[weapon.ordinal()] = addRenderableWidget(Button.builder(
+					Component.translatable("screen.projecthero.thor_weapons.call_back").withStyle(ChatFormatting.GOLD),
+					b -> com.projecthero.mod.client.worthy.WorthyClient.callBack(weapon))
+					.bounds(l + PANEL_W - 82, y + 5, 70, 18).build());
 		}
 		addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
 				.bounds(l + PANEL_W - 62, top() + panelH - 24, 52, 18).build());
@@ -108,7 +120,17 @@ public final class ThorWeaponScreen extends Screen {
 	private void refresh() {
 		for (ThorWeapon weapon : ThorWeapon.values()) {
 			Button button = toggles[weapon.ordinal()];
+			Button back = callBacks[weapon.ordinal()];
+			String lent = lentTo(weapon);
+			if (back != null) {
+				back.visible = lent != null;
+				if (lent != null) {
+					back.setTooltip(Tooltip.create(Component.translatable("screen.projecthero.thor_weapons.tip_call_back",
+							Component.translatable(weapon.item().getDescriptionId()), lent)));
+				}
+			}
 			if (button != null) {
+				button.visible = lent == null;
 				button.setMessage(label(weapon));
 				button.setTooltip(Tooltip.create(Component.translatable(active(weapon)
 						? "screen.projecthero.thor_weapons.tip_off" : "screen.projecthero.thor_weapons.tip_on",
@@ -175,9 +197,16 @@ public final class ThorWeaponScreen extends Screen {
 			}
 			g.drawString(this.font, Component.translatable(weapon.item().getDescriptionId()), l + 36, ry + 5,
 					on ? TEXT : MUTED, false);
-			g.drawString(this.font, Component.translatable(bound(weapon)
-							? "screen.projecthero.thor_weapons.bound" : "screen.projecthero.thor_weapons.unbound"),
-					l + 36, ry + 16, bound(weapon) ? GOLD_DIM : 0xFF6A6F80, false);
+			String lent = lentTo(weapon);
+			if (lent != null) {
+				// v0.17.7 Thor x Super Soldier: who has it (trimmed to the space left of the button)
+				String line = Component.translatable("screen.projecthero.thor_weapons.lent_to", lent).getString();
+				g.drawString(this.font, this.font.plainSubstrByWidth(line, PANEL_W - 36 - 90), l + 36, ry + 16, ACTIVE, false);
+			} else {
+				g.drawString(this.font, Component.translatable(bound(weapon)
+								? "screen.projecthero.thor_weapons.bound" : "screen.projecthero.thor_weapons.unbound"),
+						l + 36, ry + 16, bound(weapon) ? GOLD_DIM : 0xFF6A6F80, false);
+			}
 		}
 		boolean none = true;
 		for (ThorWeapon weapon : ThorWeapon.values()) {
