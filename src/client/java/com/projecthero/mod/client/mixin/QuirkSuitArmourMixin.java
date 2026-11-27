@@ -29,6 +29,7 @@ public abstract class QuirkSuitArmourMixin {
 				|| entity.getItemBySlot(slot).getItem() instanceof com.projecthero.mod.spin.GyroSuitItem // v0.17.4: Gyro's suit
 				|| entity.getItemBySlot(slot).getItem() instanceof com.projecthero.mod.sentry.item.SentrySuitItem // v0.17.5: the Sentry Suit
 				|| entity.getItemBySlot(slot).getItem() instanceof com.projecthero.mod.supersoldier.item.CapBattleSuitItem // v0.17.5: Cap's Battle Suit
+				|| entity.getItemBySlot(slot).getItem() instanceof com.projecthero.mod.supersoldier.item.SuperSoldierArmorItem // v0.17.7: the Captain America suit
 				|| com.projecthero.mod.sentry.Sentry.inTakeover(entity)) { // v0.17.5: the Void's body is all black, armour included
 			ci.cancel();
 		}

@@ -158,8 +158,23 @@ back-sling attachment.
 ## Captain America suit (v0.14.9)
 
 - Items `captain_america_helmet` / `_chestplate` / `_leggings` / `_boots` (`SuperSoldierArmorItem`, set id
-  `captain_america`). Material `projecthero:captain_america`: 3 / 7 / 6 / 2 = 18 armour (iron 15, diamond 20), toughness
-  1.0, no knockback resistance, enchantability 12, durability multiplier 25, repaired with iron ingots, iron equip sound.
+  `captain_america`). Material `projecthero:captain_america`: **v0.17.7 diamond level**, 3 / 8 / 6 / 3 = 20 armour, toughness
+  2.0 each (was 3 / 7 / 6 / 2, 1.0), no knockback resistance, enchantability 12, durability multiplier 25, repaired with iron
+  ingots, iron equip sound.
+- **v0.17.7 look** (user: "make this the new captain America armour please:
+  https://www.planetminecraft.com/skin/captain-america-classic-6692155/ Remove the shield from the back of the suit and dont make the
+  armour bulky please like how it is right now, armour should be diamond level"): the bulky GeckoLib model below is gone
+  (`geo/captain_america.geo.json`, `textures/armor/captain_america.png` deleted; `SuperSoldierArmorItem` is a plain `ArmorItem` now).
+  The suit is a skin costume drawn skin-tight by `QuirkCostume` (the Battle Suit path: base layer 0.02 px over the body, outer layer
+  at vanilla's hat / jacket / sleeve / trouser offsets; helmet = head + hat, chestplate = body + arms + first-person sleeve,
+  leggings = legs above leg row 7, boots = row 7 down; the wearer's own outer layer hidden only under worn pieces);
+  `QuirkSuitArmourMixin` skips the vanilla armour layer. Textures `textures/entity/supersoldier/captain_america_wide/_slim.png` from
+  `scratchpad/v0177/make_cap_suit.js` (source `scratchpad/v0177/cap_skin_original.png`, PMC file 19513766, wide arms, never
+  modified): the shield painted on the jacket's back (u 32-39, v 37-44, second layer only) cleared, the plain strap band under it
+  (base v 21) repainted with the back's scale-mail row; skin-tone texels of the head / hat and the mask's painted eyes cleared so the
+  wearer's eyes, nose and mouth show in the cowl's opening (the cowl's hat layer hides the wearer's hair); slim = each 4-wide arm face
+  drops its most-alike middle column. Previews: `docs/screenshots/v0177/cap_suit/`. Borrowed skin, ships publicly.
+- (v0.14.9, replaced in v0.17.7) The old look:
 - Recipes (shaped): helmet `BWB / I I`; chestplate `I I / BWB / RBR`; leggings `BIB / B B / L L`; boots `R R / L L`
   (B blue wool, W white wool, R red wool, I iron ingot, L leather).
 - Model: the user's `captainamerica.bbmodel` converted by `scratchpad/gen_supersoldier_v0149.js` into

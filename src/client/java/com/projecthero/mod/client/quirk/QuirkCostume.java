@@ -202,6 +202,10 @@ public final class QuirkCostume {
 			Tex borrowed = tex(com.projecthero.mod.supersoldier.item.CapBattleSuitItem.texture(slim));
 			return borrowed != null ? borrowed : tex(com.projecthero.mod.supersoldier.item.CapBattleSuitItem.originalTexture(slim));
 		}
+		// v0.17.7: the Captain America suit (was a bulky GeckoLib model), skin-tight from its PlanetMinecraft skin
+		if (com.projecthero.mod.supersoldier.item.SuperSoldierArmorItem.wornIn(entity, slot)) {
+			return tex(com.projecthero.mod.supersoldier.item.SuperSoldierArmorItem.texture(slim(entity)));
+		}
 		Quirk q = QuirkSuits.wornIn(entity, slot);
 		return q == null ? null : tex(q, slim(entity));
 	}
@@ -347,7 +351,8 @@ public final class QuirkCostume {
 		boolean bird = birdHead(entity);
 		if (!bird && !QuirkSuits.anyWorn(entity) && !com.projecthero.mod.undead.item.UndeadSuitItem.anyWorn(entity)
 				&& !com.projecthero.mod.spin.GyroSuitItem.anyWorn(entity)
-				&& !com.projecthero.mod.supersoldier.item.CapBattleSuitItem.anyWorn(entity)) {
+				&& !com.projecthero.mod.supersoldier.item.CapBattleSuitItem.anyWorn(entity)
+				&& !com.projecthero.mod.supersoldier.item.SuperSoldierArmorItem.anyWorn(entity)) {
 			return;
 		}
 		beginUndead(entity);
