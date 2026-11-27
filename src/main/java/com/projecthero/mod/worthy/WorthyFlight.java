@@ -15,8 +15,8 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * v0.17.7 Thor x Super Soldier (user: "super soldier should be able to fly with Mjolnir or stormbreaker"): a Super Soldier holding a
- * lent Mjolnir or Stormbreaker flies like Thor -- <b>double-tap Space</b> in the air takes off (a little lift, the hammer whirled
- * overhead: {@code WorthyPose}'s spin-up), the shared directional flight moves him (client {@code DirectionalFlight}: W along the
+ * lent Mjolnir or Stormbreaker flies like Thor -- <b>double-tap Space</b> in the air takes off (a little lift and straight into the
+ * flight pose: v0.17.7 the whirl spin-up is gone), the shared directional flight moves him (client {@code DirectionalFlight}: W along the
  * look, Sprint faster, a dead hover with no input), Thor's flight pose with the weapon raised ({@code FlightPoseHelper} counts this as
  * Thor flight while a Thor weapon is in hand). A little slower than Thor: 15 b/s cruise, 30 sprinting with Mjolnir (Thor 18 / 36),
  * 13 / 26 with Stormbreaker; X while flying is the Flight Boost (x1.5). Free (he has no Storm Energy). It ends on landing, another
@@ -67,9 +67,11 @@ public final class WorthyFlight {
 			n.flying = true;
 			n.flyStart = now;
 			n.flyToggleReady = now + WorthyConfig.FLIGHT_TOGGLE_CD;
-			n.anim = WorthyState.ANIM_TAKEOFF;
-			n.animStart = now;
-			n.animOff = WorthyLending.lentHand(p) == net.minecraft.world.InteractionHand.OFF_HAND;
+			// v0.17.7 (user: "remove the hammer spinning animation when flight starts"): no whirl spin-up -- straight into Thor's flight
+			// pose; a Launch's raised-weapon clip is cut off here too (any other move's animation plays on)
+			if (n.anim == WorthyState.ANIM_TAKEOFF || n.anim == WorthyState.ANIM_LAUNCH) {
+				n.anim = WorthyState.ANIM_NONE;
+			}
 		});
 		grant(p);
 		p.resetFallDistance();

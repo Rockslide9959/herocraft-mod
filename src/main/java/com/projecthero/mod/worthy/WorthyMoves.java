@@ -47,6 +47,8 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class WorthyMoves {
 	private static final ResourceLocation MELEE_ID = ResourceLocation.fromNamespaceAndPath("projecthero", "worthy_melee");
+	/** The Super Soldier's own melee modifier ({@code SuperSoldier.UNARMED_ID}: bare-hand / held-item bonus). */
+	private static final ResourceLocation SUPER_SOLDIER_MELEE_ID = com.projecthero.mod.hero.power.PowerToggles.id("super_soldier_unarmed");
 
 	private WorthyMoves() {
 	}
@@ -129,8 +131,11 @@ public final class WorthyMoves {
 		return e != p && e.isAlive() && HeroTargets.canHarm(p, e);
 	}
 
-	/** One hit: squad-safe, boss-capped, then the knockback / lift (never on a boss). */
-	static boolean hit(ServerPlayer p, LivingEntity target, float damage, Vec3 origin, double knockback, double lift) {
+	/**
+	 * One hit: squad-safe, boss-capped, then the knockback / lift (never on a boss). Deliberately NOT {@code SuperSoldierAbilities.strike}:
+	 * the Super Soldier's own MAX_HIT (20) does not clamp a god's lent weapon (v0.17.7, Shazam's scale). Public for the tests.
+	 */
+	public static boolean hit(ServerPlayer p, LivingEntity target, float damage, Vec3 origin, double knockback, double lift) {
 		if (!canHit(p, target)) {
 			return false;
 		}
@@ -1064,7 +1069,11 @@ public final class WorthyMoves {
 		boolean axe = ThorWeapon.of(main) == ThorWeapon.STORMBREAKER;
 		double item = axe ? com.projecthero.mod.stormbreaker.StormbreakerItem.ATTACK_DAMAGE_BONUS : WorthyConfig.MJOLNIR_ITEM_BONUS;
 		double target = axe ? WorthyConfig.STORMBREAKER_MELEE : WorthyConfig.MJOLNIR_MELEE;
-		double delta = target - (attack.getBaseValue() + item + SuperSoldierConfig.ARMED_BONUS);
+		// v0.17.7: the Super Soldier's own held-item bonus read from his live modifier (whatever value it has now), so the hit stays
+		// exactly WorthyConfig's number however that bonus is tuned; no modifier yet = the config's armed bonus
+		AttributeModifier own = attack.getModifier(SUPER_SOLDIER_MELEE_ID);
+		double ownBonus = own != null && own.operation() == AttributeModifier.Operation.ADD_VALUE ? own.amount() : SuperSoldierConfig.ARMED_BONUS;
+		double delta = target - (attack.getBaseValue() + item + ownBonus);
 		if (cur == null || cur.amount() != delta) {
 			attack.addOrUpdateTransientModifier(new AttributeModifier(MELEE_ID, delta, AttributeModifier.Operation.ADD_VALUE));
 		}

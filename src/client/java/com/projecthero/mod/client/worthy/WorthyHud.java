@@ -5,11 +5,13 @@ import java.util.List;
 
 import com.projecthero.mod.client.gui.MoveListOverlay;
 import com.projecthero.mod.client.gui.VanillaHud;
+import com.projecthero.mod.hammer.ThorWeapon;
 import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.supersoldier.SuperSoldier;
 import com.projecthero.mod.supersoldier.SuperSoldierAbilityManager;
 import com.projecthero.mod.worthy.WorthyFlight;
 import com.projecthero.mod.worthy.WorthyKit;
+import com.projecthero.mod.worthy.WorthyLending;
 import com.projecthero.mod.worthy.WorthyMoves;
 import com.projecthero.mod.worthy.WorthyState;
 
@@ -34,6 +36,33 @@ public final class WorthyHud {
 
 	public static boolean owns(Player p) {
 		return SuperSoldier.hasPower(p) && WorthyKit.kit(p) != WorthyKit.Kit.NONE;
+	}
+
+	// ---- v0.17.7: R as the call ("Call Mjolnir" / "Call Stormbreaker") while a lent weapon is not in his hands -- the normal Super
+	// Soldier HUD (SuperSoldierHud) asks these for its R box, a tag and the Alt list's R row
+
+	/** The weapon his R calls right now, or null (R is his own move). */
+	@org.jetbrains.annotations.Nullable
+	public static ThorWeapon callWeapon(Player p) {
+		WorthyState.Borrowed b = WorthyLending.callTarget(p);
+		return b == null ? null : WorthyLending.weaponOf(b);
+	}
+
+	public static int callCooldown(Player p) {
+		return WorthyMoves.cooldownRemaining(p, WorthyKit.CALL_WEAPON);
+	}
+
+	public static float callFrac(Player p) {
+		return Math.min(1f, callCooldown(p) / (float) Math.max(1, WorthyKit.maxCooldown(WorthyKit.CALL_WEAPON)));
+	}
+
+	public static Component callName(ThorWeapon weapon) {
+		return Component.translatable("projecthero.worthy.ability." + WorthyKit.callNameId(weapon));
+	}
+
+	/** The gold "R: Call Mjolnir" tag. */
+	public static VanillaHud.Tag callTag(ThorWeapon weapon) {
+		return new VanillaHud.Tag(Component.translatable("hud.projecthero.worthy.call_tag", callName(weapon)).getString(), GOLD);
 	}
 
 	public static void render(GuiGraphics g, Player p) {

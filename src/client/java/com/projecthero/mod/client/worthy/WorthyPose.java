@@ -16,7 +16,8 @@ import net.minecraft.world.entity.player.Player;
  * v0.17.7 Thor x Super Soldier: the lent-weapon moves' animations, keyed off the synced {@link WorthyState#anim} / {@code animStart}
  * so every viewer sees the same thing. The {@code SuperSoldierPose} clip technique (anticipation, a SNAP into the strike, follow-through,
  * recovery faded back to vanilla; the twist carries the shoulders, the lean bends from the hips, a crouch uses the sneak offsets),
- * with Thor's weapon language: the hammer whirled overhead (take-off, Launch, Whirl Guard -- a procedural spin on top of the clip),
+ * with Thor's weapon language: the hammer spun in front (Whirl Guard -- a procedural spin on top of the clip; v0.17.7 the take-off and
+ * Launch no longer whirl it),
  * raised to the sky to call lightning, driven into the ground, hurled and caught.
  * <p>
  * Clips are written for the WEAPON arm as the right arm ("lead") and the shield / free arm as the left; a left-handed player, or a
@@ -96,7 +97,7 @@ public final class WorthyPose {
 	private static final Clip DASH = clip(12f, 0.5f, 3f,
 			k(1.5f, SNAP, -1.6f, 0f, 0f, 0.6f, 0f, -0.3f, 0f, 0.5f, 0.6f, -0.8f, 0.1f),
 			k(8f, LINEAR, -1.6f, 0f, 0f, 0.6f, 0f, -0.3f, 0f, 0.5f, 0.6f, -0.8f, 0.1f));
-	/** The whirl overhead (take-off, Launch): the spin itself is added procedurally ({@link #whirl}). */
+	/** The Launch: the weapon raised overhead (v0.17.7: no longer spun -- "remove the hammer spinning animation when flight starts"). */
 	private static final Clip WHIRL_UP = clip(16f, 1f, 4f,
 			kh(1.5f, SMOOTH, -2.9f, 0f, 0.2f, -0.3f, 0f, -0.45f, 0f, -0.1f, 0f, 0f, 0.25f, -0.3f),
 			kh(11f, LINEAR, -2.95f, 0f, 0.2f, -0.3f, 0f, -0.5f, 0f, -0.1f, -0.3f, 0.1f, 0f, -0.3f));
@@ -295,11 +296,9 @@ public final class WorthyPose {
 
 	/** The procedural spin on top of the whirl clips: the weapon arm circling overhead, or the weapon spun in front (the guard). */
 	private static void whirl(int anim, float age, float[] pose) {
-		if (anim == WorthyState.ANIM_TAKEOFF || anim == WorthyState.ANIM_LAUNCH) {
-			float a = age * 2.4f;
-			pose[RY] += Mth.sin(a) * 0.55f;
-			pose[RZ] += Mth.cos(a) * 0.3f;
-		} else if (anim == WorthyState.ANIM_GUARD) {
+		// v0.17.7 (user: "remove the hammer spinning animation when flight starts"): the take-off / Launch no longer spin the weapon --
+		// the Launch just raises it, the take-off goes straight into the flight pose
+		if (anim == WorthyState.ANIM_GUARD) {
 			float a = age * 2.8f;
 			pose[RZ] += Mth.sin(a) * 0.45f;
 			pose[RX] += Mth.cos(a) * 0.3f;
@@ -521,7 +520,7 @@ public final class WorthyPose {
 		for (int j = 0; j < 6; j++) {
 			v[j] = d[j] * w;
 		}
-		if (lead && (s.anim == WorthyState.ANIM_TAKEOFF || s.anim == WorthyState.ANIM_LAUNCH || s.anim == WorthyState.ANIM_GUARD)) {
+		if (lead && s.anim == WorthyState.ANIM_GUARD) { // v0.17.7: the take-off / Launch whirl is gone
 			v[5] += (float) (age * 60.0 % 360.0) * w; // the whirl
 		}
 		pose.translate(side * v[0], v[1], v[2]);

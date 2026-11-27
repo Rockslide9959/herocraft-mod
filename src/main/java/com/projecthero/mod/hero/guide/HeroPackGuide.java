@@ -1760,7 +1760,9 @@ public final class HeroPackGuide {
 			blank(lines);
 			head(lines, "projecthero.guide.super_soldier.worthy");
 			para(lines, "projecthero.guide.super_soldier.worthy.body");
+			para(lines, "projecthero.guide.super_soldier.worthy.call"); // v0.17.7: R calls the lent weapon to your hand
 			para(lines, "projecthero.guide.super_soldier.worthy.flight");
+			para(lines, "projecthero.guide.super_soldier.worthy.power"); // v0.17.7: Shazam-scale damage
 			for (com.projecthero.mod.worthy.WorthyKit.Kit kit : new com.projecthero.mod.worthy.WorthyKit.Kit[] {
 					com.projecthero.mod.worthy.WorthyKit.Kit.MJOLNIR, com.projecthero.mod.worthy.WorthyKit.Kit.STORMBREAKER,
 					com.projecthero.mod.worthy.WorthyKit.Kit.SHIELD_MJOLNIR }) {

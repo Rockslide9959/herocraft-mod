@@ -262,8 +262,9 @@ The Super Soldier side (the two lent-weapon movesets, flight) is in SUPERSOLDIER
 - **Lend** (`WorthyLending.lend`, from a `UseEntityCallback`): a worthy player holding Mjolnir or Stormbreaker (main hand first, else
   the off hand) sneak + right-clicks a player. Accepted only for a Super Soldier who is a squadmate (`Squads.areAllies`) and a weapon
   bound to the lender (`BOUND_OWNER` = him; it stays bound -- the lender keeps ownership). Refusals (not bound / not a Super Soldier /
-  not in the squad) are an action-bar line + a soft anvil, nothing moves. The stack MOVES into the Super Soldier's main hand; the
-  displaced item goes to his pack (after the weapon is in, so it can't land in the same slot) or drops at his feet -- never deleted.
+  not in the squad) are an action-bar line + a soft anvil, nothing moves. The stack MOVES into the Super Soldier's PACK (v0.17.7:
+  a free slot that is not the selected one, backpack rows first; with a full pack it lies at his feet as the callable entity), never
+  his hand: his plain R becomes "Call Mjolnir" / "Call Stormbreaker" while it is not in his hands (SUPERSOLDIER_REFERENCE.md).
   Visual bolt on him, a spark line between them, beacon + trident thunder; a chat line for each. One weapon or both, to the same or
   different Super Soldiers. The client callback consumes every sneak + right-click on a player with a Thor weapon in hand, so it is
   never the Mjolnir bind toggle (`MjolnirItem.use` never sees it).
@@ -279,6 +280,10 @@ The Super Soldier side (the two lent-weapon movesets, flight) is in SUPERSOLDIER
   A weapon out on one of his throws (`ThorThrown`) is handed back to his hand first.
 - **R leaves lent weapons alone**: `MjolnirRecall.chooseWeapon` treats a lent weapon as inactive; `call` says "Your weapons are lent to
   your squad..." (`message.projecthero.worthy.all_lent`) when nothing else is callable.
+- **The borrower's call** (v0.17.7): `MjolnirRecall.summonLent(holder, weapon, id)` -- `callWeapon` with `lent = true`, which only skips
+  the record-owner check (the weapon stays bound to Thor). Same resolution, so it can pull the weapon out of Thor's own hands or pack
+  while it is lent. `ThorWeaponHands.plan` / `place`: a called weapon that is lent to the catcher (`WorthyLending.borrowsKind`) always
+  lands in his MAIN hand (`putMainForDual`); Thor's own arrivals are unchanged.
 - **Other ends** (`WorthyLending.validate`, every 20 server ticks for every online player in a loan; `end(server, loan, reason)`): no
   longer squadmates (left / kicked / disbanded -- `SquadManager.sameSquad` by UUID, works with one of them offline), the borrower lost
   the Super Soldier power, the stack got bound to someone else; and the borrower's death (`ALLOW_DEATH`, before anything drops,

@@ -25,6 +25,8 @@ import net.minecraft.world.level.Level;
  * weapon; a shield in the other hand, in the Battle Suit's slot, or out on a throw of his = the shield + weapon kit. While he has a
  * kit it owns R / G / Z / X / V / C ({@code SuperSoldierAbilityManager.handle} asks {@link #handle} first); H and N stay as they are.
  * The weapon's own right click goes through {@link #use}: the throw in the weapon-only kits, the shield's block in the dual kit.
+ * v0.17.7: with a lent weapon that is NOT in his hands (no kit) plain R is the call ({@link #CALL_WEAPON},
+ * {@code WorthyLending.callLent}); every other key is his own Super Soldier kit.
  *
  * <pre>
  *            Mjolnir only           Stormbreaker only         Shield + weapon
@@ -96,6 +98,11 @@ public final class WorthyKit {
 	public static final String LIGHTNING_SHIELD_SLAM = "lightning_shield_slam";
 	public static final String THUNDER_CLAP = "thunder_clap";
 	public static final String LIGHTNING_GUARD = "lightning_guard";
+	/**
+	 * v0.17.7: plain R while a lent weapon is not in his hands (his normal kit): the call. One cooldown key; the HUD / Alt list name it
+	 * {@code projecthero.worthy.ability.call_mjolnir} / {@code call_stormbreaker} ({@link #callNameId}).
+	 */
+	public static final String CALL_WEAPON = "call_weapon";
 	/** The Super Soldier's own shield throw (Shift+C in the dual kit), shown with his own name. */
 	public static final String SHIELD_THROW = SuperSoldierAbilities.SHIELD_THROW;
 
@@ -135,11 +142,17 @@ public final class WorthyKit {
 			case CHARGED_SHIELD_THROW -> WorthyConfig.CHARGED_THROW_CD;
 			case TWIN_THROW -> WorthyConfig.TWIN_THROW_CD;
 			case LIGHTNING_SHIELD_SLAM -> WorthyConfig.SHIELD_SLAM_CD;
+			case CALL_WEAPON -> WorthyConfig.CALL_WEAPON_CD;
 			default -> 0;
 		};
 	}
 
 	private WorthyKit() {
+	}
+
+	/** The lang id of the call for {@code weapon}: {@code call_mjolnir} / {@code call_stormbreaker}. */
+	public static String callNameId(ThorWeapon weapon) {
+		return weapon == ThorWeapon.STORMBREAKER ? "call_stormbreaker" : "call_mjolnir";
 	}
 
 	// ================================================================== which kit
@@ -239,6 +252,11 @@ public final class WorthyKit {
 	public static boolean handle(ServerPlayer p, AbilitySlot slot, boolean pressed) {
 		Kit kit = kit(p);
 		if (kit == Kit.NONE) {
+			// v0.17.7: a lent weapon not in his hands -- plain R is "Call Mjolnir" / "Call Stormbreaker" (Shift+R stays his own move)
+			if (slot == AbilitySlot.SLOT_1 && pressed && !p.isShiftKeyDown() && WorthyLending.callTarget(p) != null) {
+				WorthyLending.callLent(p);
+				return true;
+			}
 			return false;
 		}
 		if (!pressed) {

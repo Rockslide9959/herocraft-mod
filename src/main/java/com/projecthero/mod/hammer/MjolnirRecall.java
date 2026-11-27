@@ -156,7 +156,7 @@ public final class MjolnirRecall {
 			}
 			return true;
 		}
-		return callWeapon(player, registry, weapon, boundId(player, weapon));
+		return callWeapon(player, registry, weapon, boundId(player, weapon), false);
 	}
 
 	/**
@@ -218,7 +218,20 @@ public final class MjolnirRecall {
 	 * @return true if it is on its way (or already with him)
 	 */
 	public static boolean callBack(ServerPlayer player, ThorWeapon weapon, UUID hammerId) {
-		return callWeapon(player, MjolnirRegistry.get(player.serverLevel()), weapon, hammerId);
+		return callWeapon(player, MjolnirRegistry.get(player.serverLevel()), weapon, hammerId, false);
+	}
+
+	/**
+	 * v0.17.7 Thor x Super Soldier: a Super Soldier's R ("Call Mjolnir" / "Call Stormbreaker", {@code worthy.WorthyLending.callLent})
+	 * brings the weapon LENT to him ({@code hammerId}, still bound to its Thor) to his hand -- the same resolution as Thor's own call (his
+	 * pack at once; else a loaded entity flies to him, or it is moved out of another player -- its Thor included --, a loaded container
+	 * or another dimension, or rebuilt at a new generation), except that the record's owner need not be the caller. The arrival lands
+	 * in his main hand ({@link ThorWeaponHands} -- a lent weapon called by its Super Soldier). The caller has checked the loan.
+	 *
+	 * @return true if it is on its way (or now in his hand)
+	 */
+	public static boolean summonLent(ServerPlayer holder, ThorWeapon weapon, UUID hammerId) {
+		return callWeapon(holder, MjolnirRegistry.get(holder.serverLevel()), weapon, hammerId, true);
 	}
 
 	/** The id of the weapon of this kind bound to {@code player}, or null. */
@@ -272,7 +285,8 @@ public final class MjolnirRecall {
 	 * The pre-v0.15.1 recall, for one specific weapon kind: Mjolnir's path is exactly what it always was;
 	 * Stormbreaker's is the same resolution with its own entity and return flight.
 	 */
-	private static boolean callWeapon(ServerPlayer player, MjolnirRegistry registry, ThorWeapon weapon, UUID hammerId) {
+	private static boolean callWeapon(ServerPlayer player, MjolnirRegistry registry, ThorWeapon weapon, UUID hammerId,
+			boolean lent) {
 		// 0. v0.17.7: out on a scripted throw (Twin Throw, Judgement, Ragnarok) -- already flying back to its hand; never
 		// rebuilt elsewhere (that would leave two)
 		if (com.projecthero.mod.power.ThorThrown.of(player).has(weapon)) {
@@ -312,7 +326,8 @@ public final class MjolnirRecall {
 		}
 
 		Optional<HammerRecord> maybeRecord = registry.record(hammerId);
-		if (maybeRecord.isEmpty() || !maybeRecord.get().isOwnedBy(player.getUUID())) {
+		// v0.17.7: a lent weapon answers its Super Soldier although it stays bound to (owned by) its Thor
+		if (maybeRecord.isEmpty() || (!lent && !maybeRecord.get().isOwnedBy(player.getUUID()))) {
 			ThorFeedback.recallNoHammer(player, weapon);
 			return false;
 		}

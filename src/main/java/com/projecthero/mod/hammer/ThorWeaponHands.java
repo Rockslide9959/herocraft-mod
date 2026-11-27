@@ -57,6 +57,9 @@ public final class ThorWeaponHands {
 		if (from != null && player.getItemInHand(from).isEmpty()) {
 			return from;
 		}
+		if (called && com.projecthero.mod.worthy.WorthyLending.borrowsKind(player, weapon)) {
+			return InteractionHand.MAIN_HAND; // v0.17.7: a lent weapon called by its Super Soldier -- always his main hand
+		}
 		if (called && weapon != null) {
 			ThorWeapon other = weapon.other();
 			if (other.is(player.getMainHandItem())) {
@@ -97,6 +100,12 @@ public final class ThorWeaponHands {
 		if (from != null && player.getItemInHand(from).isEmpty()) {
 			player.setItemInHand(from, stack);
 			return from == InteractionHand.MAIN_HAND ? Landing.MAIN : Landing.OFF;
+		}
+		if (called && com.projecthero.mod.worthy.WorthyLending.borrowsKind(player, weapon)) {
+			// v0.17.7 Thor x Super Soldier: his R ("Call Mjolnir") brings it to his MAIN hand -- an empty hotbar slot is selected, else
+			// what he held steps into his pack (or drops at his feet with a full pack); then the weapon's kit owns his keys
+			putMainForDual(player, stack);
+			return Landing.MAIN;
 		}
 		if (called && weapon != null) {
 			ThorWeapon other = weapon.other();

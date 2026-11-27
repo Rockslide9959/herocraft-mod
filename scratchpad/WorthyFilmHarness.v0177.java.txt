@@ -70,6 +70,7 @@ public final class WorthyFilmHarness implements ClientModInitializer {
 	private static float faceYaw = 0f, facePitch = 8f;
 	private static FakePlayer thor;
 	private static com.projecthero.mod.squad.Squad squad;
+	private static boolean callMode;
 
 	@Override
 	public void onInitializeClient() {
@@ -78,7 +79,9 @@ public final class WorthyFilmHarness implements ClientModInitializer {
 			return;
 		}
 		try {
-			out = new File(Files.readString(flag).trim().split("\\|")[0]);
+			String[] f = Files.readString(flag).trim().split("\\|");
+			out = new File(f[0]);
+			callMode = f.length > 1 && f[1].equals("call"); // "worthy_out|call": the R call + flight-start films only
 		} catch (Exception e) {
 			out = new File(".");
 		}
@@ -396,6 +399,61 @@ public final class WorthyFilmHarness implements ClientModInitializer {
 		});
 	}
 
+	/** v0.17.7 round 2: the lend into the pack, R calling Mjolnir from the pack and off the ground, and a take-off with no whirl. */
+	private static void planCall() {
+		Minecraft mc = Minecraft.getInstance();
+		int t = 0;
+		// ---- 1. lent into his pack (the torch stays in his hand), R from the pack, set down 6 ahead, R: it flies back to his hand
+		at(t, () -> {
+			faceYaw = 0f;
+			facePitch = 8f;
+			server(mc, p -> reset(p, Items.TORCH, null));
+		});
+		at(t + 2, () -> cam3(140f, 5.5f, 2.2f, 2.5f, 1.1f, false));
+		film(t + 6, t + 136, "film_call_r");
+		at(t + 12, () -> server(mc, p -> lend(p, false)));
+		at(t + 34, () -> report(mc, "lent (pack)"));
+		at(t + 40, () -> server(mc, p -> key(p, 1, false)));
+		at(t + 46, () -> report(mc, "after R from the pack"));
+		at(t + 66, () -> server(mc, p -> {
+			ItemStack s = p.getMainHandItem().copy();
+			p.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+			var e = com.projecthero.mod.entity.MjolnirEntity.createResting(p.level(), p, s,
+					new Vec3(base.getX() + 0.5, base.getY(), base.getZ() + 6.5), Vec3.ZERO, true);
+			p.level().addFreshEntity(e);
+		}));
+		at(t + 90, () -> server(mc, p -> key(p, 1, false)));
+		at(t + 132, () -> report(mc, "after R off the ground"));
+		t += 140;
+		// ---- 2. take-off: straight into the flight pose (no whirl spin-up), then forward
+		at(t, () -> {
+			facePitch = -8f;
+			server(mc, p -> {
+				reset(p, null, null);
+				lend(p, false);
+				key(p, 1, false);
+			});
+		});
+		at(t + 2, () -> cam3(130f, 6.0f, 2.0f, 0.0f, 1.2f, true));
+		film(t + 6, t + 66, "film_flight_start");
+		at(t + 12, () -> server(mc, p -> {
+			p.connection.teleport(p.getX(), p.getY() + 1.5, p.getZ(), 0f, -8f);
+			System.out.println("[HARNESS] flight toggle: " + com.projecthero.mod.worthy.WorthyFlight.toggle(p) + " anim="
+					+ com.projecthero.mod.worthy.WorthyState.of(p).anim);
+		}));
+		at(t + 34, () -> mc.options.keyUp.setDown(true));
+		at(t + 62, () -> {
+			mc.options.keyUp.setDown(false);
+			report(mc, "flight start");
+		});
+		t += 70;
+		final int end = t;
+		at(end, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
 	private static void tick(Minecraft mc) {
 		mc.options.pauseOnLostFocus = false;
 		if (mc.level == null || mc.player == null) {
@@ -426,7 +484,11 @@ public final class WorthyFilmHarness implements ClientModInitializer {
 		face(mc);
 		int s = t - 140;
 		if (s == 0) {
-			plan();
+			if (callMode) {
+				planCall();
+			} else {
+				plan();
+			}
 		}
 		if (s % 10 == 0) {
 			server(mc, p -> p.setHealth(p.getMaxHealth()));

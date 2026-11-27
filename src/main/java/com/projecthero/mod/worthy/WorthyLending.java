@@ -43,9 +43,18 @@ import net.minecraft.world.phys.Vec3;
  * A worthy player holding Mjolnir or Stormbreaker (main hand first, else the off hand) sneak + right-clicks another player. Only a
  * Super Soldier who is their squadmate ({@link Squads#areAllies}) accepts it; anyone else gets a refusal line and nothing moves. The
  * weapon must be bound to the lender (it stays theirs: the stack keeps its {@code BOUND_OWNER}, and {@link WorthyLoans} records the
- * loan). The stack MOVES into the Super Soldier's main hand -- whatever was there steps into his pack, or drops at his feet with a
- * full pack, never deleted -- with a visual bolt, a spark line and a chat line for both. One weapon or both, to the same or to
- * different Super Soldiers.
+ * loan). The stack MOVES along a spark line into the Super Soldier's PACK (v0.17.7: never his hand -- a free slot that is not the
+ * selected one; with a full pack it lies at his feet as the usual callable weapon entity), with a visual bolt and a chat line for both.
+ * One weapon or both, to the same or to different Super Soldiers.
+ *
+ * <h2>His R: Call Mjolnir / Call Stormbreaker (v0.17.7)</h2>
+ * User: "When player is lent the powers their regular r ability should be replaced with a weapon call ability and once they get the
+ * hammer or axe they have that moveset". While a weapon lent to him is not in his hands (no lent-weapon kit), plain R in his normal
+ * Super Soldier kit is the call ({@link #callTarget}, {@link #callLent}; Shift+R stays his own move): the weapon comes to his MAIN hand
+ * from wherever it is through Thor's own recall ({@code MjolnirRecall.summonLent}) -- from his pack at once, else flying in from the
+ * ground, a chest in a loaded chunk, another player (its Thor included) or rebuilt -- and lands by the catch-hand rules
+ * ({@code ThorWeaponHands}, which send a lent weapon called by its Super Soldier to his main hand). With both lent and neither in hand,
+ * R alternates. Once it is in his hand the weapon's kit owns the keys again.
  *
  * <h2>Calling it back</h2>
  * The Thor weapon screen (N) shows "Lent to ..." and a Call back button per lent weapon ({@link #callBack}). The loan ends and the
@@ -105,6 +114,75 @@ public final class WorthyLending {
 	public static ThorWeapon lentWeapon(Player player) {
 		InteractionHand hand = lentHand(player);
 		return hand == null ? null : ThorWeapon.of(ThorThrown.inHand(player, hand));
+	}
+
+	/** Whether a weapon of kind {@code weapon} is lent to {@code player} and he is a Super Soldier (both sides: the view is synced). */
+	public static boolean borrowsKind(Player player, @Nullable ThorWeapon weapon) {
+		if (weapon == null || !SuperSoldier.hasPower(player)) {
+			return false;
+		}
+		for (WorthyState.Borrowed b : WorthyState.of(player).borrowed) {
+			if (b.weapon() == weapon.ordinal()) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * What his plain R calls right now (both sides; the HUD names it): a weapon lent to this Super Soldier while none is in his hands
+	 * (no lent-weapon kit). One lent: that one. Two: the one R did not call last (they alternate). Null = R is his own move.
+	 */
+	@Nullable
+	public static WorthyState.Borrowed callTarget(Player player) {
+		if (!SuperSoldier.hasPower(player)) {
+			return null;
+		}
+		WorthyState s = WorthyState.of(player);
+		if (s.borrowed.isEmpty() || WorthyKit.kit(player) != WorthyKit.Kit.NONE) {
+			return null;
+		}
+		for (WorthyState.Borrowed b : s.borrowed) {
+			if (s.lastCall == null || !b.hammerId().equals(s.lastCall)) {
+				return b;
+			}
+		}
+		return s.borrowed.get(0);
+	}
+
+	/** The ThorWeapon of a view entry. */
+	public static ThorWeapon weaponOf(WorthyState.Borrowed b) {
+		return ThorWeapon.values()[Math.max(0, Math.min(ThorWeapon.values().length - 1, b.weapon()))];
+	}
+
+	/**
+	 * His R as the call (server; {@code WorthyKit.handle}): brings {@link #callTarget} to his main hand by Thor's recall. Public for
+	 * the tests.
+	 *
+	 * @return true if a weapon is on its way or now in his hand (false: nothing to call, or the call is cooling down)
+	 */
+	public static boolean callLent(ServerPlayer p) {
+		WorthyState.Borrowed b = callTarget(p);
+		if (b == null) {
+			return false;
+		}
+		WorthyLoans.Loan loan = WorthyLoans.get(p.server).byHammer(b.hammerId());
+		if (loan == null || !loan.borrower().equals(p.getUUID())) {
+			refreshView(p.server, p.getUUID()); // a stale view: the loan is gone
+			return false;
+		}
+		if (!WorthyMoves.begin(p, WorthyKit.CALL_WEAPON, WorthyConfig.CALL_WEAPON_CD, WorthyConfig.CALL_WEAPON_LOCK)) {
+			return false;
+		}
+		UUID id = b.hammerId();
+		WorthyState.edit(p, n -> n.lastCall = id);
+		boolean answered = MjolnirRecall.summonLent(p, loan.weapon(), id);
+		if (!answered) {
+			WorthyMoves.refund(p, WorthyKit.CALL_WEAPON);
+			return false;
+		}
+		WorthyFx.crackle(p.serverLevel(), p.position().add(0, 1.4, 0), 10, 0.35, loan.weapon() == ThorWeapon.STORMBREAKER);
+		return true;
 	}
 
 	/** Server: whether {@code owner} has {@code weapon} out on a loan (the call key leaves it alone then). */
@@ -170,22 +248,21 @@ public final class WorthyLending {
 			loans.remove(id); // a stale record of this same weapon (it is in the lender's hand right now): replaced
 		}
 
-		// the move: out of his hand, into the Super Soldier's main hand; the displaced item into the pack (after the weapon is in,
-		// so it can't land back in the same slot), or at his feet
-		thor.setItemInHand(hand, ItemStack.EMPTY);
-		ItemStack displaced = target.getMainHandItem();
-		target.setItemInHand(InteractionHand.MAIN_HAND, stack);
-		if (!displaced.isEmpty() && !target.getInventory().add(displaced)) {
-			target.drop(displaced, false);
-		}
-		MjolnirRegistry.get(target.serverLevel()).noteCarried(stack, target, true);
-		thor.containerMenu.broadcastChanges();
-		target.containerMenu.broadcastChanges();
-
+		// the loan first (so the stack counts as lent to him the moment it lands), then the move: out of Thor's hand, along the spark
+		// line into the Super Soldier's PACK -- never his hand (v0.17.7 user: "their regular r ability should be replaced with a weapon
+		// call ability and once they get the hammer or axe they have that moveset"); with a full pack it lies at his feet, callable
 		loans.put(new WorthyLoans.Loan(id, weapon, thor.getUUID(), thor.getGameProfile().getName(), target.getUUID(),
 				target.getGameProfile().getName(), thor.level().getGameTime()));
 		refreshView(thor.server, thor.getUUID());
 		refreshView(thor.server, target.getUUID());
+		thor.setItemInHand(hand, ItemStack.EMPTY);
+		if (stowInPack(target, stack)) {
+			MjolnirRegistry.get(target.serverLevel()).noteCarried(stack, target, false);
+		} else {
+			target.drop(stack, false); // a dropped Thor weapon lies as its own resting, still-bound, callable entity
+		}
+		thor.containerMenu.broadcastChanges();
+		target.containerMenu.broadcastChanges();
 
 		flourish(thor, target);
 		thor.sendSystemMessage(Component.translatable("message.projecthero.worthy.lent_owner", weaponName, target.getDisplayName())
@@ -193,6 +270,26 @@ public final class WorthyLending {
 		target.sendSystemMessage(Component.translatable("message.projecthero.worthy.lent_borrower", thor.getDisplayName(), weaponName)
 				.withStyle(ChatFormatting.AQUA));
 		return true;
+	}
+
+	/**
+	 * Puts {@code stack} in a free slot of {@code p}'s pack that is NOT the selected hotbar slot (the backpack rows first, then the
+	 * hotbar), so a lent weapon never lands straight in his hand. False if there is no such slot (nothing moved).
+	 */
+	static boolean stowInPack(ServerPlayer p, ItemStack stack) {
+		Inventory inv = p.getInventory();
+		int size = inv.items.size();
+		for (int pass = 0; pass < 2; pass++) {
+			for (int i = 0; i < size; i++) {
+				boolean hotbar = Inventory.isHotbarSlot(i);
+				if (hotbar != (pass == 1) || i == inv.selected || !inv.items.get(i).isEmpty()) {
+					continue;
+				}
+				inv.setItem(i, stack);
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private static void refuse(ServerPlayer thor, String key, Component arg) {

@@ -47,6 +47,7 @@ public final class WorthyState {
 	public static final int ANIM_TWIN_THROW = 20;
 	public static final int ANIM_CLAP = 21;
 	public static final int ANIM_LIGHTNING_GUARD = 22;
+	/** Retired v0.17.7 (the take-off whirl is gone; never set any more, kept so the id is not reused). */
 	public static final int ANIM_TAKEOFF = 23;
 
 	// ---- timed move ids (server: WorthyMoves.tickSequence). 0 = none.
@@ -111,6 +112,8 @@ public final class WorthyState {
 	public long guardUntil;
 	public boolean guardShield;
 	public long chargedUntil;
+	/** v0.17.7: the lent weapon (HAMMER_ID) his R called last -- with two lent to him and neither in hand, R alternates. Null = none. */
+	public UUID lastCall;
 
 	// ---- views of WorthyLoans
 	public final List<Lent> lent = new ArrayList<>();
@@ -201,6 +204,9 @@ public final class WorthyState {
 		t.putLong("GuardUntil", guardUntil);
 		t.putBoolean("GuardShield", guardShield);
 		t.putLong("ChargedUntil", chargedUntil);
+		if (lastCall != null) {
+			t.putUUID("LastCall", lastCall);
+		}
 		ListTag lentTag = new ListTag();
 		for (Lent l : lent) {
 			CompoundTag e = new CompoundTag();
@@ -263,6 +269,7 @@ public final class WorthyState {
 		s.guardUntil = t.getLong("GuardUntil");
 		s.guardShield = t.getBoolean("GuardShield");
 		s.chargedUntil = t.getLong("ChargedUntil");
+		s.lastCall = t.hasUUID("LastCall") ? t.getUUID("LastCall") : null;
 		ListTag lentTag = t.getList("Lent", Tag.TAG_COMPOUND);
 		for (int i = 0; i < lentTag.size(); i++) {
 			CompoundTag e = lentTag.getCompound(i);

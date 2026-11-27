@@ -160,8 +160,8 @@ User: "When super solider teammate has stormbreaker or Mjolnir they should have 
 or stormbreaker and a moveset for dual wielding their shield and Mjolnir or stormbreaker ... super soldier should be able to fly with
 Mjolnir or stormbreaker". How a Thor lends the weapon (and calls it back) is in THOR_REFERENCE.md ("lending Mjolnir / Stormbreaker").
 
-**Files** (all new, `com.projecthero.mod.worthy`): `WorthyConfig` (EVERY number -- placeholders for the user to set, no tier cap on top,
-only the 6%-of-max-health boss cap), `WorthyKit` (which kit, the key tables, routing, the right-click), `WorthyMoves` (the moves; timed
+**Files** (all new, `com.projecthero.mod.worthy`): `WorthyConfig` (EVERY number -- v0.17.7 on Shazam's scale, see below; no tier cap
+and not his own MAX_HIT on top, only the 6%-of-max-health boss cap), `WorthyKit` (which kit, the key tables, routing, the right-click), `WorthyMoves` (the moves; timed
 moves and the thrown weapon run from `WorthyState`, no static collections), `WorthyFlight`, `WorthyLending` / `WorthyLoans` (the loans),
 `WorthyState` / `WorthyAttachments` (synced, persistent per-player state, a CompoundTag codec), `WorthyFx`, `WorthyActionPayload`,
 `WorthyMod` (init from `ProjectHeroMod`). Client `client.worthy`: `WorthyHud`, `WorthyPose` (+ `mixin/WorthyPoseMixin`,
@@ -169,7 +169,20 @@ moves and the thrown weapon run from `WorthyState`, no static collections), `Wor
 
 **Hooks in Super Soldier code** (one line each): `SuperSoldierAbilityManager.handle` asks `WorthyKit.handle` first (while he has a kit it
 owns R / G / Z / X / V / C -- even an empty key, so a bare-handed move never fires mid-kit; H / N unchanged); `SuperSoldierHud.render`
-hands over to `WorthyHud` while `WorthyHud.owns`.
+hands over to `WorthyHud` while `WorthyHud.owns`, and otherwise asks `WorthyHud.callWeapon` for the R box / tag / Alt row of the call.
+
+**Lent into the pack; R = Call Mjolnir / Call Stormbreaker** (v0.17.7, user: "When player is lent the powers their regular r ability
+should be replaced with a weapon call ability and once they get the hammer or axe they have that moveset"). A lend puts the weapon in a
+free pack slot that is NOT the selected one (backpack rows first; full pack -> at his feet as the callable entity), never his hand.
+While a weapon lent to him is not in his hands (`WorthyKit.kit` = NONE), `WorthyKit.handle` takes plain R (`WorthyLending.callTarget` /
+`callLent`; Shift+R and every other key stay his own kit): "Call Mjolnir" / "Call Stormbreaker", cooldown `CALL_WEAPON_CD` 1 s (key
+`call_weapon`, refunded if nothing answers). It goes through Thor's own recall, `MjolnirRecall.summonLent` (= `callWeapon` with the
+ownership check relaxed: his pack -> swapped into the main hand at once; a loaded entity (Q-dropped, resting) -> `recall(him)` flies to
+him; another player (its Thor too), a loaded chest / frame / minecart, another dimension -> moved and flown in; unreachable -> rebuilt at
+a new generation). His own throw counts as in hand (no call). The arrival: `ThorWeaponHands.plan` / `place` send a lent weapon called by
+its Super Soldier (`WorthyLending.borrowsKind`) to his MAIN hand (an empty hotbar slot is selected, else the held item steps into the
+pack). Both lent and neither in hand: R calls the one it did not call last (`WorthyState.lastCall`). Once held, the weapon's kit owns the
+keys. HUD: the R box shows the call's cooldown and is lit, a gold tag "R: Call Mjolnir", Left Alt's R row reads the call (Shift+R his own).
 
 **Which kit** (`WorthyKit.kit`, both sides): a weapon lent to him in either hand (or out on his own throw, `ThorThrown`) -> the weapon-only
 kit of that weapon; a shield (any `ShieldItem`) in the other hand, in the Battle Suit slot, or out on a throw of his -> the shield + weapon
@@ -177,21 +190,26 @@ kit. Both weapons lent to him: the main-hand one's kit. An unlent Stormbreaker (
 
 | Key | Mjolnir only | Stormbreaker only | Shield + weapon |
 |---|---|---|---|
-| R | Hammer Combo: 7, 7, 11 + finisher sparks 5 in 2.5 / 5 s | Axe Cleaves: 100-degree sweeps 3.5 blocks, 9 then 13 / 6 s | Shield and Weapon: bash 8 (staggered) + weapon 12 (axe 13) / 6 s |
-| Shift+R | Thunder Uppercut 12, launch / 8 s | Rising Cleave 13, launch / 9 s | Bash Launcher: 10 launch + spike 8 (axe 9) / 9 s |
-| G | Call Lightning (24 blocks): 14 + jolt (Slowness IV 0.5 s), 6 within 2.5 / 6 s | Lightning Cleave: line 12 x 1.2, 14 each, bolt at the end / 7 s | Charged Shield Throw: his normal shield throw, every enemy it hits chains 6 to 2 more within 5 (4 s window) / 8 s |
-| Shift+G | Thunderclap: cone 7, 120 degrees, 10, knockback 1.4 / 9 s | Executioner's Chop: leap within 9, 16 (x1.25 under 30% hp) / 11 s | Twin Throw: shield + weapon together / 10 s |
-| Z | Thunder Slam: hop, 14 within 5 (60% edge) / 11 s | Storm Crash: 15 within 4.5, knockback 1.6, a bolt / 12 s | Lightning Shield Slam: 14 within 5 (axe 15), two side bolts / 11 s |
-| Shift+Z (ult, one shared 90 s) | Worthy Storm: bolt into the hammer t10, 5 bolts t14-30 (15 each, within 14), burst t36 20 within 6 | Stormbreaker's Verdict: axe hurled t6 into the aimed foe (24), strike t14 20 (pinned), burst t20 14 within 6, home t34 | Thunder Clap ("Endgame"): weapon struck into the shield t12, cone 10 / ~140 degrees, 18 (axe 19, 60% edge), knockback 2.0, lift 0.5, 3 bolts |
+| R | Hammer Combo: 16, 16, 18 + finisher sparks 14 in 2.5 / 5 s | Axe Cleaves: 100-degree sweeps 3.5 blocks, 17 then 19 / 6 s | Shield and Weapon: bash 16 (staggered) + weapon 18 (axe 19) / 6 s |
+| Shift+R | Thunder Uppercut 17, launch / 8 s | Rising Cleave 18, launch / 9 s | Bash Launcher: 16 launch + spike 17 (axe 18) / 9 s |
+| G | Call Lightning (24 blocks): 18 + jolt (Slowness IV 0.5 s), 12 within 2.5 / 6 s | Lightning Cleave: line 12 x 1.2, 19 each, bolt at the end / 7 s | Charged Shield Throw: his normal shield throw, every enemy it hits chains 16 to 2 more within 5 (4 s window) / 8 s |
+| Shift+G | Thunderclap: cone 7, 120 degrees, 16, knockback 1.4 / 9 s | Executioner's Chop: leap within 9, 20 (x1.25 under 30% hp) / 11 s | Twin Throw: shield + weapon together / 10 s |
+| Z | Thunder Slam: hop, 18 within 5 (60% edge) / 11 s | Storm Crash: 19 within 4.5, knockback 1.6, a bolt / 12 s | Lightning Shield Slam: 17 within 5 (axe 18), two side bolts / 11 s |
+| Shift+Z (ult, one shared 90 s) | Worthy Storm: bolt into the hammer t10, 5 bolts t14-30 (16 each, within 14), burst t36 40 within 6 | Stormbreaker's Verdict: axe hurled t6 into the aimed foe (24), strike t14 40 (pinned), burst t20 18 within 6, home t34 | Thunder Clap ("Endgame"): weapon struck into the shield t12, cone 10 / ~140 degrees, 40 (axe 41, 60% edge), knockback 2.0, lift 0.5, 3 bolts |
 | X | Hammer Dash (1.6 b/t) / Flight Boost x1.5 2.5 s while flying / 4 s | Axe Dash (1.35) / Boost / 4 s | the weapon's dash / boost |
-| Shift+X | Hammer Launch: whirl, launch, flight at t8 / 6 s | Storm Leap (same) / 6 s | the weapon's launch |
-| V | Whirl Guard 1.5 s: front hits blocked, projectiles knocked back, melee attackers shocked 4 / 10 s | Axe Guard (same) / 10 s | Lightning Guard 2.5 s, shock 8 / 10 s |
+| Shift+X | Hammer Launch: weapon raised (no whirl since v0.17.7), launch at t4, flight at t8 / 6 s | Storm Leap (same) / 6 s | the weapon's launch |
+| V | Whirl Guard 1.5 s: front hits blocked, projectiles knocked back, melee attackers shocked 16 / 10 s | Axe Guard (same) / 10 s | Lightning Guard 2.5 s, shock 17 / 10 s |
 | Shift+V | Rally Bolt: bolt on himself, self + squad within 10 Strength I + Speed I 8 s, hostiles within 6 pushed / 40 s | same | same |
-| C | Hammer Throw: 20 blocks, pierces 3, 12 each, back in 18 ticks / 3 s | Axe Throw: 18 blocks, pierces 2, 13 + Slowness II 2 s / 4 s | weapon throw; **Shift+C** his own shield throw |
+| C | Hammer Throw: 20 blocks, pierces 3, 17 each, back in 18 ticks / 3 s | Axe Throw: 18 blocks, pierces 2, 18 + Slowness II 2 s / 4 s | weapon throw; **Shift+C** his own shield throw |
 | Right click | = C (the throw) | = C | passes -- the shield in the other hand blocks |
 
-Melee (left click) with the lent weapon in the main hand: exactly 11 (Mjolnir) / 13 (Stormbreaker) (`WorthyMoves.reconcileMelee`, one
-transient modifier). Shared cooldown keys: `worthy_ultimate`, `worthy_dash`, `worthy_launch`, `worthy_guard`. 4-tick busy lock. Moves
+**Damage (v0.17.7, user: "the scaling for these movesets should be powerful, it should be comparable to shazam since the powers are
+being lent to you by a god")**: on `ShazamConfig`'s scale (fist 17, combo 17/17/19, abilities 16-20, ultimate 40) -- left click 17 /
+18, combo hits 16-19, abilities 16-20, each ultimate 40; Stormbreaker a little heavier than Mjolnir, the shield + weapon kit in between.
+Every worthy hit goes through `WorthyMoves.hit` (squad-safe, boss cap 6%), never `SuperSoldierAbilities.strike`, so his own `MAX_HIT`
+(20) does not clamp them (the Charged Shield Throw's shield itself is still his own throw). Melee (left click) with the lent weapon in the
+main hand: exactly 17 (Mjolnir) / 18 (Stormbreaker) (`WorthyMoves.reconcileMelee`, one transient modifier, made up from his own
+held-item bonus as it stands, so retuning that bonus never changes these). Shared cooldown keys: `worthy_ultimate`, `worthy_dash`, `worthy_launch`, `worthy_guard`. 4-tick busy lock. Moves
 with nothing to hit cost nothing. Squad-safe (`HeroTargets.canHarm`). Thrown weapons really leave the hand through Thor's `ThorThrown`
 (persistent, handed back at the head of `die`, never rebuilt) and the client draws the flight (out, hang, home to the live hand,
 spinning, a jagged lightning trail). Look: visual-only bolts, electric sparks (Stormbreaker adds white dust, never tinted), Thor's
@@ -200,10 +218,11 @@ sounds, screen shake on the slams and ultimates -- used more sparingly than Thor
 **HUD** (`WorthyHud`): the same mono strip; title = the kit ("Mjolnir", "Stormbreaker", "Shield + Mjolnir", "Shield + Stormbreaker"); tags:
 "<owner>'s", Flying / Boost, Charged; V lit while guarding, X while boosting, C while the weapon is out, Z while an ultimate plays;
 Left Alt lists the kit + "2x Space: Fly" + "RMB: Throw". **Guidebook / I menu**: the Super Soldier chapter's "Thor's weapons" section
-(body, flight, a key list per kit built from `WorthyKit.guideRows`).
+(body, the R call, flight, the Shazam-scale damage, a key list per kit built from `WorthyKit.guideRows`).
 
 **Flight** (`WorthyFlight`): double-tap Space in the air with a lent weapon in hand (client `ProjectHeroModClient`, right after Thor's
-branch; `WorthyActionPayload(TOGGLE_FLIGHT)`), vanilla mayfly / flying, a little lift and the whirl spin-up (`ANIM_TAKEOFF`). Shared
+branch; `WorthyActionPayload(TOGGLE_FLIGHT)`), vanilla mayfly / flying, a little lift and straight into the flight pose (v0.17.7, user: "remove the hammer spinning animation
+when flight starts": no spin-up; `WorthyFlight.start` sets no animation and clears a Launch's; `ANIM_TAKEOFF` is retired). Shared
 directional flight (`DirectionalFlight.tune` -> `WorthyFlight.tune`): Mjolnir 15 cruise / 30 sprint b/s, Stormbreaker 13 / 26 (Thor 18 /
 36), x1.5 Flight Boost. `FlightPoseHelper` counts it as Thor flight while a Thor weapon is in hand (Thor's raised-weapon pose). Free (no
 Storm Energy). Ends on landing (`FlightLanding.landed`, after a 10-tick grace), another double-tap, or no lent weapon in hand (his own
@@ -213,19 +232,24 @@ throw keeps him up); no fall damage for 5 s after it ends.
 or a weapon in the off hand): hammer combo (forehand, backhand, overhead smash), uppercut, the weapon raised to the sky (Call Lightning
 / Worthy Storm / Rally), the drive into the ground (Thunderclap / slams / Lightning Cleave), the throw, the axe's two cleaves, the
 overhead two-handed chop, the Verdict hurl / point / catch, shield bash + strike, bash launcher, shield fling, twin throw, the clap,
-the lightning guard; the take-off / Launch whirl and the Whirl Guard are a procedural spin on top. First person: weapon (and shield)
+the lightning guard; the Whirl Guard is a procedural spin on top (the take-off / Launch whirl was removed in v0.17.7; the Launch
+just raises the weapon). First person: weapon (and shield)
 moved just before vanilla draws them.
 
-**Tests -- `WorthyLendV0177GameTests`** (one batch each, `worthy_v0177_*`): lend only to a Super Soldier squadmate, into the main hand,
-torches to the pack, owner tracked, not ejected; the Call back brings one copy home and R never takes it; leaving the squad / losing
+**Tests -- `WorthyLendV0177GameTests`** (one batch each, `worthy_v0177_*`): lend only to a Super Soldier squadmate, into the PACK (his
+torches stay in his hand, no kit, R = the call), owner tracked, not ejected; the Call back brings one copy home and R never takes it; leaving the squad / losing
 the power / dying send it home, one copy; SavedData + attachment round trips and the view rebuilt after a blank "relog"; the kit
-follows the hands (none / Mjolnir / shield + Mjolnir / Stormbreaker, an unlent axe gives none), C throws the axe out of his hand and it
-comes back; flight only with a lent weapon and it ends when the weapon goes; a stranger can't lift a lent weapon off the ground, its
+follows the hands (none / Mjolnir / shield + Mjolnir / Stormbreaker, an unlent axe gives none), R brings each lent weapon from the pack (alternating with both lent), C throws the axe out of
+his hand and it comes back; `worthy_v0177_call_pack` (pack -> main hand, Shift+R not the call, kit after), `_call_ground` (a resting
+Mjolnir flies to his hand), `_call_axe` (a dropped Stormbreaker into a main hand full of torches, none lost), `_numbers` (the Shazam-scale
+constants; a 40 lands whole on a 100-health Ravager), `_takeoff` (no spin-up anim on take-off or a Launch's flight); flight only with a lent weapon and it ends when the weapon goes; a stranger can't lift a lent weapon off the ground, its
 Super Soldier can.
 
 **Seen in a real client** (`scratchpad/WorthyFilmHarness.v0177.java.txt`, `scratchpad/v0177/worthy_harness.js` / `worthy_film.js`; the Thor
 is a Fabric FakePlayer off camera; MP4 + frame sheet each in `docs/screenshots/v0177/worthy/`): `lend`, `mjolnir_throw_storm`,
-`mjolnir_combo_fp`, `stormbreaker_cleave_verdict`, `shield_mjolnir_clap`, `flight`. Not seen: two real players (the lend click itself,
+`mjolnir_combo_fp`, `stormbreaker_cleave_verdict`, `shield_mjolnir_clap`, `flight`. v0.17.7 round 2 (flag `worthy_out|call`, `planCall`): `call_r` (lent into
+the pack with a torch in hand, R from the pack, set down 6 blocks ahead, R: it flies back to his hand) and `flight_start` (take-off
+straight into the flight pose, no whirl). Not seen: two real players (the lend click itself,
 the Call back screen), the Charged Shield Throw's chains, multiplayer sync of the poses.
 
 
