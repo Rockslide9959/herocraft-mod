@@ -287,4 +287,22 @@ public class SuperSoldierShieldAimGameTests implements FabricGameTest {
 		helper.assertFalse(p.hasEffect(MobEffects.DAMAGE_RESISTANCE), "and not given back");
 		helper.succeed();
 	}
+
+	/** v0.17.7 (user: "shield throw should be able to target players"): the assist and the bounces pick other players, never squadmates. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void aimAssistAndBouncesTargetPlayers(GameTestHelper helper) {
+		helper.getLevel().getServer().setPvpAllowed(true);
+		ServerPlayer p = soldier(helper, 3.5, 1.0);
+		ServerPlayer rival = helper.makeMockServerPlayerInLevel();
+		rival.setGameMode(GameType.SURVIVAL);
+		rival.moveTo(p.getX(), p.getY(), p.getZ() + 5.0, 180.0f, 0.0f);
+		Vec3 eye = p.getEyePosition();
+		Vec3 straight = rival.getBoundingBox().getCenter().subtract(eye).normalize();
+		Vec3 in = straight.yRot((float) Math.toRadians(5.0));
+		helper.assertTrue(SoldierShieldEntity.seeks(p, rival), "another player is sought");
+		helper.assertTrue(SoldierShieldEntity.canHit(p, rival), "and may be struck (PvP on, survival, not a squadmate)");
+		helper.assertTrue(SoldierShieldEntity.assistTarget(p, eye, in, SuperSoldierConfig.SHIELD_RANGE) == rival, "5 deg off a player: assisted");
+		helper.assertTrue(!SoldierShieldEntity.seeks(p, p), "never the thrower");
+		helper.succeed();
+	}
 }

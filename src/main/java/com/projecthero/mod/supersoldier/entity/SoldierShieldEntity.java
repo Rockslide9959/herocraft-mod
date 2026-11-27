@@ -164,7 +164,7 @@ public class SoldierShieldEntity extends Entity {
 		LivingEntity best = null;
 		double bestScore = -Double.MAX_VALUE;
 		for (LivingEntity e : owner.level().getEntitiesOfClass(LivingEntity.class, new AABB(eye, eye).inflate(range),
-				e -> canHit(owner, e) && SuperSoldierAbilities.isHostile(owner, e))) {
+				e -> canHit(owner, e) && seeks(owner, e))) {
 			Vec3 to = e.getBoundingBox().getCenter().subtract(eye);
 			double d = to.length();
 			if (d < 1.0e-3 || d > range) {
@@ -185,6 +185,14 @@ public class SoldierShieldEntity extends Entity {
 			}
 		}
 		return best;
+	}
+
+	/**
+	 * v0.17.7 (user: "shield throw should be able to target players"): what the aim assist and the bounces look for -- hostiles, and
+	 * other players the shield may strike ({@link #canHit}: PvP rules allow it, never a squadmate).
+	 */
+	public static boolean seeks(ServerPlayer owner, LivingEntity e) {
+		return e instanceof Player ? e != owner : SuperSoldierAbilities.isHostile(owner, e); // creative / spectators / PvP: canHit
 	}
 
 	/** v0.17.7: what the shield may strike -- the shared rule, and never a squadmate (friendly fire or not). */
@@ -498,7 +506,7 @@ public class SoldierShieldEntity extends Entity {
 		LivingEntity best = null;
 		double bestD = r * r;
 		for (LivingEntity e : level().getEntitiesOfClass(LivingEntity.class, new AABB(from, from).inflate(r),
-				e -> e != struck && !hit.contains(e.getId()) && canHit(owner, e) && SuperSoldierAbilities.isHostile(owner, e))) {
+				e -> e != struck && !hit.contains(e.getId()) && canHit(owner, e) && seeks(owner, e))) {
 			double d = e.getBoundingBox().getCenter().distanceToSqr(from);
 			if (d <= bestD && (inSight(level(), this, from, e) || inSight(level(), this, from.add(0, 0.5, 0), e))) {
 				bestD = d;
