@@ -13,7 +13,7 @@ import net.minecraft.world.item.TooltipFlag;
  * exactly like one -- that is round (red / white rings, a blue centre, a white star; drawn by the client's
  * {@code AdamantiumShieldRenderer}) and unbreakable: it has no durability, and vanilla only wears down and only lets an
  * axe disable the plain {@code minecraft:shield}. In a Super Soldier's hand it is also his best weapon: C throws it
- * (9 per hit, bouncing between up to 4 enemies) and it comes back.
+ * (6 per hit, bouncing between enemies) and it comes back.
  */
 public class AdamantiumShieldItem extends ShieldItem {
 	public AdamantiumShieldItem(Properties properties) {

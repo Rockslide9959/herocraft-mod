@@ -47,7 +47,7 @@ public final class Starfire {
 	public static final String KEY = "starfire";
 
 	private static final ResourceLocation HEALTH_ID = PowerToggles.id("starfire_health");
-	private static final ResourceLocation ATTACK_ID = PowerToggles.id("starfire_attack");
+	private static final ResourceLocation ATTACK_ID = com.projecthero.mod.combat.MeleeBonus.register(PowerToggles.id("starfire_attack"));
 
 	/** Starbolt green, her eyes, the beams. */
 	public static final int GREEN = 0x5CFF5A;

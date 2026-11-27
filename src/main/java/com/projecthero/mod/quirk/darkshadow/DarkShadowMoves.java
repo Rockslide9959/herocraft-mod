@@ -59,7 +59,7 @@ import net.minecraft.world.phys.Vec3;
  * </pre>
  */
 public final class DarkShadowMoves {
-	static final ResourceLocation ANKH_DAMAGE_ID = PowerToggles.id("quirk_dark_shadow_ankh_damage");
+	static final ResourceLocation ANKH_DAMAGE_ID = com.projecthero.mod.combat.MeleeBonus.register(PowerToggles.id("quirk_dark_shadow_ankh_damage"));
 	static final ResourceLocation ANKH_ARMOR_ID = PowerToggles.id("quirk_dark_shadow_ankh_armor");
 	static final ResourceLocation ANKH_TOUGHNESS_ID = PowerToggles.id("quirk_dark_shadow_ankh_toughness");
 	static final ResourceLocation ANKH_REACH_ID = PowerToggles.id("quirk_dark_shadow_ankh_reach");

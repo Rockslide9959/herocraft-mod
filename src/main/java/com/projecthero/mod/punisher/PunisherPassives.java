@@ -34,7 +34,7 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
  */
 public final class PunisherPassives {
 	private static final ResourceLocation SUPPRESS_SLOW = ProjectHeroMod.id("punisher_suppressive_slow");
-	private static final ResourceLocation UNARMED = ProjectHeroMod.id("punisher_unarmed");
+	private static final ResourceLocation UNARMED = com.projecthero.mod.combat.MeleeBonus.register(ProjectHeroMod.id("punisher_unarmed"));
 
 	private PunisherPassives() {
 	}
@@ -55,9 +55,10 @@ public final class PunisherPassives {
 		// v0.15.18: Suppressive Fire is gone -- only ever removes its old slow
 		setModifier(player, Attributes.MOVEMENT_SPEED, SUPPRESS_SLOW, 0.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL, false);
 
-		// v0.17.7 (Street tier): combat training, +6 on a bare-handed punch (fist 7)
+		// v0.17.7 (Street tier): combat training, +6 on a punch (fist 7). v0.17.7 (user: "+5 on top of tools and weapons ... other powers
+		// that have melee bonuses"): the shared melee rule -- on whatever is held, so a weapon or tool hits for its own damage + 7 (MeleeBonus)
 		setModifier(player, Attributes.ATTACK_DAMAGE, UNARMED, PunisherConfig.UNARMED_BONUS, AttributeModifier.Operation.ADD_VALUE,
-				Punisher.hasPower(player) && player.getMainHandItem().isEmpty());
+				Punisher.hasPower(player));
 
 		PunisherArmorSet.reconcile(player);
 	}

@@ -55,7 +55,7 @@ import org.joml.Vector3f;
 public final class Undead {
 	public static final String KEY = "undead";
 
-	private static final ResourceLocation MELEE_ID = PowerToggles.id("undead_bloody_arts");
+	private static final ResourceLocation MELEE_ID = com.projecthero.mod.combat.MeleeBonus.register(PowerToggles.id("undead_bloody_arts"));
 	private static final ResourceLocation REFORM_ID = PowerToggles.id("undead_reform");
 	private static final ResourceLocation REFORM_JUMP_ID = PowerToggles.id("undead_reform_jump");
 	/** v0.17.3: what the body is left to get about with (rolling head ... walking), by stage. */

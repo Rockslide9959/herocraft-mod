@@ -27,7 +27,7 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
  * the suit comes off or the Tony Stark power is removed.
  */
 public final class IronManPassives {
-	private static final ResourceLocation ATK = ProjectHeroMod.id("iron_man_strength");
+	private static final ResourceLocation ATK = com.projecthero.mod.combat.MeleeBonus.register(ProjectHeroMod.id("iron_man_strength"));
 	private static final ResourceLocation ATK_KB = ProjectHeroMod.id("iron_man_attack_knockback");
 	private static final ResourceLocation KB_RES = ProjectHeroMod.id("iron_man_knockback_resist");
 	private static final ResourceLocation REACH = ProjectHeroMod.id("iron_man_block_reach");

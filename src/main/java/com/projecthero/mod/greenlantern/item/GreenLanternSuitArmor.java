@@ -27,7 +27,7 @@ public final class GreenLanternSuitArmor {
 	private static final EquipmentSlot[] SLOTS = {
 			EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET };
 	private static final ResourceLocation SUIT_MELEE_BONUS =
-			com.projecthero.mod.ProjectHeroMod.id("green_lantern_suit_melee");
+			com.projecthero.mod.combat.MeleeBonus.register(com.projecthero.mod.ProjectHeroMod.id("green_lantern_suit_melee"));
 
 	private GreenLanternSuitArmor() {
 	}

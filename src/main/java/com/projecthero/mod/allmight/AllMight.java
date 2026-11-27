@@ -53,7 +53,7 @@ public final class AllMight {
 	public static final String KEY = "all_might";
 
 	private static final ResourceLocation HEALTH_ID = PowerToggles.id("all_might_health");
-	private static final ResourceLocation ATTACK_ID = PowerToggles.id("all_might_attack");
+	private static final ResourceLocation ATTACK_ID = com.projecthero.mod.combat.MeleeBonus.register(PowerToggles.id("all_might_attack"));
 	private static final ResourceLocation JUMP_ID = PowerToggles.id("all_might_jump");
 	private static final ResourceLocation SCALE_ID = PowerToggles.id("all_might_scale");
 	private static final ResourceLocation REACH_ID = PowerToggles.id("all_might_reach");

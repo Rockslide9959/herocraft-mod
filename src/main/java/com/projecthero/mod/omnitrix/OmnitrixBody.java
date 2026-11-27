@@ -23,7 +23,7 @@ public final class OmnitrixBody {
 	private static final ResourceLocation ARMOR = PowerToggles.id("omnitrix_armor");
 	private static final ResourceLocation TOUGH = PowerToggles.id("omnitrix_toughness");
 	private static final ResourceLocation KNOCKBACK = PowerToggles.id("omnitrix_knockback");
-	private static final ResourceLocation ATTACK = PowerToggles.id("omnitrix_attack");
+	private static final ResourceLocation ATTACK = com.projecthero.mod.combat.MeleeBonus.register(PowerToggles.id("omnitrix_attack"));
 	private static final ResourceLocation STEP = PowerToggles.id("omnitrix_step");
 	private static final ResourceLocation JUMP = PowerToggles.id("omnitrix_jump");
 	private static final ResourceLocation FALL = PowerToggles.id("omnitrix_safe_fall");

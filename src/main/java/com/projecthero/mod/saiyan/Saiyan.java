@@ -47,7 +47,7 @@ public final class Saiyan {
 
 	private static final ResourceLocation HEALTH_ID = PowerToggles.id("saiyan_health");
 	private static final ResourceLocation SPEED_ID = PowerToggles.id("saiyan_speed");
-	private static final ResourceLocation ATTACK_ID = PowerToggles.id("saiyan_attack");
+	private static final ResourceLocation ATTACK_ID = com.projecthero.mod.combat.MeleeBonus.register(PowerToggles.id("saiyan_attack"));
 	private static final ResourceLocation ATTACK_SPEED_ID = PowerToggles.id("saiyan_attack_speed");
 	private static final ResourceLocation KNOCKBACK_ID = PowerToggles.id("saiyan_knockback");
 	private static final ResourceLocation JUMP_ID = PowerToggles.id("saiyan_jump");

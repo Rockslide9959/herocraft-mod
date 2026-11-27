@@ -13,10 +13,18 @@ public final class SuperSoldierConfig {
 	public static final double SPEED_BONUS = 0.5;
 	/** +5 hearts. */
 	public static final double HEALTH_BONUS = 10.0;
-	/** Extra melee damage while the main hand is empty (v0.17.7 Street tier: fist 8). */
-	public static final double UNARMED_BONUS = 7.0;
-	/** v0.17.7 (Street tier): extra melee damage while holding something -- a netherite sword hits for 10, not 15. */
-	public static final double ARMED_BONUS = 2.0;
+	/**
+	 * v0.17.7 (user: "their melee should deal 5 damage and should be +5 on top of tools and weapons and stuff"): his melee N under the
+	 * shared rule ({@code combat.MeleeBonus}) -- a punch (empty hand or a non-weapon item) deals 5, a weapon or tool its own damage + 5
+	 * (a netherite sword 13). Replaces the old fist 8 / +2 holding anything.
+	 */
+	public static final double MELEE = 5.0;
+	/**
+	 * Everything his strength adds to a weapon hit (= {@link #MELEE}: the N - 1 modifier plus the shared +1 weapon top-up). Kept
+	 * under this name for the Thor-lent weapon movesets ({@code worthy.WorthyMoves}), which tune a lent Mjolnir / Stormbreaker hit
+	 * to an exact total by taking this off.
+	 */
+	public static final double ARMED_BONUS = MELEE;
 	/** v0.17.7 (Street tier): no single move hit goes over this, whatever buffs stack (Assemble x1.25 on a marked enemy, Strength). */
 	public static final float MAX_HIT = 20f; // v0.17.7: was PowerRank.STREET.ultimateMax (tiers removed; the user rebalances powers one by one)
 	/** Damage taken is multiplied by this (30% less). */
@@ -111,13 +119,22 @@ public final class SuperSoldierConfig {
 	// player aims with some aim assist, the shield can bounce between enemies if they are in close proximity to whats being
 	// hit, maximum 5 bounces, make the shield get thrown slower please"). Every throw -- C (hand or Battle Suit slot) and the
 	// Shield Storm -- flies along his look (pitch included) with a light aim assist, and bounces only from an enemy it hit.
+	/**
+	 * v0.17.7 (user: "Captain America shield should do 6 damage"): every shield throw hits for 6, the first hit and each bounce --
+	 * ordinary, Adamantium and Vibranium alike (were 8 / 9 / 10). The Shield Storm ({@link #STORM_HIT_DAMAGE}) and Shield Bash
+	 * ({@link #SHIELD_BASH_DAMAGE}) keep their own numbers. The shield has no melee of its own: it is not a weapon, so a punch with
+	 * it in hand is his plain punch ({@link #MELEE}).
+	 */
+	public static final float SHIELD_THROW_DAMAGE = 6.0f;
 	/** Adamantium Shield: damage per hit, bounces per throw after the first hit (so up to 6 enemies), range, cooldown. */
-	public static final float SHIELD_DAMAGE = 9.0f;
+	public static final float SHIELD_DAMAGE = SHIELD_THROW_DAMAGE;
 	public static final int SHIELD_MAX_BOUNCES = 5;
 	public static final double SHIELD_RANGE = 25.0; // v0.14.11: was 24
 	public static final int SHIELD_THROW_COOLDOWN = 0; // v0.14.11: no cooldown (was 5 s) -- throw again as soon as it is back in your hand
 	/** An ordinary shield: weaker, two bounces (three enemies), and it still comes back. */
-	public static final float NORMAL_SHIELD_DAMAGE = 8.0f; // v0.17.7 Street: was 6
+	public static final float NORMAL_SHIELD_DAMAGE = SHIELD_THROW_DAMAGE; // v0.17.7 (user): 6 (was 8)
+	/** The Vibranium Shield's throw (VibraniumShieldItem.THROW_DAMAGE): 6 like the rest (was 10). */
+	public static final float VIBRANIUM_SHIELD_DAMAGE = SHIELD_THROW_DAMAGE;
 	public static final int NORMAL_SHIELD_MAX_BOUNCES = 2;
 	public static final double NORMAL_SHIELD_RANGE = 25.0; // v0.14.11: was 16, every shield flies 25 blocks
 	public static final int NORMAL_SHIELD_THROW_COOLDOWN = 0; // v0.14.11: no cooldown (was 6 s)

@@ -73,7 +73,7 @@ public final class CrystalkinesisHandlers {
 	private static final DustParticleOptions BEAM =
 			new DustParticleOptions(new org.joml.Vector3f(0.78f, 0.52f, 1.0f), 1.1f);
 	private static final net.minecraft.resources.ResourceLocation ARMOR_KB = com.projecthero.mod.ProjectHeroMod.id("crystal_armor_kb");
-	private static final net.minecraft.resources.ResourceLocation ARMOR_ATK = com.projecthero.mod.ProjectHeroMod.id("crystal_armor_atk");
+	private static final net.minecraft.resources.ResourceLocation ARMOR_ATK = com.projecthero.mod.combat.MeleeBonus.register(com.projecthero.mod.ProjectHeroMod.id("crystal_armor_atk"));
 
 	public static final float MAX_STRAIN = 575.0f;
 	private static final float STRAIN_DRAIN = MAX_STRAIN / (29 * 20);

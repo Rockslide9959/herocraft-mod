@@ -95,7 +95,7 @@ public final class MoonKnightAlters implements MoonKnightMove {
 	private static final ResourceLocation FIST_KNOCKBACK = PowerToggles.id("moon_knight_fist_knockback");
 	private static final ResourceLocation JAKE_SNEAK = PowerToggles.id("moon_knight_jake_sneak");
 	/** v0.13.21: the suit's own +7 melee, whoever is in control. */
-	public static final ResourceLocation SUIT_STRENGTH = PowerToggles.id("moon_knight_suit_strength");
+	public static final ResourceLocation SUIT_STRENGTH = com.projecthero.mod.combat.MeleeBonus.register(PowerToggles.id("moon_knight_suit_strength"));
 	private static final ResourceLocation SUIT_SPEED = PowerToggles.id("moon_knight_suit_speed");
 	private static final ResourceLocation SUIT_JUMP = PowerToggles.id("moon_knight_suit_jump");
 	private static final ResourceLocation SUIT_SAFE_FALL = PowerToggles.id("moon_knight_suit_safe_fall");

@@ -154,7 +154,7 @@ public final class HumungousaurKit extends AlienKit {
 
 	private static final ResourceLocation M_SCALE = PowerToggles.id("humungousaur_grow_scale");
 	private static final ResourceLocation M_ARMOR = PowerToggles.id("humungousaur_grow_armor");
-	private static final ResourceLocation M_ATTACK = PowerToggles.id("humungousaur_grow_attack");
+	private static final ResourceLocation M_ATTACK = com.projecthero.mod.combat.MeleeBonus.register(PowerToggles.id("humungousaur_grow_attack"));
 	private static final ResourceLocation M_REACH_E = PowerToggles.id("humungousaur_grow_reach_entity");
 	private static final ResourceLocation M_REACH_B = PowerToggles.id("humungousaur_grow_reach_block");
 	private static final ResourceLocation M_KB = PowerToggles.id("humungousaur_grow_knockback");

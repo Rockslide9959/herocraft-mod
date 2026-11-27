@@ -177,7 +177,7 @@ public final class WaterHandlers {
 	private static final String[] HOLD_TIMERS = { "dragon_cd", "whirl_cd", "hjet_cd", "tsunami_cd", "clone_cd", "rain_cd", "rain", "clone" };
 
 	private static final ResourceLocation SWIM = com.projecthero.mod.ProjectHeroMod.id("water_swim");
-	private static final ResourceLocation AQUATIC_MELEE_ID = com.projecthero.mod.ProjectHeroMod.id("water_aquatic_melee");
+	private static final ResourceLocation AQUATIC_MELEE_ID = com.projecthero.mod.combat.MeleeBonus.register(com.projecthero.mod.ProjectHeroMod.id("water_aquatic_melee"));
 	private static final ResourceLocation SURF_STEP = com.projecthero.mod.ProjectHeroMod.id("water_surf_step");
 	/** v0.16.5 (user): mining underwater at full speed (the submerged x0.2 lifted). */
 	private static final ResourceLocation WATER_MINING = com.projecthero.mod.ProjectHeroMod.id("water_submerged_mining");

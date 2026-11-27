@@ -36,7 +36,7 @@ import net.minecraft.world.phys.Vec3;
  * included), the passives and their removal, the 30% damage reduction, the crafting recipe and the refinement (v0.17.7: moved to
  * SuperSoldierSerumV0177GameTests), every one of the eleven moves activating and starting its cooldown and the
  * one-Primary-power rule. v0.14.9: the Flying Kick and Judo Takedown, the C shield throw with the Adamantium Shield vs an
- * ordinary one (three zombies each, 9 vs 6, the same stack back intact, never duplicated, dropped if the thrower dies),
+ * ordinary one (three zombies each, 6 each since v0.17.7, the same stack back intact, never duplicated, dropped if the thrower dies),
  * the shield / suit recipes and the suit's wear restriction. Mock players are not reliably ticked by the server, so tests that need
  * the power's tick drive {@link SuperSoldierAbilityManager#serverTick} themselves.
  */
@@ -98,17 +98,17 @@ public class SuperSoldierGameTests implements FabricGameTest {
 		helper.assertTrue(hasModifier(p, Attributes.SAFE_FALL_DISTANCE, "super_soldier_safe_fall"), "safe fall modifier");
 		helper.assertTrue(hasModifier(p, Attributes.KNOCKBACK_RESISTANCE, "super_soldier_knockback"), "knockback resistance");
 		helper.assertTrue(hasModifier(p, Attributes.ATTACK_SPEED, "super_soldier_attack_speed"), "attack speed");
-		helper.assertTrue(hasModifier(p, Attributes.ATTACK_DAMAGE, "super_soldier_unarmed"), "empty hand: +7 unarmed");
+		helper.assertTrue(hasModifier(p, Attributes.ATTACK_DAMAGE, "super_soldier_unarmed"), "empty hand: the melee bonus");
 		p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(Items.STICK));
 		SuperSoldier.reconcile(p);
 		helper.assertTrue(hasModifier(p, Attributes.ATTACK_DAMAGE, "super_soldier_unarmed"), "v0.14.11: holding something keeps a bonus");
-		// v0.17.7 (Street tier): bare hands +7, holding something +2
-		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - (1.0 + SuperSoldierConfig.ARMED_BONUS)) < 1.0e-6,
-				"holding a stick: fist 1 + 2 = " + p.getAttributeValue(Attributes.ATTACK_DAMAGE));
+		// v0.17.7 (user): melee 5 -- a stick is not a weapon, so it punches for exactly 5 (the sword case: MeleeBonusV0177GameTests)
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - SuperSoldierConfig.MELEE) < 1.0e-6,
+				"holding a stick: a 5 punch, got " + p.getAttributeValue(Attributes.ATTACK_DAMAGE));
 		p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
 		SuperSoldier.reconcile(p);
-		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - (1.0 + SuperSoldierConfig.UNARMED_BONUS)) < 1.0e-6,
-				"bare hands: fist 1 + 7 = " + p.getAttributeValue(Attributes.ATTACK_DAMAGE));
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - SuperSoldierConfig.MELEE) < 1.0e-6,
+				"bare hands: 5, got " + p.getAttributeValue(Attributes.ATTACK_DAMAGE));
 		// the jump modifier really carries a player about 2.25 blocks
 		double v = p.getAttributeValue(Attributes.JUMP_STRENGTH);
 		double y = 0.0;
@@ -389,7 +389,7 @@ public class SuperSoldierGameTests implements FabricGameTest {
 				.thenWaitUntil(() -> {
 					for (Zombie z : zs) {
 						helper.assertTrue(Math.abs(z.getHealth() - (200.0f - SuperSoldierConfig.SHIELD_DAMAGE)) < 0.05f,
-								"every zombie hit once for 9: " + zs[0].getHealth() + " / " + zs[1].getHealth() + " / " + zs[2].getHealth());
+								"every zombie hit once for 6: " + zs[0].getHealth() + " / " + zs[1].getHealth() + " / " + zs[2].getHealth());
 					}
 				})
 				.thenWaitUntil(() -> helper.assertTrue(shieldsAround(helper, p) == 0, "the shield came back and was caught"))
@@ -757,7 +757,7 @@ public class SuperSoldierGameTests implements FabricGameTest {
 				.thenWaitUntil(() -> {
 					for (Zombie z : zs) {
 						helper.assertTrue(Math.abs(z.getHealth() - (200.0f - SuperSoldierConfig.SHIELD_DAMAGE)) < 0.05f,
-								"every zombie hit once for 9 (full Adamantium numbers from the slot)");
+								"every zombie hit once for 6 (full Adamantium numbers from the slot)");
 					}
 				})
 				.thenWaitUntil(() -> helper.assertTrue(shieldsAround(helper, p) == 0, "it came back"))

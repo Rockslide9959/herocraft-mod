@@ -62,7 +62,7 @@ public final class Hulk {
 	public static final String KEY = "hulk";
 
 	private static final ResourceLocation SCALE_ID = PowerToggles.id("hulk_scale");
-	private static final ResourceLocation ATTACK_ID = PowerToggles.id("hulk_attack");
+	private static final ResourceLocation ATTACK_ID = com.projecthero.mod.combat.MeleeBonus.register(PowerToggles.id("hulk_attack"));
 	private static final ResourceLocation HEALTH_ID = PowerToggles.id("hulk_health");
 	private static final ResourceLocation KNOCKBACK_ID = PowerToggles.id("hulk_knockback");
 	private static final ResourceLocation TOUGHNESS_ID = PowerToggles.id("hulk_toughness");

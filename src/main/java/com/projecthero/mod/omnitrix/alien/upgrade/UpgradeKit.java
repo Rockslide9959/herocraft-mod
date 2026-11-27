@@ -1897,7 +1897,7 @@ public final class UpgradeKit extends AlienKit {
 	public static final double OVERCLOCK_MINING = 1.0;
 	public static final double OVERCLOCK_DAMAGE = 6.0; // v0.17.2 (user: "can you make the damage of all of ben 10s alien stronger ... make each alien stronger accordingly please"): was 4
 	private static final net.minecraft.resources.ResourceLocation OC_MINE = com.projecthero.mod.hero.power.PowerToggles.id("omnitrix_upgrade_overclock_mine");
-	private static final net.minecraft.resources.ResourceLocation OC_HIT = com.projecthero.mod.hero.power.PowerToggles.id("omnitrix_upgrade_overclock_hit");
+	private static final net.minecraft.resources.ResourceLocation OC_HIT = com.projecthero.mod.combat.MeleeBonus.register(com.projecthero.mod.hero.power.PowerToggles.id("omnitrix_upgrade_overclock_hit"));
 
 	private void vKey(ServerPlayer p, boolean shift) {
 		if (shift) {

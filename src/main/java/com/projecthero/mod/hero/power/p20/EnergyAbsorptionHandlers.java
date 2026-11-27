@@ -82,7 +82,7 @@ public final class EnergyAbsorptionHandlers {
 	private static final float MODE_ABILITY_BONUS = 10.0f;
 
 	private static final net.minecraft.resources.ResourceLocation SUPER_ATK =
-			com.projecthero.mod.ProjectHeroMod.id("energy_supercharged_atk");
+			com.projecthero.mod.combat.MeleeBonus.register(com.projecthero.mod.ProjectHeroMod.id("energy_supercharged_atk"));
 
 	private EnergyAbsorptionHandlers() {
 	}

@@ -139,7 +139,7 @@ cape and and high collar from the skin and make it a model that reacts with the 
 | Vibranium Weave | -- | 20 armour / 8 toughness, full diamond (attribute modifiers while suited); shots under 15 bounce off |
 | Silent Paws | -- | no vibrations |
 
-The melee is one attribute modifier (`black_panther_herb`): `UNSUITED_MELEE - 1` or `SUITED_MELEE - 1`. The jump is a `JUMP_STRENGTH` modifier (`black_panther_jump`, `JUMP_UNSUITED` / `JUMP_SUITED`; the old endless Jump Boost is cleared). Regeneration and
+The melee is one attribute modifier (`black_panther_herb`): `UNSUITED_MELEE - 1` or `SUITED_MELEE - 1`, set through the shared melee rule (`combat.MeleeBonus.fist`; v0.17.7 user: "+5 on top of tools and weapons ... do this for black panthers"): a punch (empty hand or a non-weapon item) deals 8 / 10, a weapon or tool its own damage + 8 / + 10 (the shared `melee_bonus_weapon` +1 while one is held). The jump is a `JUMP_STRENGTH` modifier (`black_panther_jump`, `JUMP_UNSUITED` / `JUMP_SUITED`; the old endless Jump Boost is cleared). Regeneration and
 Resistance I (`RESISTANCE_LEVEL`, user: "give player passive resistance one") are infinite `PowerToggles.effect`s refreshed in
 `reconcile` (every 20 ticks), cleared by `revoke`.
 

@@ -43,7 +43,7 @@ public final class UndeadShoulderSword {
 	public static final AttachmentType<ItemStack> ATTACHMENT = AttachmentRegistry.create(ProjectHeroMod.id("undead_shoulder_sword"),
 			builder -> builder.persistent(ItemStack.OPTIONAL_CODEC).copyOnDeath().syncWith(ItemStack.OPTIONAL_STREAM_CODEC, AttachmentSyncPredicate.all()));
 
-	private static final ResourceLocation DAMAGE_ID = PowerToggles.id("undead_shoulder_sword_damage");
+	private static final ResourceLocation DAMAGE_ID = com.projecthero.mod.combat.MeleeBonus.virtualWeapon(PowerToggles.id("undead_shoulder_sword_damage"));
 	private static final ResourceLocation SPEED_ID = PowerToggles.id("undead_shoulder_sword_speed");
 
 	private UndeadShoulderSword() {

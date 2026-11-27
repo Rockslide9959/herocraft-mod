@@ -49,7 +49,7 @@ public final class BlueBeetle {
 
 	private static final ResourceLocation ARMOR_ID = PowerToggles.id("blue_beetle_armor");
 	private static final ResourceLocation TOUGHNESS_ID = PowerToggles.id("blue_beetle_toughness");
-	private static final ResourceLocation MELEE_ID = PowerToggles.id("blue_beetle_melee");
+	private static final ResourceLocation MELEE_ID = com.projecthero.mod.combat.MeleeBonus.register(PowerToggles.id("blue_beetle_melee"));
 	private static final ResourceLocation BLADE_ID = PowerToggles.id("blue_beetle_blade");
 
 	public static final DustParticleOptions BLUE = new DustParticleOptions(new Vector3f(0.15f, 0.55f, 1.0f), 1.2f);

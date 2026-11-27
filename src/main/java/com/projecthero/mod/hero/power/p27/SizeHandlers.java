@@ -39,7 +39,7 @@ import net.minecraft.world.phys.Vec3;
 public final class SizeHandlers {
 	private static final String KEY = "power_27_size_manipulation";
 	private static final net.minecraft.resources.ResourceLocation SCALE = com.projecthero.mod.ProjectHeroMod.id("size_scale");
-	private static final net.minecraft.resources.ResourceLocation ATK = com.projecthero.mod.ProjectHeroMod.id("size_atk");
+	private static final net.minecraft.resources.ResourceLocation ATK = com.projecthero.mod.combat.MeleeBonus.register(com.projecthero.mod.ProjectHeroMod.id("size_atk"));
 	private static final net.minecraft.resources.ResourceLocation REACH = com.projecthero.mod.ProjectHeroMod.id("size_reach");
 	private static final net.minecraft.resources.ResourceLocation STEP = com.projecthero.mod.ProjectHeroMod.id("size_step");
 	private static final net.minecraft.resources.ResourceLocation HP = com.projecthero.mod.ProjectHeroMod.id("size_hp");

@@ -59,7 +59,7 @@ public final class ThorPassives {
 	/** Re-entrancy guard for {@link #onAllowDamage}: the reduced hit is re-issued through the same event. */
 	private static final ThreadLocal<Boolean> REDUCING = ThreadLocal.withInitial(() -> false);
 
-	private static final ResourceLocation STRENGTH_ID = ProjectHeroMod.id("power_of_thor_strength");
+	private static final ResourceLocation STRENGTH_ID = com.projecthero.mod.combat.MeleeBonus.register(ProjectHeroMod.id("power_of_thor_strength"));
 	private static final ResourceLocation SPEED_ID = ProjectHeroMod.id("power_of_thor_speed");
 	private static final ResourceLocation KNOCKBACK_ID = ProjectHeroMod.id("power_of_thor_knockback");
 	private static final ResourceLocation MAX_HEALTH_ID = ProjectHeroMod.id("power_of_thor_max_health");

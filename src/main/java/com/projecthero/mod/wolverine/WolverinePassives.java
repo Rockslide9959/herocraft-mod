@@ -28,9 +28,9 @@ public final class WolverinePassives {
 	private static final ResourceLocation SPEED = ProjectHeroMod.id("wolverine_speed");
 	private static final ResourceLocation RAGE_SPEED = ProjectHeroMod.id("wolverine_rage_speed");
 	private static final ResourceLocation JUMP = ProjectHeroMod.id("wolverine_jump");
-	private static final ResourceLocation ATTACK = ProjectHeroMod.id("wolverine_attack");
+	private static final ResourceLocation ATTACK = com.projecthero.mod.combat.MeleeBonus.register(ProjectHeroMod.id("wolverine_attack"));
 	private static final ResourceLocation CLAW_ATTACK = ProjectHeroMod.id("wolverine_claw_attack");
-	private static final ResourceLocation RAGE_ATTACK = ProjectHeroMod.id("wolverine_rage_attack");
+	private static final ResourceLocation RAGE_ATTACK = com.projecthero.mod.combat.MeleeBonus.register(ProjectHeroMod.id("wolverine_rage_attack"));
 	private static final ResourceLocation KNOCKBACK = ProjectHeroMod.id("wolverine_knockback");
 	private static final ResourceLocation BURST_KNOCKBACK = ProjectHeroMod.id("wolverine_burst_knockback");
 	private static final ResourceLocation MINING = ProjectHeroMod.id("wolverine_mining");

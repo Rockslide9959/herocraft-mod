@@ -48,7 +48,7 @@ public final class GravityHandlers {
 	private static final String KEY = "power_23_gravity_manipulation";
 	private static final net.minecraft.resources.ResourceLocation ZERO_G = com.projecthero.mod.ProjectHeroMod.id("zero_g_grav");
 	private static final net.minecraft.resources.ResourceLocation KB = com.projecthero.mod.ProjectHeroMod.id("gravity_kb");
-	private static final net.minecraft.resources.ResourceLocation NEXUS_ATK = com.projecthero.mod.ProjectHeroMod.id("gravity_nexus_atk");
+	private static final net.minecraft.resources.ResourceLocation NEXUS_ATK = com.projecthero.mod.combat.MeleeBonus.register(com.projecthero.mod.ProjectHeroMod.id("gravity_nexus_atk"));
 	private static final float MAX_NEXUS = 115.0f;
 	private static final float NEXUS_DRAIN = 100.0f / (35 * 20);
 	private static final float NEXUS_REGEN = MAX_NEXUS / (25 * 20);

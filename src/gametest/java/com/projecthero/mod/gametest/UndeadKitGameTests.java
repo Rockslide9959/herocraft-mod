@@ -367,7 +367,8 @@ public class UndeadKitGameTests implements FabricGameTest {
 		ItemStack sword = new ItemStack(Items.DIAMOND_SWORD);
 		sword.enchant(ench(helper, Enchantments.SHARPNESS), 5);
 		p.setItemInHand(InteractionHand.MAIN_HAND, sword);
-		double held = p.getAttributeValue(Attributes.ATTACK_DAMAGE) + 6.0; // a held diamond sword adds 6 to the bare hand
+		// a held diamond sword adds 6 to the bare hand, and (v0.17.7 shared melee rule) the +1 weapon top-up on his Bloody Arts fists
+		double held = p.getAttributeValue(Attributes.ATTACK_DAMAGE) + 6.0 + com.projecthero.mod.combat.MeleeBonus.WEAPON_TOP_UP;
 		p.setShiftKeyDown(true);
 		helper.assertTrue(UndeadShoulderSword.interact(p), "Shift + right click with a sword: in it goes");
 		p.setShiftKeyDown(false);
@@ -377,6 +378,7 @@ public class UndeadKitGameTests implements FabricGameTest {
 		helper.assertTrue(EnchantmentHelper.getItemEnchantmentLevel(ench(helper, Enchantments.SHARPNESS), in) == 5, "its enchantments kept");
 		helper.assertTrue(UndeadRegenMods.delayMult(p) == UndeadKitConfig.SHOULDER_REGEN_MULT && UndeadRegenMods.durationMult(p) == UndeadKitConfig.SHOULDER_REGEN_MULT,
 				"regeneration 10% slower, 10% more delay");
+		com.projecthero.mod.combat.MeleeBonus.reconcile(p); // the shoulder sword counts as a held weapon
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - held) < 0.01,
 				"a bare hand hits as hard as holding the sword: " + p.getAttributeValue(Attributes.ATTACK_DAMAGE) + " vs " + held);
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_SPEED) - 1.6) < 0.01, "at the sword's speed: " + p.getAttributeValue(Attributes.ATTACK_SPEED));

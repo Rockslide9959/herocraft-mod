@@ -51,7 +51,7 @@ public final class Vision {
 	public static final String KEY = "vision";
 
 	private static final ResourceLocation HEALTH_ID = PowerToggles.id("vision_health");
-	private static final ResourceLocation ATTACK_ID = PowerToggles.id("vision_attack");
+	private static final ResourceLocation ATTACK_ID = com.projecthero.mod.combat.MeleeBonus.register(PowerToggles.id("vision_attack"));
 	private static final ResourceLocation SPEED_ID = PowerToggles.id("vision_density_speed");
 	private static final ResourceLocation KNOCKBACK_ID = PowerToggles.id("vision_density_knockback");
 

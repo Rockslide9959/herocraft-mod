@@ -226,7 +226,7 @@ public final class SilverSurfer {
 		player.addEffect(new MobEffectInstance(MobEffects.GLOWING, 40, 0, false, false, false));
 	}
 
-	private static final net.minecraft.resources.ResourceLocation MELEE_ID = com.projecthero.mod.ProjectHeroMod.id("silver_surfer_melee");
+	private static final net.minecraft.resources.ResourceLocation MELEE_ID = com.projecthero.mod.combat.MeleeBonus.register(com.projecthero.mod.ProjectHeroMod.id("silver_surfer_melee"));
 
 	/** v0.17.1 (user): the Surfer can't wear armour -- anything put on goes back into the inventory (or drops if it is full). */
 	static void stripArmour(ServerPlayer player) {

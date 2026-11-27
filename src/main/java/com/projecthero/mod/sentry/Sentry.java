@@ -65,7 +65,7 @@ public final class Sentry {
 
 	private static final ResourceLocation HEALTH_ID = PowerToggles.id("sentry_health");
 	private static final ResourceLocation SPEED_ID = PowerToggles.id("sentry_speed");
-	private static final ResourceLocation ATTACK_ID = PowerToggles.id("sentry_attack");
+	private static final ResourceLocation ATTACK_ID = com.projecthero.mod.combat.MeleeBonus.register(PowerToggles.id("sentry_attack"));
 
 	public static final int GOLD = 0xFFC83A;
 	public static final int BLUE = 0x2F6BFF;

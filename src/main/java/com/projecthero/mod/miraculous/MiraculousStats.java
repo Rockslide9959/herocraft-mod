@@ -19,7 +19,7 @@ public final class MiraculousStats {
 	private static final ResourceLocation ARMOR_ID = PowerToggles.id("miraculous_armor");
 	private static final ResourceLocation TOUGHNESS_ID = PowerToggles.id("miraculous_toughness");
 	private static final ResourceLocation HEALTH_ID = PowerToggles.id("miraculous_health");
-	private static final ResourceLocation ATTACK_ID = PowerToggles.id("miraculous_attack");
+	private static final ResourceLocation ATTACK_ID = com.projecthero.mod.combat.MeleeBonus.register(PowerToggles.id("miraculous_attack"));
 	private static final ResourceLocation SPEED_ID = PowerToggles.id("miraculous_speed");
 	private static final ResourceLocation JUMP_ID = PowerToggles.id("miraculous_jump");
 
