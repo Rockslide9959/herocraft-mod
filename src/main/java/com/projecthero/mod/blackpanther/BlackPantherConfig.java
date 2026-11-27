@@ -27,6 +27,14 @@ public final class BlackPantherConfig {
 	public static final int REGEN_SUITED = 1;
 	/** v0.17.7 (user: "give player passive resistance one"): his endless Resistance amplifier, suit on or off (0 = Resistance I). */
 	public static final int RESISTANCE_LEVEL = 0;
+	/**
+	 * v0.17.7 (user: "player can jump 2 blocks without the suit / player can jump 3 blocks with the suit"): added to the vanilla
+	 * jump strength (0.42, a 1.25-block hop) in place of the herb's old Jump Boost. Vanilla jump physics (each tick: y += v, then
+	 * v = (v - 0.08) * 0.98) give a 0.61 take-off a 2.44-block peak (clears 2, not 3) and a 0.74 take-off a 3.46-block peak
+	 * (clears 3, not 4).
+	 */
+	public static final double JUMP_UNSUITED = 0.19;
+	public static final double JUMP_SUITED = 0.32;
 	/** v0.17.7 (Street tier): no single hit goes over this, whatever stacks (Stalk, Kimoyo Scan, Kinetic Return). */
 	public static final float MAX_HIT = com.projecthero.mod.hero.PowerRank.STREET.ultimateMax;
 	/** Arrows and bullets below this much damage bounce off (the Iron Man bulletproof rule). */
@@ -133,13 +141,13 @@ public final class BlackPantherConfig {
 	public static final int SWEEP_COOLDOWN = 120;
 	// G
 	public static final double TAKEDOWN_RANGE = 3.0; // v0.17.7 (user): 3 blocks
-	public static final float TAKEDOWN_DAMAGE = 10f; // v0.17.7 (user): was 7
+	public static final float TAKEDOWN_DAMAGE = 12f; // v0.17.7 (user: "takedown: increase damage to 12"): was 10
 	public static final int TAKEDOWN_DAZE_TICKS = 40;
 	/** The slam lands this many ticks after the grab (the flip over the shoulder). */
 	public static final int TAKEDOWN_SLAM_AT = 9;
 	public static final int TAKEDOWN_COOLDOWN = 160;
 	/** v0.17.7 Ground Pound (Shift+G, was Disarm): a short hop, then he drives down and slams the ground round him. */
-	public static final float POUND_DAMAGE = 9f;
+	public static final float POUND_DAMAGE = 15f; // v0.17.7 (user: "Ground pound: increase damage to 15"): was 9
 	public static final double POUND_RADIUS = 3.5;
 	public static final double POUND_UP = 0.62;
 	/** He is driven down this fast from POUND_DIVE_AT ticks after the hop... */
@@ -184,13 +192,19 @@ public final class BlackPantherConfig {
 	// C
 	/** v0.17.7 Block (hold C, was Parry): every hit from the front is cut by this share while it is up... */
 	public static final float BLOCK_REDUCTION = 0.6f;
-	/** ...for at most this long a raise. */
-	public static final int BLOCK_MAX_TICKS = 100;
-	public static final int BLOCK_COOLDOWN = 20;
+	/** v0.17.7 (user: "Block: remove time limit, 6 second cooldown when block is released"): up for as long as C is held; the cooldown starts on release. */
+	public static final int BLOCK_COOLDOWN = 120;
 	public static final double BLOCK_SLOW = -0.35;
-	public static final int RESOLVE_REGEN_TICKS = 80;
-	public static final int RESOLVE_STRENGTH_TICKS = 120;
-	public static final int RESOLVE_COOLDOWN = 600;
+	/**
+	 * v0.17.7 Wakanda Forever (Shift+C, was Ancestral Resolve; user: "player gets speed 2, strength 2, regeneration 2, resistance 2,
+	 * lasts 50 seconds, 100 second cooldown upon activation, players emits purple particle effects while this is active").
+	 */
+	public static final int RESOLVE_TICKS = 50 * 20;
+	/** Effect amplifiers: Speed II, Strength II, Regeneration II, Resistance II. */
+	public static final int RESOLVE_SPEED = 1, RESOLVE_STRENGTH = 1, RESOLVE_REGEN = 1, RESOLVE_RESISTANCE = 1;
+	public static final int RESOLVE_COOLDOWN = 100 * 20;
+	/** The purple aura is puffed out every this many ticks while it lasts. */
+	public static final int RESOLVE_PARTICLE_EVERY = 3;
 
 	private BlackPantherConfig() {
 	}

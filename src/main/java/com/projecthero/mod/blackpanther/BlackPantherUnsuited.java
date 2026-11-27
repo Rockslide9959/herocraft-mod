@@ -42,7 +42,7 @@ import net.minecraft.world.phys.Vec3;
  *   X  Vault               an acrobatic forward flip              Shift+X  Flying Kick    dash where he aims, 10 on the first hit
  *   Z  Throwing Knife      8, one target, comes back              Shift+Z  Kimoyo Scan    marks a creature 10 s: outlined, +25%
  *   V  Rising Uppercut     9 and launched (bosses: the damage)    Shift+V  Hunter's Tracking  toggle: outlines + footprints, 24
- *   C  Block (hold)        every hit from the front -60%          Shift+C  Ancestral Resolve  Regeneration II 4 s + Strength I 6 s
+ *   C  Block (hold)        every hit from the front -60%          Shift+C  Wakanda Forever  Speed, Strength, Regen, Resistance II 50 s
  * </pre>
  * The Warrior's Combo is R in the suit too (8 / 9 / 10 there): {@link #combo} picks the numbers by the suit.
  * Every running move here is dropped by {@link #clear} (suit on / off, death, a world change) and {@link #clearSessionState}.
@@ -76,6 +76,8 @@ public final class BlackPantherUnsuited {
 	private static final Map<UUID, long[]> KICKS = new ConcurrentHashMap<>();
 	/** Block: when it was raised. */
 	private static final Map<UUID, Long> BLOCKS = new ConcurrentHashMap<>();
+	/** Wakanda Forever: until when his purple aura shows (UUIDs and game times only). */
+	private static final Map<UUID, Long> WAKANDA = new ConcurrentHashMap<>();
 	/** Entity id -> its Kimoyo Scan mark. */
 	private static final Map<Integer, Mark> MARKS = new ConcurrentHashMap<>();
 
@@ -89,6 +91,7 @@ public final class BlackPantherUnsuited {
 		POUNDS.clear();
 		KICKS.clear();
 		BLOCKS.clear();
+		WAKANDA.clear();
 		MARKS.clear();
 	}
 
@@ -99,6 +102,7 @@ public final class BlackPantherUnsuited {
 		POUNDS.remove(id);
 		KICKS.remove(id);
 		BLOCKS.remove(id);
+		WAKANDA.remove(id);
 		MARKS.values().removeIf(m -> m.owner().equals(id));
 	}
 
@@ -598,6 +602,7 @@ public final class BlackPantherUnsuited {
 	// ---------------------------------------------------------------- C: the guard
 
 	/** v0.17.7 Block (hold C, user: "a blocking ability please that reduces incoming damage"): the guard comes up. */
+	/** v0.17.7 (user: "Block: remove time limit, 6 second cooldown when block is released"): up for as long as C is held. */
 	public static void raiseBlock(ServerPlayer p) {
 		if (BLOCKS.containsKey(p.getUUID()) || !begin(p, BLOCK)) {
 			return;
@@ -610,6 +615,7 @@ public final class BlackPantherUnsuited {
 		sound(p, SoundEvents.ARMOR_EQUIP_LEATHER.value(), 0.9f, 1.4f);
 	}
 
+	/** C released: the guard comes down and the 6 s cooldown starts now. */
 	public static void lowerBlock(ServerPlayer p) {
 		if (BLOCKS.remove(p.getUUID()) == null) {
 			return;
@@ -633,14 +639,24 @@ public final class BlackPantherUnsuited {
 		sound(p, SoundEvents.SHIELD_BLOCK, 1.0f, 1.2f);
 	}
 
+	/**
+	 * v0.17.7 Wakanda Forever (Shift+C, was Ancestral Resolve; user: "Change the name to "Wakanda Forever", player gets speed 2,
+	 * strength 2, regeneration 2, resistance 2, lasts 50 seconds, 100 second cooldown upon activation, players emits purple particle
+	 * effects while this is active"). The endless passives (Speed I, Regeneration I / II, Resistance I) wait behind the stronger timed
+	 * effects (vanilla's hidden effect) and come back when they run out; the purple aura is in {@link #tick}.
+	 */
 	public static void resolve(ServerPlayer p) {
 		if (!begin(p, RESOLVE)) {
 			return;
 		}
 		cooldown(p, RESOLVE, BlackPantherConfig.RESOLVE_COOLDOWN);
 		anim(p, BlackPantherState.ANIM_RESOLVE);
-		p.addEffect(new MobEffectInstance(MobEffects.REGENERATION, BlackPantherConfig.RESOLVE_REGEN_TICKS, 1, false, true, true));
-		p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, BlackPantherConfig.RESOLVE_STRENGTH_TICKS, 0, false, true, true));
+		int t = BlackPantherConfig.RESOLVE_TICKS;
+		p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, t, BlackPantherConfig.RESOLVE_SPEED, false, true, true));
+		p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, t, BlackPantherConfig.RESOLVE_STRENGTH, false, true, true));
+		p.addEffect(new MobEffectInstance(MobEffects.REGENERATION, t, BlackPantherConfig.RESOLVE_REGEN, false, true, true));
+		p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, t, BlackPantherConfig.RESOLVE_RESISTANCE, false, true, true));
+		WAKANDA.put(p.getUUID(), p.level().getGameTime() + t);
 		p.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
 		p.removeEffect(MobEffects.WEAKNESS);
 		Vec3 c = p.position().add(0, 1.0, 0);
@@ -699,9 +715,22 @@ public final class BlackPantherUnsuited {
 		if (flip != null) {
 			tickFlip(p, flip, now);
 		}
-		Long block = BLOCKS.get(id);
-		if (block != null && now - block >= BlackPantherConfig.BLOCK_MAX_TICKS) {
-			lowerBlock(p);
+		// v0.17.7: the Block has no time limit any more (it stays up until C is released)
+		Long wakanda = WAKANDA.get(id);
+		if (wakanda != null) {
+			if (now >= wakanda || !p.isAlive() || !p.hasEffect(MobEffects.DAMAGE_BOOST)) {
+				WAKANDA.remove(id); // run out, or the effects were cleared (death, milk)
+			} else if (now % BlackPantherConfig.RESOLVE_PARTICLE_EVERY == 0) {
+				// the purple aura, for every viewer: dust swirling round him and a few rising sparks
+				double a = now * 0.35;
+				for (int i = 0; i < 3; i++) {
+					double ang = a + i * (Math.PI * 2 / 3);
+					level(p).sendParticles(BlackPanther.PURPLE, p.getX() + Math.cos(ang) * 0.7, p.getY() + 0.2 + ((now / 3 + i) % 6) * 0.3,
+							p.getZ() + Math.sin(ang) * 0.7, 1, 0.02, 0.02, 0.02, 0.0);
+				}
+				level(p).sendParticles(BlackPanther.PURPLE_BIG, p.getX(), p.getY() + 1.0, p.getZ(), 2, 0.35, 0.6, 0.35, 0.0);
+				level(p).sendParticles(ParticleTypes.WITCH, p.getX(), p.getY() + 0.3, p.getZ(), 1, 0.3, 0.1, 0.3, 0.0);
+			}
 		}
 		if (!MARKS.isEmpty() && now % 20 == 0) {
 			for (Iterator<Map.Entry<Integer, Mark>> it = MARKS.entrySet().iterator(); it.hasNext();) {

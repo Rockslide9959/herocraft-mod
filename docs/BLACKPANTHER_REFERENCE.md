@@ -20,7 +20,7 @@ please, don't make the player have the necklace model on them all the time, only
 - **Item:** `BlackPantherItems.NECKLACE` (`projecthero:black_panther_necklace`, `BlackPantherNecklaceItem`): stack of 1, EPIC,
   fire resistant, no durability. `Equipable` with slot **CHEST**, exactly like the Flash Ring holding the Flash Suit
   (`FlashRingItem`): right-click it (only the Black Panther may, others get a refusal), shift-click it or drag it into the
-  chestplate slot. Death / keepInventory / graves treat it like armour. A chestplate cannot be worn with it (the suit gives its own
+  chestplate slot. Death / keepInventory / graves treat it like armour. **Black Panthers only** (v0.17.7, user: "black panther necklace can only be worn by players with black panther ability"): `LivingEntitySupermanSuitMixin` returns MAINHAND as its equipment slot for anyone without the power (armour slot, shift-click, hotbar swap, creative screen refuse it, both sides), `use` refuses right-click, `BlackPantherNecklaceItem.DISPENSE` fits it only onto a Panther with the chest slot free (else shoots it out), and `BlackPanther.ejectNecklace` (every tick, every player, and from `revoke`) pops a worn one off into the inventory (dropped if full) with the refusal message. A chestplate cannot be worn with it (the suit gives its own
   armour).
 - **Recipe** (shaped, `recipe/black_panther_necklace.json`): `VAV` / `VWV` / `VHV`. V = Vibranium Ingot (6, the old set's cost),
   A = Amethyst Shard, W = Black Wool, H = Heart-Shaped Herb. JEI shows it plus an info page (`projecthero.jei.black_panther_necklace`
@@ -104,7 +104,7 @@ cape and and high collar from the skin and make it a model that reacts with the 
 | Melee (bare fist) | 5 | 10 (claws always out) |
 | Regeneration | I | II |
 | Resistance (v0.17.7) | I | I |
-| Herb | Speed I, Jump Boost I | same |
+| Herb | Speed I; jump 2 blocks (jump strength +0.19, peak 2.44) | Speed I; jump 3 blocks (+0.32, peak 3.46) |
 | Falls | half (Cat's Landing) | none |
 | Night Eyes | in the dark | always |
 | Hunter's Instinct | creatures hunting him within 20 outlined | same |
@@ -112,7 +112,7 @@ cape and and high collar from the skin and make it a model that reacts with the 
 | Vibranium Weave | -- | 20 armour / 8 toughness, full diamond (attribute modifiers while suited); shots under 15 bounce off |
 | Silent Paws | -- | no vibrations |
 
-The melee is one attribute modifier (`black_panther_herb`): `UNSUITED_MELEE - 1` or `SUITED_MELEE - 1`. Regeneration and
+The melee is one attribute modifier (`black_panther_herb`): `UNSUITED_MELEE - 1` or `SUITED_MELEE - 1`. The jump is a `JUMP_STRENGTH` modifier (`black_panther_jump`, `JUMP_UNSUITED` / `JUMP_SUITED`; the old endless Jump Boost is cleared). Regeneration and
 Resistance I (`RESISTANCE_LEVEL`, user: "give player passive resistance one") are infinite `PowerToggles.effect`s refreshed in
 `reconcile` (every 20 ticks), cleared by `revoke`.
 
@@ -122,16 +122,16 @@ Resistance I (`RESISTANCE_LEVEL`, user: "give player passive resistance one") ar
 |---|---|---|---|
 | R | Warrior's Combo | 5 / 7 / 10 (jab on the press, kick shoves) | 1.5 s |
 | Shift+R | Leg Sweep | 7 within 2.6, trip 1.5 s | 6 s |
-| G | Takedown | grab within 3 blocks, slam 10, daze 2 s | 8 s |
-| Shift+G | Ground Pound (new) | hop, dive, slam: 9 within 3.5, knock-up, Slowness II 1.5 s | 8 s |
+| G | Takedown | grab within 3 blocks, slam 12 (v0.17.7 user), daze 2 s | 8 s |
+| Shift+G | Ground Pound (new) | hop, dive, slam: 15 (v0.17.7 user) within 3.5, knock-up, Slowness II 1.5 s | 8 s |
 | X | Vault | front flip, no fall damage | 2.5 s |
 | Shift+X | Flying Kick (new) | dash ~8 blocks along the full look (aim up = kick upward, aim down = dive; a downward aim from the ground kicks level), 10 to the first creature reached, rebound; a wall / ceiling / the ground one step ahead stops it dead, soft landing (`FLIPS` 60 ticks, refreshed when it ends); the body tilts with the look pitch (`BlackPantherPose.flipDegrees`) | 6 s |
-| Z | Throwing Knife | 8, returns | 4 s |
+| Z | Throwing Knife | 8, returns (renderer: sprite plane along the flight, tumbling forward end over end, shared with the suited dagger) | 4 s |
 | Shift+Z | Kimoyo Scan | mark 10 s, +25% from him | 15 s |
 | V | Rising Uppercut (new) | 9 within 3, launched + Slowness III 1.5 s | 6 s |
 | Shift+V | Hunter's Tracking | toggle, outlines + footprints, 24 | -- |
-| C (hold) | Block (new) | every hit from the front -60%, up to 5 s | 1 s |
-| Shift+C | Ancestral Resolve | Regeneration II 4 s, Strength I 6 s | 30 s |
+| C (hold) | Block (new) | every hit from the front -60%, no time limit (as long as C is held) | 6 s, from release |
+| Shift+C | Wakanda Forever (was Ancestral Resolve; id still `ancestral_resolve`) | Speed II, Strength II, Regeneration II, Resistance II for 50 s (the endless passives wait behind them as vanilla hidden effects and return after); purple aura every 3 ticks for every viewer (`WAKANDA` map) | 100 s, from activation |
 
 Bosses only take the damage of the control moves. The new moves were designed for the user's requests: Ground Pound replaces
 Disarm, Flying Kick replaces Backflip, Block replaces Parry (no perfect parry / riposte), Rising Uppercut replaces Shadow Step.

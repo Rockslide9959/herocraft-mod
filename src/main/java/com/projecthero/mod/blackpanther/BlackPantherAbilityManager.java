@@ -24,7 +24,7 @@ import net.minecraft.server.level.ServerPlayer;
  *   X (3)  Panther Leap      / Shift Drop Strike             Vault             / Shift Flying Kick
  *   Z (4)  Vibranium Dagger  / Shift Kimoyo Flash            Throwing Knife    / Shift Kimoyo Scan
  *   V (5)  Stalk             / Shift Panther Senses          Rising Uppercut   / Shift Hunter's Tracking
- *   C (6)  Absorb Stance (hold) / Shift Kinetic Return       Block (hold)      / Shift Ancestral Resolve
+ *   C (6)  Absorb Stance (hold) / Shift Kinetic Return       Block (hold)      / Shift Wakanda Forever
  *   N (8)  -- / Shift Mask (toggle, suited; no HUD box, listed in the Left-Alt move list)
  *   (*) on a full Kinetic bar Shift+R releases Kinetic Overload instead
  * </pre>

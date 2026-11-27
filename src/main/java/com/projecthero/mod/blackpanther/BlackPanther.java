@@ -61,6 +61,8 @@ public final class BlackPanther {
 	private static final ResourceLocation ABSORB_ID = PowerToggles.id("black_panther_absorb");
 	/** The herb's (and the suit's) melee: 5 a bare-handed hit out of the suit, 10 in it. */
 	private static final ResourceLocation HERB_ID = PowerToggles.id("black_panther_herb");
+	/** v0.17.7: the herb's jump (2 blocks out of the suit, 3 in it), a jump-strength modifier in place of the old Jump Boost. */
+	private static final ResourceLocation JUMP_ID = PowerToggles.id("black_panther_jump");
 
 	public static final DustParticleOptions PURPLE = new DustParticleOptions(new Vector3f(0.62f, 0.25f, 1.0f), 1.2f);
 	public static final DustParticleOptions PURPLE_BIG = new DustParticleOptions(new Vector3f(0.72f, 0.4f, 1.0f), 2.2f);
@@ -277,6 +279,7 @@ public final class BlackPanther {
 		PowerToggles.clearEffect(player, MobEffects.NIGHT_VISION);
 		PowerToggles.clearEffect(player, MobEffects.REGENERATION);
 		PowerToggles.clearEffect(player, MobEffects.DAMAGE_RESISTANCE);
+		ejectNecklace(player); // v0.17.7: only the Black Panther wears the necklace
 		forget(player.getUUID());
 	}
 
@@ -571,7 +574,7 @@ public final class BlackPanther {
 			double melee = (suited ? BlackPantherConfig.SUITED_MELEE : BlackPantherConfig.UNSUITED_MELEE) - 1.0;
 			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, HERB_ID, melee, AttributeModifier.Operation.ADD_VALUE);
 			// v0.17.7 (user): Regeneration I without the suit, II with it (our own endless II is taken off first: vanilla never
-			// lowers an effect's level by adding the weaker one; a timed buff such as Ancestral Resolve is left alone)
+			// lowers an effect's level by adding the weaker one; a timed buff such as Wakanda Forever is left alone)
 			int regen = suited ? BlackPantherConfig.REGEN_SUITED : BlackPantherConfig.REGEN_UNSUITED;
 			net.minecraft.world.effect.MobEffectInstance cur = player.getEffect(MobEffects.REGENERATION);
 			if (cur != null && cur.isInfiniteDuration() && cur.getAmplifier() > regen) {
@@ -580,8 +583,16 @@ public final class BlackPanther {
 			PowerToggles.effect(player, MobEffects.REGENERATION, regen, false);
 			// v0.17.7 (user: "give player passive resistance one"): Resistance I, suit on or off
 			PowerToggles.effect(player, MobEffects.DAMAGE_RESISTANCE, BlackPantherConfig.RESISTANCE_LEVEL, false);
+			// (a stronger timed effect -- Wakanda Forever's Regeneration / Resistance II -- is never stripped by these: vanilla keeps
+			// the stronger one and holds the endless I behind it, which comes back when it runs out)
+			// v0.17.7 (user: "player can jump 2 blocks without the suit / player can jump 3 blocks with the suit"): jump strength,
+			// not Jump Boost (the old endless Jump Boost I is taken off)
+			PowerToggles.clearEffect(player, MobEffects.JUMP);
+			PowerToggles.modifier(player, Attributes.JUMP_STRENGTH, JUMP_ID, suited ? BlackPantherConfig.JUMP_SUITED : BlackPantherConfig.JUMP_UNSUITED,
+					AttributeModifier.Operation.ADD_VALUE);
 		} else {
 			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, HERB_ID);
+			PowerToggles.clearModifier(player, Attributes.JUMP_STRENGTH, JUMP_ID);
 		}
 		if (power && st.absorbing) { // Absorb Stance in the suit, Block out of it: he moves slowly while it is up
 			PowerToggles.modifier(player, Attributes.MOVEMENT_SPEED, ABSORB_ID, suited ? BlackPantherConfig.ABSORB_SLOW : BlackPantherConfig.BLOCK_SLOW,
@@ -624,7 +635,31 @@ public final class BlackPanther {
 
 	// ---------------------------------------------------------------- tick
 
+	/** The stack is the Black Panther Necklace. */
+	public static boolean isNecklace(ItemStack stack) {
+		return BlackPantherItems.NECKLACE != null && stack.is(BlackPantherItems.NECKLACE);
+	}
+
+	/**
+	 * v0.17.7 (user: "black panther necklace can only be worn by players with black panther ability"): a necklace worn by anyone
+	 * without the power (put there by a command, another mod, or worn when the power was lost) pops off into the inventory, or drops
+	 * at his feet if it is full. Every tick for every player, and straight away from {@link #revoke}. True if one came off.
+	 */
+	public static boolean ejectNecklace(ServerPlayer player) {
+		if (!wearsNecklace(player) || hasPower(player)) {
+			return false;
+		}
+		ItemStack worn = player.getItemBySlot(EquipmentSlot.CHEST);
+		player.setItemSlot(EquipmentSlot.CHEST, ItemStack.EMPTY);
+		if (!player.getInventory().add(worn)) {
+			player.drop(worn, false);
+		}
+		player.displayClientMessage(Component.translatable("message.projecthero.black_panther.necklace_refuse").withStyle(ChatFormatting.GRAY), true);
+		return true;
+	}
+
 	public static void tick(ServerPlayer player) {
+		ejectNecklace(player);
 		BlackPantherState s = player.getAttachedOrElse(ModAttachments.BLACK_PANTHER_STATE, null);
 		if (s == null) {
 			return;
@@ -649,9 +684,8 @@ public final class BlackPanther {
 			reconcile(player);
 		}
 		if (player.tickCount % 40 == 0) {
-			// the herb: Speed I and Jump Boost I, suit on or off
+			// the herb: Speed I, suit on or off (v0.17.7: the jump is a jump-strength modifier now, see reconcile)
 			PowerToggles.effect(player, MobEffects.MOVEMENT_SPEED, 0, false);
-			PowerToggles.effect(player, MobEffects.JUMP, 0, false);
 		}
 		if (player.tickCount % 10 == 0) {
 			nightEyes(player, s);
