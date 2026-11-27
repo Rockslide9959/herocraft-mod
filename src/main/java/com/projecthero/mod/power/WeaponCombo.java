@@ -192,6 +192,10 @@ public final class WeaponCombo {
 	/** {@code Player.attack} HEAD (server only): note the attack and its strength before vanilla resets it. */
 	public static void beforeAttack(ServerPlayer player, Entity target) {
 		int weapon = comboWeapon(player);
+		// v0.17.7 Thor x Super Soldier: Thor's combo (and its Cosmic finisher) is Thor's -- a Super Soldier's lent weapon has its own kit
+		if (weapon != WeaponComboState.WEAPON_NONE && com.projecthero.mod.worthy.WorthyLending.lentHand(player) != null) {
+			weapon = WeaponComboState.WEAPON_NONE;
+		}
 		if (weapon == WeaponComboState.WEAPON_NONE || !(target instanceof LivingEntity living)) {
 			CTX.remove();
 			return;

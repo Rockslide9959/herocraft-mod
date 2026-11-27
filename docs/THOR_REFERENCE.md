@@ -253,6 +253,45 @@ filled mid-throw sends it to the pack; dying mid-throw leaves exactly one; R nev
 `ThorRecallV0151GameTests` now expects the off-hand landing and both-in-hand on R.
 
 Films: `docs/screenshots/v0177/thor_revamp/`.
+## v0.17.7: lending Mjolnir / Stormbreaker to a Super Soldier squadmate -- `com.projecthero.mod.worthy`
+
+User: "Thor squad mate can shift+Right click a super soldier squad mate to assign either Mjolnir or stormbreaker to that player, in
+the weapon menu thor player can retrieve the weapons back to themselves whenever they want if assigned to super soldier teammnate".
+The Super Soldier side (the two lent-weapon movesets, flight) is in SUPERSOLDIER_REFERENCE.md; this is Thor's side.
+
+- **Lend** (`WorthyLending.lend`, from a `UseEntityCallback`): a worthy player holding Mjolnir or Stormbreaker (main hand first, else
+  the off hand) sneak + right-clicks a player. Accepted only for a Super Soldier who is a squadmate (`Squads.areAllies`) and a weapon
+  bound to the lender (`BOUND_OWNER` = him; it stays bound -- the lender keeps ownership). Refusals (not bound / not a Super Soldier /
+  not in the squad) are an action-bar line + a soft anvil, nothing moves. The stack MOVES into the Super Soldier's main hand; the
+  displaced item goes to his pack (after the weapon is in, so it can't land in the same slot) or drops at his feet -- never deleted.
+  Visual bolt on him, a spark line between them, beacon + trident thunder; a chat line for each. One weapon or both, to the same or
+  different Super Soldiers. The client callback consumes every sneak + right-click on a player with a Thor weapon in hand, so it is
+  never the Mjolnir bind toggle (`MjolnirItem.use` never sees it).
+- **Record**: `WorthyLoans` -- per-world SavedData in the overworld (`projecthero_worthy_loans`), keyed by `HAMMER_ID`: weapon, owner
+  + name, borrower + name, since. Survives relogs and restarts; not static, so nothing for `ServerStateReset`. Each player's synced
+  `WorthyState` (`projecthero:worthy_state`) carries VIEW lists (`lent` on Thor for the screen, `borrowed` on the Super Soldier for
+  "is this stack lent to me" on both sides), rebuilt from the SavedData on every lend / end, at login and every second.
+- **Call back** (`ThorWeaponScreen` -> `WorthyActionPayload(CALL_BACK, weapon)` -> `WorthyLending.callBack`): a lent weapon's row says
+  "Lent to <name>" and its Active / Inactive toggle becomes a **Call back** button. The loan ends and the weapon comes home through
+  Thor's own recall, `MjolnirRecall.callBack(player, weapon, id)` (new public wrapper around `callWeapon`, ignoring the N selector):
+  torn from the holder's hand / pack with the fly-from-holder visual, a loaded entity / container, or -- holder offline / unreachable --
+  rebuilt at a new generation (the old copy in his saved inventory deletes itself when it next ticks: the registry's no-dupe rule).
+  A weapon out on one of his throws (`ThorThrown`) is handed back to his hand first.
+- **R leaves lent weapons alone**: `MjolnirRecall.chooseWeapon` treats a lent weapon as inactive; `call` says "Your weapons are lent to
+  your squad..." (`message.projecthero.worthy.all_lent`) when nothing else is callable.
+- **Other ends** (`WorthyLending.validate`, every 20 server ticks for every online player in a loan; `end(server, loan, reason)`): no
+  longer squadmates (left / kicked / disbanded -- `SquadManager.sameSquad` by UUID, works with one of them offline), the borrower lost
+  the Super Soldier power, the stack got bound to someone else; and the borrower's death (`ALLOW_DEATH`, before anything drops,
+  keepInventory or not). Owner online -> it flies home (as the Call back); owner offline -> taken out of the Super Soldier's inventory
+  and dropped at his feet (a resting, still-bound, callable weapon entity). Chat lines per reason
+  (`message.projecthero.worthy.end.<recall|squad|power|death|unbound>.<owner|borrower>`).
+- **Thor's handlers ignore a borrower**: `ThorPowers.wieldsThorWeapon` is false for an unworthy player whose held Thor weapon is lent to
+  him (Thor's key routing, HUD, N screen, double-tap flight stay out); `WeaponCombo.beforeAttack` skips him (no Cosmic combo finisher);
+  `WorthinessEnforcer` does not eject a Mjolnir lent to him; `MjolnirEntity.interact` / `StormbreakerEntity.interact` let him pick his lent
+  weapon back up (`WorthyLending.mayLift`) -- nobody else gains anything (other worthy players keep the old rules).
+- Tests: `WorthyLendV0177GameTests` (see SUPERSOLDIER_REFERENCE.md). Films: `docs/screenshots/v0177/worthy/`.
+
+
 ## v0.17.7: how players get Thor and Stormbreaker -- `com.projecthero.mod.thoracquire`
 
 Registration in `ThorAcquire`, per-player data in `ThorAcquireAttachments` (kept out of `ModAttachments`), client in

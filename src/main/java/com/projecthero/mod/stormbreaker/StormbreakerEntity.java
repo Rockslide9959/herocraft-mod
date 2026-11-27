@@ -750,7 +750,8 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 		if (!isResting() || pickupDelay > 0 || this.isRemoved()) {
 			return net.minecraft.world.InteractionResult.PASS;
 		}
-		if (!canLift(player)) {
+		// v0.17.7 Thor x Super Soldier: the Super Soldier it is lent to may pick it back up
+		if (!canLift(player) && !com.projecthero.mod.worthy.WorthyLending.mayLift(player, getItem())) {
 			com.projecthero.mod.worthiness.WorthinessEnforcer.playRejectionFeedback(player, this.position());
 			return net.minecraft.world.InteractionResult.SUCCESS;
 		}

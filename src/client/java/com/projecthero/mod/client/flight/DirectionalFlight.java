@@ -319,6 +319,10 @@ public final class DirectionalFlight {
 			}
 			return DirectionalFlightModel.repulsorBoots(false); // v0.14.26: boots only -- no sprint flight
 		}
+		// v0.17.7 Thor x Super Soldier: flying with a lent Mjolnir / Stormbreaker -- Thor's handling, a little slower
+		if (com.projecthero.mod.worthy.WorthyFlight.isFlying(player)) {
+			return com.projecthero.mod.worthy.WorthyFlight.tune(player, flyingSpeed, sprint);
+		}
 		// Thor's flight
 		if (player.getAttachedOrElse(ModAttachments.FLYING, false)) {
 			return DirectionalFlightModel.thor(flyingSpeed, sprint);

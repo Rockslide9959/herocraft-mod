@@ -66,7 +66,8 @@ public final class WorthinessEnforcer {
 		boolean any = false;
 		for (int i = 0; i < slots.size(); i++) {
 			ItemStack stack = slots.get(i);
-			if (stack.is(ModItems.MJOLNIR)) {
+			if (stack.is(ModItems.MJOLNIR) && !com.projecthero.mod.worthy.WorthyLending.mayLift(player, stack)) {
+				// v0.17.7 Thor x Super Soldier: a Mjolnir lent to this Super Soldier stays with him
 				// v0.17.7: no Hero of the Village exception any more -- only Thor (or a lift in progress) may hold Mjolnir
 				slots.set(i, ItemStack.EMPTY);
 				dropAtFeet(player, stack);
