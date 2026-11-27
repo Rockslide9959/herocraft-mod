@@ -32,7 +32,7 @@ import net.minecraft.world.item.Items;
 
 /**
  * v0.17.7 Black Panther rework (user): the crafted necklace plus H forms the suit and switches the kit (H again, or the necklace
- * off, puts it away; the necklace model only while suited and worn; old suits become one necklace); the claws are always out (no toggle, no model);
+ * off, puts it away; the necklace model whenever it is worn, suited or not; suited armour 20 / 8; Resistance I always; the Flying Kick follows the aim; old suits become one necklace); the claws are always out (no toggle, no model);
  * melee 5 unsuited / 10 suited; Regeneration I / II; the Warrior's Combo 5 / 7 / 10 (8 / 9 / 10 suited, and it is the suited R
  * too); Takedown reaches 3 blocks for 10; Block cuts frontal hits; Shift+R Kinetic Pulse 10; the new Ground Pound, Flying Kick and
  * Rising Uppercut. Vindicators (no natural armour, they do not burn in daylight) with 200 health take the exact numbers. Mock players are not ticked by the
@@ -241,8 +241,12 @@ public class BlackPantherV0177GameTests implements FabricGameTest {
 		helper.assertTrue(BlackPanther.suited(p) && BlackPanther.suitedKit(p), "H: the suit forms");
 		helper.assertTrue(BlackPanther.changing(p) && BlackPanther.state(p).animId == com.projecthero.mod.blackpanther.data.BlackPantherState.ANIM_SUIT_UP,
 				"the suit-up build plays");
-		helper.assertTrue(p.getAttributeValue(Attributes.ARMOR) - baseArmour >= BlackPantherConfig.SUIT_ARMOR - 1.0e-4, "12 armour while suited");
-		helper.assertTrue(p.getAttributeValue(Attributes.ARMOR_TOUGHNESS) - baseTough >= BlackPantherConfig.SUIT_TOUGHNESS - 1.0e-4, "4 toughness while suited");
+		helper.assertTrue(BlackPantherConfig.SUIT_ARMOR == 20.0 && BlackPantherConfig.SUIT_TOUGHNESS == 8.0,
+				"user: \"make the black panther armour diamond level armour\" -- full diamond, 20 / 8");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ARMOR) - baseArmour - 20.0) < 1.0e-4,
+				"20 armour while suited, got +" + (p.getAttributeValue(Attributes.ARMOR) - baseArmour));
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ARMOR_TOUGHNESS) - baseTough - 8.0) < 1.0e-4,
+				"8 toughness while suited, got +" + (p.getAttributeValue(Attributes.ARMOR_TOUGHNESS) - baseTough));
 		MobEffectInstance regen = p.getEffect(MobEffects.REGENERATION);
 		helper.assertTrue(regen != null && regen.getAmplifier() == BlackPantherConfig.REGEN_SUITED, "Regeneration II in the suit");
 		BlackPanther.toggleSuit(p);
@@ -310,19 +314,23 @@ public class BlackPantherV0177GameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void theNecklaceShowsOnlyWhileSuitedAndWorn(GameTestHelper helper) {
+	public void theNecklaceShowsWheneverItIsWorn(GameTestHelper helper) {
+		// user: "make the black panther necklace model visible when not transformed, should be visible when the necklace is equipped"
 		ServerPlayer p = BlackPantherGameTests.bare(helper);
 		helper.assertTrue(!BlackPanther.showsNecklace(p), "no necklace, no suit: not drawn");
+		p.getInventory().add(new ItemStack(BlackPantherItems.NECKLACE));
+		helper.assertTrue(!BlackPanther.showsNecklace(p), "a necklace only in the inventory: not drawn");
+		p.getInventory().clearContent();
 		p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(BlackPantherItems.NECKLACE));
-		helper.assertTrue(!BlackPanther.showsNecklace(p), "necklace worn but no suit: not drawn");
+		helper.assertTrue(BlackPanther.showsNecklace(p) && !BlackPanther.suited(p), "necklace worn, not suited: drawn");
 		BlackPanther.toggleSuit(p);
-		helper.assertTrue(BlackPanther.showsNecklace(p), "suited with the necklace: drawn");
+		helper.assertTrue(BlackPanther.showsNecklace(p) && BlackPanther.changing(p), "during the suit-up build: drawn");
 		BlackPantherGameTests.finishChange(p);
+		helper.assertTrue(BlackPanther.showsNecklace(p), "suited with the necklace: drawn");
 		BlackPanther.toggleSuit(p);
-		helper.assertTrue(!BlackPanther.showsNecklace(p), "suit put away: not drawn");
-		ServerPlayer other = helper.makeMockServerPlayerInLevel();
-		other.setItemSlot(EquipmentSlot.CHEST, new ItemStack(BlackPantherItems.NECKLACE));
-		helper.assertTrue(!BlackPanther.showsNecklace(other), "no power: never drawn");
+		helper.assertTrue(BlackPanther.showsNecklace(p) && !BlackPanther.suited(p), "the suit draining back / put away: still drawn");
+		p.setItemSlot(EquipmentSlot.CHEST, ItemStack.EMPTY);
+		helper.assertTrue(!BlackPanther.showsNecklace(p), "necklace taken off: not drawn");
 		helper.succeed();
 	}
 
@@ -406,6 +414,95 @@ public class BlackPantherV0177GameTests implements FabricGameTest {
 		BlackPantherUnsuited.flyingKick(p);
 		float dealt = 200f - s.getHealth();
 		helper.assertTrue(Math.abs(dealt - 10f) < 0.05f, "the kick does 10, dealt " + dealt);
+		helper.succeed();
+	}
+
+	/** A lone unsuited Black Panther at relative height {@code y}, airborne, facing south (+z) with the given look pitch. */
+	private static ServerPlayer kicker(GameTestHelper helper, double y, float pitch) {
+		ServerPlayer p = BlackPantherGameTests.bare(helper);
+		net.minecraft.world.phys.Vec3 at = helper.absoluteVec(new net.minecraft.world.phys.Vec3(2.5, y, 2.5));
+		p.moveTo(at.x, at.y, at.z, 0f, pitch);
+		p.setOnGround(false);
+		return p;
+	}
+
+	// user: "make the flying kick ability go where the player aims instead of just straight ahead please" -- one player per test
+	// (another player in reach would take the kick)
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void flyingKickAimedUpClimbs(GameTestHelper helper) {
+		ServerPlayer p = kicker(helper, 2.0, -45f);
+		BlackPantherUnsuited.flyingKick(p);
+		net.minecraft.world.phys.Vec3 v = p.getDeltaMovement();
+		double s = BlackPantherConfig.KICK_SPEED * Math.sin(Math.toRadians(45));
+		helper.assertTrue(Math.abs(v.y - s) < 0.02, "aimed 45 up: the kick climbs, vy " + v.y + " want " + s);
+		helper.assertTrue(Math.abs(v.z - s) < 0.02 && Math.abs(v.x) < 0.02, "and goes forward as much, " + v);
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void flyingKickAimedDownDives(GameTestHelper helper) {
+		ServerPlayer p = kicker(helper, 5.5, 45f);
+		BlackPantherUnsuited.flyingKick(p);
+		net.minecraft.world.phys.Vec3 v = p.getDeltaMovement();
+		double s = BlackPantherConfig.KICK_SPEED * Math.sin(Math.toRadians(45));
+		helper.assertTrue(Math.abs(v.y + s) < 0.02 && Math.abs(v.z - s) < 0.02, "aimed 45 down: a dive kick, " + v);
+		// it holds that line while it runs (stepped by hand: mock players are not ticked)
+		BlackPanther.tick(p);
+		helper.assertTrue(p.getDeltaMovement().y < -0.5, "still diving the next step, " + p.getDeltaMovement());
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void flyingKickLevelGoesStraightAhead(GameTestHelper helper) {
+		ServerPlayer p = kicker(helper, 3.0, 0f);
+		BlackPantherUnsuited.flyingKick(p);
+		net.minecraft.world.phys.Vec3 v = p.getDeltaMovement();
+		helper.assertTrue(Math.abs(v.z - BlackPantherConfig.KICK_SPEED) < 0.02 && Math.abs(v.y) < 0.02 && Math.abs(v.x) < 0.02,
+				"level aim: straight ahead, " + v);
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void flyingKickDiveStopsAtTheGround(GameTestHelper helper) {
+		// a steep dive from just over the floor: the ground stops it at once, nothing carried into the block, a soft landing
+		helper.setBlock(new BlockPos(2, 1, 2), net.minecraft.world.level.block.Blocks.STONE); // a floor right under his feet
+		helper.setBlock(new BlockPos(2, 1, 3), net.minecraft.world.level.block.Blocks.STONE);
+		ServerPlayer p = kicker(helper, 2.3, 80f);
+		p.fallDistance = 6f;
+		BlackPantherUnsuited.flyingKick(p);
+		helper.assertTrue(p.getDeltaMovement().y > -0.3 && p.getDeltaMovement().horizontalDistance() < 0.01,
+				"the floor stops the dive dead, " + p.getDeltaMovement());
+		helper.assertTrue(p.fallDistance < 1f, "and the fall is forgiven, " + p.fallDistance);
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void flyingKickStopsAtAWall(GameTestHelper helper) {
+		helper.setBlock(new BlockPos(2, 2, 3), net.minecraft.world.level.block.Blocks.STONE);
+		helper.setBlock(new BlockPos(2, 3, 3), net.minecraft.world.level.block.Blocks.STONE);
+		ServerPlayer p = kicker(helper, 2.0, 0f);
+		BlackPantherUnsuited.flyingKick(p);
+		helper.assertTrue(p.getDeltaMovement().horizontalDistance() < 0.01, "a wall ahead: no dash into it, " + p.getDeltaMovement());
+		helper.succeed();
+	}
+
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	public void resistanceOneSuitedAndUnsuited(GameTestHelper helper) {
+		// user: "give player passive resistance one"
+		ServerPlayer p = BlackPantherGameTests.bare(helper);
+		MobEffectInstance res = p.getEffect(MobEffects.DAMAGE_RESISTANCE);
+		helper.assertTrue(res != null && res.getAmplifier() == 0 && res.isInfiniteDuration(), "Resistance I out of the suit");
+		BlackPantherGameTests.wearSuit(p);
+		res = p.getEffect(MobEffects.DAMAGE_RESISTANCE);
+		helper.assertTrue(res != null && res.getAmplifier() == 0 && res.isInfiniteDuration(), "Resistance I in the suit");
+		p.removeEffect(MobEffects.DAMAGE_RESISTANCE); // milk, say: the power puts it back
+		BlackPanther.reconcile(p);
+		helper.assertTrue(p.hasEffect(MobEffects.DAMAGE_RESISTANCE), "refreshed like the Regeneration");
+		BlackPanther.revoke(p);
+		helper.assertTrue(!p.hasEffect(MobEffects.DAMAGE_RESISTANCE), "gone with the power");
+		helper.assertTrue(!BlackPanther.hasPower(helper.makeMockServerPlayerInLevel())
+				&& !helper.makeMockServerPlayerInLevel().hasEffect(MobEffects.DAMAGE_RESISTANCE), "never without the power");
 		helper.succeed();
 	}
 

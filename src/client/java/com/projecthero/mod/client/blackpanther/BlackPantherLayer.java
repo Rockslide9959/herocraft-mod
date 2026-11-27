@@ -19,7 +19,18 @@ public class BlackPantherLayer extends RenderLayer<AbstractClientPlayer, PlayerM
 	@Override
 	public void render(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player, float limbSwing,
 			float limbSwingAmount, float partialTick, float ageInTicks, float netHeadYaw, float headPitch) {
-		if (player.isInvisible() || !BlackPanther.hasPower(player)) {
+		if (player.isInvisible()) {
+			return;
+		}
+		// v0.17.7 (user: "make the black panther necklace model visible when not transformed, should be visible when the necklace is
+		// equipped"): drawn whenever the necklace is worn in the chest slot -- over the suit, on the bare skin, and all through the
+		// build / retract. On the bare skin its inside faces (2.36 front / back, 4.36 sides) stand clear of the vanilla jacket
+		// (2.25 / 4.25); the side runs sit inside the arms' cubes (inner faces at 4, wide and slim alike), never on a face.
+		if (BlackPanther.showsNecklace(player)) {
+			PlayerModel<AbstractClientPlayer> m = getParentModel();
+			BlackPantherRender.renderNecklace(pose, buffers, light, player, m.body);
+		}
+		if (!BlackPanther.hasPower(player)) {
 			return;
 		}
 		BlackPantherRender.Anim anim = BlackPantherRender.anim(player, partialTick);
@@ -30,12 +41,6 @@ public class BlackPantherLayer extends RenderLayer<AbstractClientPlayer, PlayerM
 				float cover = anim.cover();
 				OverlayStrips.render(pose, buffers, light, player, getParentModel(), (u, v) -> BlackPantherRender.order(u, v) > cover);
 			}
-		}
-		// v0.17.7 (user: "don't make the player have the necklace model on them all the time, only when theyre wearing the necklace and
-		// suit"): drawn over the suit only while it is on and the necklace is worn
-		if (BlackPanther.showsNecklace(player)) {
-			PlayerModel<AbstractClientPlayer> m = getParentModel();
-			BlackPantherRender.renderNecklace(pose, buffers, light, player, m.body);
 		}
 		// v0.17.7 (user: "remove the claw model it looks bad"): no claw blades
 	}

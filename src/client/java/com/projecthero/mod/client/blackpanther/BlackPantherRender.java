@@ -37,7 +37,7 @@ import net.minecraft.world.entity.player.Player;
  * <p>The user: "Make the suit retract into a necklace". v0.17.7: the suit IS the crafted necklace -- H with it worn runs the suit
  * out texel by texel across the skin (the Blue Beetle geodesic, seeded at the necklace), the head last, behind a glowing violet
  * edge; H again (or taking the necklace off) plays it backwards. The necklace model matches the gold necklace painted on the
- * suit skin and is drawn only while the suit is on and the necklace worn ({@link #renderNecklace}). v0.17.7: the claw model
+ * suit skin and is drawn whenever the necklace is worn, suited or not ({@link #renderNecklace}). v0.17.7: the claw model
  * is gone (user: "remove the claw model it looks bad please"). Shift+N hides the suit's head. The trim glows purple with the Kinetic bar.
  */
 public final class BlackPantherRender {
@@ -287,8 +287,8 @@ public final class BlackPantherRender {
 	}
 
 	/**
-	 * The necklace on the posed model, in the body's space. Drawn only while {@code BlackPanther.showsNecklace} (suited AND wearing the
-	 * necklace) -- the layer checks. Gold like the painted one; with Kinetic stored it takes the suit trims' violet glow
+	 * The necklace on the posed model, in the body's space. Drawn while {@code BlackPanther.showsNecklace} (the necklace worn in the
+	 * chest slot, suited or not) -- the layer checks. Gold like the painted one; with Kinetic stored it takes the suit trims' violet glow
 	 * ({@link #NECKLACE_GLOW}, emissive, alpha = the Kinetic bar like the trims).
 	 */
 	public static void renderNecklace(PoseStack pose, MultiBufferSource buffers, int light, Player player, ModelPart body) {

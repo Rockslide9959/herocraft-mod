@@ -19,12 +19,14 @@ public final class BlackPantherConfig {
 	public static final double UNSUITED_MELEE = 5.0;
 	/** ...and 10 in it (user: the vibranium claws are always out, there is no claw toggle any more). */
 	public static final double SUITED_MELEE = 10.0;
-	/** The crafted suit's armour over all four pieces (helmet 2, chestplate 5, leggings 3, boots 2) and its toughness (1 a piece). */
-	public static final double SUIT_ARMOR = 12.0; // v0.17.7 Street tier toughness: was 8
-	public static final double SUIT_TOUGHNESS = 4.0; // v0.17.7: was 2
+	/** The necklace suit's armour and toughness while suited (user: "make the black panther armour diamond level armour"). */
+	public static final double SUIT_ARMOR = 20.0; // v0.17.7: full diamond (was 12)
+	public static final double SUIT_TOUGHNESS = 8.0; // v0.17.7: full diamond (was 4)
 	/** v0.17.7 (user): Regeneration I out of the suit, Regeneration II in it (effect amplifiers). */
 	public static final int REGEN_UNSUITED = 0;
 	public static final int REGEN_SUITED = 1;
+	/** v0.17.7 (user: "give player passive resistance one"): his endless Resistance amplifier, suit on or off (0 = Resistance I). */
+	public static final int RESISTANCE_LEVEL = 0;
 	/** v0.17.7 (Street tier): no single hit goes over this, whatever stacks (Stalk, Kimoyo Scan, Kinetic Return). */
 	public static final float MAX_HIT = com.projecthero.mod.hero.PowerRank.STREET.ultimateMax;
 	/** Arrows and bullets below this much damage bounce off (the Iron Man bulletproof rule). */
@@ -154,7 +156,9 @@ public final class BlackPantherConfig {
 	/** v0.17.7 Flying Kick (Shift+X, was Backflip): a dash forward into a flying kick on the first creature in the way. */
 	public static final float KICK_DAMAGE = 10f;
 	public static final double KICK_SPEED = 1.25;
-	/** The dash lasts at most this many ticks (about 8 blocks)... */
+	/** v0.17.7: kicked off the ground, he hops at least this much first (a flat or low aim skims instead of scraping). */
+	public static final double KICK_HOP = 0.22;
+	/** The dash, along the full look (pitch included), lasts at most this many ticks (about 8 blocks)... */
 	public static final int KICK_TICKS = 8;
 	/** ...and the kick lands on the first creature within this of him. */
 	public static final double KICK_REACH = 1.9;

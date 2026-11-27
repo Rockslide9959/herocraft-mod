@@ -39,7 +39,7 @@ import net.minecraft.world.phys.Vec3;
  * <pre>
  *   R  Warrior's Combo     jab 5, cross 7, spinning kick 10       Shift+R  Leg Sweep      7 round him, trips 1.5 s
  *   G  Takedown            grab within 3, vault and slam: 10      Shift+G  Ground Pound   hop and slam: 9 within 3.5, Slowness II
- *   X  Vault               an acrobatic forward flip              Shift+X  Flying Kick    dash forward, 10 on the first creature hit
+ *   X  Vault               an acrobatic forward flip              Shift+X  Flying Kick    dash where he aims, 10 on the first hit
  *   Z  Throwing Knife      8, one target, comes back              Shift+Z  Kimoyo Scan    marks a creature 10 s: outlined, +25%
  *   V  Rising Uppercut     9 and launched (bosses: the damage)    Shift+V  Hunter's Tracking  toggle: outlines + footprints, 24
  *   C  Block (hold)        every hit from the front -60%          Shift+C  Ancestral Resolve  Regeneration II 4 s + Strength I 6 s
@@ -72,7 +72,7 @@ public final class BlackPantherUnsuited {
 	private static final Map<UUID, Long> FLIPS = new ConcurrentHashMap<>();
 	/** Ground Pound: when he hopped. */
 	private static final Map<UUID, Long> POUNDS = new ConcurrentHashMap<>();
-	/** Flying Kick: when the dash started, and its flat direction (x, z) as raw long bits. */
+	/** Flying Kick: when the dash started, and its aimed direction (x, y, z) as raw long bits. */
 	private static final Map<UUID, long[]> KICKS = new ConcurrentHashMap<>();
 	/** Block: when it was raised. */
 	private static final Map<UUID, Long> BLOCKS = new ConcurrentHashMap<>();
@@ -397,7 +397,7 @@ public final class BlackPantherUnsuited {
 	}
 
 	/**
-	 * v0.17.7 Flying Kick (Shift+X, user: "change this into a dashing flying kick ability, 10 damage"): he dashes forward, a foot
+	 * v0.17.7 Flying Kick (Shift+X, user: "change this into a dashing flying kick ability, 10 damage"; then "make the flying kick ability go where the player aims instead of just straight ahead"): he dashes along his aim, a foot
 	 * out in front, and the first creature he comes within reach of takes the kick (10, knocked back) and ends the dash.
 	 */
 	public static void flyingKick(ServerPlayer p) {
@@ -406,28 +406,80 @@ public final class BlackPantherUnsuited {
 		}
 		cooldown(p, KICK, BlackPantherConfig.KICK_COOLDOWN);
 		anim(p, BlackPantherState.ANIM_FLYING_KICK);
-		Vec3 f = flatLook(p);
-		KICKS.put(p.getUUID(), new long[] { p.level().getGameTime(), Double.doubleToRawLongBits(f.x), Double.doubleToRawLongBits(f.z) });
-		FLIPS.put(p.getUUID(), p.level().getGameTime() + 40);
-		AbilityHelpers.launchSelf(p, new Vec3(f.x * BlackPantherConfig.KICK_SPEED, 0.22, f.z * BlackPantherConfig.KICK_SPEED));
+		Vec3 f = kickDirection(p);
+		long now = p.level().getGameTime();
+		KICKS.put(p.getUUID(), new long[] { now, Double.doubleToRawLongBits(f.x), Double.doubleToRawLongBits(f.y), Double.doubleToRawLongBits(f.z) });
+		FLIPS.put(p.getUUID(), now + 60); // the landing is soft, however high the kick took him
 		sound(p, SoundEvents.PHANTOM_SWOOP, 0.8f, 1.5f);
 		// someone already right in front of him takes it at once
-		kickHit(p, f);
+		if (kickHit(p, f)) {
+			return;
+		}
+		if (kickBlocked(p, f)) {
+			stopKick(p, f, true, now);
+			return;
+		}
+		Vec3 v = f.scale(BlackPantherConfig.KICK_SPEED);
+		if (p.onGround() && v.y < BlackPantherConfig.KICK_HOP) {
+			v = new Vec3(v.x, BlackPantherConfig.KICK_HOP, v.z); // off the ground first, so a flat kick skims instead of scraping
+		}
+		AbilityHelpers.launchSelf(p, v);
+	}
+
+	/**
+	 * v0.17.7 (user: "make the flying kick ability go where the player aims instead of just straight ahead please"): the whole look,
+	 * pitch included -- aim up and he kicks upward, aim down and he dives foot first. Standing on the ground, a downward aim kicks
+	 * straight ahead instead (there is nowhere to dive).
+	 */
+	public static Vec3 kickDirection(ServerPlayer p) {
+		Vec3 look = p.getLookAngle();
+		if (look.lengthSqr() < 1.0e-6 || (p.onGround() && look.y < 0.0)) {
+			return flatLook(p);
+		}
+		return look.normalize();
+	}
+
+	/** The next step of the dash would run into a block: a wall ahead, a ceiling over an upward kick, the ground under a dive. */
+	private static boolean kickBlocked(ServerPlayer p, Vec3 f) {
+		Vec3 step = f.scale(BlackPantherConfig.KICK_SPEED);
+		net.minecraft.world.phys.AABB box = p.getBoundingBox();
+		boolean wall = (step.x * step.x + step.z * step.z) > 0.0025 && !p.level().noCollision(p, box.move(step.x, 0.0, step.z));
+		boolean roofOrFloor = Math.abs(step.y) > 0.05 && !p.level().noCollision(p, box.move(0.0, step.y, 0.0));
+		return wall || roofOrFloor;
+	}
+
+	/**
+	 * The dash ends: run into a block ({@code blocked}, he stops dead where he is, nothing carried into the wall) or simply out of
+	 * distance (he keeps a little of the way, never the full dash speed, so an upward kick does not sail on). Either way the fall
+	 * after it is soft.
+	 */
+	private static void stopKick(ServerPlayer p, Vec3 f, boolean blocked, long now) {
+		KICKS.remove(p.getUUID());
+		FLIPS.put(p.getUUID(), now + 60);
+		Vec3 v = blocked ? new Vec3(0.0, Math.min(0.0, p.getDeltaMovement().y) * 0.25, 0.0)
+				: new Vec3(f.x * 0.35, net.minecraft.util.Mth.clamp(f.y * BlackPantherConfig.KICK_SPEED, -0.4, 0.25), f.z * 0.35);
+		AbilityHelpers.launchSelf(p, v);
 	}
 
 	private static void tickKick(ServerPlayer p, long[] run, long now) {
-		Vec3 f = new Vec3(Double.longBitsToDouble(run[1]), 0, Double.longBitsToDouble(run[2]));
+		Vec3 f = new Vec3(Double.longBitsToDouble(run[1]), Double.longBitsToDouble(run[2]), Double.longBitsToDouble(run[3]));
 		long age = now - run[0];
 		if (!KICKS.containsKey(p.getUUID())) {
 			return;
 		}
 		if (age > BlackPantherConfig.KICK_TICKS) {
-			KICKS.remove(p.getUUID());
+			stopKick(p, f, false, now);
 			return;
 		}
-		AbilityHelpers.launchSelf(p, new Vec3(f.x * BlackPantherConfig.KICK_SPEED, Math.max(-0.1, p.getDeltaMovement().y), f.z * BlackPantherConfig.KICK_SPEED));
+		if (kickHit(p, f)) {
+			return;
+		}
+		if (kickBlocked(p, f)) {
+			stopKick(p, f, true, now);
+			return;
+		}
+		AbilityHelpers.launchSelf(p, f.scale(BlackPantherConfig.KICK_SPEED));
 		level(p).sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.5, p.getZ(), 1, 0.1, 0.1, 0.1, 0.0);
-		kickHit(p, f);
 	}
 
 	/** The first creature within reach in front of him takes the kick; true (and the dash ends) if one did. */
@@ -447,8 +499,9 @@ public final class BlackPantherUnsuited {
 		}
 		KICKS.remove(p.getUUID());
 		BlackPantherCombat.strike(p, best, p.position(), BlackPantherConfig.KICK_DAMAGE, 1.1, 0.3);
-		// he rebounds off them
+		// he rebounds off them (back along the flat of the dash, a little up), and lands softly
 		AbilityHelpers.launchSelf(p, new Vec3(-dir.x * 0.35, 0.3, -dir.z * 0.35));
+		FLIPS.put(p.getUUID(), p.level().getGameTime() + 60);
 		Vec3 c = best.position().add(0, best.getBbHeight() * 0.6, 0);
 		level(p).sendParticles(ParticleTypes.EXPLOSION, c.x, c.y, c.z, 1, 0, 0, 0, 0);
 		level(p).sendParticles(ParticleTypes.CRIT, c.x, c.y, c.z, 12, 0.3, 0.3, 0.3, 0.3);

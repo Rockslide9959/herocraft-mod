@@ -44,7 +44,7 @@ import org.joml.Vector3f;
  * suit". The suit is the crafted Black Panther Necklace ({@link BlackPantherItems#NECKLACE}), worn in the chestplate slot exactly
  * like the Flash Ring holding the Flash Suit. With it on, H ({@link #toggleSuit}) runs the suit-up (the texel build out of the
  * necklace, the head last) and the keys switch to the suited kit; H again runs it back. Taking the necklace off while suited draws
- * the suit back as well ({@link #syncSuit}, every tick). While suited the suit gives 12 armour / 4 toughness as attribute
+ * the suit back as well ({@link #syncSuit}, every tick). While suited the suit gives 20 armour / 8 toughness as attribute
  * modifiers ({@link #reconcile}). The claws are always out in the suit.
  *
  * <h2>Kinetic Energy</h2>
@@ -276,6 +276,7 @@ public final class BlackPanther {
 		PowerToggles.clearEffect(player, MobEffects.JUMP);
 		PowerToggles.clearEffect(player, MobEffects.NIGHT_VISION);
 		PowerToggles.clearEffect(player, MobEffects.REGENERATION);
+		PowerToggles.clearEffect(player, MobEffects.DAMAGE_RESISTANCE);
 		forget(player.getUUID());
 	}
 
@@ -384,12 +385,12 @@ public final class BlackPanther {
 	}
 
 	/**
-	 * v0.17.7 (user: "don't make the player have the necklace model on them all the time, only when theyre wearing the necklace and
-	 * suit"): the necklace model is drawn on the player only now -- the Black Panther, suited, with the necklace worn. Client-safe
-	 * (the state and the chest slot are both synced to every viewer).
+	 * v0.17.7 (user, later the same day: "make the black panther necklace model visible when not transformed, should be visible when
+	 * the necklace is equipped"): the necklace model is drawn whenever the necklace is worn in the chest slot -- suited, unsuited and
+	 * all through the suit-up build / retract -- and never when it is not worn. Client-safe (the chest slot is synced to every viewer).
 	 */
 	public static boolean showsNecklace(Player player) {
-		return suited(player) && wearsNecklace(player) && !player.isSpectator();
+		return wearsNecklace(player) && !player.isSpectator();
 	}
 
 	/** The suit is running out or draining back right now (one change at a time). */
@@ -557,7 +558,7 @@ public final class BlackPanther {
 		BlackPantherState st = peek(player);
 		boolean power = st != null && st.hasPower;
 		boolean suited = power && st.suited;
-		// v0.17.7: the necklace suit's Vibranium Weave -- 12 armour / 4 toughness, only while the suit is on
+		// v0.17.7: the necklace suit's Vibranium Weave -- 20 armour / 8 toughness (full diamond), only while the suit is on
 		if (suited) {
 			PowerToggles.modifier(player, Attributes.ARMOR, ARMOR_ID, BlackPantherConfig.SUIT_ARMOR, AttributeModifier.Operation.ADD_VALUE);
 			PowerToggles.modifier(player, Attributes.ARMOR_TOUGHNESS, TOUGHNESS_ID, BlackPantherConfig.SUIT_TOUGHNESS, AttributeModifier.Operation.ADD_VALUE);
@@ -577,6 +578,8 @@ public final class BlackPanther {
 				player.removeEffect(MobEffects.REGENERATION);
 			}
 			PowerToggles.effect(player, MobEffects.REGENERATION, regen, false);
+			// v0.17.7 (user: "give player passive resistance one"): Resistance I, suit on or off
+			PowerToggles.effect(player, MobEffects.DAMAGE_RESISTANCE, BlackPantherConfig.RESISTANCE_LEVEL, false);
 		} else {
 			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, HERB_ID);
 		}
