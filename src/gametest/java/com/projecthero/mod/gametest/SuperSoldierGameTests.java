@@ -580,7 +580,8 @@ public class SuperSoldierGameTests implements FabricGameTest {
 		helper.assertTrue(p.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.FEET).is(SuperSoldierItems.BOOTS), "boots stay on");
 		int armour = SuperSoldierItems.HELMET.getDefense() + SuperSoldierItems.CHESTPLATE.getDefense()
 				+ SuperSoldierItems.LEGGINGS.getDefense() + SuperSoldierItems.BOOTS.getDefense();
-		helper.assertTrue(armour == 18, "3 + 7 + 6 + 2 armour, got " + armour);
+		helper.assertTrue(armour == 20, "diamond: 3 + 8 + 6 + 3 armour, got " + armour);
+		helper.assertTrue(SuperSoldierItems.CHESTPLATE.getToughness() == 2.0f, "diamond toughness 2");
 		SuperSoldier.revoke(p);
 		SuperSoldierAbilityManager.serverTick(p);
 		helper.assertTrue(p.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).isEmpty()

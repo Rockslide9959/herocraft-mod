@@ -4,8 +4,6 @@ import java.util.List;
 import java.util.Map;
 
 import com.projecthero.mod.ProjectHeroMod;
-import com.projecthero.mod.armor.ArmorVisualDefinition;
-import com.projecthero.mod.armor.SuperheroArmorVisuals;
 
 import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
@@ -41,8 +39,9 @@ public final class SuperSoldierItems {
 	public static SuperSoldierArmorItem BOOTS;
 
 	/**
-	 * The suit: between iron (15 armour) and diamond (20, 2.0 toughness) -- 3 / 7 / 6 / 2 = 18 armour, 1.0 toughness,
-	 * repaired with iron. The flat fallback layer reuses Thor's (never seen: GeckoLib draws the real model).
+	 * The suit: v0.17.7 diamond level -- 3 / 8 / 6 / 3 = 20 armour, 2.0 toughness (was 3 / 7 / 6 / 2, 1.0), repaired with iron.
+	 * The flat fallback layer reuses Thor's (never seen: QuirkSuitArmourMixin skips the vanilla armour model, QuirkCostume draws
+	 * the skin-tight suit).
 	 */
 	public static Holder<ArmorMaterial> SUIT_MATERIAL;
 
@@ -62,23 +61,20 @@ public final class SuperSoldierItems {
 		SUIT_MATERIAL = Registry.registerForHolder(BuiltInRegistries.ARMOR_MATERIAL,
 				ResourceKey.create(Registries.ARMOR_MATERIAL, ProjectHeroMod.id(SuperSoldierArmorItem.SET_ID)),
 				new ArmorMaterial(Map.of(
-						ArmorItem.Type.BOOTS, 2,
+						ArmorItem.Type.BOOTS, 3,
 						ArmorItem.Type.LEGGINGS, 6,
-						ArmorItem.Type.CHESTPLATE, 7,
+						ArmorItem.Type.CHESTPLATE, 8,
 						ArmorItem.Type.HELMET, 3,
-						ArmorItem.Type.BODY, 7),
+						ArmorItem.Type.BODY, 11),
 						12, SoundEvents.ARMOR_EQUIP_IRON, () -> Ingredient.of(Items.IRON_INGOT),
-						List.of(new ArmorMaterial.Layer(ProjectHeroMod.id("thor"))), 1.0f, 0.0f));
+						List.of(new ArmorMaterial.Layer(ProjectHeroMod.id("thor"))), 2.0f, 0.0f));
 		HELMET = piece("captain_america_helmet", ArmorItem.Type.HELMET);
 		CHESTPLATE = piece("captain_america_chestplate", ArmorItem.Type.CHESTPLATE);
 		LEGGINGS = piece("captain_america_leggings", ArmorItem.Type.LEGGINGS);
 		BOOTS = piece("captain_america_boots", ArmorItem.Type.BOOTS);
 		// v0.17.5: the Captain America Battle Suit (the user's NameMC skin) with the Super Soldier's shield slot on the top
 		CapBattleSuitItem.register();
-		SuperheroArmorVisuals.register(SuperSoldierArmorItem.SET_ID, new ArmorVisualDefinition(
-				ProjectHeroMod.id("geo/captain_america.geo.json"),
-				ProjectHeroMod.id("textures/armor/captain_america.png"),
-				SuperheroArmorVisuals.SHARED_ANIMATION));
+		// v0.17.7: the suit is a skin-tight costume (QuirkCostume), no GeckoLib model any more
 	}
 
 	private static SuperSoldierArmorItem piece(String path, ArmorItem.Type type) {
