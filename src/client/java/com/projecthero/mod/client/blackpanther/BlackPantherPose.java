@@ -145,7 +145,8 @@ public final class BlackPantherPose {
 			kx(8f, SMOOTH, -0.15f, 0f, 0.55f, -0.15f, 0f, -0.55f, 0f, -0.05f, N, N, 0.08f, -0.08f, 0f, -0.2f),
 			k(22f, SMOOTH, -1.25f, -0.75f, 0f, 0.05f, 0f, -0.1f, 0f, 0.05f, N, N, 0f),
 			k(30f, LINEAR, -1.25f, -0.75f, 0f, 0.05f, 0f, -0.1f, 0f, 0.05f, N, N, 0f));
-	private static final int S = BlackPantherConfig.CLAW_STEP;
+	/** R Vibranium Combo: three claw strikes {@code S} ticks apart (the third rakes both claws down, leaving the slash mark). */
+	private static final int S = BlackPantherConfig.VIBRANIUM_COMBO_STEP;
 	private static final Clip CLAW = clip(S * 3 + 4f, 1f, 4f,
 			// slash 1: the right claws, high outside to low across
 			k(0.8f, SMOOTH, -2.65f, 0.75f, 0.45f, -1.3f, 0.4f, -0.1f, 0.35f, -0.05f, N, N, 0.2f),
@@ -157,17 +158,41 @@ public final class BlackPantherPose {
 			k(S * 2 + 1.2f, SMOOTH, -2.95f, 0.45f, 0.3f, -2.95f, -0.45f, -0.3f, 0f, -0.2f, N, N, 0.1f),
 			k(S * 2 + 3f, SNAP, -0.45f, -0.7f, 0f, -0.45f, 0.7f, 0f, 0f, 0.5f, -0.5f, 0.35f, 0.75f),
 			k(S * 2 + 6f, SMOOTH, -0.6f, -0.6f, 0f, -0.6f, 0.6f, 0f, 0f, 0.4f, -0.45f, 0.3f, 0.6f));
-	private static final Clip PULSE = clip(16f, 1f, 5f,
-			// gather: fists crossed in, low
-			k(3.5f, SMOOTH, -1.2f, -0.6f, 0f, -1.2f, 0.6f, 0f, 0f, 0.25f, N, N, 0.55f),
-			// release: everything flung out
-			kx(5.5f, SNAP, -0.2f, 0f, 1.4f, -0.2f, 0f, -1.4f, 0f, -0.25f, N, N, 0.25f, -0.25f, 0f, -0.35f),
-			kx(10f, SMOOTH, -0.25f, 0f, 1.25f, -0.25f, 0f, -1.25f, 0f, -0.15f, N, N, 0.2f, -0.2f, 0f, -0.25f));
-	private static final Clip OVERLOAD = clip(28f, 2f, 6f,
-			k(6f, SMOOTH, -1.25f, -0.62f, 0f, -1.25f, 0.62f, 0f, 0f, 0.35f, N, N, 0.9f),
-			k(12f, LINEAR, -1.3f, -0.6f, 0f, -1.3f, 0.6f, 0f, 0f, 0.4f, N, N, 1f),
-			kx(14f, SNAP, -2.6f, 0f, 0.7f, -2.6f, 0f, -0.7f, 0f, -0.35f, N, N, 0.4f, -0.4f, 0f, -0.6f),
-			kx(22f, SMOOTH, -2.4f, 0f, 0.6f, -2.4f, 0f, -0.6f, 0f, -0.25f, N, N, 0.3f, -0.3f, 0f, -0.4f));
+	/** v0.17.7 Shift+R Kinetic Combo: two fast cross slashes {@code KS} apart, then both claws driven straight out (the shockwave). */
+	private static final int KS = BlackPantherConfig.KINETIC_COMBO_STEP;
+	private static final Clip KINETIC_COMBO = clip(KS * 2 + 12f, 0.5f, 4f,
+			k(0.5f, SMOOTH, -2.7f, 0.8f, 0.5f, -1.3f, 0.4f, -0.1f, 0.4f, 0f, N, N, 0.25f),
+			k(1.8f, SNAP, -0.55f, -0.9f, -0.25f, -1.2f, 0.3f, -0.2f, -0.5f, 0.3f, N, N, 0.35f),
+			k(KS + 0.5f, SMOOTH, -1.0f, -0.6f, 0f, -2.7f, -0.8f, -0.5f, -0.45f, 0.05f, N, N, 0.3f),
+			k(KS + 1.8f, SNAP, -1.1f, -0.3f, 0.2f, -0.55f, 0.9f, 0.25f, 0.5f, 0.3f, N, N, 0.35f),
+			// the finisher: both hands drawn back to the hip, then thrust out together, a long lunge
+			k(KS * 2 - 0.5f, SMOOTH, 0.55f, 0.2f, 0.25f, 0.55f, -0.2f, -0.25f, 0f, 0.15f, -0.2f, 0.1f, 0.5f),
+			kx(KS * 2 + 1.2f, SNAP, -1.6f, -0.2f, 0f, -1.6f, 0.2f, 0f, 0f, 0.35f, -0.75f, 0.55f, N, N, 0.45f, -0.1f),
+			kx(KS * 2 + 7f, SMOOTH, -1.5f, -0.2f, 0f, -1.5f, 0.2f, 0f, 0f, 0.3f, -0.7f, 0.5f, N, N, 0.4f, -0.1f));
+	/** v0.17.7 Shift+Z Kinetic Overload: he sinks, springs up with both fists overhead, then hammers them into the ground on a knee. */
+	private static final Clip OVERLOAD = clip(30f, 1.5f, 6f,
+			k(3f, SMOOTH, -1.25f, -0.62f, 0f, -1.25f, 0.62f, 0f, 0f, 0.35f, -0.3f, 0.2f, 0.9f),
+			kx(6f, SNAP, -3.0f, 0.2f, 0.1f, -3.0f, -0.2f, -0.1f, 0f, -0.25f, -0.3f, 0.2f, 0.1f, -0.1f, 0.1f, -0.5f),
+			kx(8f, LINEAR, -3.05f, 0.2f, 0.1f, -3.05f, -0.2f, -0.1f, 0f, -0.3f, -0.3f, 0.2f, 0.1f, -0.1f, 0.1f, -0.55f),
+			k(10f, SNAP, -0.35f, 0.2f, 0.1f, -0.35f, -0.2f, -0.1f, 0f, 0.65f, -1.3f, 0.45f, 1f),
+			k(22f, LINEAR, -0.4f, 0.2f, 0.1f, -0.4f, -0.2f, -0.1f, 0f, 0.6f, -1.25f, 0.45f, 1f));
+	/** v0.17.7 Shift+G Kinetic Pounce's landing: both fists slammed down into the burst, a knee to the ground. */
+	private static final Clip KINETIC_BURST = clip(18f, 0.5f, 6f,
+			k(0.8f, SMOOTH, -2.8f, 0.2f, 0.1f, -2.8f, -0.2f, -0.1f, 0f, 0.1f, -0.6f, 0.3f, 0.4f),
+			k(2.5f, SNAP, -0.35f, 0.2f, 0.1f, -0.35f, -0.2f, -0.1f, 0f, 0.6f, -1.25f, 0.45f, 1f),
+			k(11f, LINEAR, -0.4f, 0.2f, 0.1f, -0.4f, -0.2f, -0.1f, 0f, 0.55f, -1.2f, 0.45f, 1f));
+	/** v0.17.7 Shift+X Kinetic Dash: low and flat, the chest forward, both arms swept back like a sprinter's lean, legs trailing. */
+	private static final Clip DASH = clip(BlackPantherConfig.DASH_TICKS + 9f, 0.5f, 4f,
+			kx(1f, SNAP, 0.95f, 0f, 0.35f, 0.95f, 0f, -0.35f, 0f, 0.7f, -0.9f, 0.7f, N, N, 0.2f, -0.6f),
+			kx(BlackPantherConfig.DASH_TICKS + 1f, LINEAR, 1.0f, 0f, 0.35f, 1.0f, 0f, -0.35f, 0f, 0.7f, -0.85f, 0.75f, N, N, 0.2f, -0.6f),
+			// out of it: a skid, one hand down
+			k(BlackPantherConfig.DASH_TICKS + 4f, SMOOTH, -0.5f, 0f, 0.4f, 0.6f, 0f, -0.5f, 0f, 0.45f, -1.0f, 0.4f, 0.8f));
+	/** v0.17.7 Shift+V Kinetic Shroud: fists crossed tight over the chest, then thrown open, chest out, as the shimmer runs over him. */
+	private static final Clip SHROUD = clip(20f, 1f, 5f,
+			k(3f, SMOOTH, -2.0f, -0.9f, 0.05f, -2.0f, 0.9f, -0.05f, 0f, 0.15f, N, N, 0.35f),
+			k(6f, LINEAR, -2.05f, -0.9f, 0.05f, -2.05f, 0.9f, -0.05f, 0f, 0.2f, N, N, 0.45f),
+			kx(8f, SNAP, -0.4f, 0f, 1.3f, -0.4f, 0f, -1.3f, 0f, -0.2f, N, N, 0.15f, -0.15f, 0f, -0.35f),
+			kx(14f, SMOOTH, -0.3f, 0f, 1.15f, -0.3f, 0f, -1.15f, 0f, -0.12f, N, N, 0.12f, -0.12f, 0f, -0.25f));
 	private static final Clip POUNCE = clip(16f, 1f, 3f,
 			k(2.5f, SMOOTH, 0.4f, 0f, 0.3f, 0.4f, 0f, -0.3f, 0f, 0.5f, -0.4f, 0.3f, 1f),
 			k(5f, SNAP, -2.65f, 0.15f, 0.1f, -2.65f, -0.15f, -0.1f, 0f, 0.35f, 0.7f, 0.45f, 0f),
@@ -180,20 +205,10 @@ public final class BlackPantherPose {
 			k(1.5f, SMOOTH, 0.5f, 0f, 0.25f, 0.5f, 0f, -0.25f, 0f, 0.4f, -0.3f, 0.2f, 0.9f),
 			kx(4f, SNAP, -2.9f, 0f, 0.2f, -2.9f, 0f, -0.2f, 0f, -0.1f, 0.3f, 0.3f, N, N, 0f, -0.4f),
 			k(12f, SMOOTH, -2.2f, 0f, 0.35f, -2.2f, 0f, -0.35f, 0f, 0.1f, -0.9f, -0.5f, 0.2f));
-	private static final Clip DROP = clip(30f, 1f, 2f,
-			k(2f, SNAP, -2.95f, 0f, 0.1f, -2.95f, 0f, -0.1f, 0f, 0.1f, 0f, 0f, 0f),
-			k(30f, LINEAR, -2.95f, 0f, 0.1f, -2.95f, 0f, -0.1f, 0f, 0.1f, 0f, 0f, 0f));
-	/** The landing after Drop Strike: one fist to the ground, the other arm back, a knee down. */
-	private static final Clip LANDING = clip(18f, 0.5f, 6f,
-			k(1f, SNAP, -0.45f, 0f, 0.25f, 0.7f, 0f, -0.55f, 0f, 0.55f, -1.25f, 0.45f, 1f),
-			k(11f, LINEAR, -0.45f, 0f, 0.25f, 0.7f, 0f, -0.55f, 0f, 0.5f, -1.2f, 0.45f, 1f));
 	private static final Clip THROW = clip(11f, 1f, 3f,
 			k(3f, SMOOTH, -2.85f, 0.3f, 0.35f, -1.0f, 0.4f, -0.2f, 0.45f, -0.05f, N, N, 0.15f),
 			k(4.8f, SNAP, -1.1f, -0.45f, 0f, -0.4f, 0.2f, -0.3f, -0.45f, 0.2f, N, N, 0.2f),
 			k(7f, SMOOTH, -0.95f, -0.45f, 0f, -0.4f, 0.1f, -0.3f, -0.35f, 0.1f, N, N, 0.15f));
-	private static final Clip FLASH = clip(11f, 1f, 3f,
-			k(2.5f, SMOOTH, 0.7f, 0f, 0.2f, -0.6f, 0.2f, -0.2f, 0.2f, 0.1f, N, N, 0.25f),
-			k(4.5f, SNAP, -1.9f, -0.1f, 0f, -0.5f, 0.2f, -0.2f, -0.15f, 0f, N, N, 0.1f));
 	private static final Clip RETURN = clip(12f, 0.5f, 4f,
 			k(1.5f, SNAP, -1.6f, 0f, 0f, -1.0f, 0.45f, 0f, -0.3f, 0.1f, N, N, 0.2f),
 			k(6f, SMOOTH, -1.55f, 0f, 0f, -1.0f, 0.45f, 0f, -0.25f, 0.05f, N, N, 0.15f));
@@ -218,14 +233,15 @@ public final class BlackPantherPose {
 			case BlackPantherState.ANIM_SUIT_UP -> SUIT_UP;
 			case BlackPantherState.ANIM_SUIT_DOWN -> SUIT_DOWN;
 			case BlackPantherState.ANIM_CLAW -> CLAW;
-			case BlackPantherState.ANIM_PULSE -> PULSE;
+			case BlackPantherState.ANIM_KINETIC_COMBO -> KINETIC_COMBO;
 			case BlackPantherState.ANIM_OVERLOAD -> OVERLOAD;
 			case BlackPantherState.ANIM_POUNCE -> POUNCE;
 			case BlackPantherState.ANIM_POUNCE_STRIKE -> POUNCE_STRIKE;
+			case BlackPantherState.ANIM_KINETIC_BURST -> KINETIC_BURST;
 			case BlackPantherState.ANIM_LEAP -> LEAP;
-			case BlackPantherState.ANIM_DROP -> DROP;
+			case BlackPantherState.ANIM_DASH -> DASH;
 			case BlackPantherState.ANIM_THROW -> THROW;
-			case BlackPantherState.ANIM_FLASH -> FLASH;
+			case BlackPantherState.ANIM_SHROUD -> SHROUD;
 			case BlackPantherState.ANIM_RETURN -> RETURN;
 			default -> null;
 		};
@@ -298,13 +314,6 @@ public final class BlackPantherPose {
 
 		float age = player.level().getGameTime() - s.animStart + partial;
 		Clip c = clipFor(s.animId);
-		if (c == DROP && !player.onGround() && age >= c.duration) {
-			age = c.duration - 1f; // still diving: hold the dive
-		}
-		if (c == DROP && (player.onGround() || player.isInWater()) && s.pulseStart >= s.animStart) {
-			c = LANDING;
-			age = player.level().getGameTime() - s.pulseStart + partial;
-		}
 		if (c != null && age >= 0f) {
 			w = weight(c, age);
 			if (w > 0.001f) {
@@ -503,9 +512,6 @@ public final class BlackPantherPose {
 			fk(3f, SMOOTH, f(0.12f, 0.32f, 0.15f, 60f, -10f, 0f), f(0.05f, -0.1f, 0f, -10f, 0f, 0f)),
 			fk(4.8f, SNAP, f(-0.25f, 0.05f, -0.42f, -10f, 10f, 0f), f(0.05f, -0.1f, 0f, -10f, 0f, 0f)),
 			fk(7f, SMOOTH, f(-0.2f, 0f, -0.3f, -10f, 8f, 0f), REST) });
-	private static final FClip F_FLASH = new FClip(11f, 1f, 3f, new FKey[] {
-			fk(2.5f, SMOOTH, f(0.05f, -0.3f, -0.05f, -40f, 0f, 0f), null),
-			fk(4.5f, SNAP, f(-0.2f, 0.22f, -0.4f, 30f, 0f, 0f), null) });
 	private static final FClip F_SCAN = new FClip(16f, 2f, 4f, new FKey[] {
 			fk(3f, SMOOTH, f(-0.22f, 0.25f, -0.25f, 40f, 0f, 0f), f(-0.38f, 0.12f, -0.2f, 20f, 30f, 0f)),
 			fk(12f, LINEAR, f(-0.22f, 0.27f, -0.25f, 40f, 0f, 0f), f(-0.38f, 0.12f, -0.2f, 20f, 30f, 0f)) });
@@ -536,15 +542,38 @@ public final class BlackPantherPose {
 			fk(S * 2 + 1.2f, SMOOTH, f(0f, 0.45f, 0.1f, 60f, 0f, 0f), f(0f, 0.45f, 0.1f, 60f, 0f, 0f)),
 			fk(S * 2 + 3f, SNAP, f(-0.15f, -0.32f, -0.32f, -35f, 0f, 25f), f(-0.15f, -0.32f, -0.32f, -35f, 0f, 25f)),
 			fk(S * 2 + 6f, SMOOTH, f(-0.12f, -0.25f, -0.25f, -28f, 0f, 20f), f(-0.12f, -0.25f, -0.25f, -28f, 0f, 20f)) });
-	private static final FClip F_PULSE = new FClip(16f, 1f, 5f, new FKey[] {
-			fk(3.5f, SMOOTH, f(-0.32f, 0f, 0.05f, 0f, -20f, -35f), f(-0.32f, 0f, 0.05f, 0f, -20f, -35f)),
-			fk(5.5f, SNAP, f(0.32f, 0.1f, -0.22f, 0f, -30f, 45f), f(0.32f, 0.1f, -0.22f, 0f, -30f, 45f)),
-			fk(10f, SMOOTH, f(0.28f, 0.08f, -0.18f, 0f, -25f, 40f), f(0.28f, 0.08f, -0.18f, 0f, -25f, 40f)) });
-	private static final FClip F_OVERLOAD = new FClip(28f, 2f, 6f, new FKey[] {
-			fk(6f, SMOOTH, f(-0.35f, -0.05f, 0.05f, 0f, -20f, -40f), f(-0.35f, -0.05f, 0.05f, 0f, -20f, -40f)),
-			fk(12f, LINEAR, f(-0.38f, -0.08f, 0.05f, 0f, -20f, -42f), f(-0.38f, -0.08f, 0.05f, 0f, -20f, -42f)),
-			fk(14f, SNAP, f(0.3f, 0.45f, -0.1f, 60f, 0f, 30f), f(0.3f, 0.45f, -0.1f, 60f, 0f, 30f)),
-			fk(22f, SMOOTH, f(0.25f, 0.4f, -0.08f, 55f, 0f, 28f), f(0.25f, 0.4f, -0.08f, 55f, 0f, 28f)) });
+	/** v0.17.7 Kinetic Combo: lead claws across, off claws across, then both hands punched straight out at the screen's centre. */
+	private static final FClip F_KINETIC_COMBO = new FClip(KS * 2 + 12f, 0.5f, 4f, new FKey[] {
+			fk(0.5f, SMOOTH, f(0.18f, 0.3f, 0.1f, 45f, -35f, -30f), REST),
+			fk(1.8f, SNAP, f(-0.55f, -0.18f, -0.25f, -28f, 40f, 40f), REST),
+			fk(KS + 0.5f, SMOOTH, f(-0.1f, -0.05f, 0.05f, 0f, 0f, 0f), f(0.18f, 0.3f, 0.1f, 45f, -35f, -30f)),
+			fk(KS + 1.8f, SNAP, REST, f(-0.55f, -0.18f, -0.25f, -28f, 40f, 40f)),
+			fk(KS * 2 - 0.5f, SMOOTH, f(0.12f, -0.3f, 0.25f, -25f, 0f, 0f), f(0.12f, -0.3f, 0.25f, -25f, 0f, 0f)),
+			fk(KS * 2 + 1.2f, SNAP, f(-0.3f, 0.12f, -0.5f, 8f, 8f, 0f), f(-0.3f, 0.12f, -0.5f, 8f, 8f, 0f)),
+			fk(KS * 2 + 7f, SMOOTH, f(-0.27f, 0.1f, -0.44f, 6f, 6f, 0f), f(-0.27f, 0.1f, -0.44f, 6f, 6f, 0f)) });
+	/** v0.17.7 Kinetic Overload: both fists raised high out of view, then hammered down below the screen. */
+	private static final FClip F_OVERLOAD = new FClip(30f, 1.5f, 6f, new FKey[] {
+			fk(3f, SMOOTH, f(-0.35f, -0.05f, 0.05f, 0f, -20f, -40f), f(-0.35f, -0.05f, 0.05f, 0f, -20f, -40f)),
+			fk(6f, SNAP, f(-0.12f, 0.6f, -0.05f, 75f, 0f, 0f), f(-0.12f, 0.6f, -0.05f, 75f, 0f, 0f)),
+			fk(8f, LINEAR, f(-0.12f, 0.62f, -0.05f, 78f, 0f, 0f), f(-0.12f, 0.62f, -0.05f, 78f, 0f, 0f)),
+			fk(10f, SNAP, f(-0.2f, -0.5f, -0.38f, -50f, 0f, 0f), f(-0.2f, -0.5f, -0.38f, -50f, 0f, 0f)),
+			fk(22f, LINEAR, f(-0.2f, -0.47f, -0.35f, -46f, 0f, 0f), f(-0.2f, -0.47f, -0.35f, -46f, 0f, 0f)) });
+	/** v0.17.7 Kinetic Pounce's landing burst: both fists driven down. */
+	private static final FClip F_KINETIC_BURST = new FClip(18f, 0.5f, 6f, new FKey[] {
+			fk(0.8f, SMOOTH, f(-0.12f, 0.5f, -0.05f, 65f, 0f, 0f), f(-0.12f, 0.5f, -0.05f, 65f, 0f, 0f)),
+			fk(2.5f, SNAP, f(-0.2f, -0.48f, -0.36f, -48f, 0f, 0f), f(-0.2f, -0.48f, -0.36f, -48f, 0f, 0f)),
+			fk(11f, LINEAR, f(-0.2f, -0.45f, -0.33f, -44f, 0f, 0f), f(-0.2f, -0.45f, -0.33f, -44f, 0f, 0f)) });
+	/** v0.17.7 Kinetic Dash: both hands swept down and back out of view, then the off hand comes up as he skids. */
+	private static final FClip F_DASH = new FClip(BlackPantherConfig.DASH_TICKS + 9f, 0.5f, 4f, new FKey[] {
+			fk(1f, SNAP, f(0.15f, -0.55f, 0.35f, -40f, 0f, 15f), f(0.15f, -0.55f, 0.35f, -40f, 0f, 15f)),
+			fk(BlackPantherConfig.DASH_TICKS + 1f, LINEAR, f(0.15f, -0.57f, 0.37f, -42f, 0f, 15f), f(0.15f, -0.57f, 0.37f, -42f, 0f, 15f)),
+			fk(BlackPantherConfig.DASH_TICKS + 4f, SMOOTH, f(0.05f, -0.4f, 0.1f, -30f, 0f, 0f), F_GUARD_OFF) });
+	/** v0.17.7 Kinetic Shroud: forearms crossed in front, then flung open to the sides. */
+	private static final FClip F_SHROUD = new FClip(20f, 1f, 5f, new FKey[] {
+			fk(3f, SMOOTH, f(-0.5f, 0.22f, 0.05f, 20f, -40f, -45f), f(-0.5f, 0.22f, 0.05f, 20f, -40f, -45f)),
+			fk(6f, LINEAR, f(-0.5f, 0.24f, 0.05f, 22f, -40f, -46f), f(-0.5f, 0.24f, 0.05f, 22f, -40f, -46f)),
+			fk(8f, SNAP, f(0.32f, -0.15f, 0.1f, -15f, 0f, 40f), f(0.32f, -0.15f, 0.1f, -15f, 0f, 40f)),
+			fk(14f, SMOOTH, f(0.28f, -0.13f, 0.1f, -13f, 0f, 36f), f(0.28f, -0.13f, 0.1f, -13f, 0f, 36f)) });
 	private static final FClip F_POUNCE = new FClip(16f, 1f, 3f, new FKey[] {
 			fk(2.5f, SMOOTH, f(0f, -0.2f, 0.1f, -20f, 0f, 0f), f(0f, -0.2f, 0.1f, -20f, 0f, 0f)),
 			fk(5f, SNAP, f(-0.2f, 0.32f, -0.38f, 45f, 0f, 0f), f(-0.2f, 0.32f, -0.38f, 45f, 0f, 0f)),
@@ -557,12 +586,6 @@ public final class BlackPantherPose {
 			fk(1.5f, SMOOTH, f(0.05f, -0.25f, 0.1f, -25f, 0f, 0f), f(0.05f, -0.25f, 0.1f, -25f, 0f, 0f)),
 			fk(4f, SNAP, f(-0.05f, 0.55f, 0.05f, 75f, 0f, 0f), f(-0.05f, 0.55f, 0.05f, 75f, 0f, 0f)),
 			fk(12f, SMOOTH, f(-0.1f, 0.3f, 0.05f, 40f, 0f, 0f), f(-0.1f, 0.3f, 0.05f, 40f, 0f, 0f)) });
-	private static final FClip F_DROP = new FClip(30f, 1f, 2f, new FKey[] {
-			fk(2f, SNAP, f(-0.1f, 0.55f, 0f, 75f, 0f, 0f), f(-0.1f, 0.55f, 0f, 75f, 0f, 0f)),
-			fk(30f, LINEAR, f(-0.1f, 0.55f, 0f, 75f, 0f, 0f), f(-0.1f, 0.55f, 0f, 75f, 0f, 0f)) });
-	private static final FClip F_LANDING = new FClip(18f, 0.5f, 6f, new FKey[] {
-			fk(1f, SNAP, f(-0.05f, -0.45f, -0.15f, -45f, 0f, 0f), f(0.25f, -0.35f, 0.15f, -20f, 0f, 35f)),
-			fk(11f, LINEAR, f(-0.05f, -0.42f, -0.15f, -42f, 0f, 0f), f(0.25f, -0.33f, 0.15f, -20f, 0f, 35f)) });
 	private static final FClip F_RETURN = new FClip(12f, 0.5f, 4f, new FKey[] {
 			fk(1.5f, SNAP, f(-0.32f, 0.12f, -0.42f, 0f, 5f, 0f), null),
 			fk(6f, SMOOTH, f(-0.3f, 0.1f, -0.38f, 0f, 5f, 0f), null) });
@@ -585,13 +608,14 @@ public final class BlackPantherPose {
 			case BlackPantherState.ANIM_SUIT_UP -> F_SUIT_UP;
 			case BlackPantherState.ANIM_SUIT_DOWN -> F_SUIT_DOWN;
 			case BlackPantherState.ANIM_CLAW -> F_CLAW;
-			case BlackPantherState.ANIM_PULSE -> F_PULSE;
+			case BlackPantherState.ANIM_KINETIC_COMBO -> F_KINETIC_COMBO;
 			case BlackPantherState.ANIM_OVERLOAD -> F_OVERLOAD;
 			case BlackPantherState.ANIM_POUNCE -> F_POUNCE;
 			case BlackPantherState.ANIM_POUNCE_STRIKE -> F_POUNCE_STRIKE;
+			case BlackPantherState.ANIM_KINETIC_BURST -> F_KINETIC_BURST;
 			case BlackPantherState.ANIM_LEAP -> F_LEAP;
-			case BlackPantherState.ANIM_DROP -> F_DROP;
-			case BlackPantherState.ANIM_FLASH -> F_FLASH;
+			case BlackPantherState.ANIM_DASH -> F_DASH;
+			case BlackPantherState.ANIM_SHROUD -> F_SHROUD;
 			case BlackPantherState.ANIM_RETURN -> F_RETURN;
 			default -> null;
 		};
@@ -604,13 +628,6 @@ public final class BlackPantherPose {
 			return null;
 		}
 		float age = player.level().getGameTime() - s.animStart + partial;
-		if (c == F_DROP && !player.onGround() && age >= c.duration) {
-			age = c.duration - 1f;
-		}
-		if (c == F_DROP && (player.onGround() || player.isInWater()) && s.pulseStart >= s.animStart) {
-			c = F_LANDING;
-			age = player.level().getGameTime() - s.pulseStart + partial;
-		}
 		return age >= 0f && age < c.duration ? new Object[] { c, age } : null;
 	}
 

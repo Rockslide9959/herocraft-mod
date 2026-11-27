@@ -42,9 +42,12 @@ public class VibraniumDaggerEntity extends Projectile {
 	private float damage = BlackPantherConfig.DAGGER_DAMAGE;
 	private int bounces = BlackPantherConfig.DAGGER_BOUNCES;
 	private double range = BlackPantherConfig.DAGGER_RANGE;
+	/** v0.17.7: Kinetic for each target struck (the suited Vibranium Dagger only). */
+	private float kineticGain = BlackPantherConfig.DAGGER_KINETIC_GAIN;
 
 	public static VibraniumDaggerEntity shootKnife(ServerPlayer owner) {
 		VibraniumDaggerEntity d = shoot(owner);
+		d.kineticGain = 0f;
 		d.damage = BlackPantherConfig.KNIFE_DAMAGE;
 		d.bounces = 1;
 		d.range = BlackPantherConfig.KNIFE_RANGE;
@@ -112,7 +115,10 @@ public class VibraniumDaggerEntity extends Projectile {
 		if (!(this.getOwner() instanceof ServerPlayer p) || !(result.getEntity() instanceof LivingEntity le)) {
 			return;
 		}
-		BlackPantherCombat.strike(p, le, this.position(), this.damage, 0.2, 0.0);
+		// v0.17.7: the suited dagger adds Kinetic for each target it really hurts (the unsuited knife does not)
+		if (BlackPantherCombat.strike(p, le, this.position(), this.damage, 0.2, 0.0) && this.kineticGain > 0f) {
+			com.projecthero.mod.blackpanther.BlackPanther.gainKinetic(p, this.kineticGain);
+		}
 		this.struck.add(le.getId());
 		this.level().playSound(null, le.getX(), le.getY(), le.getZ(), SoundEvents.TRIDENT_HIT, SoundSource.PLAYERS, 0.8f, 1.4f);
 		LivingEntity next = this.struck.size() >= this.bounces ? null : nextTarget(p, le);

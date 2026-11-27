@@ -169,33 +169,18 @@ public class BlackPantherGameTests implements FabricGameTest {
 		Zombie z = helper.spawn(EntityType.ZOMBIE, new BlockPos(2, 2, 4)); // yaw 0 faces south, +z: right in front
 		z.setNoAi(true);
 		float hp = z.getHealth();
-		BlackPantherAbilities.claws(p);
+		BlackPantherAbilities.vibraniumCombo(p); // v0.17.7: the suited R
 		helper.assertTrue(z.getHealth() < hp, "slash 1 hits at once, before any tick");
 		helper.assertTrue(BlackPanther.clawsOut(p), "the claws are always out in the suit");
 		float afterFirst = z.getHealth();
 		float first = hp - afterFirst;
-		// the mock player isn't ticked by the server: step the run by hand, once a game tick (slash 2 at CLAW_STEP, 3 at twice that)
+		// the mock player isn't ticked by the server: step the run by hand, once a game tick (strike 2 at the step, 3 at twice that)
 		helper.onEachTick(() -> BlackPanther.tick(p));
-		helper.runAfterDelay(BlackPantherConfig.CLAW_STEP * 2 + 3, () -> {
+		helper.runAfterDelay(BlackPantherConfig.VIBRANIUM_COMBO_STEP * 2 + 3, () -> {
 			float total = hp - (z.isAlive() ? z.getHealth() : 0f);
 			helper.assertTrue(!z.isAlive() || total > first * 2.2f, "slashes 2 and 3 land too: first " + first + ", total " + total);
 			helper.succeed();
 		});
-	}
-
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void sensesIsAToggleWithNoCooldown(GameTestHelper helper) {
-		ServerPlayer p = suited(helper);
-		BlackPantherAbilities.senses(p);
-		helper.assertTrue(BlackPanther.sensing(p), "on");
-		BlackPantherAbilities.senses(p);
-		helper.assertTrue(!BlackPanther.sensing(p), "pressed again: off");
-		BlackPantherAbilities.senses(p);
-		helper.assertTrue(BlackPanther.sensing(p), "straight back on: no cooldown");
-		helper.assertTrue(BlackPanther.cooldownRemaining(p, BlackPantherAbilities.SENSES) == 0, "no cooldown");
-		takeOffSuit(p);
-		helper.assertTrue(!BlackPanther.state(p).senses, "the suit coming off ends it");
-		helper.succeed();
 	}
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
@@ -311,16 +296,16 @@ public class BlackPantherGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void pulseSpendsThirtyAndHurts(GameTestHelper helper) {
+	public void kineticComboSpendsAndHurts(GameTestHelper helper) { // v0.17.7: was the Kinetic Pulse
 		ServerPlayer p = suited(helper);
-		Zombie z = helper.spawn(EntityType.ZOMBIE, new BlockPos(3, 2, 4));
+		Zombie z = helper.spawn(EntityType.ZOMBIE, new BlockPos(2, 2, 4));
 		float hp = z.getHealth();
-		BlackPantherAbilities.pulse(p);
+		BlackPantherAbilities.kineticCombo(p);
 		helper.assertTrue(z.getHealth() == hp, "an empty bar does nothing");
 		BlackPanther.setKinetic(p, 50f);
-		BlackPantherAbilities.pulse(p);
-		helper.assertTrue(z.getHealth() < hp, "the shockwave hits");
-		helper.assertTrue(Math.abs(BlackPanther.kinetic(p) - 20f) < 0.1f, "30 spent");
+		BlackPantherAbilities.kineticCombo(p);
+		helper.assertTrue(z.getHealth() < hp, "the first charged slash hits");
+		helper.assertTrue(Math.abs(BlackPanther.kinetic(p) - (50f - BlackPantherConfig.KINETIC_COMBO_COST)) < 0.1f, "the cost spent");
 		helper.succeed();
 	}
 
@@ -343,7 +328,7 @@ public class BlackPantherGameTests implements FabricGameTest {
 		ServerPlayer p = mock(helper);
 		BlackPanther.grant(p);
 		BlackPanther.setKinetic(p, 50f);
-		BlackPantherAbilities.pulse(p);
+		BlackPantherAbilities.kineticCombo(p);
 		helper.assertTrue(BlackPanther.kinetic(p) == 50f, "nothing fires without the suit");
 		helper.succeed();
 	}
@@ -361,8 +346,8 @@ public class BlackPantherGameTests implements FabricGameTest {
 		com.projecthero.mod.blackpanther.BlackPantherAbilityManager.handle(p, R, true);
 		com.projecthero.mod.blackpanther.BlackPantherAbilityManager.handle(p, R, false);
 		helper.assertTrue(BlackPanther.cooldownRemaining(p, com.projecthero.mod.blackpanther.BlackPantherUnsuited.COMBO) > 0, "unsuited R: the combo");
-		helper.assertTrue(BlackPanther.cooldownRemaining(p, BlackPantherAbilities.PULSE) == 0, "not the Kinetic Pulse");
-		// suit on: Shift+R is now the Kinetic Pulse (v0.17.7; plain R is the Warrior's Combo in both kits)
+		helper.assertTrue(BlackPanther.cooldownRemaining(p, BlackPantherAbilities.KINETIC_COMBO) == 0, "not the Kinetic Combo");
+		// suit on: Shift+R is the Kinetic Combo (v0.17.7 suited kit)
 		wearSuit(p);
 		finishChange(p);
 		BlackPanther.setKinetic(p, 50f);
@@ -370,8 +355,8 @@ public class BlackPantherGameTests implements FabricGameTest {
 		com.projecthero.mod.blackpanther.BlackPantherAbilityManager.handle(p, R, true);
 		com.projecthero.mod.blackpanther.BlackPantherAbilityManager.handle(p, R, false);
 		p.setShiftKeyDown(false);
-		helper.assertTrue(BlackPanther.cooldownRemaining(p, BlackPantherAbilities.PULSE) > 0, "suited Shift+R: the Kinetic Pulse");
-		helper.assertTrue(Math.abs(BlackPanther.kinetic(p) - 20f) < 0.01f, "it spent 30 Kinetic");
+		helper.assertTrue(BlackPanther.cooldownRemaining(p, BlackPantherAbilities.KINETIC_COMBO) > 0, "suited Shift+R: the Kinetic Combo");
+		helper.assertTrue(Math.abs(BlackPanther.kinetic(p) - (50f - BlackPantherConfig.KINETIC_COMBO_COST)) < 0.01f, "it spent its Kinetic");
 		com.projecthero.mod.blackpanther.BlackPantherAbilityManager.handle(p, X, true);
 		com.projecthero.mod.blackpanther.BlackPantherAbilityManager.handle(p, X, false);
 		helper.assertTrue(BlackPanther.cooldownRemaining(p, BlackPantherAbilities.LEAP) > 0, "suited X: Panther Leap");

@@ -45,7 +45,7 @@ public final class BlackPantherMod {
 		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> BlackPanther.onPlayerRespawn(newPlayer));
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
 			if (entity instanceof ServerPlayer p && BlackPanther.hasPower(p)) {
-				BlackPanther.clearTransient(p);
+				BlackPanther.onDeath(p); // v0.17.7: the running moves end and the Kinetic bar empties
 			}
 		});
 		ServerEntityWorldChangeEvents.AFTER_PLAYER_CHANGE_WORLD.register((player, origin, destination) -> BlackPanther.clearTransient(player));

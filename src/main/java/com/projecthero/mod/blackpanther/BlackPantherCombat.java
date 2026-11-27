@@ -41,7 +41,17 @@ public final class BlackPantherCombat {
 		return STRIKING.get();
 	}
 
+	/** v0.17.7 suited kit: the boss cap only (the user sets the new moves' numbers himself, no tier ceiling). */
+	static float bossCapped(LivingEntity target, float damage) {
+		return isBoss(target) ? Math.min(damage, target.getMaxHealth() * BlackPantherConfig.BOSS_MAX_FRACTION_PER_HIT) : damage;
+	}
+
 	public static boolean strike(ServerPlayer owner, LivingEntity target, Vec3 origin, float damage, double knockback, double lift) {
+		return strike(owner, target, origin, damage, knockback, lift, true);
+	}
+
+	/** {@code tierCap} false: only the boss cap applies (the v0.17.7 suited kit's new moves). True if damage landed. */
+	public static boolean strike(ServerPlayer owner, LivingEntity target, Vec3 origin, float damage, double knockback, double lift, boolean tierCap) {
 		if (!isTarget(owner, target)) {
 			return false;
 		}
@@ -52,7 +62,7 @@ public final class BlackPantherCombat {
 		boolean dealt;
 		STRIKING.set(true);
 		try {
-			dealt = AbilityHelpers.hurtBurst(owner, target, owner.level().damageSources().playerAttack(owner), Math.max(1.0f, capped(target, damage)));
+			dealt = AbilityHelpers.hurtBurst(owner, target, owner.level().damageSources().playerAttack(owner), Math.max(1.0f, tierCap ? capped(target, damage) : bossCapped(target, damage)));
 		} finally {
 			STRIKING.set(false);
 		}

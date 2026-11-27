@@ -3,7 +3,7 @@
 Hero-Tier Primary power, **Street tier** (melee 7-10, abilities 8-10, ultimate 15-20, `MAX_HIT` 20). Package
 `com.projecthero.mod.blackpanther`, client `client/blackpanther`. Numbers live in `BlackPantherConfig`; state in the
 `projecthero:black_panther_state` attachment (`BlackPantherState`, synced, copy-on-death). Tests: `BlackPantherGameTests`,
-`BlackPantherV0177GameTests`.
+`BlackPantherV0177GameTests`, `BlackPantherSuitedV0177GameTests` (the v0.17.7 suited kit and the no-decay Kinetic bar).
 
 ## Getting it
 
@@ -129,36 +129,64 @@ infinite `PowerToggles.effect` refreshed in `reconcile`.
 Bosses only take the damage of the control moves. The new moves were designed for the user's requests: Ground Pound replaces
 Disarm, Flying Kick replaces Backflip, Block replaces Parry (no perfect parry / riposte), Rising Uppercut replaces Shadow Step.
 
-## Suited kit
+## Suited kit (v0.17.7, user-approved)
 
-| Key | Move | Damage / effect | Cooldown |
-|---|---|---|---|
-| R | Warrior's Combo | 8 / 9 / 10 | 1.5 s |
-| Shift+R | Kinetic Pulse | 10 within 5, 30 Kinetic | 2.5 s |
-| Shift+R, full bar | Kinetic Overload | 20 -> 15 at the edge, 10 blocks, whole bar | 5 s |
-| G | Claw Combo | 7 / 7 / 9, bleed 4 s | 2 s |
-| Shift+G | Pounce | 8 landing, pin 2 s, 10 strike | 12 s |
-| X | Panther Leap | ~12 blocks up, ledge catch | 3 s |
-| Shift+X | Drop Strike | 10 within 4 | 8 s |
-| Z | Vibranium Dagger | 8, 3 hops | 7 s |
-| Shift+Z | Kimoyo Flash | blind + slow within 6 | 10 s |
-| V | Stalk | lose mobs past 6 while sneaking; backstab x3 (x1.75 players), max 20 | 10 s |
-| Shift+V | Panther Senses | toggle, 40 | -- |
-| C (hold) | Absorb Stance | frontal hits into Kinetic, 40 a stance | 4 s |
-| Shift+C | Kinetic Return | max(8, shot x1.25) + 0.25 per Kinetic spent (40 max), max 20 | 6 s |
-| Shift+N | Mask | toggle | -- |
-| H | Suit Up / Away | the necklace worn: the suit forms / drains back (both kits) | one change at a time |
+The user approved this moveset ("build this please") and asked that the Kinetic bar never dissipate. Rule: **plain keys are free
+and fill a little Kinetic when they land; Shift keys spend Kinetic for a charged violet version.** The numbers are placeholders
+from the approved table: the user dropped power-tier balancing ("i want to do all the damage numbers myself"), so every damage,
+cost, gain, duration and cooldown is a named constant in `BlackPantherConfig` (section "v0.17.7 suited kit", one block per move),
+and the new moves have no tier cap (`BlackPantherCombat.strike(..., tierCap = false)`, boss cap only: 8% of a boss's max health a
+hit; bosses are never pinned or knocked back, and they keep their threat table under Stalk).
 
-Kinetic Overload lost its own key when the user moved the Kinetic Pulse to Shift+R; it fires from Shift+R when the bar is full.
+| Key | Move | Kinetic | Damage / effect | Cooldown |
+|---|---|---|---|---|
+| R | Vibranium Combo | +5 per strike landed | claw strikes 8 / 9 / 10 (6 ticks apart, the first on the press); the 3rd leaves a violet slash mark (three claw lines of violet dust) | 1.5 s |
+| Shift+R | Kinetic Combo | costs 25 | three fast charged slashes, 10 each (4 ticks apart); the finisher releases a forward cone shockwave (4 blocks, 60 deg either side): 8 to everything the slash itself missed | 2 s |
+| G | Pounce | +10 on a hit | aimed leap onto a target up to 8 blocks: 9 on landing, pinned (Slowness VII) 1 s | 6 s |
+| Shift+G | Kinetic Pounce | costs 30 (only once a target is aimed at) | the same leap, ending in a violet ground burst: 10 to everything within 3 blocks of the target, knocked away; the target pinned 1 s | 8 s |
+| X | Panther Leap | -- | ~12 blocks up, ledge catch | 3 s |
+| Shift+X | Kinetic Dash | costs 20 | ~10 blocks straight along the look (pitch included) over 5 ticks, moved by the server in 0.25-block collision-checked steps (stops flush at a wall); no damage reaches him for the dash + 2 ticks; each creature passed through takes 8 once; no fall damage; violet afterimages | 3 s |
+| Z | Vibranium Dagger | +5 per target hit | 8, 3 hops | 7 s |
+| Shift+Z | Kinetic Overload (ULTIMATE) | the whole bar, must be FULL | leap + ground slam: 20 at the centre falling straight to 15 at 10 blocks; big violet dome + ring + sonic boom | 5 s |
+| V | Stalk | -- | lose mobs past 6 while sneaking; backstab x3 (x1.75 players), max 20 | 10 s |
+| Shift+V | Kinetic Shroud | costs 30 | 4 s: every hit 50% less, a living attacker that lands one takes 4 back (thorns; never for thorns); violet energy shimmer over the suit | 12 s from the cast |
+| C (hold) | Absorb Stance | fills | frontal hits into Kinetic, 40 a stance | 4 s |
+| Shift+C | Kinetic Return | spends up to 40 | max(8, shot x1.25) + 0.25 per Kinetic spent, max 20 | 6 s |
+| Shift+N | Mask | -- | toggle | -- |
+| H | Suit Up / Away | -- | the necklace worn: the suit forms / drains back (both kits) | one change at a time |
+
+- **Refusal:** a Shift move with too little Kinetic fires nothing, spends nothing and starts no cooldown; a dull note (note-block
+  bass + amethyst hit, to him only) plays, the action bar says how much is needed, and the HUD's Kinetic Meter flashes red / white
+  for 12 ticks (`abilityReadyAt["kinetic_denied"]`, synced). Kinetic Overload one short of full is refused the same way.
+- **Gains** only from a strike that really landed on a living target (`strike` returns whether `hurt` took); a whiff adds nothing.
+  Shift moves never add Kinetic back.
+- **Removed from the suited kit (v0.17.7):** Kimoyo Flash (and the Kimoyo bead entity), Panther Senses, the Kinetic Pulse, the
+  Claw Combo (its bleed), Drop Strike, the suited Warrior's Combo. Hunter's Instinct (passive), Kimoyo Scan and Hunter's Tracking
+  (unsuited) stay. The `kimoyo_bead` item stays registered (unused) so old stacks load.
+- Shroud timer: `abilityReadyAt["kinetic_shroud_active"]` (synced, so every viewer sees the shimmer); cleared when the suit goes.
+
+## Kinetic Energy (v0.17.7)
+
+0-100. Fills from Kinetic Absorption (40% of each hit soaked, 1 damage = 4 Kinetic), Absorb Stance and the plain moves' on-hit
+gains above. **It never decays** (user: "make it so that the kinetic energy bar doesnt dissipate, it doesnt dissipate in the movies"):
+the old out-of-combat drain (2 a second after 10 s) is gone, suited or not, after the suit goes, and across a relog (the attachment
+is persistent). **A death empties it** (`BlackPanther.onDeath`, from `AFTER_DEATH`, before the copy-on-death copy).
 
 ## HUD
 
 Bottom-right `VanillaHud.Stack`: title always "Black Panther" (no T'Challa title, no passive status words, user v0.17.7), the
-Kinetic bar in the **Meter** style (suited), the Absorb bar (Hairline) while absorbing, the six key boxes for the live kit. Left Alt
-lists both moves per key, H Suit Up / Away (necklace worn or suited), Shift+N Mask and "Shift+R (full)" Kinetic Overload in the suit.
+Kinetic bar in the **Meter** style (suited; flashes red / white on a refused Shift move), the Absorb bar (Hairline) while absorbing,
+the six key boxes for the live kit (V lit while Stalk or the Shroud runs). Left Alt lists both moves per key (Overload under Z), H
+Suit Up / Away (necklace worn or suited) and Shift+N Mask in the suit.
 
 ## Animations (BlackPantherPose)
 
 Anim ids keep their numbers: 13 = Ground Pound (was Disarm), 15 = Flying Kick (was Backflip), 18 = Rising Uppercut (was the
-riposte). Block uses the held stance `BLOCK` (forearms crossed in front of the face) and `F_BLOCK` in first person. The Ground
+riposte). v0.17.7 suited kit: 5 = Vibranium Combo (the claw clip, `VIBRANIUM_COMBO_STEP`), 6 = Pounce leap, 22 = Pounce landing
+rake, 23 = Kinetic Combo (two cross slashes then a two-handed thrust lunge), 24 = Kinetic Pounce burst (both fists down, a knee),
+25 = Kinetic Dash (low, chest forward, arms swept back, then a skid), 26 = Kinetic Shroud (fists crossed, then flung open), 4 =
+Overload rewritten as a ground slam (sink, fists overhead, hammer down on a knee). Each has a first-person hand clip. 3 / 7 / 21
+(Pulse, Drop Strike, Kimoyo Flash) are retired. `BlackPantherEffectsRenderer`: the ring, plus Overload's violet dome (latitude
+bands, brightest at the rim) and the Dash's afterimages (translucent violet silhouettes every 0.7 blocks, fading over 10 ticks,
+client-only map). `BlackPantherRender.renderShroud`: the charged creeper's swirl in violet on a slightly larger shell while shrouded. Block uses the held stance `BLOCK` (forearms crossed in front of the face) and `F_BLOCK` in first person. The Ground
 Pound's slam also sets the shockwave ring (`pulseStart/pulseRadius/pulsePos`, drawn by `BlackPantherEffectsRenderer`).

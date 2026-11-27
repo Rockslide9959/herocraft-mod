@@ -37,7 +37,12 @@ public final class BlackPantherState {
 	public static final int ANIM_RESOLVE = 19;
 	public static final int ANIM_LEAP = 20;
 	public static final int ANIM_FLASH = 21;
-	public static final int ANIM_POUNCE_STRIKE = 22;
+	public static final int ANIM_POUNCE_STRIKE = 22; // v0.17.7: the Pounce's landing rake
+	// v0.17.7 suited kit. ANIM_PULSE (3), ANIM_DROP (7) and ANIM_FLASH (21) are retired with their moves (ids kept, not reused).
+	public static final int ANIM_KINETIC_COMBO = 23;
+	public static final int ANIM_KINETIC_BURST = 24;
+	public static final int ANIM_DASH = 25;
+	public static final int ANIM_SHROUD = 26;
 
 	public boolean hasPower;
 	public boolean suited;
@@ -46,7 +51,7 @@ public final class BlackPantherState {
 	public int animId;
 	public long animStart;
 	public Map<String, Long> abilityReadyAt;
-	/** The last hit taken or landed (the bar only drains long after it). */
+	/** The last hit taken or landed (informational: the bar never drains since v0.17.7). */
 	public long lastFightAt;
 	/** The Ancestral Plane shows until this game time, then the power is granted (0 = no vision running). */
 	public long visionUntil;

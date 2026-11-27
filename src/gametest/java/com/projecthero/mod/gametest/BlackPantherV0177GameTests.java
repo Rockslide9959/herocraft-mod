@@ -130,35 +130,7 @@ public class BlackPantherV0177GameTests implements FabricGameTest {
 		});
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void suitedRIsTheWarriorsComboToo(GameTestHelper helper) {
-		ServerPlayer p = BlackPantherGameTests.suited(helper);
-		Vindicator s = dummy(helper, new BlockPos(2, 2, 4));
-		BlackPanther.setKinetic(p, 50f);
-		press(p, AbilitySlot.SLOT_1, false);
-		helper.assertTrue(BlackPanther.cooldownRemaining(p, BlackPantherUnsuited.COMBO) > 0, "suited R: the Warrior's Combo");
-		helper.assertTrue(Math.abs(BlackPanther.kinetic(p) - 50f) < 0.01f, "it spends no Kinetic");
-		float first = 200f - s.getHealth();
-		helper.assertTrue(Math.abs(first - 8f) < 0.05f, "the suited jab is 8, dealt " + first);
-		helper.succeed();
-	}
-
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
-	public void kineticPulseOnShiftRDealsTen(GameTestHelper helper) {
-		ServerPlayer p = BlackPantherGameTests.suited(helper);
-		Vindicator s = dummy(helper, new BlockPos(2, 2, 4));
-		BlackPanther.setKinetic(p, 50f);
-		press(p, AbilitySlot.SLOT_1, true);
-		float dealt = 200f - s.getHealth();
-		helper.assertTrue(Math.abs(dealt - 10f) < 0.05f, "Kinetic Pulse 10, dealt " + dealt);
-		helper.assertTrue(Math.abs(BlackPanther.kinetic(p) - 20f) < 0.05f, "30 spent");
-		// a full bar: Shift+R is Kinetic Overload instead
-		BlackPanther.setKinetic(p, BlackPantherConfig.KINETIC_MAX);
-		press(p, AbilitySlot.SLOT_1, true);
-		helper.assertTrue(BlackPanther.kinetic(p) == 0f && BlackPanther.cooldownRemaining(p, BlackPantherAbilities.OVERLOAD) > 0,
-				"a full bar releases Kinetic Overload");
-		helper.succeed();
-	}
+	// v0.17.7 suited kit: the suited R / Shift+R tests moved to BlackPantherSuitedV0177GameTests (Vibranium / Kinetic Combo)
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void takedownReachesThreeBlocksForTen(GameTestHelper helper) {

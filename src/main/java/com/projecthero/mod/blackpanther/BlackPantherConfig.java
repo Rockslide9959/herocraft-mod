@@ -11,9 +11,7 @@ public final class BlackPantherConfig {
 	public static final float SOAK = 0.4f;
 	/** ...and stores this much Kinetic per point soaked. */
 	public static final float KINETIC_PER_DAMAGE = 4f;
-	/** Out of combat the bar drains this much a second, after DRAIN_DELAY ticks without a hit taken or landed. */
-	public static final float DRAIN = 2f;
-	public static final int DRAIN_DELAY = 200;
+	// v0.17.7 (user: "it doesnt dissipate in the movies"): the bar never drains over time; it only goes down when spent.
 
 	/** v0.17.7 (user): a bare-handed hit out of the suit deals 5 (the fist's 1 + 4 from the herb)... */
 	public static final double UNSUITED_MELEE = 5.0;
@@ -33,64 +31,108 @@ public final class BlackPantherConfig {
 	public static final float BOSS_HEALTH_THRESHOLD = 300f;
 	public static final float BOSS_MAX_FRACTION_PER_HIT = 0.08f;
 
-	// R (v0.17.7: R is the Warrior's Combo in the suit too; Shift+R the Kinetic Pulse, or Kinetic Overload on a full bar)
-	public static final float SUITED_COMBO_JAB = 8f;
-	public static final float SUITED_COMBO_CROSS = 9f;
-	public static final float SUITED_COMBO_KICK = 10f;
-	public static final float PULSE_COST = 30f;
-	public static final float PULSE_DAMAGE = 10f; // v0.17.7 (user): was 8
-	public static final double PULSE_RADIUS = 5.0;
-	public static final int PULSE_COOLDOWN = 50; // tester round: was 30
-	public static final float OVERLOAD_DAMAGE = 20f; // v0.17.7 Street ultimate: was 30 (15 at the edge)
-	public static final double OVERLOAD_RADIUS = 10.0;
-	public static final int OVERLOAD_COOLDOWN = 100;
+	// ================================================================ v0.17.7 suited kit (user-approved moveset)
+	// Placeholder numbers from the approved table: the user sets the final values himself (v0.17.7: no power-tier ranges or tier
+	// caps on the new moves; the boss cap still applies). Damage in half hearts, Kinetic in bar points (0..100), times in ticks.
+	// Plain keys are free and add Kinetic when they land on a living target; Shift keys spend Kinetic.
 
-	// G
-	public static final float CLAW_DAMAGE = 7f; // tester round: was 6, then 5; v0.17.7 Street melee: 7
-	public static final float CLAW_FINISH_DAMAGE = 9f; // was 9, then 8; v0.17.7 Street: 9
-	public static final double CLAW_REACH = 3.5;
-	public static final int CLAW_STEP = 6;
-	public static final int CLAW_COOLDOWN = 40; // was 24
-	public static final int BLEED_TICKS = 80;
-	public static final float BLEED_DAMAGE = 1f;
-	public static final double POUNCE_RANGE = 12.0;
+	/** A refused Shift move (too little Kinetic) flashes the HUD's Kinetic bar this long. */
+	public static final int KINETIC_DENIED_FLASH_TICKS = 12;
+
+	// ---- R: Vibranium Combo (three claw strikes; the 3rd leaves a violet slash mark)
+	public static final float VIBRANIUM_COMBO_HIT_1 = 8f;
+	public static final float VIBRANIUM_COMBO_HIT_2 = 9f;
+	public static final float VIBRANIUM_COMBO_HIT_3 = 10f;
+	/** Kinetic gained for every strike that lands on a living target. */
+	public static final float VIBRANIUM_COMBO_KINETIC_PER_HIT = 5f;
+	public static final double VIBRANIUM_COMBO_REACH = 3.5;
+	/** Ticks between strikes (the first lands on the press). */
+	public static final int VIBRANIUM_COMBO_STEP = 6;
+	public static final int VIBRANIUM_COMBO_COOLDOWN = 30;
+	/** Legacy aliases: BlackPantherUnsuited.comboDamage(n, true) (the suited Warrior's Combo of the first v0.17.7 build). */
+	public static final float SUITED_COMBO_JAB = VIBRANIUM_COMBO_HIT_1;
+	public static final float SUITED_COMBO_CROSS = VIBRANIUM_COMBO_HIT_2;
+	public static final float SUITED_COMBO_KICK = VIBRANIUM_COMBO_HIT_3;
+
+	// ---- Shift+R: Kinetic Combo (three fast charged slashes; the finisher releases a forward cone shockwave)
+	public static final float KINETIC_COMBO_COST = 25f;
+	public static final float KINETIC_COMBO_DAMAGE = 10f; // each slash
+	public static final double KINETIC_COMBO_REACH = 3.5;
+	public static final int KINETIC_COMBO_STEP = 4;
+	/** The shockwave: this much to everyone else in the cone (the slash's own targets are not hit twice)... */
+	public static final float KINETIC_COMBO_WAVE_DAMAGE = 8f;
+	/** ...out to this far ahead... */
+	public static final double KINETIC_COMBO_WAVE_RANGE = 4.0;
+	/** ...within this dot of his flat facing (0.5 = 60 degrees either side). */
+	public static final double KINETIC_COMBO_WAVE_ARC = 0.5;
+	public static final int KINETIC_COMBO_COOLDOWN = 40;
+
+	// ---- G: Pounce (aimed leap onto a target; damage on landing, then pinned)
+	public static final double POUNCE_RANGE = 8.0;
 	public static final double POUNCE_SPEED = 1.6;
-	public static final float POUNCE_LAND_DAMAGE = 8f;
-	public static final float POUNCE_STRIKE_DAMAGE = 10f; // v0.17.7 Street ability: was 12
-	public static final int POUNCE_PIN_TICKS = 40;
-	public static final int POUNCE_COOLDOWN = 240; // was 200
+	/** The leap gives up if it has not reached the target in this many ticks. */
+	public static final int POUNCE_MAX_FLIGHT_TICKS = 16;
+	public static final float POUNCE_LAND_DAMAGE = 9f;
+	public static final int POUNCE_PIN_TICKS = 20;
+	public static final float POUNCE_KINETIC_GAIN = 10f;
+	public static final int POUNCE_COOLDOWN = 120;
 
-	// X
+	// ---- Shift+G: Kinetic Pounce (the same leap, ending in a violet ground burst instead of the claws)
+	public static final float KINETIC_POUNCE_COST = 30f;
+	public static final float KINETIC_POUNCE_DAMAGE = 10f;
+	public static final double KINETIC_POUNCE_RADIUS = 3.0;
+	public static final double KINETIC_POUNCE_KNOCKBACK = 1.4;
+	public static final int KINETIC_POUNCE_COOLDOWN = 160;
+
+	// ---- X: Panther Leap (unchanged)
 	public static final double LEAP_SPEED = 1.62; // about 12 blocks up
 	public static final double LEAP_FORWARD = 0.55;
 	public static final int LEAP_COOLDOWN = 60;
 	public static final int LEDGE_TICKS = 60;
-	public static final double DROP_SPEED = 2.4;
-	public static final float DROP_DAMAGE = 10f;
-	public static final double DROP_RADIUS = 4.0;
-	public static final int DROP_COOLDOWN = 160; // was 80
 
-	// Z
+	// ---- Shift+X: Kinetic Dash (where he aims, pitch included; untouchable while it runs)
+	public static final float DASH_COST = 20f;
+	public static final double DASH_DISTANCE = 10.0;
+	public static final int DASH_TICKS = 5;
+	/** Damage-immune for the dash plus this many ticks. */
+	public static final int DASH_IFRAME_EXTRA_TICKS = 2;
+	public static final float DASH_DAMAGE = 8f; // each creature passed through, once
+	public static final double DASH_HIT_RADIUS = 0.6;
+	public static final int DASH_COOLDOWN = 60;
+
+	// ---- Z: Vibranium Dagger (unchanged, + Kinetic on a hit)
 	public static final float DAGGER_DAMAGE = 8f;
 	public static final int DAGGER_BOUNCES = 3;
 	public static final double DAGGER_SPEED = 1.7;
 	public static final double DAGGER_RANGE = 14.0; // was 24
 	public static final double DAGGER_HOP = 6.0; // was 10
 	public static final int DAGGER_COOLDOWN = 140; // was 100
-	public static final double FLASH_RADIUS = 6.0;
-	public static final int FLASH_TICKS = 60;
-	public static final int FLASH_COOLDOWN = 200;
+	public static final float DAGGER_KINETIC_GAIN = 5f; // each target struck
 
-	// V
+	// ---- Shift+Z: Kinetic Overload (ULTIMATE: needs a FULL bar and spends all of it; ground slam + violet dome)
+	public static final float OVERLOAD_DAMAGE = 20f; // at the centre
+	public static final float OVERLOAD_EDGE_DAMAGE = 15f; // at the radius (straight line in between)
+	public static final double OVERLOAD_RADIUS = 10.0;
+	public static final int OVERLOAD_COOLDOWN = 100;
+
+	// ---- V: Stalk (unchanged)
 	public static final double STALK_SEEN_WITHIN = 6.0;
 	public static final float STALK_BACKSTAB = 3f; // on mobs
 	public static final float STALK_BACKSTAB_PLAYER = 1.75f; // tester round: PvP
 	public static final int STALK_COOLDOWN = 200; // was 40
-	public static final double SENSES_RANGE = 40.0;
-	public static final int SENSES_COOLDOWN = 0; // a toggle (was 400)
+	/** Hunter's Tracking (unsuited Shift+V): footprints kept per creature. */
 	public static final int FOOTPRINTS = 10;
 
-	// C
+	// ---- Shift+V: Kinetic Shroud (damage cut + thorns, violet shimmer on the suit)
+	public static final float SHROUD_COST = 30f;
+	public static final int SHROUD_TICKS = 80;
+	/** Share of each hit taken off while it is up. */
+	public static final float SHROUD_REDUCTION = 0.5f;
+	/** Damage thrown back at a creature or player that lands a hit on him. */
+	public static final float SHROUD_THORNS = 4f;
+	public static final int SHROUD_COOLDOWN = 240; // from the cast
+
+	// ---- C: Absorb Stance (unchanged) / Shift+C: Kinetic Return (unchanged)
 	public static final float ABSORB_MAX = 40f;
 	public static final int ABSORB_MAX_TICKS = 120;
 	public static final int ABSORB_COOLDOWN = 80;

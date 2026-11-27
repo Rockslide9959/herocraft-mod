@@ -48,8 +48,9 @@ import org.joml.Vector3f;
  * modifiers ({@link #reconcile}). The claws are always out in the suit.
  *
  * <h2>Kinetic Energy</h2>
- * 0..100. The suit soaks 40% of every hit and stores it (1 damage = 4 Kinetic); it drains slowly out of combat. Shift+R spends
- * it; the bar lights the suit's trim purple as it fills.
+ * 0..100. The suit soaks 40% of every hit and stores it (1 damage = 4 Kinetic); the suited kit's plain moves add a little when
+ * they land, the Shift moves spend it. v0.17.7: it never drains over time (only spending and a death lower it). The bar lights
+ * the suit's trim purple as it fills.
  */
 public final class BlackPanther {
 	public static final String KEY = "black_panther";
@@ -129,12 +130,6 @@ public final class BlackPanther {
 		return s != null && s.hasPower && s.suited && s.unmasked;
 	}
 
-	/** Panther Senses is on. */
-	public static boolean sensing(Player player) {
-		BlackPantherState s = peek(player);
-		return s != null && s.hasPower && s.suited && s.senses;
-	}
-
 	/** v0.17.4 Night Eyes is on (the server's view; the client reads the night vision effect). */
 	public static boolean nightEyes(Player player) {
 		return Boolean.TRUE.equals(NIGHT_EYES.get(player.getUUID()));
@@ -189,7 +184,14 @@ public final class BlackPanther {
 		save(player, n);
 	}
 
-	/** A hit landed: keeps the bar from draining mid-fight. */
+	/** v0.17.7: a plain suited move (the Vibranium Dagger here) landed on a living target -- Kinetic into the bar. */
+	public static void gainKinetic(ServerPlayer player, float amount) {
+		if (amount > 0f && suited(player)) {
+			store(player, amount, false);
+		}
+	}
+
+	/** A hit landed (the last fight time; the bar no longer drains since v0.17.7). */
 	static void fought(ServerPlayer player) {
 		BlackPantherState n = state(player).copy();
 		n.lastFightAt = player.level().getGameTime();
@@ -292,6 +294,17 @@ public final class BlackPanther {
 	public static void clearTransient(ServerPlayer player) {
 		BlackPantherAbilities.clear(player);
 		BlackPantherUnsuited.clear(player);
+	}
+
+	/**
+	 * A death: the running moves end and the stored Kinetic is lost (v0.17.7: the bar never drains on its own, so a death is the one
+	 * reset besides spending it; the state is copied to the respawned player with the empty bar).
+	 */
+	public static void onDeath(ServerPlayer player) {
+		clearTransient(player);
+		if (state(player).kinetic > 0f) {
+			setKinetic(player, 0f);
+		}
 	}
 
 	public static void onPlayerJoin(ServerPlayer player) {
@@ -653,9 +666,8 @@ public final class BlackPanther {
 		if (player.tickCount % 10 == 0) {
 			nightEyes(player, s);
 		}
-		if (now % 5 == 0 && s.kinetic > 0f && now - s.lastFightAt > BlackPantherConfig.DRAIN_DELAY) {
-			setKinetic(player, s.kinetic - BlackPantherConfig.DRAIN / 4f);
-		}
+		// v0.17.7 (user: "make it so that the kinetic energy bar doesnt dissipate"): no drain over time -- suited, unsuited, after the
+		// suit goes, across a relog (the attachment is persistent). Only spending lowers it; a death empties it (onDeath).
 		BlackPantherAbilities.tick(player);
 		BlackPantherUnsuited.tick(player);
 	}

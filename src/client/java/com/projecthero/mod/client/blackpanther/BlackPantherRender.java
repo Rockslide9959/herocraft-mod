@@ -134,11 +134,32 @@ public final class BlackPantherRender {
 				m.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucentEmissive(GLOW)), LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY,
 						(alpha << 24) | 0xFFFFFF);
 			}
+			if (a.full() && com.projecthero.mod.blackpanther.BlackPantherAbilities.shrouded(player)) {
+				renderShroud(pose, buffers, m, ageInTicks);
+			}
 		} finally {
 			// the model is shared with Blue Beetle
 			m.head.visible = true;
 			m.hat.visible = true;
 		}
+	}
+
+	/** The charged creeper's swirl, scrolling: the Kinetic Shroud's shimmer. */
+	private static final ResourceLocation SHROUD_SWIRL = ResourceLocation.withDefaultNamespace("textures/entity/creeper/creeper_armor.png");
+
+	/**
+	 * v0.17.7 Kinetic Shroud: a violet energy shimmer over the whole suit (the charged creeper's swirl on a shell a little larger
+	 * than the body), pulsing gently while it lasts.
+	 */
+	private static void renderShroud(PoseStack pose, MultiBufferSource buffers, PlayerModel<LivingEntity> m, float ageInTicks) {
+		float scroll = ageInTicks * 0.012f;
+		float pulse = 0.75f + 0.25f * Mth.sin(ageInTicks * 0.35f);
+		int r = Math.round(150 * pulse), g = Math.round(70 * pulse), b = Math.round(255 * pulse);
+		pose.pushPose();
+		pose.scale(1.06f, 1.04f, 1.08f);
+		m.renderToBuffer(pose, buffers.getBuffer(RenderType.energySwirl(SHROUD_SWIRL, scroll % 1f, (scroll * 0.6f) % 1f)), LightTexture.FULL_BRIGHT,
+				OverlayTexture.NO_OVERLAY, 0xFF000000 | (r << 16) | (g << 8) | b);
+		pose.popPose();
 	}
 
 	/** Shift+N: the mask is off (synced state). */

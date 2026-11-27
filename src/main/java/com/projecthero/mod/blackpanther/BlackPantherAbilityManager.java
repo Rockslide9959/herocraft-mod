@@ -19,14 +19,14 @@ import net.minecraft.server.level.ServerPlayer;
  *
  * <pre>
  *            SUITED                                          UNSUITED (T'Challa)
- *   R (1)  Warrior's Combo   / Shift Kinetic Pulse (*)       Warrior's Combo   / Shift Leg Sweep
- *   G (2)  Claw Combo        / Shift Pounce                  Takedown          / Shift Ground Pound
- *   X (3)  Panther Leap      / Shift Drop Strike             Vault             / Shift Flying Kick
- *   Z (4)  Vibranium Dagger  / Shift Kimoyo Flash            Throwing Knife    / Shift Kimoyo Scan
- *   V (5)  Stalk             / Shift Panther Senses          Rising Uppercut   / Shift Hunter's Tracking
+ *   R (1)  Vibranium Combo   / Shift Kinetic Combo           Warrior's Combo   / Shift Leg Sweep
+ *   G (2)  Pounce            / Shift Kinetic Pounce          Takedown          / Shift Ground Pound
+ *   X (3)  Panther Leap      / Shift Kinetic Dash            Vault             / Shift Flying Kick
+ *   Z (4)  Vibranium Dagger  / Shift Kinetic Overload (*)    Throwing Knife    / Shift Kimoyo Scan
+ *   V (5)  Stalk             / Shift Kinetic Shroud          Rising Uppercut   / Shift Hunter's Tracking
  *   C (6)  Absorb Stance (hold) / Shift Kinetic Return       Block (hold)      / Shift Ancestral Resolve
  *   N (8)  -- / Shift Mask (toggle, suited; no HUD box, listed in the Left-Alt move list)
- *   (*) on a full Kinetic bar Shift+R releases Kinetic Overload instead
+ *   (*) the ultimate: only on a full Kinetic bar, which it empties. Shift moves spend Kinetic (refused, nothing spent, when short)
  * </pre>
  */
 public final class BlackPantherAbilityManager {
@@ -79,31 +79,30 @@ public final class BlackPantherAbilityManager {
 			handleUnsuited(player, slot, pressed, shift);
 			return;
 		}
+		// v0.17.7 suited kit (user-approved): plain keys are free and fill a little Kinetic when they land; Shift keys spend it
 		switch (slot) {
 			case SLOT_1 -> {
 				if (pressed) {
-					if (!shift) {
-						BlackPantherUnsuited.combo(player); // v0.17.7 (user): suited R is the Warrior's Combo too
-					} else if (BlackPanther.kinetic(player) >= BlackPantherConfig.KINETIC_MAX - 0.01f) {
-						BlackPantherAbilities.overload(player); // a full bar: everything at once
+					if (shift) {
+						BlackPantherAbilities.kineticCombo(player);
 					} else {
-						BlackPantherAbilities.pulse(player);
+						BlackPantherAbilities.vibraniumCombo(player);
 					}
 				}
 			}
 			case SLOT_2 -> {
 				if (pressed) {
 					if (shift) {
-						BlackPantherAbilities.pounce(player);
+						BlackPantherAbilities.kineticPounce(player);
 					} else {
-						BlackPantherAbilities.claws(player);
+						BlackPantherAbilities.pounce(player);
 					}
 				}
 			}
 			case SLOT_3 -> {
 				if (pressed) {
 					if (shift) {
-						BlackPantherAbilities.dropStrike(player);
+						BlackPantherAbilities.kineticDash(player);
 					} else {
 						BlackPantherAbilities.leap(player);
 					}
@@ -112,7 +111,7 @@ public final class BlackPantherAbilityManager {
 			case SLOT_4 -> {
 				if (pressed) {
 					if (shift) {
-						BlackPantherAbilities.kimoyo(player);
+						BlackPantherAbilities.overload(player); // the ultimate: a full bar only
 					} else {
 						BlackPantherAbilities.dagger(player);
 					}
@@ -121,7 +120,7 @@ public final class BlackPantherAbilityManager {
 			case SLOT_5 -> {
 				if (pressed) {
 					if (shift) {
-						BlackPantherAbilities.senses(player);
+						BlackPantherAbilities.shroud(player);
 					} else {
 						BlackPantherAbilities.toggleStalk(player);
 					}
@@ -232,11 +231,11 @@ public final class BlackPantherAbilityManager {
 			};
 		}
 		return switch (slot) {
-			case SLOT_1 -> new String[] { BlackPantherUnsuited.COMBO, BlackPantherAbilities.PULSE };
-			case SLOT_2 -> new String[] { BlackPantherAbilities.CLAWS, BlackPantherAbilities.POUNCE };
-			case SLOT_3 -> new String[] { BlackPantherAbilities.LEAP, BlackPantherAbilities.DROP };
-			case SLOT_4 -> new String[] { BlackPantherAbilities.DAGGER, BlackPantherAbilities.KIMOYO };
-			case SLOT_5 -> new String[] { BlackPantherAbilities.STALK, BlackPantherAbilities.SENSES };
+			case SLOT_1 -> new String[] { BlackPantherAbilities.VIBRANIUM_COMBO, BlackPantherAbilities.KINETIC_COMBO };
+			case SLOT_2 -> new String[] { BlackPantherAbilities.POUNCE, BlackPantherAbilities.KINETIC_POUNCE };
+			case SLOT_3 -> new String[] { BlackPantherAbilities.LEAP, BlackPantherAbilities.DASH };
+			case SLOT_4 -> new String[] { BlackPantherAbilities.DAGGER, BlackPantherAbilities.OVERLOAD };
+			case SLOT_5 -> new String[] { BlackPantherAbilities.STALK, BlackPantherAbilities.SHROUD };
 			case SLOT_6 -> new String[] { BlackPantherAbilities.ABSORB, BlackPantherAbilities.RETURN };
 			default -> new String[0];
 		};
@@ -244,16 +243,16 @@ public final class BlackPantherAbilityManager {
 
 	public static int maxCooldown(String id) {
 		return switch (id) {
-			case BlackPantherAbilities.PULSE -> BlackPantherConfig.PULSE_COOLDOWN;
-			case BlackPantherAbilities.OVERLOAD -> BlackPantherConfig.OVERLOAD_COOLDOWN;
-			case BlackPantherAbilities.CLAWS -> BlackPantherConfig.CLAW_COOLDOWN;
+			case BlackPantherAbilities.VIBRANIUM_COMBO -> BlackPantherConfig.VIBRANIUM_COMBO_COOLDOWN;
+			case BlackPantherAbilities.KINETIC_COMBO -> BlackPantherConfig.KINETIC_COMBO_COOLDOWN;
 			case BlackPantherAbilities.POUNCE -> BlackPantherConfig.POUNCE_COOLDOWN;
+			case BlackPantherAbilities.KINETIC_POUNCE -> BlackPantherConfig.KINETIC_POUNCE_COOLDOWN;
 			case BlackPantherAbilities.LEAP -> BlackPantherConfig.LEAP_COOLDOWN;
-			case BlackPantherAbilities.DROP -> BlackPantherConfig.DROP_COOLDOWN;
+			case BlackPantherAbilities.DASH -> BlackPantherConfig.DASH_COOLDOWN;
 			case BlackPantherAbilities.DAGGER -> BlackPantherConfig.DAGGER_COOLDOWN;
-			case BlackPantherAbilities.KIMOYO -> BlackPantherConfig.FLASH_COOLDOWN;
+			case BlackPantherAbilities.OVERLOAD -> BlackPantherConfig.OVERLOAD_COOLDOWN;
 			case BlackPantherAbilities.STALK -> BlackPantherConfig.STALK_COOLDOWN;
-			case BlackPantherAbilities.SENSES -> BlackPantherConfig.SENSES_COOLDOWN;
+			case BlackPantherAbilities.SHROUD -> BlackPantherConfig.SHROUD_COOLDOWN;
 			case BlackPantherAbilities.ABSORB -> BlackPantherConfig.ABSORB_COOLDOWN;
 			case BlackPantherAbilities.RETURN -> BlackPantherConfig.RETURN_COOLDOWN;
 			case BlackPantherUnsuited.COMBO -> BlackPantherConfig.COMBO_COOLDOWN;

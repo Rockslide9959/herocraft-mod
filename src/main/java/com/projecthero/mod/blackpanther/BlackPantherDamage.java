@@ -24,6 +24,8 @@ import net.minecraft.world.phys.Vec3;
  * What hurts Black Panther (v0.17.3), suited:
  * <ul>
  *   <li>no fall damage;</li>
+ *   <li>v0.17.7: nothing at all during a Kinetic Dash; under the Kinetic Shroud every hit is cut by half and a living attacker
+ *       takes 4 back (thorns, never for thorns);</li>
  *   <li>arrows and bullets under {@link BlackPantherConfig#DEFLECT_LIMIT} bounce off and charge the bar like a soaked hit;</li>
  *   <li>Absorb Stance: frontal hits do nothing and go wholly into the bar, up to 40 a stance (then it breaks);</li>
  *   <li>every other hit from something (a creature, a blast): 40% soaked and stored, 1 damage = 4 Kinetic. Burning, drowning,
@@ -104,6 +106,10 @@ public final class BlackPantherDamage {
 			player.resetFallDistance();
 			return false;
 		}
+		// v0.17.7 Kinetic Dash: untouchable while it runs (and a couple of ticks after)
+		if (BlackPantherAbilities.dashInvulnerable(player)) {
+			return false;
+		}
 		// Kinetic Return remembers the RAW incoming amount, before any soak, deflection or stance -- arrows and bullets alike,
 		// even a pellet that lands inside the hurt window
 		boolean shot = source.is(DamageTypeTags.IS_PROJECTILE) || Gunfire.active();
@@ -112,6 +118,12 @@ public final class BlackPantherDamage {
 		}
 		if (player.invulnerableTime > 10) {
 			return true; // vanilla will ignore this hit: it must not charge the bar
+		}
+		// v0.17.7 Kinetic Shroud: the hit is cut, and whoever landed it takes a little back
+		boolean shrouded = BlackPantherAbilities.shrouded(player);
+		float taken = shrouded ? amount * (1f - BlackPantherConfig.SHROUD_REDUCTION) : amount;
+		if (shrouded) {
+			thorns(player, source);
 		}
 		BlackPantherState s = BlackPanther.state(player);
 		if (s.absorbing && fromFront(player, source)) {
@@ -129,13 +141,30 @@ public final class BlackPantherDamage {
 			return false;
 		}
 		if (source.getEntity() != null || source.is(DamageTypeTags.IS_EXPLOSION)) {
-			float soak = amount * BlackPantherConfig.SOAK;
+			float soak = taken * BlackPantherConfig.SOAK;
 			BlackPanther.store(player, soak * BlackPantherConfig.KINETIC_PER_DAMAGE, false);
 			impact(player, 3);
-			reissue(player, source, amount - soak);
+			reissue(player, source, taken - soak);
+			return false;
+		}
+		if (shrouded) { // burning, drowning and the like: just the cut
+			reissue(player, source, taken);
 			return false;
 		}
 		return true;
+	}
+
+	/** Kinetic Shroud's thorns: the living attacker that landed the hit takes {@link BlackPantherConfig#SHROUD_THORNS} (boss cap). */
+	private static void thorns(ServerPlayer player, DamageSource source) {
+		if (source.is(DamageTypes.THORNS) || !(source.getEntity() instanceof LivingEntity attacker) || attacker == player || !attacker.isAlive()) {
+			return; // never thorns for thorns (two shrouded panthers would ping-pong)
+		}
+		float dmg = BlackPantherCombat.bossCapped(attacker, BlackPantherConfig.SHROUD_THORNS);
+		if (attacker.hurt(player.damageSources().thorns(player), dmg)) {
+			Vec3 c = attacker.position().add(0, attacker.getBbHeight() * 0.5, 0);
+			((ServerLevel) player.level()).sendParticles(BlackPanther.PURPLE, c.x, c.y, c.z, 8, 0.3, 0.4, 0.3, 0.0);
+			player.level().playSound(null, c.x, c.y, c.z, SoundEvents.AMETHYST_BLOCK_HIT, SoundSource.PLAYERS, 0.8f, 1.6f);
+		}
 	}
 
 	/**

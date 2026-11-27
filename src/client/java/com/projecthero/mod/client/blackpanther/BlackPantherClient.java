@@ -17,7 +17,6 @@ import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.entity.ThrownItemRenderer;
 import net.minecraft.client.renderer.entity.player.PlayerRenderer;
 import net.minecraft.world.item.ItemStack;
 
@@ -60,7 +59,6 @@ public final class BlackPantherClient {
 		HudRenderCallback.EVENT.register(BlackPantherHud::render);
 		WorldRenderEvents.AFTER_ENTITIES.register(BlackPantherEffectsRenderer::render);
 		EntityRendererRegistry.register(BlackPantherEntityTypes.VIBRANIUM_DAGGER, VibraniumDaggerRenderer::new);
-		EntityRendererRegistry.register(BlackPantherEntityTypes.KIMOYO_BEAD, ThrownItemRenderer::new);
 		BlockRenderLayerMap.INSTANCE.putBlock(BlackPantherItems.HERB_BLOCK, RenderType.cutout());
 		ClientPlayNetworking.registerGlobalReceiver(PantherSensesPayload.TYPE, (payload, context) -> PantherSensesClient.receive(payload));
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> PantherSensesClient.reset());

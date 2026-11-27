@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.blackpanther.BlackPanther;
+import com.projecthero.mod.blackpanther.BlackPantherAbilities;
 import com.projecthero.mod.blackpanther.BlackPantherAbilityManager;
 import com.projecthero.mod.blackpanther.BlackPantherConfig;
 import com.projecthero.mod.blackpanther.data.BlackPantherState;
@@ -25,9 +26,10 @@ import net.minecraft.util.Mth;
  * <pre>
  *   Black Panther                       v0.17.7 (user): always this title, suit or no suit, and no status words
  *   Absorb  [Hairline ====---]  60%    what the suit can still absorb, only while absorbing
- *   Kinetic [Meter ======-]  84        the Kinetic charge (purple), v0.17.7 (user): in the Meter style
+ *   Kinetic [Meter ======-]  84        the Kinetic charge (purple), v0.17.7 (user): in the Meter style; flashes red / white
+ *                                      when a Shift move is refused for want of Kinetic; it never drains on its own
  *   +----+----+----+----+----+----+    R G Z X C V: shown move's cooldown (sweep + seconds), the Shift move's as the durability
- *   | R  | G  | Z  | X  | C  | V  |    bar; V lit while stalking / Senses run, C while absorbing; yellow while Shift shows the
+ *   | R  | G  | Z  | X  | C  | V  |    bar; V lit while stalking / the Shroud / Tracking run, C while absorbing; yellow while Shift shows the
  *   +----+----+----+----+----+----+    Shift moves
  * </pre>
  * Kept as it was: the Ancestral Plane (a purple sky over the whole screen for the ten seconds after the soup).
@@ -37,6 +39,8 @@ public final class BlackPantherHud {
 	private static final int KINETIC = 0xFF9A4CFF;
 	private static final int KINETIC_TEXT = 0xFFC08CFF;
 	private static final int ABSORB = 0xFFD9B8FF;
+	private static final int DENIED_RED = 0xFFFF4A4A;
+	private static final int DENIED_WHITE = 0xFFFFFFFF;
 
 	private BlackPantherHud() {
 	}
@@ -82,13 +86,21 @@ public final class BlackPantherHud {
 			float frac = cd / (float) Math.max(1, BlackPantherAbilityManager.maxCooldown(shown));
 			float otherFrac = other == null ? 0f
 					: BlackPanther.cooldownRemaining(p, other) / (float) Math.max(1, BlackPantherAbilityManager.maxCooldown(other));
-			boolean active = (slot == AbilitySlot.SLOT_5 && (s.stalking || s.senses)) || (slot == AbilitySlot.SLOT_6 && s.absorbing);
+			boolean active = (slot == AbilitySlot.SLOT_5 && (s.stalking || s.senses || BlackPantherAbilities.shrouded(p)))
+					|| (slot == AbilitySlot.SLOT_6 && s.absorbing);
 			st.slot(i, VanillaHud.keyLabel(slot), true, shift, Math.min(1f, frac), VanillaHud.seconds(cd), Math.min(1f, otherFrac), active);
 		}
 
 		if (suited) {
-			st.meter(Component.translatable("hud.projecthero.black_panther.kinetic"), s.kinetic / BlackPantherConfig.KINETIC_MAX, KINETIC,
-					String.valueOf(Math.round(s.kinetic)), KINETIC_TEXT, MutationMeters.Style.METER);
+			// v0.17.7: a Shift move refused for want of Kinetic flashes the bar red / white for a moment
+			boolean denied = BlackPantherAbilities.kineticDenied(p);
+			boolean red = (mc.level.getGameTime() / 2) % 2 == 0;
+			int barColour = denied ? (red ? DENIED_RED : DENIED_WHITE) : KINETIC;
+			int textColour = denied ? (red ? DENIED_RED : DENIED_WHITE) : KINETIC_TEXT;
+			// a refused Overload shows the bar full-width so the flash reads even on a low bar
+			float frac = s.kinetic / BlackPantherConfig.KINETIC_MAX;
+			st.meter(Component.translatable("hud.projecthero.black_panther.kinetic"), denied ? Math.max(frac, 0.04f) : frac, barColour,
+					String.valueOf(Math.round(s.kinetic)), textColour, MutationMeters.Style.METER);
 			if (s.absorbing) {
 				float left = Mth.clamp(1f - s.absorbed / BlackPantherConfig.ABSORB_MAX, 0f, 1f);
 				st.meter(Component.translatable("hud.projecthero.black_panther.absorb"), left, ABSORB, Math.round(left * 100) + "%", ABSORB,
@@ -115,11 +127,6 @@ public final class BlackPantherHud {
 			if (suited) {
 				rows.add(MoveListOverlay.Row.of("Shift+" + MoveListOverlay.key(AbilitySlot.SLOT_8), Component.translatable("projecthero.black_panther.ability.mask"),
 						null));
-			}
-			if (suited) {
-				// v0.17.7: Shift+R becomes Kinetic Overload on a full bar
-				rows.add(MoveListOverlay.Row.of("Shift+" + MoveListOverlay.key(AbilitySlot.SLOT_1) + " (full)",
-						Component.translatable("projecthero.black_panther.ability.kinetic_overload"), null));
 			}
 			st.moveList(rows);
 		}

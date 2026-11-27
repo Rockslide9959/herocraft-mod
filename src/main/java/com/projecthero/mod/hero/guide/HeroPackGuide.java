@@ -2102,10 +2102,10 @@ public final class HeroPackGuide {
 			}
 			blank(lines);
 			head(lines, "projecthero.guide.black_panther.suited_controls");
-			for (String[] row : new String[][] { { "H", "suit" }, { "R", "warriors_combo_suited" }, { "Shift+R", "kinetic_pulse" }, { "Shift+R (full bar)", "kinetic_overload" },
-					{ "G", "claw_combo" },
-					{ "Shift+G", "pounce" }, { "X", "panther_leap" }, { "Shift+X", "drop_strike" }, { "Z", "vibranium_dagger" },
-					{ "Shift+Z", "kimoyo_flash" }, { "V", "stalk" }, { "Shift+V", "panther_senses" }, { "C", "absorb_stance" },
+			// v0.17.7 suited kit: plain keys fill a little Kinetic when they land, Shift keys spend it
+			for (String[] row : new String[][] { { "H", "suit" }, { "R", "vibranium_combo" }, { "Shift+R", "kinetic_combo" }, { "G", "pounce" },
+					{ "Shift+G", "kinetic_pounce" }, { "X", "panther_leap" }, { "Shift+X", "kinetic_dash" }, { "Z", "vibranium_dagger" },
+					{ "Shift+Z", "kinetic_overload" }, { "V", "stalk" }, { "Shift+V", "kinetic_shroud" }, { "C", "absorb_stance" },
 					{ "Shift+C", "kinetic_return" }, { "Shift+N", "mask" } }) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.black_panther.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
