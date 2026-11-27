@@ -26,7 +26,7 @@ public final class SuperSoldierConfig {
 	 */
 	public static final double ARMED_BONUS = MELEE;
 	/** v0.17.7 (Street tier): no single move hit goes over this, whatever buffs stack (Assemble x1.25 on a marked enemy, Strength). */
-	public static final float MAX_HIT = 20f; // v0.17.7: was PowerRank.STREET.ultimateMax (tiers removed; the user rebalances powers one by one)
+	public static final float MAX_HIT = 65f; // v0.17.7: raised from 20 so the Shield Storm's 45 lands whole (a safety ceiling only; the user sets every number)
 	/** Damage taken is multiplied by this (30% less). */
 	public static final float DAMAGE_TAKEN_FACTOR = 0.7f;
 	/**
@@ -201,7 +201,9 @@ public final class SuperSoldierConfig {
 	/** The leap before the throw (blocks up), and the throw this many ticks after take-off. */
 	public static final double STORM_LEAP_HEIGHT = 4.5;
 	public static final int STORM_THROW_DELAY = 7;
-	public static final float STORM_HIT_DAMAGE = 15.0f;
+	/** v0.17.7 (user: "Increase the shield storm damage to match the peak human barrage damage, it does a maximum of 65"): the shield hit
+	 * 45 + the slam's 20 = 65 on one enemy, the Barrage's 6 x 7.5 + 20. Was 15. */
+	public static final float STORM_HIT_DAMAGE = 45.0f;
 	/** v0.17.7: 5 bounces (6 enemies), was 8 ricochets anywhere within 16 blocks. */
 	public static final int STORM_MAX_BOUNCES = 5;
 	/** v0.17.7: 1.3, was 2.1 -- slowed by the same 62.5% as the C throw, still a touch faster than it. */
