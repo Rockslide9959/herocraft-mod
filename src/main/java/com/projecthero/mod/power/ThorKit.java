@@ -41,7 +41,7 @@ import net.minecraft.world.phys.Vec3;
  * {@link ThorStormbreakerKit}, {@link ThorTwinKit} and {@link ThorUltimates}; the timed parts of them run on
  * {@link ThorSequences}.
  *
- * <p><b>Tier: Cosmic</b> ({@code PowerRank.COSMIC}) -- melee 21-28, abilities 22-30, ultimates 45-60 per hit. No single hit
+ * <p>Damage per hit (the v0.17.7 Cosmic numbers, kept after tiers were removed): melee 21-28, abilities 22-30, ultimates 45-60 per hit. No single hit
  * goes over {@link #MAX_HIT} 60, whatever stacks on it (the storm buff and Sunder are capped in {@link ThorStorm#enter});
  * bosses keep their own per-hit caps. Every hit goes through {@link #hit}: never the caster, his pets, squad allies or their
  * pets ({@link WeaponCombo#friendly} / {@link ThorTargets#canAffect}).
@@ -54,7 +54,7 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class ThorKit {
 	// ---------------------------------------------------------------- tier
-	public static final float MAX_HIT = com.projecthero.mod.hero.PowerRank.COSMIC.ultimateMax;
+	public static final float MAX_HIT = 60f; // v0.17.7: was PowerRank.COSMIC.ultimateMax (tiers removed; the user rebalances powers one by one)
 	/** Stormbreaker: "finishes weakened enemies" -- x1.25 on a foe under {@link #EXECUTE_THRESHOLD} of its health. */
 	public static final float FINISH_MUL = 1.25f;
 	public static final float EXECUTE_THRESHOLD = 0.30f;

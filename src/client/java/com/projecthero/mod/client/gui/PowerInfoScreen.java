@@ -155,7 +155,6 @@ public final class PowerInfoScreen extends Screen {
 
 	private void buildLines() {
 		body.clear();
-		page.clearBands();
 		liveQuirk = false;
 
 		int wrapW = this.right - this.left;
@@ -621,26 +620,6 @@ public final class PowerInfoScreen extends Screen {
 	}
 
 	private void wrap(Component line, int width) {
-		// v0.17.7: a placed power's tier line is drawn as a banner -- a coloured ribbon, "COSMIC TIER" then its damage ranges
-		com.projecthero.mod.hero.PowerRank rank = com.projecthero.mod.hero.guide.HeroPackGuide.tierOfLine(line);
-		if (rank != null) {
-			int start = body.size();
-			body.add(FormattedCharSequence.EMPTY);
-			Component name = Component.literal(" ").append(Component.literal(Component.translatable("projecthero.rank." + rank.id).getString()
-					.toUpperCase(java.util.Locale.ROOT)).withStyle(s -> s.withColor(rank.colour).withBold(true)));
-			for (FormattedCharSequence s : this.font.split(name, Math.max(40, width - 4))) {
-				body.add(s);
-			}
-			for (FormattedCharSequence s : this.font.split(Component.literal(" ").append(com.projecthero.mod.hero.guide.HeroPackGuide.tierRanges(rank)
-					.withStyle(ChatFormatting.WHITE)), Math.max(40, width - 4))) {
-				body.add(s);
-			}
-			for (int i = start + 1; i < body.size(); i++) {
-				page.band(body.get(i), rank.colour);
-			}
-			body.add(FormattedCharSequence.EMPTY);
-			return;
-		}
 		// v0.17.1: a line that starts indented keeps its continuation lines under the same indent (a hanging indent), so a
 		// wrapped move description or roster line never runs back out to the left edge
 		String text = line.getString();

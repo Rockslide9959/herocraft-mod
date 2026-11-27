@@ -272,7 +272,7 @@ public final class UndeadConfig {
 	 * v0.17.7 City tier (melee 11-14, abilities 11-15, ultimate 25-30): no move hit of his lands for more than this, Victor's
 	 * x1.35 included ({@link UndeadAbilities#strike}); the boss cap below still applies on top.
 	 */
-	public static final float MAX_HIT = com.projecthero.mod.hero.PowerRank.CITY.ultimateMax;
+	public static final float MAX_HIT = 30f; // v0.17.7: was PowerRank.CITY.ultimateMax (tiers removed; the user rebalances powers one by one)
 
 	/** A boss takes at most this share of its max health from one hit. */
 	public static final float BOSS_MAX_FRACTION_PER_HIT = 0.08f;

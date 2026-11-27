@@ -2,7 +2,6 @@ package com.projecthero.mod.gametest;
 
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.hero.AbilitySlot;
-import com.projecthero.mod.hero.PowerRank;
 import com.projecthero.mod.shazam.Shazam;
 import com.projecthero.mod.shazam.ShazamAbilityManager;
 import com.projecthero.mod.shazam.ShazamAnim;
@@ -127,24 +126,24 @@ public class ShazamKitGameTests implements FabricGameTest {
 		}
 		helper.assertTrue("Hold R".equals(ShazamAbilityManager.keyOf(ShazamAbilityManager.HAYMAKER)), "key labels");
 		helper.assertTrue("Shift+Z".equals(ShazamAbilityManager.keyOf(ShazamAbilityManager.THUNDERSTRIKE)), "key labels");
-		helper.assertTrue(PowerRank.ofGuideKey("projecthero.guide.shazam") == PowerRank.PLANET, "placed as Planet (the badge)");
 		helper.succeed();
 	}
 
 	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void everyNumberSitsInPlanet(GameTestHelper helper) {
-		PowerRank r = PowerRank.PLANET;
-		helper.assertTrue(ShazamConfig.MAX_HIT == 40f && ShazamConfig.MAX_HIT == r.ultimateMax, "MAX_HIT 40");
+		// v0.17.7: the kit's ranges as built (melee 16-19, abilities 16-20, ultimate 32-40); the power tiers themselves were removed
+		final float meleeMin = 16f, meleeMax = 19f, abilityMin = 16f, abilityMax = 20f, ultimateMin = 32f, ultimateMax = 40f;
+		helper.assertTrue(ShazamConfig.MAX_HIT == 40f && ShazamConfig.MAX_HIT == ultimateMax, "MAX_HIT 40");
 		float fist = 1f + (float) ShazamConfig.MELEE_BONUS;
 		for (float m : new float[] { fist, ShazamConfig.COMBO_DAMAGE_1, ShazamConfig.COMBO_DAMAGE_2, ShazamConfig.COMBO_DAMAGE_3 }) {
-			helper.assertTrue(m >= r.meleeMin && m <= r.meleeMax, "melee in 16-19: " + m);
+			helper.assertTrue(m >= meleeMin && m <= meleeMax, "melee in 16-19: " + m);
 		}
 		for (float a : new float[] { ShazamConfig.UPPERCUT_DAMAGE, ShazamConfig.HAYMAKER_MIN, ShazamConfig.HAYMAKER_MAX, ShazamConfig.HAYMAKER_SHOCK_DAMAGE,
 				ShazamConfig.ZEUS_DAMAGE, ShazamConfig.ZEUS_CHAIN_DAMAGE, ShazamConfig.SLAM_DAMAGE, ShazamConfig.WRATH_DAMAGE, ShazamConfig.BLITZ_DAMAGE,
 				ShazamConfig.CLAP_DAMAGE, ShazamConfig.RUSH_DAMAGE, ShazamConfig.QUAKE_DAMAGE, ShazamConfig.GRIP_DAMAGE, ShazamConfig.ULT_CHAIN_DAMAGE }) {
-			helper.assertTrue(a >= r.abilityMin && a <= r.abilityMax, "ability in 16-20: " + a);
+			helper.assertTrue(a >= abilityMin && a <= abilityMax, "ability in 16-20: " + a);
 		}
-		helper.assertTrue(ShazamConfig.ULT_DAMAGE >= r.ultimateMin && ShazamConfig.ULT_DAMAGE <= r.ultimateMax, "ultimate in 32-40");
+		helper.assertTrue(ShazamConfig.ULT_DAMAGE >= ultimateMin && ShazamConfig.ULT_DAMAGE <= ultimateMax, "ultimate in 32-40");
 		ServerPlayer p = shazam(helper, 1.5, 1.5);
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - 17.0) < 1e-3, "a 17 fist");
 		helper.assertTrue(p.getAttributeValue(Attributes.ARMOR) >= 20.0 && p.getAttributeValue(Attributes.ARMOR_TOUGHNESS) >= 12.0,

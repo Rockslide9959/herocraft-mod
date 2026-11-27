@@ -52,7 +52,7 @@ public final class PunisherConfig {
 	/** v0.17.7 (Street tier): combat training -- bare fists hit for 7 (1 + 6). */
 	public static final double UNARMED_BONUS = 6.0;
 	/** v0.17.7 (Street tier): no single hit goes over this, the Target Designation bonus included. */
-	public static final float MAX_HIT = com.projecthero.mod.hero.PowerRank.STREET.ultimateMax;
+	public static final float MAX_HIT = 20f; // v0.17.7: was PowerRank.STREET.ultimateMax (tiers removed; the user rebalances powers one by one)
 	/** v0.17.7: bow / crossbow arrows deal this many times their damage (was 2). */
 	public static final double ARROW_FACTOR = 1.5;
 	/** Launch speed (blocks/tick) -- with air drag this carries a mob about 10 blocks. */

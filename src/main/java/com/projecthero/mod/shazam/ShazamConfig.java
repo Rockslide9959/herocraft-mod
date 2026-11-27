@@ -25,7 +25,7 @@ public final class ShazamConfig {
 
 	// ---------------------------------------------------------------- v0.17.7 Planet tier ("A" tier, user)
 	/** No single hit of his goes over this, whatever stacks on it (Wisdom's crit, the Thunderstrike chain). */
-	public static final float MAX_HIT = com.projecthero.mod.hero.PowerRank.PLANET.ultimateMax;
+	public static final float MAX_HIT = 40f; // v0.17.7: was PowerRank.PLANET.ultimateMax (tiers removed; the user rebalances powers one by one)
 	/** Anything with this much max health (or a Titan / Wither / Dragon) is a boss: capped per hit, never lifted or launched. */
 	public static final float BOSS_HEALTH_THRESHOLD = 300.0f;
 	/** A single hit of his never takes more than this fraction of a boss's max health. */

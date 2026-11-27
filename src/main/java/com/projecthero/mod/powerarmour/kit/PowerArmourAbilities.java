@@ -85,15 +85,15 @@ public final class PowerArmourAbilities {
 
 	/** v0.17.7 (Street tier) ceilings: a kit hit never goes over its range's top, whatever the suit tier and Overclock. */
 	static float melee(float d) {
-		return Math.min(d, com.projecthero.mod.hero.PowerRank.STREET.meleeMax);
+		return Math.min(d, 10f); // v0.17.7: was PowerRank.STREET.meleeMax (tiers removed)
 	}
 
 	static float ability(float d) {
-		return Math.min(d, com.projecthero.mod.hero.PowerRank.STREET.abilityMax);
+		return Math.min(d, 10f); // v0.17.7: was PowerRank.STREET.abilityMax (tiers removed)
 	}
 
 	static float ultimate(float d) {
-		return Math.min(d, com.projecthero.mod.hero.PowerRank.STREET.ultimateMax);
+		return Math.min(d, 20f); // v0.17.7: was PowerRank.STREET.ultimateMax (tiers removed)
 	}
 
 	/** Every kit hit: the tier's damage, +15% with Overclock. */

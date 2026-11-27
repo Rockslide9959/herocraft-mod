@@ -18,7 +18,7 @@ public final class SuperSoldierConfig {
 	/** v0.17.7 (Street tier): extra melee damage while holding something -- a netherite sword hits for 10, not 15. */
 	public static final double ARMED_BONUS = 2.0;
 	/** v0.17.7 (Street tier): no single move hit goes over this, whatever buffs stack (Assemble x1.25 on a marked enemy, Strength). */
-	public static final float MAX_HIT = com.projecthero.mod.hero.PowerRank.STREET.ultimateMax;
+	public static final float MAX_HIT = 20f; // v0.17.7: was PowerRank.STREET.ultimateMax (tiers removed; the user rebalances powers one by one)
 	/** Damage taken is multiplied by this (30% less). */
 	public static final float DAMAGE_TAKEN_FACTOR = 0.7f;
 	/**

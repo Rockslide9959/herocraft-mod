@@ -91,7 +91,7 @@ public final class BeastBoyConfig {
 	// Snake 5, Roar 6, T-Rex Bite 18 / Tail 12, Gorilla Throw 6, Rhino 16, Trunk 8, Elephant Stomp 14, Wolf 8, Hawk 5, Whale 10,
 	// The Beast swipe 20 / slam 12 (x1.4 locked chain: 28 / 16.8 -> 26.6 / 25.2). Left clicks: see the melee bonuses below.
 	/** No Beast Boy move hit goes over this, whatever the Morph Chain (and Titans Together) put on it. */
-	public static final float MAX_HIT = com.projecthero.mod.hero.PowerRank.CITY.ultimateMax;
+	public static final float MAX_HIT = 30f; // v0.17.7: was PowerRank.CITY.ultimateMax (tiers removed; the user rebalances powers one by one)
 	/** Extra left-click melee in a form (vanilla fist 1 + this). Was T-Rex 8, Beast 10, big bodies 5, Wolf / Shark / Cheetah / Ptero 2. */
 	public static final double MELEE_TREX = 13.0, MELEE_BEAST = 13.0, MELEE_BIG = 11.0, MELEE_SMALL = 10.0;
 

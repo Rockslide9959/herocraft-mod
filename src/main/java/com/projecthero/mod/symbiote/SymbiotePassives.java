@@ -36,7 +36,7 @@ public final class SymbiotePassives {
 	 * v0.17.7 City tier: the Symbiote is a Secondary stacked on a Primary, so its melee bonuses never push a punch past this
 	 * ({@link #capMelee}); a punch already over it without them (the Primary's own) is never lowered.
 	 */
-	public static final float MAX_HIT = com.projecthero.mod.hero.PowerRank.CITY.ultimateMax;
+	public static final float MAX_HIT = 30f; // v0.17.7: was PowerRank.CITY.ultimateMax (tiers removed; the user rebalances powers one by one)
 	private static final ResourceLocation SPEED = ProjectHeroMod.id("symbiote_host_speed");
 	private static final ResourceLocation JUMP = ProjectHeroMod.id("symbiote_host_jump");
 	private static final ResourceLocation KNOCKBACK = ProjectHeroMod.id("symbiote_host_knockback");
