@@ -84,6 +84,13 @@ public class FogRendererMixin {
 			RenderSystem.setShaderFogEnd(farPlaneDistance * 5.0f);
 			return;
 		}
+		// v0.17.7 Black Panther Ancestral Plane: a warm golden haze, so the endless savanna melts into the sunset
+		if (fogMode == FogRenderer.FogMode.FOG_TERRAIN && camera.getEntity() != null
+				&& camera.getEntity().level().dimension() == com.projecthero.mod.blackpanther.plane.PlaneRealm.DIMENSION) {
+			RenderSystem.setShaderFogStart(farPlaneDistance * 0.22f);
+			RenderSystem.setShaderFogEnd(farPlaneDistance * 0.98f);
+			return;
+		}
 		// v0.16.5 (user): Water Manipulation sees clearly underwater -- the murky water fog (96 blocks at best, much less
 		// when you have just gone under) is pushed out to most of the render distance
 		if (camera.getFluidInCamera() == net.minecraft.world.level.material.FogType.WATER

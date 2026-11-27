@@ -97,12 +97,12 @@ public class BlackPantherGameTests implements FabricGameTest {
 		helper.assertTrue(BlackPanther.canDrink(p), "a fresh player can drink");
 		ItemStack left = soup.finishUsingItem(p.level(), p);
 		helper.assertTrue(left.is(Items.BOWL), "the bowl comes back");
-		helper.assertTrue(BlackPanther.inVision(p) && !BlackPanther.hasPower(p), "the vision comes first");
-		var s = BlackPanther.state(p).copy();
-		s.visionUntil = p.level().getGameTime();
-		p.setAttached(com.projecthero.mod.attachment.ModAttachments.BLACK_PANTHER_STATE, s);
-		BlackPanther.tick(p);
-		helper.assertTrue(BlackPanther.hasPower(p), "the power follows the vision");
+		// v0.17.7: the soup gives Bast's Blessing, no vision and no power (the Ancestral Plane grants it, see BlackPantherPlaneV0177GameTests)
+		helper.assertTrue(com.projecthero.mod.blackpanther.plane.BastBlessing.has(p) && !BlackPanther.inVision(p) && !BlackPanther.hasPower(p),
+				"the blessing comes first, no power yet");
+		p.removeEffect(com.projecthero.mod.blackpanther.plane.BastBlessing.EFFECT);
+		helper.assertTrue(BlackPanther.grant(p), "the plane's end grants it");
+		helper.assertTrue(BlackPanther.hasPower(p), "the power follows the plane");
 		helper.assertTrue(!BlackPanther.suited(p), "no suit until the crafted one is worn");
 		helper.assertTrue(!BlackPanther.canDrink(p), "a second soup is refused");
 		helper.succeed();

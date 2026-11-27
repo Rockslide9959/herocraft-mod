@@ -20,6 +20,9 @@ public abstract class ShazamJourneyLoadingMixin {
 	@Inject(method = "render", at = @At("HEAD"), cancellable = true)
 	private void projecthero$journeyCover(GuiGraphics g, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
 		int cover = JourneyClient.loadingCover();
+		if (cover == 0) {
+			cover = com.projecthero.mod.client.blackpanther.plane.AncestralPlaneClient.loadingCover(); // v0.17.7: the Ancestral Plane
+		}
 		if (cover != 0) {
 			g.fill(0, 0, g.guiWidth(), g.guiHeight(), cover);
 			ci.cancel();

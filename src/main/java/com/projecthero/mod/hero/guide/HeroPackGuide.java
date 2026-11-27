@@ -2098,9 +2098,15 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.black_panther.body");
 			blank(lines);
 			// v0.17.7: the crafted necklace (the suit), the two movesets and the passives
-			for (String section : new String[]{"origin", "suit", "movesets", "kinetic", "passives"}) {
+			// v0.17.7: "plane" -- the Ancestral Plane, Bast's test (the shades, the spirit path)
+			for (String section : new String[]{"origin", "plane", "suit", "movesets", "kinetic", "passives"}) {
 				head(lines, "projecthero.guide.black_panther." + section);
 				para(lines, "projecthero.guide.black_panther." + section + ".body");
+				if (section.equals("plane")) {
+					para(lines, "projecthero.guide.black_panther.plane.trial");
+					para(lines, "projecthero.guide.black_panther.plane.path");
+					para(lines, "projecthero.guide.black_panther.plane.leave");
+				}
 				if (section.equals("passives")) {
 					for (String passive : new String[] { "herb_strength", "regeneration", "resistance", "cat_landing", "night_eyes", "instinct", "claws", "kinetic",
 							"weave", "silent" }) {

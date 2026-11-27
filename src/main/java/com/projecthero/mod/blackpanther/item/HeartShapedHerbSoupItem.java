@@ -17,8 +17,9 @@ import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 
 /**
- * v0.17.3: Heart-Shaped Herb Soup (bowl + 3 herbs). Drink it and the Ancestral Plane opens; the Black Panther power follows
- * ({@link BlackPanther#drink}). Refused before drinking if the player can't take the power, so a refusal costs nothing.
+ * v0.17.3: Heart-Shaped Herb Soup (bowl + 3 herbs). v0.17.7: drinking it gives Bast's Blessing for a minute
+ * ({@link BlackPanther#drink}); sleeping while blessed opens the Ancestral Plane, whose test grants the power. Refused before
+ * drinking if the player can't take the power (or is blessed already), so a refusal costs nothing.
  */
 public class HeartShapedHerbSoupItem extends Item {
 	public HeartShapedHerbSoupItem(Properties properties) {

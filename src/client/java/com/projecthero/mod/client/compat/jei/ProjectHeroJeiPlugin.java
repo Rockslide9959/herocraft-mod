@@ -164,6 +164,10 @@ public final class ProjectHeroJeiPlugin implements IModPlugin {
 		registration.addItemStackInfo(new ItemStack(com.projecthero.mod.blackpanther.item.BlackPantherItems.NECKLACE),
 				net.minecraft.network.chat.Component.translatable("projecthero.jei.black_panther_necklace"),
 				net.minecraft.network.chat.Component.translatable("projecthero.jei.black_panther_necklace2"));
+		// v0.17.7: the soup -> Bast's Blessing -> sleep -> the Ancestral Plane's test
+		registration.addItemStackInfo(new ItemStack(com.projecthero.mod.blackpanther.item.BlackPantherItems.SOUP),
+				net.minecraft.network.chat.Component.translatable("projecthero.jei.heart_shaped_herb_soup"),
+				net.minecraft.network.chat.Component.translatable("projecthero.jei.heart_shaped_herb_soup2"));
 		// v0.17.5: the villain-hideout artifacts and the core
 		for (com.projecthero.mod.hideout.HideoutFaction f : com.projecthero.mod.hideout.HideoutFaction.values()) {
 			net.minecraft.world.item.Item artifact = switch (f) {

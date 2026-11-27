@@ -16,28 +16,28 @@ import net.minecraft.client.gui.GuiGraphics;
 public abstract class ShazamJourneyGuiMixin {
 	@Inject(method = "renderHotbarAndDecorations", at = @At("HEAD"), cancellable = true)
 	private void projecthero$journeyHotbar(GuiGraphics g, DeltaTracker delta, CallbackInfo ci) {
-		if (JourneyClient.active()) {
+		if (JourneyClient.active() || com.projecthero.mod.client.blackpanther.plane.AncestralPlaneClient.active()) {
 			ci.cancel();
 		}
 	}
 
 	@Inject(method = "renderCrosshair", at = @At("HEAD"), cancellable = true)
 	private void projecthero$journeyCrosshair(GuiGraphics g, DeltaTracker delta, CallbackInfo ci) {
-		if (JourneyClient.active()) {
+		if (JourneyClient.active() || com.projecthero.mod.client.blackpanther.plane.AncestralPlaneClient.active()) {
 			ci.cancel();
 		}
 	}
 
 	@Inject(method = "renderChat", at = @At("HEAD"), cancellable = true, require = 0)
 	private void projecthero$journeyChat(GuiGraphics g, DeltaTracker delta, CallbackInfo ci) {
-		if (JourneyClient.active() && !JourneyClient.prompting()) { // at the prompt they may type the word in chat
+		if ((JourneyClient.active() && !JourneyClient.prompting()) || com.projecthero.mod.client.blackpanther.plane.AncestralPlaneClient.active()) { // at the prompt they may type the word in chat
 			ci.cancel();
 		}
 	}
 
 	@Inject(method = "renderEffects", at = @At("HEAD"), cancellable = true, require = 0)
 	private void projecthero$journeyEffects(GuiGraphics g, DeltaTracker delta, CallbackInfo ci) {
-		if (JourneyClient.active()) {
+		if (JourneyClient.active() || com.projecthero.mod.client.blackpanther.plane.AncestralPlaneClient.active()) {
 			ci.cancel();
 		}
 	}
