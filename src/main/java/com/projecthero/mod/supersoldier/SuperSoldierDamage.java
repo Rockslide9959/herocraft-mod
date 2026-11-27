@@ -23,11 +23,8 @@ import net.minecraft.world.entity.LivingEntity;
  *
  * <ul>
  *   <li><b>Taken:</b> 30% less from everything but the void, /kill and other invulnerability-bypassing sources. The
- *       Tactical Roll's frames make him untouchable; his own leaps never cause fall damage.</li>
- *   <li><b>Taken, Counter Stance (v0.17.7):</b> the first melee hit in the window is negated and answered; with a shield,
- *       projectiles are sent back.</li>
- *   <li><b>Dealt, Assemble (v0.17.7):</b> his punches on a marked enemy deal x1.25 (never past 20), and every punch shocks the
- *       enemies around the target.</li>
+ *       Shoulder / Shield Bash's frames make him untouchable (v0.17.7; were the Tactical Roll's); his own leaps, dashes and bashes
+ *       never cause fall damage, and neither does a landing on a raised shield while looking down (v0.17.7).</li>
  * </ul>
  * Fabric's {@code ALLOW_DAMAGE} is a boolean veto, so a changed amount cancels the hit and re-applies the new one behind a
  * re-entrancy guard (the same pattern as every other power's damage rules). The rejection death of the unrefined serum
@@ -50,9 +47,6 @@ public final class SuperSoldierDamage {
 			}
 			if (source.getEntity() instanceof ServerPlayer attacker && attacker != entity && SuperSoldier.hasPower(attacker)) {
 				SuperSoldier.markCombat(attacker);
-				if (dealtAmount > 0f && isPunch(attacker, source) && SuperSoldier.assembleActive(attacker)) {
-					SuperSoldierAbilities.assembleShock(attacker, entity); // v0.17.7: Assemble's punch shock (was Onslaught's)
-				}
 			}
 		});
 	}
@@ -61,27 +55,11 @@ public final class SuperSoldierDamage {
 		return new DamageSource(level.registryAccess().registryOrThrow(Registries.DAMAGE_TYPE).getHolderOrThrow(SERUM_REJECTION));
 	}
 
-	/** A plain melee hit by {@code attacker} (not one of his moves). */
-	private static boolean isPunch(ServerPlayer attacker, DamageSource source) {
-		return !SuperSoldierAbilities.isAbilityHit() && source.is(DamageTypes.PLAYER_ATTACK) && source.getDirectEntity() == attacker;
-	}
-
 	private static boolean onAllowDamage(LivingEntity entity, DamageSource source, float amount) {
 		if (REENTRANT.get() || amount <= 0f) {
 			return true;
 		}
 		float factor = 1.0f;
-		boolean capPunch = false;
-		// outgoing: v0.17.7 Assemble -- his punches on a marked enemy deal x1.25 (the hit stays at or under MAX_HIT)
-		if (source.getEntity() instanceof ServerPlayer attacker && attacker != entity && SuperSoldier.hasPower(attacker)
-				&& isPunch(attacker, source) && SuperSoldierAbilities.isMarked(attacker, entity)) {
-			factor *= SuperSoldierConfig.ASSEMBLE_MARK_MULTIPLIER;
-			capPunch = true;
-			ServerLevel level = (ServerLevel) attacker.level();
-			level.sendParticles(ParticleTypes.ENCHANTED_HIT, entity.getX(), entity.getY() + entity.getBbHeight() * 0.6, entity.getZ(),
-					10, 0.3, 0.3, 0.3, 0.2);
-			level.playSound(null, entity.getX(), entity.getY(), entity.getZ(), SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.PLAYERS, 1.0f, 1.2f);
-		}
 		// incoming
 		if (entity instanceof ServerPlayer player && SuperSoldier.hasPower(player)
 				&& !source.is(DamageTypes.GENERIC_KILL) && !source.is(DamageTypes.FELL_OUT_OF_WORLD)
@@ -89,10 +67,7 @@ public final class SuperSoldierDamage {
 			SuperSoldierState s = SuperSoldier.state(player);
 			long now = player.level().getGameTime();
 			if (s.iframeUntil > now) {
-				return false; // the roll's frames
-			}
-			if (SuperSoldierAbilities.tryCounter(player, source)) {
-				return false; // v0.17.7: Counter Stance -- a melee hit answered, or (with a shield) a projectile sent back
+				return false; // v0.17.7: the Bash's frames
 			}
 			if (CapShieldSlot.blocks(player, source)) {
 				CapShieldSlot.onBlocked(player, source); // v0.17.5: the slotted shield raised (right-click, empty hand) -- a full block
@@ -103,15 +78,18 @@ public final class SuperSoldierDamage {
 				player.resetFallDistance();
 				return false;
 			}
+			if (source.is(DamageTypes.FALL) && SuperSoldierAbilities.shieldLanding(player)) {
+				// v0.17.7: blocking with the shield and looking down -- the shield takes the landing
+				SuperSoldierAbilities.shieldLandingFx(player);
+				player.resetFallDistance();
+				return false;
+			}
 			factor *= SuperSoldierConfig.DAMAGE_TAKEN_FACTOR;
 		}
 		if (Math.abs(factor - 1.0f) < 1.0e-3f) {
 			return true;
 		}
 		float changed = amount * factor;
-		if (capPunch) {
-			changed = Math.min(changed, Math.max(amount, SuperSoldierConfig.MAX_HIT)); // the buff never lifts a punch past 20
-		}
 		if (changed < 0.05f) {
 			return false;
 		}

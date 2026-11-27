@@ -1,6 +1,8 @@
 # Super Soldier (Hero-Tier power)
 
 > **v0.17.7 Street-tier balance pass:** damage / toughness numbers below are superseded where they differ -- see docs/POWER_TIERS_REFERENCE.md.
+> **v0.17.7 kit pass (the user's own numbers, no tier caps):** see **v0.17.7 kit pass: Dash, Bash, Roundhouse, Assemble buffs** below; the
+> moves table is current.
 
 Package `com.projecthero.mod.supersoldier` (client: `com.projecthero.mod.client.supersoldier`). Hero-Tier key
 `super_soldier`. Added in v0.14.8; v0.14.9 gave him bare-handed G moves, the craftable Adamantium Shield (thrown with C)
@@ -12,10 +14,10 @@ selector), strong but deliberately below the Hulk / Thor / All Might.
 | File | What |
 |---|---|
 | `SuperSoldier` | The API: state access, grant / revoke, `reconcile` (every attribute modifier), the passive tick, lifecycle hooks |
-| `SuperSoldierAbilities` | The moves, targeting (`canTarget`: no self / squadmates / own pets / creative players; players only with PvP), `strike` (v0.17.7: Assemble x1.25 on the marked, `MAX_HIT` 20, boss cap), the per-player move tables (incl. the Barrage and Storm state machines), `cooldownKey` (both ultimates share `ultimate`) |
+| `SuperSoldierAbilities` | The moves, targeting (`canTarget`: no self / squadmates / own pets / creative players; players only with PvP), `strike` (`MAX_HIT` 20, boss cap), the per-player move tables (incl. the Barrage, Storm and Dash / Bash `Charge` state machines), `cooldownKey` (both ultimates share `ultimate`, both bashes `bash`), `shieldLanding` |
 | `SuperSoldierAbilityManager` | Slot dispatch (Shift read server-side), per-tick upkeep (incl. the suit gate, for every player), cooldown lookups for the HUD |
 | `SuperSoldierArmorGate` | v0.14.9: only a Super Soldier may wear the suit -- ejects it from anyone else every tick |
-| `SuperSoldierDamage` | ALLOW_DAMAGE: 30% reduction, roll i-frames, the Counter Stance (`tryCounter`), no fall damage from his leaps, Assemble x1.25 on punches at the marked (capped 20); AFTER_DAMAGE: Assemble's punch shock; the `projecthero:serum_rejection` damage type key |
+| `SuperSoldierDamage` | ALLOW_DAMAGE: 30% reduction, the Bash's i-frames, no fall damage from his leaps / dashes / bashes or while blocking with a shield and looking down; AFTER_DAMAGE: combat timer; the `projecthero:serum_rejection` damage type key |
 | `SuperSoldierSerum` | Drink outcome with an injected roll (`drink(player, refined, roll)`) |
 | `SuperSoldierConfig` | Every number |
 | `SuperSoldierSetup` | One init call: items, recipe serializer, entity type, damage rules |
@@ -56,28 +58,30 @@ selector), strong but deliberately below the Hulk / Thor / All Might.
 | Damage taken | x0.7 (cancel-and-reissue; not for /kill, the void, bypass-invulnerability) |
 | Jump | v0.17.7: apex 2.4 blocks (was 2.25) -- clears a 2-block wall (feet above it for 6 ticks), never a 3-block one (JUMP_STRENGTH x(v/0.42 - 1), v solved by simulation) |
 | Resistance | v0.17.7: Resistance I always (`SuperSoldier.passiveResistance`, every tick from `tick`): ambient, 300 ticks, topped up under 220; a stronger Resistance is left alone; `reconcile` removes ours (ambient, amplifier 0, <= 300 ticks) when the power goes |
+| Regeneration, Speed | v0.17.7 (user: "player should have passive regen 1" / "passive speed 1"): Regeneration I and Speed I always (`SuperSoldier.passiveEffect`): **infinite**, ambient, re-given the tick they go missing; anything stronger (a potion, Assemble's II) is left alone -- vanilla keeps ours underneath a stronger timed effect and restores it when that ends; an equal-strength timed one is replaced by ours. Infinite rather than a topped-up timer because Regeneration heals on its effect clock (a timer reset every few seconds heals unevenly). `reconcile` removes ours (ambient, infinite, amplifier 0) when the power goes |
 | Safe fall | +3 blocks |
 | Knockback resistance | +0.2 |
 | Attack speed | +15% |
-| Regeneration | 1 HP / 2 s after 5 s out of combat (food > 6) |
+| Out-of-combat healing | 1 HP / 2 s after 5 s out of combat (food > 6), on top of Regeneration I |
 | Immunities | Poison, Nausea |
 
 ## Moves (R / G / Z / X / V, each with a Shift variant; C the shield throw; H / N never)
 
 | Key | Move | Numbers | Cooldown |
 |---|---|---|---|
-| R | Combo Strike | 3 punches, 5 ticks apart: 5 + 5 + 7 (finisher knockback 1.0). Needs a target within 4 blocks | 5 s |
+| R | Combo Strike | 3 punches, 5 ticks apart: **5 + 7 + 10** (v0.17.7, Black Panther's unsuited Warrior's Combo; finisher knockback 1.0). Needs a target within 4 blocks | 5 s |
 | Shift+R | Uppercut Launcher | 10 damage, target launched ~5 blocks up (vy 1.05) | 8 s |
-| G | Flying Kick | lunges at the enemy in front within 8 blocks (1.15 b/t, up to 10 ticks), lands within 2.4 blocks (at once if already that close): 12 damage, knockback 1.5, lift 0.3, then a small hop back; no fall damage for 2 s. No target = no cooldown | 8 s |
-| Shift+G | Judo Takedown | grabs the enemy in front within 3.5 blocks, hoists it over his shoulder, 5 ticks later slams it to the ground behind him (in front if a wall is behind): 14 damage, Slowness IV + Weakness I 1.5 s. Bosses are not moved, just hit. No target = no cooldown | 10 s |
+| G | Flying Kick | lunges at the enemy in front within 8 blocks (1.15 b/t, up to 10 ticks), lands within 2.4 blocks (at once if already that close): **12** damage (v0.17.7 user; the Street pass had 10), knockback 1.5, lift 0.3, then a small hop back; no fall damage for 2 s. No target = no cooldown | 8 s |
+| Shift+G | Judo Takedown | grabs the enemy in front within 3.5 blocks, hoists it over his shoulder, 5 ticks later slams it to the ground behind him (in front if a wall is behind): **15** damage (v0.17.7 user; the Street pass had 10), Slowness IV + Weakness I 1.5 s. Bosses are not moved, just hit. No target = no cooldown | 10 s |
 | Z | Leaping Slam | leap 4 blocks up / 0.8 forward, lands (or after 3 s) for 12 damage in 5 blocks (60% at the edge), knockback 1.2, lift 0.4 | 12 s |
 | Shift+Z | **Peak Human Barrage** (ultimate, no shield) | v0.17.7: dash onto the enemy in front within 6 blocks (1.5 b/t, up to 8 ticks), both rooted; six blows 3 ticks apart for 7.5 each (right straight, left hook, right body, knee, left elbow, right uppercut), a 7-tick wind-up, then the haymaker for 20 (knockback 2.4, lift 0.9) with a 4-block burst for 10 on everyone else. No target = no cooldown | 95 s, shared |
 | Shift+Z + shield | **Shield Storm** (ultimate, a shield in either hand or slotted) | v0.17.7: leap 4.5 up; at tick 7 the shield is hurled where he aims by the C rules below (speed 1.3, was 2.1; light aim assist; up to 5 bounces to enemies within 6 blocks of the last one hit -- was 8 ricochets within 16 from a lock on the nearest hostile) for 15 each, a bright red / white / blue trail; he hangs in the air until it is back (max 5 s), catches it, front-flips and dives (2.2 b/t): a five-point star shockwave, 20 at the centre to 12 at 6 blocks, knockback 0.8, lift 0.85. No fall damage. No hostile within 16 = no cooldown | 95 s, shared |
-| X | Tactical Roll | 1.35 b/t dash in the movement (or look) direction, 10 ticks of invulnerability | 4 s |
-| Shift+X | High Leap | 5 blocks up, 1.25 forward, no fall damage for 5 s | 8 s |
-| V | **Counter Stance** | v0.17.7: braced for 1 s. The first melee hit (mob / player attack, attacker within 5 blocks) is negated and answered: 10 damage, knockback 1.3, lift 0.25, Slowness III + Weakness I 1.5 s, then 6 ticks of safety. With a shield (hand or slot) every projectile reaching him in the window is reflected at its shooter (and made his) | 6 s |
+| X | **Dash** | v0.17.7: 1.6 b/t for 5 ticks (~8 blocks) along his full look, pitch included (on the ground looking down: level); a wall ends it; no fall damage for 3 s. Was the Tactical Roll | 3 s |
+| Shift+X | **Shoulder Bash** (no shield) | v0.17.7: a charge along his look, 1.35 b/t for 6 ticks (~8 blocks); everything within 1.2 of his body / next step is hit once for **10**, knocked along the charge (1.4, lift 0.35); invulnerable for the charge + 2 ticks; no fall damage. Was the High Leap | 8 s, shared |
+| Shift+X + shield | **Shield Bash** (a shield in either hand or slotted -- `hasShield`) | v0.17.7: the same charge behind the shield for **14** | 8 s, shared |
+| V | **Spinning Roundhouse** | v0.17.7 (replaced the Counter Stance): a 5-tick chamber and full spin, then the kick: everything in a 150-degree arc in front within 3.5 blocks takes **11**, knockback 1.2, lift 0.3, Slowness II 1 s. No target needed | 6 s |
 | C | Shield Throw | needs a shield in either hand (main first) or slotted. v0.17.7 aim rework (see **Shield throw: aim, assist and bounces**): flies along his look (pitch included) at 1.0 b/t (was 1.6); light aim assist (8-degree cone); bounces only off an enemy it hit, to the nearest unhit hostile within 6 blocks of it in sight, at most 5 bounces; walls stop it. **Adamantium Shield**: 9 per hit, 5 bounces, range 25. **Vibranium**: 10, 5 bounces, 30. **Any other shield** (`ShieldItem`): 8, 2 bounces, 25. No shield = an action-bar hint, no cooldown | none |
-| Shift+V | **Assemble** | v0.17.7 (Battle Cry + Tactical Focus + the Onslaught buff): "Assemble!" on the action bar; a rally ring knocks hostiles within 6 back (1.2, lift 0.3; no damage; never a boss); 10 s: self + squadmates in 16 Strength I, Speed I, Resistance I; hostiles in 16 Weakness I 10 s + Slowness I 6 s; every hostile in 30 glows (marked) 10 s; his hits on the marked x1.25 (punches and moves, never past 20); every punch shocks enemies within 3 of the target for 6 | 60 s |
+| Shift+V | **Assemble** | v0.17.7 kit pass: "Assemble!" on the action bar; **50 s: self + squadmates within 24 blocks get Strength II, Resistance II, Regeneration II, Speed II**. The gold / blue rally ring, the raised-fist animation and the sounds stay (visual only). The old ring knockback, debuffs, marks, x1.25 on the marked and punch shock are gone | **100 s** from the call |
 
 Bosses (max health >= 300, or `TitanCombat.isBoss`) take at most 6% of their max health per hit and are never knocked
 back or launched. A 4-tick global lock stops moves stacking; the combo locks for 12 ticks, the kick for 12, the takedown for 9.
@@ -86,7 +90,8 @@ back or launched. A 4-tick global lock stops moves stacking; the combo locks for
 
 `SuperSoldierHud`: bottom right, mono (black / gray) boxes in the order R G Z X V; each box shows the longer of its two
 moves' cooldowns. v0.14.9: **no bars** (the ultimate and Tactical Focus hairlines were removed). v0.17.7: Z's box is lit while
-an ultimate plays out, V's while Assemble runs or the Counter Stance is braced; Shift+Z's name follows the shield (Barrage / Shield Storm). A sixth box, **C**, appears stacked on top of V only while he holds a
+an ultimate plays out, X's while a Dash / Bash carries him, V's while Assemble runs; Shift+Z's and Shift+X's names follow the shield
+(Barrage / Shield Storm, Shoulder Bash / Shield Bash). A sixth box, **C**, appears stacked on top of V only while he holds a
 shield (or while a throw is cooling down, so the timer does not vanish while the shield is in the air); the five fixed
 boxes never move (a C box left of R ran under the hotbar on small screens). Left-Alt shows short move names.
 
@@ -191,7 +196,8 @@ back-sling attachment.
 
 - Items `captain_america_helmet` / `_chestplate` / `_leggings` / `_boots` (`SuperSoldierArmorItem`, set id
   `captain_america`). Material `projecthero:captain_america`: **v0.17.7 diamond level**, 3 / 8 / 6 / 3 = 20 armour, toughness
-  2.0 each (was 3 / 7 / 6 / 2, 1.0), no knockback resistance, enchantability 12, durability multiplier 25, repaired with iron
+  2.0 each (was 3 / 7 / 6 / 2, 1.0), no knockback resistance, enchantability 12, durability multiplier **33 = diamond** (v0.17.7 user:
+  "The armour should have diamond level durability"; `SUIT_DURABILITY_MULTIPLIER`, was 25), repaired with iron
   ingots, iron equip sound.
 - **v0.17.7 look** (user: "make this the new captain America armour please:
   https://www.planetminecraft.com/skin/captain-america-classic-6692155/ Remove the shield from the back of the suit and dont make the
@@ -283,10 +289,10 @@ happens". N is user-assigned here (the H / N rule otherwise stands: no N HUD box
 
 ## State / lifecycle
 
-`SuperSoldierState`: `hasPower`, `busyUntil`, `iframeUntil`, `noFallUntil`, `assembleUntil`, `counterUntil` (v0.17.7; were
-`onslaughtUntil` / `focusUntil`), `lastCombatTick`, `animId` / `animStart` / `animOff` (v0.17.7), `abilityReadyAt`. Join / respawn clear
+`SuperSoldierState`: `hasPower`, `busyUntil`, `iframeUntil` (the Bash), `noFallUntil`, `assembleUntil`, `counterUntil` (unused since
+the Counter Stance went; kept for the save format), `lastCombatTick`, `animId` / `animStart` / `animOff` (v0.17.7), `abilityReadyAt`. Join / respawn clear
 the timers and the animation (game time is per-world) and re-reconcile; death, logout and dimension change call `clearTransient`. Static
-maps (move tasks, kicks, slam, Assemble marks, the Barrage and Storm in progress -- entity ids only, message throttle) are cleared by
+maps (move tasks, kicks, slam, the Barrage, Storm and Dash / Bash in progress -- entity ids only, message throttle) are cleared by
 `ServerStateReset` via `SuperSoldierAbilityManager.clearSessionState`.
 
 ## v0.17.7 rework: Assemble, Counter Stance, two ultimates
@@ -334,6 +340,49 @@ cool animations and stuff make it good please". R, G, X, C, N and their Shift mo
     haymaker, the fist rising into view, the crossed guard and the strike, the throw sweep, the catch, the hands driving down. While a clip
     plays `CapShieldPose` stands aside (third-person arm poses and the first-person empty-hand throw), so the two never fight.
 - No new static collection holds worlds or entities (the two new tables keep entity ids and are cleared by `clearSessionState`).
+
+## v0.17.7 kit pass: Dash, Bash, Roundhouse, Assemble buffs
+
+User's list (numbers are the user's, as named constants in `SuperSoldierConfig`): suit durability diamond; passive Regeneration I and
+Speed I; Combo 5 / 7 / 10 ("match black panther combo damage" -- `BlackPantherConfig.COMBO_JAB / CROSS / KICK`, copied, not linked);
+Flying Kick 12; Judo Takedown 15; X Dash; Shift+X Shoulder / Shield Bash 10 / 14; no fall damage blocking with a shield and looking down;
+V a new attack instead of the Counter Stance; Assemble 50 s of level II buffs, 100 s cooldown.
+
+- **What left**: the **Tactical Roll** (old X: a 1.35 b/t roll the way he moved, 10 ticks of invulnerability, 4 s) and the **High Leap**
+  (old Shift+X: 5 blocks up, no fall damage, 8 s) are gone -- nothing else in the kit does either (the Leaping Slam Z still leaps 4 up, and
+  the Bash keeps an invulnerability window). The **Counter Stance** (old V: brace 1 s, negate + answer a melee hit for 10, reflect
+  projectiles with a shield) is gone with its reflect code. Assemble's marks, x1.25, punch shock, debuffs and ring knockback are gone
+  (`strike` no longer multiplies; the `MARKS` table is removed).
+- **Dash / Bash** share one `Charge` table (`CHARGES`, entity ids only, cleared by `clearSessionState` / `clear`): direction fixed at
+  the start (`dashDirection`: the look, or level when standing and looking down), the velocity re-sent every tick (`launchSelf`, which
+  also resets the fall distance), a step that would enter a block is tried level (skimming a floor / ceiling), else the charge ends with
+  most of its speed taken off. The Bash sweeps his box plus the next step (inflated to 1.2) for targets each tick -- each hit once
+  (`Charge.hit`), knocked along the charge (`strike` with the knockback origin behind the target on the charge line). Sounds: the
+  Bash's shield clang + anvil / the shoulder's knockback thump + iron golem hit, sparks / cloud, an explosion puff and blue dust per hit.
+- **Shield landing** (`shieldLanding`, from ALLOW_DAMAGE on FALL): a shield in use in either hand (`isUsingItem` with a `ShieldItem`)
+  or the Battle Suit guard (`CapShieldSlot.isGuarding`), and pitch >= `SHIELD_LANDING_MIN_PITCH` 60. A shield clang, anvil thud, crits,
+  cloud and the ground's dust.
+- **Animations** (`SuperSoldierPose`, anim ids 9-12; 2 / 3 retired): **Dash** -- leaning hard in, arms swept back, long stride; first
+  person both hands dip back. **Shoulder Bash** -- lead shoulder turned forward (twist -0.95) and dropped, the arm tucked across, the
+  other fist on the chest; first person the lead forearm low across the view. **Shield Bash** -- the shield arm thrust straight out, the
+  other braced behind it (the off arm leads with an off-hand or slotted shield); `shieldBashWeight` makes `CapShieldPose` square the
+  strapped shield to the front in third person and shove it out in first person. **Spinning Roundhouse** -- knee chambered, a full
+  body turn (`spinDegrees`, ticks 1.5-6, via `SuperSoldierBodyMixin`), the leg swept out sideways at hip height with the arms flung
+  wide, back into a guard; first person the guard, then both arms out. A red / white / blue arc of dust at hip height marks the kick.
+- **Assemble**: radius 24 (`ASSEMBLE_ALLY_RADIUS`), amplifier 1, 1000 ticks, cooldown 2000. With the passives: Assemble's
+  Regeneration II / Speed II go over our infinite level I (vanilla's hidden-effect chain brings ours back at the end); Resistance II
+  outlasts the passive's 300-tick timer, which is re-given when Assemble ends.
+- **Tests**: `SuperSoldierKitV0177GameTests` -- suit durability = diamond (all four), the passives (+ milk, a stronger potion kept,
+  revoke), combo 5 then 22 total + kick 12 + takedown 15, Dash velocity along the pitch (up and down) + cooldown + no-fall + clip, Dash
+  stopped by a wall, Shoulder Bash 10 / Shield Bash 14 + knocked along +Z + invulnerable (a generic 10 does nothing) + frames = charge + 2
+  + hit once + shared cooldown, fall damage cancelled blocking + looking down (not looking ahead, not without blocking), the Roundhouse
+  (11 in front and 60 degrees aside, nothing behind, Slowness II, lands after the chamber), Assemble (him + a squadmate: four level II
+  effects for 50 s, an outsider nothing, no marks / debuffs, the passive tick keeps the II, 100 s cooldown not restarted).
+- **Seen in a real client** (`scratchpad/SoldierKitHarness.v0177.java.txt`, `scratchpad/v0177/ss_kit_harness.js` / `ss_kit_film.js`; MP4 + frame
+  sheets in `docs/screenshots/v0177/ss_kit/`): the Dash up-and-forward then level (side) and first person; the Shoulder Bash through three
+  husks (10 each) and the Shield Bash (14 each), side / front / first person; the Roundhouse hitting three husks in front for 11 and not
+  the one behind (wide / side / first person). The C throw still bounced through six husks for 9 under the new code. Not seen: the shield
+  landing, Assemble on a squadmate, multiplayer, a dash into a real wall in a client.
 
 ## Tests
 

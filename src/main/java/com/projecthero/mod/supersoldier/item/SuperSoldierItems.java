@@ -79,7 +79,7 @@ public final class SuperSoldierItems {
 
 	private static SuperSoldierArmorItem piece(String path, ArmorItem.Type type) {
 		return Registry.register(BuiltInRegistries.ITEM, ProjectHeroMod.id(path), new SuperSoldierArmorItem(SUIT_MATERIAL, type,
-				new Item.Properties().rarity(Rarity.RARE).durability(type.getDurability(25))));
+				new Item.Properties().rarity(Rarity.RARE).durability(type.getDurability(com.projecthero.mod.supersoldier.SuperSoldierConfig.SUIT_DURABILITY_MULTIPLIER)))); // v0.17.7: diamond 33 (was 25)
 	}
 
 	/** Appended to the {@code projecthero:superheroes} creative tab. */

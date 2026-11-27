@@ -118,6 +118,10 @@ Assemble on top; bosses keep the 6% cap and are never launched.
 | Counter Stance counter | 10 |
 | Barrage flurry blow / haymaker / burst | 7.5 x 6 / 20 / 10 |
 | Shield Storm ricochet / star slam | 15 (up to 8) / 20 -> 12 |
+
+**v0.17.7 kit pass (the user set these himself, no tier caps; MAX_HIT 20 still applies):** Combo 5 / 7 / 10, Flying Kick 12, Judo
+Takedown 15, Shoulder Bash 10 / Shield Bash 14 (Shift+X), Spinning Roundhouse 11 (V, replaced the Counter Stance); Assemble is buffs
+only (Strength / Resistance / Regeneration / Speed II, 50 s, 100 s cooldown). See docs/SUPERSOLDIER_REFERENCE.md.
 | Assemble punch shock | 6 (7.5 on a marked enemy) |
 
 ### Black Panther, suited (`BlackPantherConfig`)

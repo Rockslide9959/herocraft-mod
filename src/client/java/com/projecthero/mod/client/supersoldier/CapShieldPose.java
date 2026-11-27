@@ -490,6 +490,8 @@ public final class CapShieldPose {
 				w = Math.max(w, bashCurve(at));
 			}
 		}
+		// v0.17.7: the Shield Bash squares the lead arm's shield to the front
+		w = Math.max(w, SuperSoldierPose.shieldBashWeight(e, arm, pt));
 		// the catch: the shield meets the incoming throw face on, then turns back to rest
 		long[] ca = CAUGHT.get(e.getId());
 		float ct = since(ca, pt);
@@ -513,6 +515,8 @@ public final class CapShieldPose {
 			b = 0f;
 		}
 		float bash = hand == InteractionHand.MAIN_HAND && swing > 0f ? bashCurve(swing) : 0f;
+		// v0.17.7: the Shield Bash (Shift+X) shoves the shield out in front for the whole charge
+		bash = Math.max(bash, SuperSoldierPose.shieldBashWeight(p, arm, partial));
 		long[] ca = CAUGHT.get(p.getId());
 		float ct = since(ca, partial);
 		boolean catching = ca != null && ct < 8f && (int) ca[1] == (int) side;

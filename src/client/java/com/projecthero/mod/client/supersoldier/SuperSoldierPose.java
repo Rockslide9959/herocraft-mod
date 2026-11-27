@@ -23,8 +23,12 @@ import net.minecraft.world.entity.player.Player;
  * <ul>
  *   <li><b>Assemble</b> -- gathers the fist to the chest in a crouch, then punches it straight up, legs planted wide, chest out,
  *       head back (the shield arm when a shield is in the off hand); held, then eased down.</li>
- *   <li><b>Counter Stance</b> -- forearms crossed in front of the face, low, weight on the back foot; held for the window. The counter:
- *       a palm strike / shield bash straight out with the hips through it.</li>
+ *   <li><b>Dash</b> (X) -- leaning hard into it, both arms swept back, a long stride.</li>
+ *   <li><b>Shoulder Bash</b> (Shift+X) -- the lead shoulder turned forward and lowered, the arm tucked across, the other fist braced
+ *       on the chest, driving off the back leg. <b>Shield Bash</b> -- the shield arm thrust straight out in front, the other hand braced
+ *       behind it, crouched into the charge (the strapped shield squares up to the front: {@link #shieldBashWeight}).</li>
+ *   <li><b>Spinning Roundhouse</b> (V) -- the knee chambered as he winds, a full turn of the whole body, the leg swept out at hip height
+ *       with the arms flung wide for balance, then back into a guard.</li>
  *   <li><b>Peak Human Barrage</b> -- the dash (right hand cocked back, leaning in, a sprinting stride), then right straight, left hook,
  *       right body shot, a knee, a left elbow, a right uppercut, each snapped in on its hit tick; the right hand drawn all the way
  *       back for the wind-up, then the haymaker lunge with the chest turned through.</li>
@@ -82,14 +86,27 @@ public final class SuperSoldierPose {
 			// the call: the fist straight up, chest out, head back, feet planted wide
 			kx(6f, SNAP, -2.95f, 0.05f, 0.22f, 0.15f, 0f, -0.35f, -0.05f, -0.12f, -0.05f, 0.05f, 0.24f, -0.24f, 0.22f, -0.38f),
 			kx(20f, LINEAR, -3.0f, 0.05f, 0.2f, 0.12f, 0f, -0.32f, -0.05f, -0.1f, -0.05f, 0.05f, 0.24f, -0.24f, 0.25f, -0.32f));
-	private static final Clip COUNTER = clip(24f, 1f, 4f,
-			// forearms crossed in front of the face, low, weight on the back foot
-			kx(2f, SNAP, -1.75f, -0.68f, 0.1f, -1.55f, 0.78f, -0.1f, 0.12f, 0.14f, 0.35f, -0.35f, N, N, 0.55f, 0.12f),
-			kx(20f, LINEAR, -1.72f, -0.65f, 0.1f, -1.52f, 0.75f, -0.1f, 0.1f, 0.12f, 0.35f, -0.35f, N, N, 0.6f, 0.12f));
-	private static final Clip COUNTER_HIT = clip(13f, 0.5f, 4f,
-			// the answer: lead palm (or the shield) straight out, hips through, a lunge
-			k(1.2f, SNAP, -1.72f, -0.1f, 0f, -0.55f, 0.4f, -0.25f, -0.6f, 0.35f, 0.5f, -0.45f, 0.3f),
-			k(6f, SMOOTH, -1.5f, -0.2f, 0.05f, -0.7f, 0.4f, -0.2f, -0.45f, 0.25f, 0.4f, -0.35f, 0.25f));
+	/** X: the Dash -- leaning hard into it, arms swept back, a long stride. */
+	private static final Clip DASH = clip(10f, 0.5f, 3f,
+			kx(1.2f, SNAP, 0.8f, 0f, 0.3f, 0.8f, 0f, -0.3f, 0f, 0.55f, 0.65f, -0.75f, N, N, 0.15f, -0.35f),
+			kx(5.5f, LINEAR, 0.75f, 0f, 0.28f, 0.75f, 0f, -0.28f, 0f, 0.5f, 0.6f, -0.7f, N, N, 0.12f, -0.3f));
+	/** Shift+X bare-handed: the lead shoulder turned forward and dropped, its arm tucked across, the other fist braced on the chest. */
+	private static final Clip SHOULDER_BASH = clip(12f, 0.5f, 3.5f,
+			kx(1.2f, SNAP, -0.35f, 0.6f, 0.15f, -1.25f, 0.85f, -0.1f, -0.95f, 0.5f, 0.6f, -0.8f, N, N, 0.35f, -0.2f),
+			kx(7f, LINEAR, -0.4f, 0.6f, 0.15f, -1.25f, 0.85f, -0.1f, -0.9f, 0.48f, 0.6f, -0.8f, N, N, 0.35f, -0.2f));
+	/** Shift+X with a shield: the shield arm thrust straight out in front, the other hand braced behind it, crouched into the charge. */
+	private static final Clip SHIELD_BASH = clip(12f, 0.5f, 3.5f,
+			kx(1.2f, SNAP, -1.62f, -0.3f, 0f, -1.2f, 0.7f, -0.1f, -0.35f, 0.35f, 0.6f, -0.8f, N, N, 0.3f, -0.12f),
+			kx(7f, LINEAR, -1.58f, -0.3f, 0f, -1.15f, 0.65f, -0.1f, -0.3f, 0.35f, 0.6f, -0.8f, N, N, 0.3f, -0.12f));
+	/**
+	 * V: the Spinning Roundhouse -- the knee chambered as he winds (the body turns a full circle from tick 1.5 to 6:
+	 * {@link #spinDegrees}), the leg swept out to the side at hip height with the arms flung wide, back into a guard.
+	 */
+	private static final Clip ROUNDHOUSE = clip(16f, 0.5f, 4f,
+			kx(2.2f, SMOOTH, -1.2f, -0.4f, 0.1f, -1.4f, 0.5f, -0.1f, 0.45f, 0.1f, -1.5f, 0.1f, 0.15f, N, 0.25f, 0f),
+			kx(4.5f, SNAP, -0.3f, 0f, 1.05f, -0.3f, 0f, -1.05f, 0f, -0.3f, -0.35f, 0.15f, 1.35f, -0.1f, 0f, 0.05f),
+			kx(8f, LINEAR, -0.35f, 0f, 0.95f, -0.35f, 0f, -0.95f, 0f, -0.28f, -0.35f, 0.15f, 1.3f, -0.1f, 0f, 0.05f),
+			k(11f, SMOOTH, -1.0f, -0.3f, 0.1f, -1.2f, 0.4f, -0.1f, 0f, 0.1f, 0.2f, -0.2f, 0.2f));
 	private static final Clip BARRAGE_DASH = clip(12f, 0.5f, 3f,
 			// cocked right hand, leaning in, a sprinting stride
 			k(1.5f, SNAP, 0.55f, 0f, 0.3f, -1.35f, 0.35f, 0f, 0.35f, 0.55f, 0.7f, -0.9f, 0.2f),
@@ -148,8 +165,10 @@ public final class SuperSoldierPose {
 	private static Clip clipFor(int animId) {
 		return switch (animId) {
 			case SuperSoldierState.ANIM_ASSEMBLE -> ASSEMBLE;
-			case SuperSoldierState.ANIM_COUNTER -> COUNTER;
-			case SuperSoldierState.ANIM_COUNTER_HIT -> COUNTER_HIT;
+			case SuperSoldierState.ANIM_DASH -> DASH;
+			case SuperSoldierState.ANIM_SHOULDER_BASH -> SHOULDER_BASH;
+			case SuperSoldierState.ANIM_SHIELD_BASH -> SHIELD_BASH;
+			case SuperSoldierState.ANIM_ROUNDHOUSE -> ROUNDHOUSE;
 			case SuperSoldierState.ANIM_BARRAGE_DASH -> BARRAGE_DASH;
 			case SuperSoldierState.ANIM_BARRAGE -> BARRAGE;
 			case SuperSoldierState.ANIM_STORM_THROW -> STORM_THROW;
@@ -348,15 +367,38 @@ public final class SuperSoldierPose {
 
 	// ================================================================== whole-body spin and flip (SuperSoldierBodyMixin)
 
-	/** The Storm's throw: a full turn about his own axis as the shield leaves. 0 when none plays. */
+	/** The Storm's throw (and v0.17.7 the Spinning Roundhouse): a full turn about his own axis. 0 when none plays. */
 	public static float spinDegrees(Player player, float partial) {
 		SuperSoldierState s = state(player);
-		if (s == null || s.animId != SuperSoldierState.ANIM_STORM_THROW) {
+		if (s == null || (s.animId != SuperSoldierState.ANIM_STORM_THROW && s.animId != SuperSoldierState.ANIM_ROUNDHOUSE)) {
 			return 0f;
 		}
 		float age = player.level().getGameTime() - s.animStart + partial;
 		boolean right = (player.getMainArm() == HumanoidArm.RIGHT) != s.animOff;
+		if (s.animId == SuperSoldierState.ANIM_ROUNDHOUSE) {
+			// the kick: the turn starts out of the chamber and comes round as the leg sweeps through the front (the hit, tick 5)
+			return age < 10f ? (right ? -1f : 1f) * 360f * ease(SMOOTH, Mth.clamp((age - 1.5f) / 4.5f, 0f, 1f)) : 0f;
+		}
 		return age < 12f ? (right ? -1f : 1f) * 360f * ease(SMOOTH, Mth.clamp((age - 4f) / 5f, 0f, 1f)) : 0f;
+	}
+
+	/**
+	 * v0.17.7: how far the Shield Bash squares the strapped shield on {@code arm} to the front (0..1) -- read by {@code CapShieldPose}
+	 * for the third-person strap and the first-person shield. 0 unless the bash clip plays and {@code arm} is its lead (shield) arm.
+	 */
+	public static float shieldBashWeight(net.minecraft.world.entity.LivingEntity e, HumanoidArm arm, float partial) {
+		if (!(e instanceof Player player)) {
+			return 0f;
+		}
+		SuperSoldierState s = state(player);
+		if (s == null || s.animId != SuperSoldierState.ANIM_SHIELD_BASH) {
+			return 0f;
+		}
+		boolean right = (player.getMainArm() == HumanoidArm.RIGHT) != s.animOff;
+		if ((arm == HumanoidArm.RIGHT) != right) {
+			return 0f;
+		}
+		return weight(SHIELD_BASH, player.level().getGameTime() - s.animStart + partial);
 	}
 
 	/** The Storm's catch: a tucked front flip about the hips before the dive. 0 when none plays. */
@@ -397,12 +439,24 @@ public final class SuperSoldierPose {
 			fk(3f, SMOOTH, f(-0.22f, -0.02f, 0.05f, 10f, 0f, 0f), f(0.05f, -0.15f, 0.05f, -10f, 0f, 0f)),
 			fk(6f, SNAP, f(-0.18f, 0.78f, -0.12f, 72f, 0f, -10f), f(0.05f, -0.2f, 0.05f, -12f, 0f, 0f)),
 			fk(20f, LINEAR, f(-0.18f, 0.8f, -0.12f, 74f, 0f, -10f), f(0.05f, -0.2f, 0.05f, -12f, 0f, 0f)) });
-	private static final FClip F_COUNTER = new FClip(24f, 1f, 4f, false, new FKey[] {
-			fk(2f, SNAP, f(-0.36f, 0.26f, -0.05f, 30f, 0f, -40f), f(-0.36f, 0.32f, -0.1f, 30f, 0f, -40f)),
-			fk(20f, LINEAR, f(-0.35f, 0.25f, -0.05f, 30f, 0f, -40f), f(-0.35f, 0.3f, -0.1f, 30f, 0f, -40f)) });
-	private static final FClip F_COUNTER_HIT = new FClip(13f, 0.5f, 4f, false, new FKey[] {
-			fk(1.2f, SNAP, f(-0.4f, 0.15f, -0.52f, 10f, 10f, 0f), f(0.05f, -0.12f, 0.05f, -10f, 0f, 0f)),
-			fk(6f, SMOOTH, f(-0.32f, 0.12f, -0.4f, 8f, 8f, 0f), f(0.05f, -0.1f, 0.05f, -8f, 0f, 0f)) });
+	/** X: both hands dip down and back out of view as he goes. */
+	private static final FClip F_DASH = new FClip(10f, 0.5f, 3f, false, new FKey[] {
+			fk(1.2f, SNAP, f(0.06f, -0.28f, 0.22f, -28f, 0f, 0f), f(0.06f, -0.28f, 0.22f, -28f, 0f, 0f)),
+			fk(5.5f, LINEAR, f(0.05f, -0.26f, 0.2f, -26f, 0f, 0f), f(0.05f, -0.26f, 0.2f, -26f, 0f, 0f)) });
+	/** Shift+X bare-handed: the lead arm tucked low across the view (the shoulder leading), the other fist up by the chin. */
+	private static final FClip F_SHOULDER_BASH = new FClip(12f, 0.5f, 3.5f, false, new FKey[] {
+			fk(1.2f, SNAP, f(-0.32f, -0.2f, 0.05f, -12f, 0f, 35f), f(-0.18f, 0.06f, -0.08f, 12f, 0f, -18f)),
+			fk(7f, LINEAR, f(-0.3f, -0.2f, 0.05f, -12f, 0f, 34f), f(-0.18f, 0.06f, -0.08f, 12f, 0f, -18f)) });
+	/** Shift+X with a shield: the empty (lead) hand driven straight out, the other braced forward (the shield draws itself). */
+	private static final FClip F_SHIELD_BASH = new FClip(12f, 0.5f, 3.5f, false, new FKey[] {
+			fk(1.2f, SNAP, f(-0.35f, 0.12f, -0.45f, 10f, 10f, 0f), f(-0.15f, 0.04f, -0.2f, 8f, 0f, 0f)),
+			fk(7f, LINEAR, f(-0.33f, 0.12f, -0.42f, 10f, 10f, 0f), f(-0.15f, 0.04f, -0.2f, 8f, 0f, 0f)) });
+	/** V: the guard as he chambers, then both arms flung out wide for balance through the kick. */
+	private static final FClip F_ROUNDHOUSE = new FClip(16f, 0.5f, 4f, false, new FKey[] {
+			fguard(2.2f),
+			fk(4.5f, SNAP, f(0.2f, 0.02f, 0.12f, 8f, 0f, -40f), f(0.2f, 0.02f, 0.12f, 8f, 0f, -40f)),
+			fk(8f, LINEAR, f(0.18f, 0.0f, 0.1f, 6f, 0f, -36f), f(0.18f, 0.0f, 0.1f, 6f, 0f, -36f)),
+			fguard(11f) });
 	private static final FClip F_BARRAGE_DASH = new FClip(12f, 0.5f, 3f, false, new FKey[] {
 			fk(1.5f, SNAP, f(0.12f, -0.18f, 0.2f, -22f, 0f, 0f), f(-0.22f, 0.15f, -0.15f, 15f, 0f, 0f)),
 			fk(8f, LINEAR, f(0.12f, -0.18f, 0.2f, -22f, 0f, 0f), f(-0.22f, 0.15f, -0.15f, 15f, 0f, 0f)) });
@@ -441,8 +495,10 @@ public final class SuperSoldierPose {
 	private static FClip fclipFor(int animId) {
 		return switch (animId) {
 			case SuperSoldierState.ANIM_ASSEMBLE -> F_ASSEMBLE;
-			case SuperSoldierState.ANIM_COUNTER -> F_COUNTER;
-			case SuperSoldierState.ANIM_COUNTER_HIT -> F_COUNTER_HIT;
+			case SuperSoldierState.ANIM_DASH -> F_DASH;
+			case SuperSoldierState.ANIM_SHOULDER_BASH -> F_SHOULDER_BASH;
+			case SuperSoldierState.ANIM_SHIELD_BASH -> F_SHIELD_BASH;
+			case SuperSoldierState.ANIM_ROUNDHOUSE -> F_ROUNDHOUSE;
 			case SuperSoldierState.ANIM_BARRAGE_DASH -> F_BARRAGE_DASH;
 			case SuperSoldierState.ANIM_BARRAGE -> F_BARRAGE;
 			case SuperSoldierState.ANIM_STORM_THROW -> F_STORM_THROW;
