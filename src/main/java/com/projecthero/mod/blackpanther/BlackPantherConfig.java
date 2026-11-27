@@ -122,7 +122,7 @@ public final class BlackPantherConfig {
 	public static final double LEAP_SPEED = 1.62;
 	/** Off the ground with a flat or downward aim, the launch keeps at least this much upward speed (so he leaves the ground). */
 	public static final double LEAP_MIN_LIFT = 0.42;
-	public static final int LEAP_COOLDOWN = 60;
+	public static final int LEAP_COOLDOWN = 30; // 1.5 s (user, v0.17.7: "reduce panther leap cooldown to 1.5 seconds"; was 3 s)
 	public static final int LEDGE_TICKS = 60;
 
 	// ---- Shift+X: Kinetic Dash (where he aims, pitch included; untouchable while it runs)
@@ -145,8 +145,8 @@ public final class BlackPantherConfig {
 	public static final float DAGGER_KINETIC_GAIN = 5f; // each target struck
 
 	// ---- Shift+Z: Kinetic Overload (ULTIMATE: needs a FULL bar and spends all of it; ground slam + violet dome)
-	public static final float OVERLOAD_DAMAGE = 20f; // at the centre
-	public static final float OVERLOAD_EDGE_DAMAGE = 15f; // at the radius (straight line in between)
+	public static final float OVERLOAD_DAMAGE = 60f; // at the centre (user, v0.17.7: "Increase kinetic overload to 60 damage")
+	public static final float OVERLOAD_EDGE_DAMAGE = 45f; // at the radius (straight line in between; same 75% falloff as before)
 	public static final double OVERLOAD_RADIUS = 10.0;
 	public static final int OVERLOAD_COOLDOWN = 100;
 
