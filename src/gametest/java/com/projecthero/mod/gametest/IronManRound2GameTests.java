@@ -427,21 +427,18 @@ public class IronManRound2GameTests implements FabricGameTest {
 					helper.assertTrue(cubes == 1 && e.getValue().getAsJsonArray("cubes").get(0).getAsJsonObject().getAsJsonArray("size").get(2).getAsFloat() > 0f,
 							m + " faceplate: one solid plate, got " + cubes);
 				} else if ("mark_4".equals(m) && "helmet".equals(name)) {
-					// v0.16.7: the Hydro helmet also carries its glass dome front (it stays shut while the faceplate lifts)
-					helper.assertTrue(cubes == 3, m + " helmet: base + dome + dome front, got " + cubes);
+					// v0.17.7: the Hydro helmet = the PMC skin's head + hat layer + the glass dome over it (one translucent box)
+					helper.assertTrue(cubes == 3, m + " helmet: base + layer + glass dome, got " + cubes);
 				} else if (skin.contains(name)) {
 					helper.assertTrue(cubes == 2, m + " " + name + ": base + layer, got " + cubes);
-				} else if ("mark_4".equals(m) && (name.equals("right_shoulder") || name.equals("left_shoulder"))) {
-					// v0.16.7 Era I: the Mk IV Hydro's two small pauldrons (the approved concept's HYDRO_RIG), one cube each
-					helper.assertTrue(cubes == 1, m + " " + name + ": one pauldron cube, got " + cubes);
 				} else {
 					helper.assertTrue(cubes == 0, m + " " + name + " adds no geometry beyond the skin model, got " + cubes);
 				}
 			}
 			// the helmet's front faces are the faceplate (H lifts it)
 			for (JsonElement c : bones.get("helmet").getAsJsonArray("cubes")) {
-				if ("mark_4".equals(m) && c.getAsJsonObject().getAsJsonArray("size").get(2).getAsFloat() == 0f) {
-					continue; // the Hydro dome front pane (glass)
+				if ("mark_4".equals(m) && c.getAsJsonObject().getAsJsonArray("size").get(2).getAsFloat() == 10f) {
+					continue; // v0.17.7: the Hydro's glass dome (its front goes with the faceplate's when H lifts it)
 				}
 				helper.assertFalse(c.getAsJsonObject().getAsJsonObject("uv").has("north"), m + " helmet has no front faces");
 			}

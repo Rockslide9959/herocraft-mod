@@ -72,9 +72,17 @@ public final class IronManFirstPersonGauntlets {
 	/** v0.15.1: the skin model's arm (base + layer) for every mark -- nothing added. */
 	private static final List<Part> MODEL_ARM = List.of(UNDERSUIT, SLEEVE);
 
+	/**
+	 * v0.17.7 (user: the PMC skin suits, {@link IronManSkinSuits}): the same arm at the skin-tight rig's offsets -- base layer 0.05 px
+	 * over the arm, outer layer at vanilla's sleeve inflation -- and its slim copy (3 px wide, the 4-texel faces squeezed, like the
+	 * third-person arm) for a slim wearer.
+	 */
+	private static final List<Part> SKIN_ARM = List.of(p(Panel.BASE, -3, -2, -2, 1, 10, 2, 0.05f), p(Panel.SHELL, -3, -2, -2, 1, 10, 2, 0.25f));
+	private static final List<Part> SKIN_ARM_SLIM = List.of(p(Panel.BASE, -2, -2, -2, 1, 10, 2, 0.05f), p(Panel.SHELL, -2, -2, -2, 1, 10, 2, 0.25f));
+
 	private static final Map<String, List<Part>> DESIGNS = Map.of(
-			"mark_1", MODEL_ARM, "mark_1_v2", MODEL_ARM, "mark_2", MODEL_ARM, "mark_iii", MODEL_ARM, "mark_4", MODEL_ARM,
-			"mark_v", MODEL_ARM, "mark_6", MODEL_ARM, "mark_vii", MODEL_ARM, "mark_9", MODEL_ARM); // v0.16.7: + Mk IX; v0.16.7 (user): no Mark 8 -- the Hulkbuster is never player armour (its own first-person fists)
+			"mark_1", SKIN_ARM, "mark_1_v2", SKIN_ARM, "mark_2", SKIN_ARM, "mark_iii", SKIN_ARM, "mark_4", SKIN_ARM,
+			"mark_v", MODEL_ARM, "mark_6", SKIN_ARM, "mark_vii", MODEL_ARM, "mark_9", MODEL_ARM); // v0.16.7: + Mk IX; v0.16.7 (user): no Mark 8 -- the Hulkbuster is never player armour (its own first-person fists)
 
 	/** Mark V blade in right-arm space: housing, blade, tip (blade swatch painted at 0..8 x 0..8 of mark_v.png). */
 	private static final float BLADE_TOP = 4.6f;
@@ -125,7 +133,14 @@ public final class IronManFirstPersonGauntlets {
 		boolean ghost = faint;
 		int argb = ghost ? FAINT_ARGB : 0xFFFFFFFF;
 		VertexConsumer vc = buffers.getBuffer(ghost ? RenderType.entityTranslucent(texture) : RenderType.armorCutoutNoCull(texture));
-		for (Box b : boxes(setId, right)) {
+		List<Box> arm = boxes(setId, right);
+		if (IronManSkinSuits.skinTight(setId) && IronManSkinSuits.slim(player)) {
+			arm = new ArrayList<>();
+			for (Part part : SKIN_ARM_SLIM) {
+				arm.add(part.box(right));
+			}
+		}
+		for (Box b : arm) {
 			IronManBoxes.draw(pose, vc, b, TEX, TEX, light, OverlayTexture.NO_OVERLAY, argb);
 		}
 		if ("mark_v".equals(setId) && reveal >= 1f) { // no blades mid-assembly

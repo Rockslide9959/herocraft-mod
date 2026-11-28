@@ -199,8 +199,12 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 	private boolean slimSymbioteArm(software.bernie.geckolib.cache.object.GeoBone bone) {
 		// v0.17.7: Thor's Armour too -- its arms are mostly see-through now (the wearer's own arm shows between the shoulder plate and
 		// the bracer), so on a slim player the 4 px shell would float a pixel off the 3 px arm
+		// v0.17.7 (user): and the Iron Man suits drawn skin-tight from PlanetMinecraft skins (IronManSkinSuits) -- one wide texture,
+		// squeezed onto a slim wearer's arms
 		if (!(getAnimatable() instanceof com.projecthero.mod.symbiote.item.SymbioteHostArmorItem
-				|| getAnimatable() instanceof com.projecthero.mod.thorarmor.ThorArmorItem)) {
+				|| getAnimatable() instanceof com.projecthero.mod.thorarmor.ThorArmorItem
+				|| getAnimatable() instanceof com.projecthero.mod.ironman.item.IronManArmorItem im
+						&& com.projecthero.mod.client.ironman.IronManSkinSuits.skinTight(im.armorSetId()))) {
 			return false;
 		}
 		String n = bone.getName();
@@ -711,6 +715,12 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 		// v0.14.11: the Flash Suit pours out of the ring on the right fist, texel by texel behind a lightning edge
 		if (getCurrentEntity() instanceof Player fl && animatable instanceof com.projecthero.mod.flash.item.FlashSuitItem) {
 			texture = com.projecthero.mod.client.flash.FlashSuitReveal.texture(fl, texture, partialTick);
+		}
+		// v0.17.7 (user: "just put the glass helmet over the skin"): the Mk IV Hydro's glass dome is see-through, so that suit is
+		// drawn in a translucent pass (the cutout armour pass would draw its glass texels solid)
+		if (animatable instanceof com.projecthero.mod.ironman.item.IronManArmorItem hy
+				&& com.projecthero.mod.client.ironman.IronManSkinSuits.GLASS_HELMET.equals(hy.armorSetId())) {
+			return net.minecraft.client.renderer.RenderType.entityTranslucent(texture);
 		}
 		return super.getRenderType(animatable, texture, bufferSource, partialTick);
 	}
