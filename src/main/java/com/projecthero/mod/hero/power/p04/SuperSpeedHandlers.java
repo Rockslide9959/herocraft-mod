@@ -267,7 +267,7 @@ public final class SuperSpeedHandlers {
 					cooldownMessage(ctx);
 					return;
 				}
-				if (SuperSpeedTimeSlow.anyActive()) {
+				if (SuperSpeedTimeSlow.takenFor(p)) { // v0.17.7: one Time Slow per dimension
 					p.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.projecthero.speed.time_taken"), true);
 					return;
 				}
@@ -795,7 +795,7 @@ public final class SuperSpeedHandlers {
 		if (res(p, TS_CHARGING) <= 0.5f) {
 			return;
 		}
-		if (!p.isAlive() || SuperSpeedTimeSlow.anyActive() || exhausted(p)) {
+		if (!p.isAlive() || SuperSpeedTimeSlow.isCasting(p) || SuperSpeedTimeSlow.takenFor(p) || exhausted(p)) {
 			cancelTimeSlowCharge(p);
 			return;
 		}

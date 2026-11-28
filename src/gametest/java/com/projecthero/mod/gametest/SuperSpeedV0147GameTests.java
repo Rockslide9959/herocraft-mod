@@ -316,8 +316,12 @@ public class SuperSpeedV0147GameTests implements FabricGameTest {
 		}
 		try {
 			helper.assertTrue(SuperSpeedTimeSlow.isCasting(p), "Time Slow starts");
-			helper.assertTrue(server.tickRateManager().tickrate() == SuperSpeedTimeSlow.SLOW_RATE,
-					"the whole server drops to 1 tick a second (" + server.tickRateManager().tickrate() + ")");
+			// v0.17.7: the caster's dimension drops to 1 tick a second, not the server (other dimensions run on)
+			var dim = helper.getLevel().dimension();
+			helper.assertTrue(server.tickRateManager().tickrate() == rateBefore
+					&& com.projecthero.mod.time.LevelTimeScale.scale(dim) != null
+					&& com.projecthero.mod.time.LevelTimeScale.clientRate(server, dim) == Math.max(1.0f, rateBefore / SuperSpeedTimeSlow.TICK_DIVISOR),
+					"the dimension drops to 1 tick a second, the server's rate stays (" + server.tickRateManager().tickrate() + ")");
 			helper.assertTrue(ExperimentalPowers.cooldownReady(p, power(), power().ability(AbilitySlot.SLOT_4)),
 					"no cooldown while it runs");
 			AbilityRouter.handleInput(other, 4, true);
@@ -337,8 +341,12 @@ public class SuperSpeedV0147GameTests implements FabricGameTest {
 					"the caster's attack cooldown recharges at full speed (" + p.getAttackStrengthScale(0f) + ")");
 			helper.assertTrue(p.tickCount - pt == 10, "the caster lived 10 ticks (" + (p.tickCount - pt) + ")");
 			helper.assertTrue(z.tickCount == zt, "the zombie none");
+			// v0.17.7: cooldowns run on the game clock, which every dimension shares and which no longer slows -- the caster
+			// keeps their pace simply by never being held
 			int cd1 = ExperimentalPowers.cooldownRemainingTicks(p, power(), blitz);
-			helper.assertTrue(cd0 - cd1 == 10, "the caster's cooldowns run at their pace (" + cd0 + " -> " + cd1 + ")");
+			helper.assertTrue(cd0 == cd1, "no catch-up pulls the cooldown in any more (" + cd0 + " -> " + cd1 + ")");
+			helper.assertTrue(com.projecthero.mod.time.LevelTimeScale.exempt(p) && !com.projecthero.mod.time.LevelTimeScale.exempt(z),
+					"the caster is never held, the zombie is");
 
 			// slowed creatures take the caster's hits in full, at the caster's cadence
 			var hit = helper.getLevel().damageSources().playerAttack(p);
@@ -366,7 +374,8 @@ public class SuperSpeedV0147GameTests implements FabricGameTest {
 			SuperSpeedTimeSlow.end(p, false); // belt and braces: never leave the test server at 1 tick a second
 		}
 		helper.assertFalse(SuperSpeedTimeSlow.isCasting(p), "a second press ends it");
-		helper.assertTrue(server.tickRateManager().tickrate() == rateBefore, "the tick rate is put back");
+		helper.assertTrue(server.tickRateManager().tickrate() == rateBefore
+				&& com.projecthero.mod.time.LevelTimeScale.scale(helper.getLevel().dimension()) == null, "the dimension is put back");
 		int cd = ExperimentalPowers.cooldownRemainingTicks(p, power(), power().ability(AbilitySlot.SLOT_4));
 		int expected = HeroConfig.get().scaledCooldown(SuperSpeedTimeSlow.COOLDOWN_TICKS);
 		helper.assertTrue(Math.abs(cd - expected) <= 1, "150 s cooldown starts at the end (" + cd + " / " + expected + ")");

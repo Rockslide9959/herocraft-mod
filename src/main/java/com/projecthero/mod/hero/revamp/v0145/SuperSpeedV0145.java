@@ -58,6 +58,13 @@ public final class SuperSpeedV0145 {
 				com.projecthero.mod.network.TimeSlowStatePayload.TYPE, com.projecthero.mod.network.TimeSlowStatePayload.CODEC);
 		net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.JOIN.register((handler, sender, server) ->
 				SuperSpeedTimeSlow.onJoin(handler.getPlayer()));
+		// v0.17.7: the slow is per dimension (LevelTimeScale) -- a player changing dimension or respawning learns the one
+		// where they are now (the scaled tick rate itself is re-sent by LevelTimeScale)
+		com.projecthero.mod.time.LevelTimeScale.register();
+		net.fabricmc.fabric.api.entity.event.v1.ServerEntityWorldChangeEvents.AFTER_PLAYER_CHANGE_WORLD.register(
+				(player, origin, destination) -> SuperSpeedTimeSlow.sendStateTo(player));
+		net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents.AFTER_RESPAWN.register(
+				(oldPlayer, newPlayer, alive) -> SuperSpeedTimeSlow.sendStateTo(newPlayer));
 		// ... a speedster logging out mid-Sweep is put back where they started before being saved
 		net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
 				{

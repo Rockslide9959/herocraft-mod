@@ -114,11 +114,12 @@ public final class BlackFlash {
 		if (bf == null || bf.level() != level || bf.isRemoved()) {
 			return;
 		}
-		level.tickNonPassenger(bf);
+		// v0.17.7: his dimension is held on this tick (LevelTimeScale) -- tick him anyway, at the caster's pace
+		com.projecthero.mod.time.LevelTimeScale.forceTick(level, bf);
 		if (bf.isRemoved()) {
 			return;
 		}
-		// the world's own entity sync only runs on the slowed ticks: send where he is (and his move's state) now
+		// send where he is (and his move's state) now, so the caster sees him keep pace
 		net.minecraft.network.protocol.Packet<?> pos = new net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket(bf);
 		net.minecraft.network.protocol.Packet<?> head = new net.minecraft.network.protocol.game.ClientboundRotateHeadPacket(bf,
 				(byte) net.minecraft.util.Mth.floor(bf.getYHeadRot() * 256.0f / 360.0f));

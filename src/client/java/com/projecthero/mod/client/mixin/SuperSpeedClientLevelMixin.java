@@ -62,6 +62,10 @@ public abstract class SuperSpeedClientLevelMixin {
 	@Inject(method = "tickTime", at = @At("HEAD"), cancellable = true)
 	private void projecthero$timeSlowClock(CallbackInfo ci) {
 		if (TimeSlowClient.skipWorldTick()) {
+			// v0.17.7: the server's game clock no longer slows (it is shared by every dimension) -- keep counting it, and
+			// hold only the day / night cycle
+			ClientLevel self = (ClientLevel) (Object) this;
+			self.setGameTime(self.getGameTime() + 1L);
 			ci.cancel();
 		}
 	}

@@ -106,7 +106,7 @@ strand (+`weaveFinishCost` 30), `spiderPulse` 400/10 (+`pulseHighlightTicks` 120
 
 ### Decisions
 
-- **Pulse slow-motion**: the mod's Time Slow is game-wide (tick rate), not per player, so the Pulse gives Speed IV for
+- **Pulse slow-motion**: the mod's Time Slow slows a whole dimension (v0.17.7 `LevelTimeScale`; before that the whole server's tick rate), not per player, so the Pulse gives Speed IV for
   6 s plus a 2 s window in which every attack with an attacker behind it is dodged.
 - **Webs vanish on reload** rather than persist (the simplest way to guarantee no orphans).
 - **Strangers include other Spider-Men and the Hulk** (they wade through cobweb, not through his web).

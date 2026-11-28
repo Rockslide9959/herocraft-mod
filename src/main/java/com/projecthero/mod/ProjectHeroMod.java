@@ -388,7 +388,12 @@ public class ProjectHeroMod implements ModInitializer {
 				com.projecthero.mod.greenlantern.construct.GreenLanternConstructs.sweepLooseToolKitPieces(server);
 			}
 			com.projecthero.mod.greenlantern.GreenLanternTrial.tick(server);
-			server.getPlayerList().getPlayers().forEach(ProjectHeroMod::tickPlayerSystems);
+			// v0.17.7: a player in a dimension held by a Time Slow (not the caster) sits this tick out, like the rest of it
+			for (net.minecraft.server.level.ServerPlayer player : server.getPlayerList().getPlayers()) {
+				if (!com.projecthero.mod.time.LevelTimeScale.holds(player)) {
+					tickPlayerSystems(player);
+				}
+			}
 		});
 
 		// Every static server-side scratch collection in the mod (Iron Man "armour is travelling to you"
@@ -601,9 +606,8 @@ public class ProjectHeroMod implements ModInitializer {
 	}
 
 	/**
-	 * Every per-player system tick of the mod (once per server tick for every online player). v0.14.7: public so a
-	 * Super Speed Time Slow caster -- who keeps living at 20 ticks a second while the world crawls -- can be given
-	 * the ticks the slowed server loop does not run for them.
+	 * Every per-player system tick of the mod (once per server tick for every online player). v0.17.7: skipped on the
+	 * held ticks of a player in a Time-Slowed dimension ({@code LevelTimeScale}); the caster is never held.
 	 */
 	public static void tickPlayerSystems(net.minecraft.server.level.ServerPlayer player) {
 		TickWatchdog.run("ThorPowers.serverTick", () -> ThorPowers.serverTick(player));

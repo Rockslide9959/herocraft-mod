@@ -842,7 +842,7 @@ public final class SpeedForceAbilities {
 		if (SuperSpeedTimeSlow.isCasting(p) || !gate(p, FLASH)) {
 			return false;
 		}
-		if (SuperSpeedTimeSlow.anyActive()) {
+		if (SuperSpeedTimeSlow.takenFor(p)) { // v0.17.7: one slow per dimension
 			p.displayClientMessage(Component.translatable("message.projecthero.speed.time_taken"), true);
 			return false;
 		}

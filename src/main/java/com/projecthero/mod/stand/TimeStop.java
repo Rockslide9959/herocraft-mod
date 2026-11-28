@@ -3,6 +3,7 @@ package com.projecthero.mod.stand;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.projecthero.mod.stand.data.StandState;
 import com.projecthero.mod.stand.network.TimeStopPayload;
@@ -45,8 +46,11 @@ import net.minecraft.world.phys.Vec3;
  *       the colour; a non-Stand user's client freezes EVERYTHING, the caster too, with no cue at all -- they just see
  *       the world jump when it resumes (the user's rule: they can't perceive the Stand or its power).</li>
  * </ul>
- * Only one stop runs at a time. It ends early when the caster dies, logs out, changes dimension or loses the Stand, and
- * {@code ServerStateReset} clears it with the server.
+ * Only one stop runs per dimension (v0.17.7, user: "still work worldwide but not across dimensions": it stops the caster's whole
+ * dimension and nothing else -- players and creatures in other dimensions keep moving, and a Star Platinum user there can stop
+ * time in theirs). Each player is sent the stop of the dimension they stand in, again on a dimension change or respawn. A stop
+ * ends early when its caster dies, logs out, changes dimension or loses the Stand, and {@code ServerStateReset} clears them
+ * with the server.
  * <p>
  * v0.17.4 (user: "players with super speed and star platinum and xlr8 can move during time stop"): some players are not
  * frozen by someone else's stop ({@link #classify}, {@link Mobility}):
@@ -116,13 +120,19 @@ public final class TimeStop {
 		}
 	}
 
-	private static volatile Stop active;
+	/**
+	 * v0.17.7 (user: "change all the time stops and time slows so that they still work worldwide but not across dimensions"):
+	 * the running stops, one per dimension (a Star Platinum user in the Nether can stop time there while the Overworld is
+	 * stopped by someone else). Keyed by dimension; read from the client thread too (the block-entity mixin), hence concurrent.
+	 */
+	private static final Map<ResourceKey<Level>, Stop> ACTIVE = new ConcurrentHashMap<>();
 
-	/** Shift+Z pressed, the voice line playing: the stop starts at {@code at}. */
-	private record Windup(UUID caster, long at, int ticks, double radius) {
+	/** Shift+Z pressed, the voice line playing: the stop starts at {@code at} in {@code dimension}. */
+	private record Windup(UUID caster, ResourceKey<Level> dimension, long at, int ticks, double radius) {
 	}
 
-	private static volatile Windup windup;
+	/** The voice lines playing, by caster. */
+	private static final Map<UUID, Windup> WINDUPS = new ConcurrentHashMap<>();
 	/** Test hook: a radius for the next stop (0 = whole dimension). */
 	public static double testRadius = 0.0;
 	/** Test hook: a length for the next stop (0 = the real {@link StandConfig#TIME_STOP_TICKS}). */
@@ -132,50 +142,77 @@ public final class TimeStop {
 	}
 
 	public static void clear() {
-		active = null;
-		windup = null;
+		ACTIVE.clear();
+		WINDUPS.clear();
 	}
 
-	/** The voice line is playing and the stop is about to start. */
+	/** A voice line is playing and a stop is about to start. */
 	public static boolean windingUp() {
-		return windup != null;
+		return !WINDUPS.isEmpty();
 	}
 
 	/** This player's voice line is playing (their bar holds still until the stop). */
 	public static boolean windingUpFor(Entity e) {
-		Windup w = windup;
-		return w != null && e != null && w.caster.equals(e.getUUID());
+		return e != null && !WINDUPS.isEmpty() && WINDUPS.containsKey(e.getUUID());
 	}
 
-	/** Test hook: start a winding-up stop now instead of at the end of the voice line. */
+	/** Test hook: start every winding-up stop now instead of at the end of the voice line. */
 	public static void skipWindup(MinecraftServer server) {
-		Windup w = windup;
-		ServerPlayer caster = w == null ? null : server.getPlayerList().getPlayer(w.caster);
-		windup = null;
-		if (caster != null) {
-			stopTime(caster, w);
+		for (Windup w : WINDUPS.values().toArray(new Windup[0])) {
+			WINDUPS.remove(w.caster);
+			ServerPlayer caster = server.getPlayerList().getPlayer(w.caster);
+			if (caster != null) {
+				stopTime(caster, w);
+			}
 		}
 	}
 
+	/** Time is stopped in some dimension. */
 	public static boolean active() {
-		return active != null;
+		return !ACTIVE.isEmpty();
 	}
 
-	/** Game time the running stop ends (0 = none). */
-	public static long endTime() {
-		Stop s = active;
+	/** v0.17.7: time is stopped in this level's dimension. */
+	public static boolean active(Level level) {
+		return level != null && !ACTIVE.isEmpty() && ACTIVE.containsKey(level.dimension());
+	}
+
+	/** The stop running in this entity's dimension (server side), or null. */
+	private static Stop stopAt(Entity e) {
+		if (ACTIVE.isEmpty() || e == null || e.level().isClientSide()) {
+			return null;
+		}
+		return ACTIVE.get(e.level().dimension());
+	}
+
+	/** The stop this player is holding, wherever it is, or null. */
+	private static Stop stopBy(Entity e) {
+		if (ACTIVE.isEmpty() || e == null) {
+			return null;
+		}
+		UUID id = e.getUUID();
+		for (Stop s : ACTIVE.values()) {
+			if (s.caster.equals(id)) {
+				return s;
+			}
+		}
+		return null;
+	}
+
+	/** Game time the stop in this level's dimension ends (0 = none). */
+	public static long endTime(Level level) {
+		Stop s = level == null ? null : ACTIVE.get(level.dimension());
 		return s == null ? 0L : s.end;
 	}
 
 	public static boolean isCaster(Entity e) {
-		Stop s = active;
-		return s != null && e != null && e.getUUID().equals(s.caster);
+		return stopBy(e) != null;
 	}
 
-	/** Is this entity held still by the running stop (server side)? */
+	/** Is this entity held still by the stop in its dimension (server side)? */
 	public static boolean frozen(Entity e) {
-		Stop s = active;
-		if (s == null || e == null || e.level().isClientSide() || e.level().dimension() != s.dimension) {
+		Stop s = stopAt(e);
+		if (s == null) {
 			return false;
 		}
 		if (exempt(s, e)) {
@@ -207,8 +244,8 @@ public final class TimeStop {
 
 	/** v0.17.4: how this entity moves in the running stop (server side): the caster and everything outside it are FREE. */
 	public static Mobility mobility(Entity e) {
-		Stop s = active;
-		if (s == null || e == null || e.level().isClientSide() || e.level().dimension() != s.dimension || exempt(s, e)) {
+		Stop s = stopAt(e);
+		if (s == null || exempt(s, e)) {
 			return Mobility.FREE;
 		}
 		return e instanceof ServerPlayer p ? classify(p) : Mobility.FROZEN;
@@ -216,26 +253,27 @@ public final class TimeStop {
 
 	/** v0.17.4: moving through the stop at a capped speed (Super Speed, XLR8, Speed Force): movement only, no actions. */
 	public static boolean limited(Entity e) {
-		Mobility m = active == null ? Mobility.FREE : mobility(e);
+		Mobility m = ACTIVE.isEmpty() ? Mobility.FREE : mobility(e);
 		return m == Mobility.WALK || m == Mobility.SPRINT;
 	}
 
 	/** v0.17.4: refuse ability keys, attacks, item use and block use / breaking (frozen, or a speedster moving through the stop). */
 	public static boolean actionsLocked(Entity e) {
-		return active != null && (frozen(e) || limited(e));
+		return !ACTIVE.isEmpty() && (frozen(e) || limited(e));
 	}
 
 	/** v0.17.4: a free Star Platinum user inside the running stop (not the caster): fights as if time ran. */
 	public static boolean freeInside(Entity e) {
-		Stop s = active;
-		return s != null && e instanceof ServerPlayer p && !e.level().isClientSide() && e.level().dimension() == s.dimension
+		Stop s = stopAt(e);
+		return s != null && e instanceof ServerPlayer p
 				&& !e.getUUID().equals(s.caster) && !(s.radius > 0.0 && e.position().distanceToSqr(s.centre) > s.radius * s.radius)
 				&& classify(p) == Mobility.FREE;
 	}
 
 	/** v0.17.4: the caster or a free Star Platinum user: they act on the frozen world (their hits on it are queued). */
 	public static boolean unbound(Entity e) {
-		return isCaster(e) || freeInside(e);
+		Stop s = stopAt(e);
+		return s != null && e.getUUID().equals(s.caster) || freeInside(e);
 	}
 
 	/** v0.17.4: this entity's speed cap in blocks a tick right now (0 = none). Players only; the client asks its hook. */
@@ -246,7 +284,7 @@ public final class TimeStop {
 		if (e.level().isClientSide()) {
 			return clientCap.applyAsDouble(e);
 		}
-		if (active == null) {
+		if (ACTIVE.isEmpty()) {
 			return 0.0;
 		}
 		return capFor(mobility(e));
@@ -283,8 +321,11 @@ public final class TimeStop {
 
 	/** The block-entity tick of this level is held (server side; a test-radius stop leaves block entities alone). */
 	public static boolean freezesBlockEntities(Level level) {
-		Stop s = active;
-		return s != null && !level.isClientSide() && s.radius <= 0.0 && level.dimension() == s.dimension;
+		if (ACTIVE.isEmpty() || level.isClientSide()) {
+			return false;
+		}
+		Stop s = ACTIVE.get(level.dimension());
+		return s != null && s.radius <= 0.0;
 	}
 
 	private static boolean exempt(Stop s, Entity e) {
@@ -307,7 +348,10 @@ public final class TimeStop {
 	/** Shift+Z. True if time stopped. */
 	public static boolean begin(ServerPlayer caster) {
 		StandState s = Stands.state(caster);
-		if (active != null || windup != null) {
+		ResourceKey<Level> dim = caster.level().dimension();
+		// v0.17.7: one stop per dimension -- a stop (or a voice line) in another dimension doesn't get in the way
+		if (ACTIVE.containsKey(dim) || stopBy(caster) != null || WINDUPS.containsKey(caster.getUUID())
+				|| WINDUPS.values().stream().anyMatch(w -> w.dimension == dim)) {
 			Stands.say(caster, "message.projecthero.stand.time_stop_busy", ChatFormatting.GRAY);
 			return false;
 		}
@@ -330,12 +374,15 @@ public final class TimeStop {
 		Stands.save(caster, n);
 		// the voice line first; time stops on its burst (tick())
 		Stands.sound(level, caster.position().add(0, 1.2, 0), StandSounds.TIME_STOP, 0.8f, 1.0f);
-		windup = new Windup(caster.getUUID(), now + StandConfig.TIME_STOP_WINDUP_TICKS, ticks, testRadius);
+		WINDUPS.put(caster.getUUID(), new Windup(caster.getUUID(), dim, now + StandConfig.TIME_STOP_WINDUP_TICKS, ticks, testRadius));
 		return true;
 	}
 
 	private static void stopTime(ServerPlayer caster, Windup w) {
 		ServerLevel level = (ServerLevel) caster.level();
+		if (level.dimension() != w.dimension || ACTIVE.containsKey(level.dimension())) {
+			return; // (the caster changed dimension mid-line -- clearTransient drops the line -- or that dimension got stopped first)
+		}
 		long now = level.getGameTime();
 		// it lasts while the Stamina does (10 a second): the end sent to clients is that estimate (a resume always follows)
 		int ticks = Math.min(w.ticks, Math.max(1, (int) Math.ceil(Stands.stamina(caster) / (StandConfig.TIME_STOP_STAMINA_PER_SECOND / 20f))));
@@ -344,7 +391,7 @@ public final class TimeStop {
 		stop.hadMayfly = ab.mayfly;
 		stop.wasFlying = ab.flying;
 		stop.flySpeed = ab.getFlyingSpeed();
-		active = stop;
+		ACTIVE.put(stop.dimension, stop);
 		grantFlight(caster);
 		broadcast(level.getServer());
 		Stands.vfx(level, com.projecthero.mod.stand.network.StandFxPayload.WORLD, caster.position(), new Vec3(0, 1, 0), 1.0f);
@@ -379,9 +426,9 @@ public final class TimeStop {
 
 	/** Shift+Z inside your own stop: time resumes now. */
 	public static void endEarly(ServerPlayer caster) {
-		Stop s = active;
-		if (s != null && s.caster.equals(caster.getUUID()) && caster.getServer() != null) {
-			resume(caster.getServer(), caster);
+		Stop s = stopBy(caster);
+		if (s != null && caster.getServer() != null) {
+			resume(caster.getServer(), s, caster);
 		}
 	}
 
@@ -390,40 +437,47 @@ public final class TimeStop {
 				.withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD);
 	}
 
-	/** Server tick: the clock tick sound, and the end. */
+	/** Server tick: the voice lines, and each running stop's clock tick sound and end. */
 	public static void tick(MinecraftServer server) {
-		Windup w = windup;
-		if (w != null) {
-			ServerPlayer caster = server.getPlayerList().getPlayer(w.caster);
-			if (caster == null || !caster.isAlive() || caster.isRemoved() || !Stands.isStandUser(caster)) {
-				windup = null; // the caster went down (or away) mid-line: no stop
-			} else if (caster.level().getGameTime() >= w.at) {
-				windup = null;
-				stopTime(caster, w);
+		if (!WINDUPS.isEmpty()) {
+			for (Windup w : WINDUPS.values().toArray(new Windup[0])) {
+				ServerPlayer caster = server.getPlayerList().getPlayer(w.caster);
+				if (caster == null || !caster.isAlive() || caster.isRemoved() || !Stands.isStandUser(caster)
+						|| caster.level().dimension() != w.dimension) {
+					WINDUPS.remove(w.caster); // the caster went down (or away) mid-line: no stop
+				} else if (caster.level().getGameTime() >= w.at) {
+					WINDUPS.remove(w.caster);
+					stopTime(caster, w);
+				}
 			}
 		}
-		Stop s = active;
-		if (s == null) {
+		if (ACTIVE.isEmpty()) {
 			return;
 		}
+		for (Stop s : ACTIVE.values().toArray(new Stop[0])) {
+			tickStop(server, s);
+		}
+	}
+
+	private static void tickStop(MinecraftServer server, Stop s) {
 		ServerLevel level = server.getLevel(s.dimension);
 		ServerPlayer caster = server.getPlayerList().getPlayer(s.caster);
 		if (level == null) {
-			active = null;
+			ACTIVE.remove(s.dimension, s);
 			broadcast(server);
 			return;
 		}
 		boolean casterGone = caster == null || !caster.isAlive() || caster.isRemoved() || caster.level() != level || !Stands.isStandUser(caster);
 		long now = level.getGameTime();
 		if (casterGone || now >= s.end) {
-			resume(server, caster);
+			resume(server, s, caster);
 			return;
 		}
 		// v0.17.3 (user: "time stop drains 10 stamina per second"): it runs on the bar, and ends when the bar is empty
 		float st = Stands.stamina(caster) - StandConfig.TIME_STOP_STAMINA_PER_SECOND / 20f;
 		Stands.setStamina(caster, st);
 		if (st <= 0f) {
-			resume(server, caster);
+			resume(server, s, caster);
 			return;
 		}
 		grantFlight(caster); // (another power's tick may have taken it)
@@ -440,14 +494,11 @@ public final class TimeStop {
 
 	/** Death / logout / dimension change / revoke of the caster: time resumes now. */
 	public static void onCasterGone(ServerPlayer player) {
-		Windup w = windup;
-		if (w != null && w.caster.equals(player.getUUID())) {
-			windup = null;
-		}
-		Stop s = active;
-		if (s != null && s.caster.equals(player.getUUID()) && player.getServer() != null) {
+		WINDUPS.remove(player.getUUID());
+		Stop s = stopBy(player);
+		if (s != null && player.getServer() != null) {
 			restoreFlight(player, s);
-			resume(player.getServer(), null);
+			resume(player.getServer(), s, null);
 		}
 	}
 
@@ -455,12 +506,10 @@ public final class TimeStop {
 	 * Time flows again: the queued damage and knockback land, the colour comes back, the caster's flight goes and (v0.17.3, user:
 	 * "after time stop ends stamina regenerates 50% slower for 20 seconds") the bar refills at half speed for 20 s.
 	 */
-	static void resume(MinecraftServer server, ServerPlayer caster) {
-		Stop s = active;
-		if (s == null) {
+	static void resume(MinecraftServer server, Stop s, ServerPlayer caster) {
+		if (s == null || !ACTIVE.remove(s.dimension, s)) {
 			return;
 		}
-		active = null;
 		broadcast(server);
 		ServerLevel level = server.getLevel(s.dimension);
 		for (Queued q : s.queue.values()) {
@@ -518,31 +567,27 @@ public final class TimeStop {
 	 * striking something frozen)?
 	 */
 	public static boolean shouldQueue(Entity attacker, LivingEntity victim) {
-		Stop s = active;
-		return s != null && attacker != null && unbound(attacker) && frozen(victim);
+		return !ACTIVE.isEmpty() && attacker != null && victim != null && attacker.level() == victim.level() && unbound(attacker)
+				&& frozen(victim);
 	}
 
 	/** Adds damage and knockback to a frozen victim's stack (the caster's hit). */
 	public static void queue(LivingEntity victim, float damage, Vec3 knock) {
-		Stop s = active;
+		Stop s = stopAt(victim);
 		if (s != null) {
-			queue(s.caster, victim, damage, knock);
+			queue(s, s.caster, victim, damage, knock);
 		}
 	}
 
 	/** v0.17.4: adds {@code attacker}'s hit to a frozen victim's stack (the caster's with the +30%, a free user's as it is). */
 	public static void queue(Entity attacker, LivingEntity victim, float damage, Vec3 knock) {
-		Stop s = active;
+		Stop s = stopAt(victim);
 		if (s != null) {
-			queue(attacker == null ? s.caster : attacker.getUUID(), victim, damage, knock);
+			queue(s, attacker == null ? s.caster : attacker.getUUID(), victim, damage, knock);
 		}
 	}
 
-	private static void queue(UUID attacker, LivingEntity victim, float damage, Vec3 knock) {
-		Stop s = active;
-		if (s == null) {
-			return;
-		}
+	private static void queue(Stop s, UUID attacker, LivingEntity victim, float damage, Vec3 knock) {
 		Queued q = s.queue.computeIfAbsent(attacker + "/" + victim.getUUID(), k -> new Queued(victim, attacker));
 		// v0.17.3 (user: "player deals 30% increased damage during time stop"): the caster's hits only
 		float bonus = attacker.equals(s.caster) ? StandConfig.TIME_STOP_DAMAGE_BONUS : 1f;
@@ -554,7 +599,7 @@ public final class TimeStop {
 
 	/** Damage queued on this victim so far, from everyone (tests, the HUD). */
 	public static float queued(LivingEntity victim) {
-		Stop s = active;
+		Stop s = stopAt(victim);
 		if (s == null) {
 			return 0f;
 		}
@@ -572,8 +617,7 @@ public final class TimeStop {
 	 * little knockback away from the caster.
 	 */
 	public static boolean allowDamage(LivingEntity victim, DamageSource source, float amount) {
-		Stop s = active;
-		if (s == null) {
+		if (ACTIVE.isEmpty()) {
 			return true;
 		}
 		Entity attacker = source.getEntity();
@@ -588,8 +632,9 @@ public final class TimeStop {
 
 	// ---------------------------------------------------------------- sync
 
-	private static TimeStopPayload payload(MinecraftServer server) {
-		Stop s = active;
+	/** What a player standing in {@code dim} should know: the stop running there, or none (public for the gametests). */
+	public static TimeStopPayload payload(MinecraftServer server, ResourceKey<Level> dim) {
+		Stop s = dim == null ? null : ACTIVE.get(dim);
 		if (s == null) {
 			return TimeStopPayload.NONE;
 		}
@@ -620,26 +665,26 @@ public final class TimeStop {
 		return mobileIds(s, server).toString();
 	}
 
+	/** v0.17.7: every player is told about the stop in the dimension they stand in (or that there is none). */
 	private static void broadcast(MinecraftServer server) {
 		if (server == null) {
 			return;
 		}
-		Stop s = active;
-		if (s != null) {
+		Map<ResourceKey<Level>, TimeStopPayload> byDim = new java.util.HashMap<>();
+		for (Stop s : ACTIVE.values()) {
 			s.mobileSig = mobileSig(server, s);
 		}
-		TimeStopPayload p = payload(server);
 		for (ServerPlayer player : server.getPlayerList().getPlayers()) {
 			if (ServerPlayNetworking.canSend(player, TimeStopPayload.TYPE)) {
-				ServerPlayNetworking.send(player, p);
+				ServerPlayNetworking.send(player, byDim.computeIfAbsent(player.level().dimension(), d -> payload(server, d)));
 			}
 		}
 	}
 
-	/** A player joining (or awakening a Stand) mid-stop learns of it. */
+	/** A player joining, changing dimension, respawning (or awakening a Stand) learns of the stop where they are, or none. */
 	public static void sendStateTo(ServerPlayer player) {
-		if (active != null && ServerPlayNetworking.canSend(player, TimeStopPayload.TYPE)) {
-			ServerPlayNetworking.send(player, payload(player.getServer()));
+		if (player.connection != null && ServerPlayNetworking.canSend(player, TimeStopPayload.TYPE)) {
+			ServerPlayNetworking.send(player, payload(player.getServer(), player.level().dimension()));
 		}
 	}
 }

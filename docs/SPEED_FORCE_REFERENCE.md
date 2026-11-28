@@ -44,3 +44,27 @@ implementation notes that are not obvious from those.
   `entityTranslucent` again: that blends every overlapping layer.
 - Known trade-off: on two exactly coplanar textures (leather armour's dye layer + overlay, trims) only the first drawn shows
   on the copy.
+
+## Flash Time / Time Slow: per dimension (v0.17.7)
+
+User: "can you change all the time stops and time slows so that they still work worldwide but not across dimensions".
+Flash Time (and the Super Speed mutation's Time Slow, both `hero.power.p04.SuperSpeedTimeSlow`) no longer drop the
+server's tick rate. `time.LevelTimeScale` scales just the caster's dimension:
+
+- The server runs at 20 tick/s. The scaled dimension runs one tick in 20 (`TICK_DIVISOR`) and is held on the others:
+  `LevelTimeScaleServerLevelMixin` turns that level's own `runsNormally` off (weather, world border, block / fluid / random
+  ticks, spawning, raids, block events, day time) and skips `tickNonPassenger` for every entity but the caster's root-vehicle
+  group; `LevelTimeScaleLevelMixin` holds block entities, `LevelTimeScaleMobMixin` the despawn roll,
+  `LevelTimeScaleChunkCacheMixin` spawning / random ticks / lightning, `LevelTimeScalePlayerMixin` a held player's connection
+  tick (living tick and the floating-kick counter), and `ProjectHeroMod` skips their per-player mod systems. Chunk loading and
+  entity tracking carry on every tick, so the caster's movement reaches every client in real time.
+- The game clock is shared by every dimension, so it never slows (the Overworld's held ticks still count it; only its day
+  time holds). The caster's old catch-up (extra ticks from `pollTask`, cooldown / animation / clock advances) is gone:
+  they are simply never held. Items near them still count pickup delays and the Black Flash keeps their pace on held ticks.
+- Clients: players in the dimension get vanilla's ticking-state packet at 1 tick/s, everyone else the server's real state;
+  re-sent on join, dimension change, respawn and after vanilla `/tick` broadcasts (`LevelTimeScaleTickRateMixin`).
+  `TimeSlowStatePayload` carries the dimension; `TimeSlowClient` only applies it while the client is in that dimension.
+- One slow per dimension. It stays in the dimension it was cast in (the caster can walk out; it runs on to its end) and
+  ends on its timer, Z / letting go, or the caster's death, logout or power loss.
+- Known approximation: scheduled block ticks are due on the shared clock, so in a slowed dimension a scheduled chain
+  (redstone, flowing water) advances at most one step per run tick instead of exactly 5%; random ticks are exact.

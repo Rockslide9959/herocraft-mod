@@ -210,6 +210,9 @@ public final class ServerStateReset {
 		com.projecthero.mod.ghostrider.GhostRiderMod.clearSessionState();
 		// v0.17.2: Stands -- the running time stop, move sessions, thrown things, bleeding
 		com.projecthero.mod.stand.StandMod.clearSessionState();
+		// v0.17.7: per-dimension time scales (Time Slow / Flash Time) and the running slows -- dimension keys and UUIDs only
+		com.projecthero.mod.time.LevelTimeScale.clearAll();
+		com.projecthero.mod.hero.power.p04.SuperSpeedTimeSlow.clearSessionState();
 		// v0.16.6: the Miraculous core + kits (move sessions, summoned things)
 		com.projecthero.mod.miraculous.MiraculousMod.clearSessionState();
 		// v0.16.7: the Quirk core + kits, and Erasure's power suppression

@@ -100,7 +100,11 @@ Key convention kept: X and Shift+X are movement, V and Shift+V are utility, ever
   colour (`shaders/post/stand_time_stop.json`, saturation 0.15 with a cool tint); a non-Stand user's client
   freezes EVERYTHING, the caster too, with no cue at all -- they just see the world jump when it resumes.
 - **Fairness**: damage queued against another player during the stop lands at most 30% of their max health.
-  Bosses take reduced queued damage. Only one time stop can run at once.
+  Bosses take reduced queued damage. Only one time stop can run per dimension.
+- **Per dimension (v0.17.7, user: "still work worldwide but not across dimensions")**: `TimeStop` keeps one `Stop` per
+  dimension key (and the voice lines by caster), so a Star Platinum user in the Nether can stop time there while the
+  Overworld is stopped. Every player is sent the stop of the dimension they stand in (`TimeStopPayload`, NONE when there is
+  none), again after a dimension change or respawn (`StandMod`). The stop still ends when its caster leaves the dimension.
 
 ## Sounds and text
 The anime's voice clips are copyrighted, so I won't ship them. Instead: punch sounds layered fast, a heavy impact

@@ -235,7 +235,7 @@ try again. Super Speed stands alone: it never stacks with another power.
   straight **through leaves** -- no more getting stuck in forests (tree tops still hold you when you land on them).
 - **Blitz** zips you to a target with a heavy, launching hit and a shockwave that knocks back everything round it.
   Mach Punch, Speed Vortex, a 50-block **Speed Sweep** that doesn't stop until every enemy is hit, Phase through walls, carry anyone on **N** (no cooldown), and a charged,
-  game-wide **Time Slow**. Regeneration III, always.
+  dimension-wide **Time Slow**. Regeneration III, always.
 - **The Flash Suit** packs into a gold **Flash Ring** on **H** -- worn in your chestplate slot like armour, so you never
   lose the suit on death -- and slowly mends itself while it is in there (its durability % shows above your HUD). Worn,
   it makes your Speed Mode and Overdrive sprint 50% faster (your walk stays easy to control).

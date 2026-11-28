@@ -89,13 +89,19 @@ public final class StandMod {
 				|| !(TimeStop.actionsLocked(player) || TimeStop.isCaster(player)));
 
 		ServerPlayerEvents.JOIN.register(Stands::onPlayerJoin);
-		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> Stands.onPlayerRespawn(newPlayer));
+		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
+			Stands.onPlayerRespawn(newPlayer);
+			TimeStop.sendStateTo(newPlayer); // v0.17.7: the stop (or none) of the dimension they respawned in
+		});
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
 			if (entity instanceof ServerPlayer p && Stands.hasPower(p)) {
 				Stands.clearTransient(p);
 			}
 		});
-		ServerEntityWorldChangeEvents.AFTER_PLAYER_CHANGE_WORLD.register((player, origin, destination) -> Stands.clearTransient(player));
+		ServerEntityWorldChangeEvents.AFTER_PLAYER_CHANGE_WORLD.register((player, origin, destination) -> {
+			Stands.clearTransient(player);
+			TimeStop.sendStateTo(player); // v0.17.7: stops are per dimension -- leave one, walk into another
+		});
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> Stands.clearTransient(handler.getPlayer()));
 	}
 

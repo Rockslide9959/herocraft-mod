@@ -11,18 +11,22 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.Util;
 
 /**
- * v0.14.7: the client half of the game-wide Time Slow.
+ * v0.14.7: the client half of the Time Slow. v0.17.7: per dimension -- the server tells this client about the slow in the
+ * dimension it stands in ({@link TimeSlowStatePayload#dimension}), and everything here only applies while this client's
+ * level is that dimension (a client that has just changed dimension drops it at once, before the server's update lands).
  *
- * <p>Vanilla syncs the slowed tick rate to every client, which then runs its whole simulation at 1 tick a second --
- * that is how everyone but the caster gets slowed. The caster's own client must keep living at 20: its timer stays
- * at 50 ms a tick ({@code SuperSpeedTimeSlowMinecraftMixin} on {@code Minecraft#getTickTargetMillis}), and on 19 of every
- * 20 of its ticks the rest of the world -- other entities, particles, block entities, the level clock (sky, day /
- * night), clouds, rain and animated textures -- is held back ({@link #skipWorldTick}), so it all moves at the same 5%
- * the server runs it at while the caster's own movement, camera, hands and HUD run at full speed.
+ * <p>The server sends the players in the slowed dimension its slowed tick rate, and their clients run their whole
+ * simulation at 1 tick a second -- that is how everyone but the caster gets slowed. The caster's own client must keep
+ * living at 20: its timer stays at 50 ms a tick ({@code SuperSpeedTimeSlowMinecraftMixin} on
+ * {@code Minecraft#getTickTargetMillis}), and on 19 of every 20 of its ticks the rest of the world -- other entities,
+ * particles, block entities, the day / night clock (sky, moon), clouds, rain and animated textures -- is held back
+ * ({@link #skipWorldTick}), so it all moves at the same 5% the server runs it at while the caster's own movement, camera,
+ * hands and HUD run at full speed. (The game clock itself keeps counting: the server's no longer slows.)
  */
 public final class TimeSlowClient {
 	private static boolean active;
 	private static UUID caster;
+	private static String dimension = "";
 	private static long counter;
 	private static boolean skip;
 	/** Real-time stamps (ms) of the last start / end, for the screen effect's ripples. */
@@ -39,13 +43,16 @@ public final class TimeSlowClient {
 	}
 
 	private static void accept(TimeSlowStatePayload p) {
-		if (p.active() && !active) {
-			startedMs = Util.getMillis();
-		} else if (!p.active() && active) {
-			endedMs = Util.getMillis();
-		}
+		boolean was = active();
 		active = p.active();
 		caster = p.active() ? p.caster() : null;
+		dimension = p.dimension() == null ? "" : p.dimension();
+		boolean now = active();
+		if (now && !was) {
+			startedMs = Util.getMillis();
+		} else if (!now && was) {
+			endedMs = Util.getMillis();
+		}
 	}
 
 	private static void tick(Minecraft mc) {
@@ -59,18 +66,23 @@ public final class TimeSlowClient {
 		skip = isLocalCaster() && counter % SuperSpeedTimeSlow.TICK_DIVISOR != 0;
 	}
 
+	/** A Time Slow is running in the dimension this client is in. */
 	public static boolean active() {
-		return active;
+		if (!active) {
+			return false;
+		}
+		Minecraft mc = Minecraft.getInstance();
+		return mc.level != null && mc.level.dimension().location().toString().equals(dimension);
 	}
 
-	/** Whether this client's player is the one who cast the running Time Slow. */
+	/** Whether this client's player is the one who cast the Time Slow running in its dimension. */
 	public static boolean isLocalCaster() {
 		Minecraft mc = Minecraft.getInstance();
-		return active && caster != null && mc.player != null && caster.equals(mc.player.getUUID());
+		return active() && caster != null && mc.player != null && caster.equals(mc.player.getUUID());
 	}
 
 	/** Whether the rest of the world should sit this client tick out (only ever on the caster's own client). */
 	public static boolean skipWorldTick() {
-		return skip;
+		return skip && isLocalCaster();
 	}
 }
