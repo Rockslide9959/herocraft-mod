@@ -5,6 +5,7 @@ import java.util.Set;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.resources.PlayerSkin;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
 
 /**
  * v0.17.7 (user: "Use these skins for the iron man suits"): the Iron Man suits drawn as a PlanetMinecraft skin worn skin-tight --
@@ -28,6 +29,16 @@ public final class IronManSkinSuits {
 
 	public static boolean skinTight(String setId) {
 		return SETS.contains(setId);
+	}
+
+	/**
+	 * v0.17.7 round 2 (user: "use the head model exactly as how it is on the skin, only make it a thin strip like this when the
+	 * player lifts up the mask"): is the thin faceplate drawn this frame? Only while the H lift is under way or up (any lift above
+	 * 0); for exactly that time the helmet's own front faces -- the skin's face and its hat layer, i.e. the closed face -- are left
+	 * out ({@code SuperheroArmorRenderer}), so the two never show together and closing ends on the exact skin head.
+	 */
+	public static boolean plateLifted(Player wearer, float partialTick) {
+		return IronManAssemblyClient.lift(wearer, partialTick) > 0f;
 	}
 
 	/** Does this wearer have slim (3 px) arms? */

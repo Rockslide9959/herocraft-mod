@@ -100,6 +100,14 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 						getCurrentEntity() instanceof Player mp ? mp : null, partialTick)) {
 			return;
 		}
+		// v0.17.7 round 2 (user: "use the head model exactly as how it is on the skin, only make it a thin strip like this when the
+		// player lifts up the mask"): on the skin-tight suits the closed face is the helmet's own front faces (the skin's head + hat
+		// layer); the thin faceplate is drawn only while H lifts it -- never on a stand, a sentry, a crate or a workbench
+		boolean skinSuit = animatable instanceof com.projecthero.mod.ironman.item.IronManArmorItem sk
+				&& com.projecthero.mod.client.ironman.IronManSkinSuits.skinTight(sk.armorSetId());
+		if (skinSuit && "faceplate".equals(name) && !(getCurrentEntity() instanceof Player)) {
+			return;
+		}
 		// v0.14.21 self-assembly + faceplate lift: per-bone offset from the synced suit clock, in the parent's space
 		if (animatable instanceof com.projecthero.mod.ironman.item.IronManArmorItem && getCurrentEntity() instanceof Player ip
 				&& getCurrentSlot() != null) {
@@ -108,13 +116,18 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 				if (!com.projecthero.mod.client.ironman.IronManAssemblyClient.apply(poseStack, bone, ip, getCurrentSlot(), partialTick)) {
 					return;
 				}
+				boolean plateUp = skinSuit && com.projecthero.mod.client.ironman.IronManSkinSuits.plateLifted(ip, partialTick);
+				if (skinSuit && "faceplate".equals(name) && !plateUp) {
+					return; // closed: the helmet's own front faces are the face (apply above still ran: snap sparks + click)
+				}
 				// v0.15.4: the Mark 7 bracelet wrap-on; v0.15.15 (user): drawn with its back panels open like doors, front whole
 				backDoorDeg = com.projecthero.mod.client.ironman.IronManBraceletClient.splitDeg;
 				frontDoors = backDoorDeg > 0f; // v0.15.15 (user): the Mark 7 opens at the FRONT and closes round the wearer
 				com.projecthero.mod.client.ironman.IronManBraceletClient.splitDeg = 0f;
 				// the H faceplate is up: drop the helmet's front faces so the wearer's face shows (shell + brow stay on)
+				// (skin-tight suits: for exactly as long as the thin plate is drawn, so the two never show together -- no z-fighting)
 				skipNorthFaces = "helmet".equals(name) && getCurrentSlot() == EquipmentSlot.HEAD
-						&& com.projecthero.mod.client.ironman.IronManAssemblyClient.helmetFrontHidden(ip, partialTick);
+						&& (plateUp || com.projecthero.mod.client.ironman.IronManAssemblyClient.helmetFrontHidden(ip, partialTick));
 				super.renderRecursively(poseStack, animatable, bone, renderType, bufferSource, buffer, isReRender, partialTick,
 						packedLight, packedOverlay, colour);
 			} finally {

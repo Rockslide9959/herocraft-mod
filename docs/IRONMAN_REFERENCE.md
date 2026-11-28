@@ -2529,10 +2529,28 @@ Borrowed skins ship publicly (CLAUDE.md); sources are noted in the script and `c
   all keep working unchanged -- they derive everything from `geo/<set>.geo.json` + `textures/armor/<set>.png`, which the script
   rewrites in place. The rigs are now skin-tight: base layer 0.05 px over the body, outer layer at vanilla's overlay inflation
   (hat 0.5, jacket / sleeves / trousers 0.25), legs moved 0.1 px out (GeckoLib draws leg bones at x +/-2, vanilla at +/-1.9),
-  thigh = leg rows 0-7 (leggings), boot = rows 8-11 (boots), every animation bone / pivot kept. The faceplate is one solid plate
-  flush with the hat layer's front; the hat front is merged onto the face front in the texture (and cleared) so H still lifts
-  the whole face. The wearer's own outer layer is hidden under worn pieces as before (`PlayerModelMixin`). `mark_1_v2` (Mk II)
-  shares the Mk I rig, so it got thin too (its own texture unchanged).
+  thigh = leg rows 0-7 (leggings), boot = rows 8-11 (boots), every animation bone / pivot kept. The wearer's own outer layer is
+  hidden under worn pieces as before (`PlayerModelMixin`). `mark_1_v2` (Mk II) shares the Mk I rig, so it got thin too (its own
+  texture unchanged apart from the plate corners below).
+* **Faceplates (round 2, user: "you broke the faceplates ... they look flat, theyre missing the mat, they are bigger than the
+  players head ... use the head model exactly as how it is on the skin, only make it a thin strip like this when the player lifts
+  up the mask").** The first pass merged the hat front onto the face and drew it as one 9 x 9 plate -- never again:
+  * *Closed* = the skin's head exactly: `helmet` = cube `skin_head` (8x8x8 +0.05, all six faces) + cube `skin_hat` (+0.5,
+    vanilla's hat inflation, all six faces); their FRONT faces are the face (u 8-15 / u 40-47, v 8-15), the hat front keeps the
+    skin's own texels. Nothing larger than head + hat layer.
+  * *Lifted* = the `faceplate` bone, a thin 8 x 8 x 0.5 plate whose top-front edge is `IronManFaceplateLook.HINGE` (origin
+    -4, 24.1, -4.92), textured from free head-box corners the script paints: u 56-63, v 0-7 = face front with the hat front
+    composited over it (front, edges), u 24-31, v 0-7 = the same darkened (its inside). `SuperheroArmorRenderer` draws it only
+    while `IronManSkinSuits.plateLifted` (eased lift > 0) and skips the helmet's north faces for exactly that time, so the two
+    never show together (no z-fighting) and closing ends on the exact skin head. Never drawn on a non-player (Sentry stand,
+    crate, workbench). Same swing / timing / sounds; at 90 degrees it is a thin strip level with the brow, the face open below.
+  * *Build reveals:* `IronManAssemblyReveal.collect` counts the north faces of `skin_*` helmet cubes as the `faceplate` bone,
+    so the face texels (both layers) still go on last in the self-assembly, gantry, Mk 5 and portable schemes, the faceplate
+    snap sparks / click still fire, and the retract takes the face first as before.
+  * Glow: the eye rows of BOTH face layers (u 8-15 and u 40-47, v 10-13) may glow, so a light sits on whichever layer the skin
+    paints it. Gametest: `IronManRound2GameTests.ironManGeoIsJustTheSkinModel` (`skinHelmetIsTheSkinHead`).
+  * Offline 3D close-ups (original skin head | closed | lifted, front / 3/4 / side): `node scratchpad/v0177/im_faceplate_preview.js`
+    -> `docs/screenshots/v0177/ironman_faceplates/`.
 * **Slim wearers:** one wide texture per suit. `SuperheroArmorRenderer.slimSymbioteArm` now also covers these sets: a slim
   player's arm cubes are narrowed by a pixel on the outer side with the 4-texel faces squeezed (not cropped), so every texture
   derived from the suit texture stays aligned. First person: `IronManFirstPersonGauntlets.SKIN_ARM` (0.05 / 0.25) and
@@ -2544,7 +2562,7 @@ Borrowed skins ship publicly (CLAUDE.md); sources are noted in the script and `c
   10 x 9.6 x 10 box (half a pixel clear of the hat layer, open at the neck) textured from the skin's free corner (u 56-63, v
   16-23 sides: light-blue tint, a diagonal reflection streak, brighter rim; v 24-31 top: soft highlight). The Hydro is drawn
   with `RenderType.entityTranslucent` (`SuperheroArmorRenderer.getRenderType`, `IronManSkinSuits.GLASS_HELMET`) so the glass
-  is see-through; it builds on with the helmet, and its front goes with the faceplate's when H lifts it. The old pauldrons
+  is see-through; it builds on with the helmet, and its front is left out with the helmet's front while H lifts it. The old pauldrons
   and the old dome texture are gone.
 * **Hulkbuster:** its body (`geo/ironman/hulkbuster_body.geo.json`) is already a player-shaped rig at Hulkbuster scale whose
   segments (arm / forearm / fist 6+4+2 rows, thigh / shin / foot 6+4+2, both layers) map straight onto the 64x64 skin layout,

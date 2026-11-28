@@ -30,9 +30,12 @@
 //                                Hulkbuster scale; its geo already maps every part onto the 64x64 skin layout, both layers)
 //
 // Writes (src/main/resources/assets/projecthero/):
-//   textures/armor/<set>.png             the skin, vanilla layout, both layers. The hat layer's FRONT face is merged onto the base
-//                                        face front (the faceplate is one solid plate that draws the face; H lifts it) and cleared.
-//                                        Every unused skin region is cleared (the PMC files carry a few stray texels there). The
+//   textures/armor/<set>.png             the skin, vanilla layout, both layers, EXACTLY as the skin has them (v0.17.7 round 2, user:
+//                                        "use the head model exactly as how it is on the skin" -- the hat layer's front is NEVER
+//                                        merged onto the face or cleared any more). Two free head-box corners carry the lifted
+//                                        faceplate's own texels: u 56-63, v 0-7 = the face front with the hat front composited over
+//                                        it (the plate's front), u 24-31, v 0-7 = the same darkened (its inside / underside).
+//                                        Every other unused skin region is cleared (the PMC files carry a few stray texels there). The
 //                                        Hydro adds its glass (u 56-63, v 16-31: dome sides, then dome top), translucent light blue
 //                                        with a diagonal reflection streak and a brighter rim.
 //   textures/armor/<set>_glowmask.png    emissive map (RenderType.eyes, IronManSuitGlowLayer): the skin's own bright texels
@@ -43,7 +46,11 @@
 //                                        bracelet wrap and battle damage keep working): base layer 0.05 px over the body, outer layer
 //                                        at vanilla's overlay inflation (hat 0.5, jacket / sleeves / trousers 0.25), legs moved 0.1
 //                                        px out (GeckoLib draws leg bones at x +/-2, vanilla legs sit at +/-1.9), thigh = leg rows
-//                                        0-7, boot = rows 8-11, the faceplate one solid plate in front of the face. Mark 4: + the
+//                                        0-7, boot = rows 8-11. The helmet is the skin's head exactly: the base head (8x8x8 +0.05,
+//                                        all six faces, cube "skin_head") and the hat layer (+0.5, all six faces, "skin_hat") --
+//                                        their FRONT faces are the closed face. The faceplate bone is a thin 8 x 8 x 0.5 plate
+//                                        (texels from the corners above) that the renderer only draws while H lifts it; the
+//                                        helmet's front faces are dropped for exactly that time (SuperheroArmorRenderer). Mark 4: + the
 //                                        glass dome cube on the helmet bone (no pauldrons any more).
 //   textures/armor/hulkbuster_body.png   the Hulkbuster skin (the old body's small joint-cap palette strip u 56-59, v 16-19 kept,
 //   + _glowmask.png                      the forearm / shin "up" caps sample it)
@@ -104,20 +111,34 @@ const DOME_SIDE = [56, 16, 8, 8], DOME_TOP = [56, 24, 8, 8];
 
 function suitTexture(src, dome) {
 	const t = src.copy();
-	const counts = { stray: 0, face: 0 };
+	const counts = { stray: 0, plateHat: 0 };
 	for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) if (!used(x, y) && t.get(x, y)[3]) { t.clear(x, y); counts.stray++; }
-	// the hat front (u 40-47, v 8-15) composited onto the face front (u 8-15, v 8-15): the faceplate plate draws it
-	for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) {
-		const o = t.get(40 + x, 8 + y), b = t.get(8 + x, 8 + y);
-		if (o[3]) {
-			const a = o[3] / 255;
-			t.set(8 + x, 8 + y, [0, 1, 2].map(c => Math.round(o[c] * a + b[c] * (1 - a))).concat([Math.max(b[3], o[3])]));
-			counts.face++;
-		}
-		t.clear(40 + x, 8 + y);
-	}
+	counts.plateHat = paintPlate(t);
 	if (dome) paintDome(t);
 	return { t, counts };
+}
+
+// the lifted faceplate's own texels (the thin plate is only drawn while H lifts it; closed, the helmet's real face shows)
+const PLATE_FRONT = [56, 0], PLATE_BACK = [24, 0];
+/**
+ * The thin lifted plate's texture, in two free corners of the head box: its front = the face front (u 8-15, v 8-15) with the hat
+ * front (u 40-47, v 8-15) composited over it, its back = the same at a quarter brightness (the plate's inside). The skin's own face
+ * and hat texels are left exactly as they are. Returns how many hat texels went into the composite.
+ */
+function paintPlate(t) {
+	let n = 0;
+	for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) {
+		const o = t.get(40 + x, 8 + y), b = t.get(8 + x, 8 + y);
+		let c = b;
+		if (o[3]) {
+			const a = o[3] / 255;
+			c = [0, 1, 2].map(i => Math.round(o[i] * a + b[i] * (1 - a))).concat([Math.max(b[3], o[3])]);
+			n++;
+		}
+		t.set(PLATE_FRONT[0] + x, PLATE_FRONT[1] + y, c);
+		t.set(PLATE_BACK[0] + x, PLATE_BACK[1] + y, c[3] ? [c[0] * 0.25, c[1] * 0.25, c[2] * 0.3, 255].map(Math.round) : [0, 0, 0, 0]);
+	}
+	return n;
 }
 
 /** The Hydro's glass: light-blue tint, a diagonal reflection streak, a brighter rim; the top a soft highlight. */
@@ -139,10 +160,10 @@ function paintDome(t) {
 }
 
 // ---------------------------------------------------------------- glowmask
-// where lights may be: face front (base; the hat front is merged into it), chest front (reactor) on both layers, boot soles,
-// glove undersides (palms) on both layers
+// where lights may be: the face front on both layers (base u 8-15 and hat u 40-47: a light sits on whichever layer the skin paints
+// it), chest front (reactor) on both layers, boot soles, glove undersides (palms) on both layers
 // (face: the eye rows v 10-13 only -- the Renaissance skin paints its brow trim and mouth slit white too, which read as teeth lit up)
-const GLOW_AREAS = [[8, 10, 8, 4], [20, 20, 8, 12], [20, 36, 8, 12], [8, 16, 4, 4], [24, 48, 4, 4], [8, 32, 4, 4], [8, 48, 4, 4],
+const GLOW_AREAS = [[8, 10, 8, 4], [40, 10, 8, 4], [20, 20, 8, 12], [20, 36, 8, 12], [8, 16, 4, 4], [24, 48, 4, 4], [8, 32, 4, 4], [8, 48, 4, 4],
 	[48, 16, 4, 4], [48, 32, 4, 4], [40, 48, 4, 4], [56, 48, 4, 4]];
 const PALMS = [[48, 16], [40, 48]]; // right / left glove underside (base layer), 4x4
 const bright = ([r, g, b, a]) => a > 0 && r > 230 && g > 220 && b > 170; // white / cream lenses + reactor, never gold / silver plate
@@ -190,14 +211,21 @@ function skinRig(oldGeo, set, dome) {
 	const m = geo['minecraft:geometry'][0];
 	m.description.identifier = 'geometry.' + set;
 	const cubes = {
+		// v0.17.7 round 2 (user: "use the head model exactly as how it is on the skin"): the skin's head, all six faces of both
+		// layers -- the FRONT faces are the closed face, the hat layer's raised detail included. Named "skin_*": the build reveal
+		// (IronManAssemblyReveal.collect) times their front texels with the faceplate, so the face still goes on last.
 		helmet: [
-			{ origin: [-4, 24, -4], size: [8, 8, 8], inflate: BASE, uv: faces(0, 0, 8, 8, 8, ['east', 'west', 'south', 'up', 'down']) },
-			{ origin: [-4, 24, -4], size: [8, 8, 8], inflate: HAT, uv: faces(32, 0, 8, 8, 8, ['east', 'west', 'south', 'up', 'down']) },
+			{ name: 'skin_head', origin: [-4, 24, -4], size: [8, 8, 8], inflate: BASE, uv: faces(0, 0, 8, 8, 8, ['north', 'east', 'west', 'south', 'up', 'down']) },
+			{ name: 'skin_hat', origin: [-4, 24, -4], size: [8, 8, 8], inflate: HAT, uv: faces(32, 0, 8, 8, 8, ['north', 'east', 'west', 'south', 'up', 'down']) },
 		],
-		// one solid plate in front of the face, flush with the hat layer's front edge: the face (hat front merged in)
-		faceplate: [{ origin: [-4.5, 23.5, -4.5], size: [9, 9, 0.45], uv: {
-			north: { uv: [8, 8], uv_size: [8, 8] }, south: { uv: [16, 0], uv_size: [8, 8] }, east: { uv: [15, 8], uv_size: [1, 8] },
-			west: { uv: [8, 8], uv_size: [1, 8] }, up: { uv: [8, 8], uv_size: [8, 1] }, down: { uv: [8, 15], uv_size: [8, 1] } } }],
+		// the LIFTED faceplate only (the renderer draws it only while H lifts it, and drops the helmet's front faces for exactly
+		// that time): one thin solid 8 x 8 x 0.5 plate -- head-sized, never bigger -- whose top-front edge is the shared hinge
+		// (IronManFaceplateLook.HINGE: y 32.1, z -4.92), front = face + hat front composited, back = its dark inside; east (the
+		// wearer's right, like the head's east face u 0-7) = the face's left texel column, west = its right one
+		faceplate: [{ origin: [-4, 24.1, -4.92], size: [8, 8, 0.5], uv: {
+			north: { uv: PLATE_FRONT, uv_size: [8, 8] }, south: { uv: PLATE_BACK, uv_size: [8, 8] },
+			east: { uv: PLATE_FRONT, uv_size: [1, 8] }, west: { uv: [PLATE_FRONT[0] + 7, PLATE_FRONT[1]], uv_size: [1, 8] },
+			up: { uv: PLATE_FRONT, uv_size: [8, 1] }, down: { uv: [PLATE_FRONT[0], PLATE_FRONT[1] + 7], uv_size: [8, 1] } } }],
 		chest: [{ origin: [-4, 12, -2], size: [8, 12, 4], inflate: BASE, uv: [16, 16] }, { origin: [-4, 12, -2], size: [8, 12, 4], inflate: OUTER, uv: [16, 32] }],
 		right_upper_arm: [{ origin: [-8, 12, -2], size: [4, 12, 4], inflate: BASE, uv: [40, 16] }, { origin: [-8, 12, -2], size: [4, 12, 4], inflate: OUTER, uv: [40, 32] }],
 		left_upper_arm: [{ origin: [4, 12, -2], size: [4, 12, 4], inflate: BASE, uv: [32, 48] }, { origin: [4, 12, -2], size: [4, 12, 4], inflate: OUTER, uv: [48, 48] }],
@@ -217,7 +245,7 @@ function skinRig(oldGeo, set, dome) {
 	for (const b of m.bones) {
 		if (cubes[b.name]) b.cubes = cubes[b.name];
 		else delete b.cubes; // nothing but the skin model (the old Hydro pauldrons go)
-		if (b.name === 'faceplate') b.pivot = [0, 32.5, -4.5];
+		if (b.name === 'faceplate') b.pivot = [0, 32.1, -4.92];
 	}
 	return geo;
 }
@@ -294,6 +322,14 @@ for (const s of SUITS) {
 	sheetNight.push(nightView(t, g).asPreview());
 	preview.render([src.asPreview(), t.asPreview()], path.join(SHOTS, s.set + '_original_vs_suit.png'));
 }
+// the Mk II Golden Avenger (mark_1_v2) wears the Mk I rig with its own (hand-made) texture: only the lifted plate's corners are
+// painted onto it, from its own face + hat front; nothing else of it changes
+{
+	const f = path.join(RES, 'textures/armor/mark_1_v2.png');
+	const t = load(f);
+	report.mark_1_v2 = { plateHat: paintPlate(t) };
+	t.save(f);
+}
 preview.render(sheetWide, path.join(SHOTS, 'suits_on_wide_wearer.png'), { underlay: path.join(tmp, 'wearer_wide.png') });
 preview.render(sheetSlim, path.join(SHOTS, 'suits_on_slim_wearer.png'), { slim: true, underlay: path.join(tmp, 'wearer_slim.png') });
 preview.render(sheetNight, path.join(SHOTS, 'suits_glow_at_night.png'));
@@ -311,7 +347,7 @@ preview.render(sheetNight, path.join(SHOTS, 'suits_glow_at_night.png'));
 	// lights come from either layer
 	const g = new Img(64, 64);
 	let n = 0;
-	const areas = GLOW_AREAS.concat([[40, 10, 8, 4]]);
+	const areas = GLOW_AREAS;
 	for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) {
 		const c = t.get(x, y);
 		if (areas.some(r => inRect(x, y, r)) && bright(c)) { g.set(x, y, [c[0], c[1], c[2], 255]); n++; }

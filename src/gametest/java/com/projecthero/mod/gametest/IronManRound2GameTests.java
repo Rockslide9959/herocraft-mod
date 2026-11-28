@@ -435,12 +435,13 @@ public class IronManRound2GameTests implements FabricGameTest {
 					helper.assertTrue(cubes == 0, m + " " + name + " adds no geometry beyond the skin model, got " + cubes);
 				}
 			}
-			// the helmet's front faces are the faceplate (H lifts it)
-			for (JsonElement c : bones.get("helmet").getAsJsonArray("cubes")) {
-				if ("mark_4".equals(m) && c.getAsJsonObject().getAsJsonArray("size").get(2).getAsFloat() == 10f) {
-					continue; // v0.17.7: the Hydro's glass dome (its front goes with the faceplate's when H lifts it)
+			if (SKIN_TIGHT.contains(m)) {
+				skinHelmetIsTheSkinHead(helper, m, bones);
+			} else {
+				// the helmet's front faces are the faceplate (H lifts it)
+				for (JsonElement c : bones.get("helmet").getAsJsonArray("cubes")) {
+					helper.assertFalse(c.getAsJsonObject().getAsJsonObject("uv").has("north"), m + " helmet has no front faces");
 				}
-				helper.assertFalse(c.getAsJsonObject().getAsJsonObject("uv").has("north"), m + " helmet has no front faces");
 			}
 			// leggings + boots are exactly the model's legs: each layer's thigh starts where its boot ends
 			for (String side : new String[] { "right", "left" }) {
@@ -475,5 +476,80 @@ public class IronManRound2GameTests implements FabricGameTest {
 			}
 		}
 		helper.succeed();
+	}
+
+	/** v0.17.7: the suits worn skin-tight from PlanetMinecraft skins (client.ironman.IronManSkinSuits, bar mark_1_v2's shared rig). */
+	private static final Set<String> SKIN_TIGHT = Set.of("mark_1", "mark_iii", "mark_4", "mark_2", "mark_6");
+
+	/**
+	 * v0.17.7 round 2 (user: "you broke the faceplates ... they look flat, theyre missing the mat, they are bigger than the players
+	 * head ... use the head model exactly as how it is on the skin, only make it a thin strip like this when the player lifts up the
+	 * mask"): the closed helmet IS the skin's head -- the base head (8x8x8 +0.05) and the hat layer (+0.5, vanilla's hat inflation),
+	 * both with all six faces, their fronts being the face; the hat front keeps the skin's own texels (never merged onto the face or
+	 * cleared). The faceplate is only the thin lifted plate: head-sized (8 x 8), at most a pixel thick, hinged at its top-front edge,
+	 * and textured from its own corner (face + hat front composited), so nothing of it is needed closed.
+	 */
+	private static void skinHelmetIsTheSkinHead(GameTestHelper helper, String m, Map<String, JsonObject> bones) throws Exception {
+		JsonArray helmet = bones.get("helmet").getAsJsonArray("cubes");
+		String[] names = { "skin_head", "skin_hat" };
+		float[] inflate = { 0.05f, 0.5f };
+		int[] frontU = { 8, 40 };
+		for (int i = 0; i < 2; i++) {
+			JsonObject c = helmet.get(i).getAsJsonObject();
+			helper.assertTrue(c.has("name") && names[i].equals(c.get("name").getAsString()), m + " helmet cube " + i + " is " + names[i]);
+			JsonArray o = c.getAsJsonArray("origin"), s = c.getAsJsonArray("size");
+			helper.assertTrue(o.get(0).getAsFloat() == -4f && o.get(1).getAsFloat() == 24f && o.get(2).getAsFloat() == -4f
+					&& s.get(0).getAsFloat() == 8f && s.get(1).getAsFloat() == 8f && s.get(2).getAsFloat() == 8f,
+					m + " " + names[i] + ": the normal 8x8x8 head");
+			helper.assertTrue(Math.abs(c.get("inflate").getAsFloat() - inflate[i]) < 1e-4f, m + " " + names[i] + " inflate " + inflate[i]);
+			JsonObject uv = c.getAsJsonObject("uv");
+			for (String f : new String[] { "north", "east", "west", "south", "up", "down" }) {
+				helper.assertTrue(uv.has(f), m + " " + names[i] + " has its " + f + " face (the closed face is the skin's own)");
+			}
+			JsonObject north = uv.getAsJsonObject("north");
+			helper.assertTrue(north.getAsJsonArray("uv").get(0).getAsInt() == frontU[i] && north.getAsJsonArray("uv").get(1).getAsInt() == 8
+					&& north.getAsJsonArray("uv_size").get(0).getAsInt() == 8 && north.getAsJsonArray("uv_size").get(1).getAsInt() == 8,
+					m + " " + names[i] + " front = the skin's face front (u " + frontU[i] + ", v 8)");
+		}
+		if ("mark_4".equals(m)) {
+			// the glass dome sits round the normal head + hat layer (hat reaches +/-4.5 and y 32.5)
+			JsonObject dome = helmet.get(2).getAsJsonObject();
+			JsonArray o = dome.getAsJsonArray("origin"), s = dome.getAsJsonArray("size");
+			helper.assertTrue(o.get(0).getAsFloat() <= -4.5f && o.get(0).getAsFloat() >= -5.5f && s.get(0).getAsFloat() <= 11f
+					&& o.get(1).getAsFloat() + s.get(1).getAsFloat() > 32.5f && o.get(1).getAsFloat() + s.get(1).getAsFloat() <= 33.5f,
+					m + ": glass dome hugs the normal-size head + hat layer");
+		}
+		JsonObject plate = bones.get("faceplate").getAsJsonArray("cubes").get(0).getAsJsonObject();
+		JsonArray po = plate.getAsJsonArray("origin"), ps = plate.getAsJsonArray("size");
+		helper.assertTrue(ps.get(0).getAsFloat() <= 8f && ps.get(1).getAsFloat() <= 8f, m + " faceplate is never bigger than the head");
+		helper.assertTrue(ps.get(2).getAsFloat() > 0f && ps.get(2).getAsFloat() <= 1f, m + " faceplate: a thin plate (<= 1 px)");
+		helper.assertTrue(!plate.has("inflate") || plate.get("inflate").getAsFloat() == 0f, m + " faceplate not inflated");
+		float[] hinge = com.projecthero.mod.ironman.IronManFaceplateLook.HINGE;
+		helper.assertTrue(Math.abs(po.get(1).getAsFloat() + ps.get(1).getAsFloat() - hinge[1]) < 1e-3f
+				&& Math.abs(po.get(2).getAsFloat() - hinge[2]) < 1e-3f, m + " faceplate's top-front edge is the lift hinge");
+		JsonObject pn = plate.getAsJsonObject("uv").getAsJsonObject("north");
+		int pu = pn.getAsJsonArray("uv").get(0).getAsInt(), pv = pn.getAsJsonArray("uv").get(1).getAsInt();
+		helper.assertTrue(pu == 56 && pv == 0, m + " faceplate front from its own corner (u 56, v 0)");
+		BufferedImage img;
+		try (InputStream in = res("/assets/projecthero/textures/armor/" + m + ".png")) {
+			img = ImageIO.read(in);
+		}
+		int hat = 0;
+		for (int y = 0; y < 8; y++) {
+			for (int x = 0; x < 8; x++) {
+				int o = img.getRGB(40 + x, 8 + y), b = img.getRGB(8 + x, 8 + y), p = img.getRGB(56 + x, y);
+				int oa = o >>> 24;
+				if (oa > 0) {
+					hat++;
+				}
+				// the plate's front = the face with the hat front over it
+				for (int sh = 0; sh <= 16; sh += 8) {
+					float a = oa / 255f;
+					int want = Math.round(((o >> sh) & 0xFF) * a + ((b >> sh) & 0xFF) * (1f - a));
+					helper.assertTrue(Math.abs(((p >> sh) & 0xFF) - want) <= 1, m + " plate texel " + x + "," + y + " = face + hat front");
+				}
+			}
+		}
+		helper.assertTrue(hat > 0, m + ": the hat layer's front keeps the skin's texels (not merged away)");
 	}
 }

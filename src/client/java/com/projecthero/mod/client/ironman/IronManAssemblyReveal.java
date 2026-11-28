@@ -416,6 +416,9 @@ public final class IronManAssemblyReveal {
 
 	// ---------------- geometry -> per-texel bone + rest position ----------------
 
+	/** Name prefix of the skin-tight suits' helmet cubes whose front faces are the closed face (see {@link #collect}). */
+	static final String SKIN_HEAD_CUBE = "skin_";
+
 	static void collect(JsonObject root, int texW, int texH, int bit, List<Sample> out) {
 		JsonObject model = root.getAsJsonArray("minecraft:geometry").get(0).getAsJsonObject();
 		JsonObject desc = model.getAsJsonObject("description");
@@ -439,9 +442,14 @@ public final class IronManAssemblyReveal {
 				float inflate = cube.has("inflate") ? cube.get("inflate").getAsFloat() : 0f;
 				Vector3f lo = new Vector3f(o).sub(inflate, inflate, inflate);
 				Vector3f hi = new Vector3f(o).add(s).add(inflate, inflate, inflate);
-				boolean baseCube = IronManAssemblyPlan.isBaseCube(cube.has("name") ? cube.get("name").getAsString() : null);
+				String cubeName = cube.has("name") ? cube.get("name").getAsString() : null;
+				boolean baseCube = IronManAssemblyPlan.isBaseCube(cubeName);
+				// v0.17.7 round 2: on the skin-tight suits the closed face is the helmet's own front faces (cubes "skin_head" /
+				// "skin_hat"; the faceplate bone is only drawn while H lifts it) -- their texels go on with the faceplate, last
+				boolean skinFront = "helmet".equals(name) && cubeName != null && cubeName.startsWith(SKIN_HEAD_CUBE);
 				for (Face f : faces(cube, s)) {
-					paint(f, lo, hi, su, sv, texW, texH, name, baseCube, ci, out);
+					boolean north = f.alongU()[0] < -0.5f; // only the north (front) face runs along -x
+					paint(f, lo, hi, su, sv, texW, texH, skinFront && north ? "faceplate" : name, baseCube, ci, out);
 				}
 			}
 		}
