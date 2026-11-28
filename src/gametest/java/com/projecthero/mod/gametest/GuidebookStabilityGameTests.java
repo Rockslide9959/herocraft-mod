@@ -221,6 +221,9 @@ public class GuidebookStabilityGameTests implements FabricGameTest {
 			if (t.getKey().equals("projecthero.guide.rebalance.pending")) {
 				return "pending";
 			}
+			if (t.getKey().equals("projecthero.guide.rebalance.in_progress")) {
+				return "in_progress";
+			}
 		}
 		for (Component sib : line.getSiblings()) {
 			String s = groupNamed(sib);
@@ -274,7 +277,8 @@ public class GuidebookStabilityGameTests implements FabricGameTest {
 				continue;
 			}
 			powers++;
-			String want = Rebalance.isBalanced(HeroPackGuide.titleKey(i)) ? "balanced" : "pending";
+			String key = HeroPackGuide.titleKey(i);
+			String want = Rebalance.isBalanced(key) ? "balanced" : Rebalance.isInProgress(key) ? "in_progress" : "pending";
 			helper.assertTrue(want.equals(listedUnder.get(i)), all.get(i).title().getString() + " is listed under " + want + ", got "
 					+ listedUnder.get(i));
 		}
@@ -287,6 +291,13 @@ public class GuidebookStabilityGameTests implements FabricGameTest {
 		helper.assertTrue(HeroPackGuide.isBalanced(panther) && HeroPackGuide.isBalanced(cap), "isBalanced agrees");
 		int thor = all.indexOf(HeroPackGuide.thorChapter());
 		helper.assertTrue("pending".equals(listedUnder.get(thor)), "Thor is not yet rebalanced");
+		int ironMan = -1;
+		for (int i = 0; i < all.size(); i++) {
+			if ("projecthero.guide.iron_man".equals(HeroPackGuide.titleKey(i))) {
+				ironMan = i;
+			}
+		}
+		helper.assertTrue(ironMan >= 0 && "in_progress".equals(listedUnder.get(ironMan)), "Iron Man is In progress (v0.17.7, user)");
 		int[] bc = HeroPackGuide.balancedCount();
 		helper.assertTrue(bc[0] == Rebalance.BALANCED.size() && bc[1] == powers, "balancedCount " + bc[0] + " / " + bc[1]);
 		boolean aka = false;

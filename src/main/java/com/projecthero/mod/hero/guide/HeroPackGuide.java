@@ -3134,11 +3134,25 @@ public final class HeroPackGuide {
 				}
 			}
 			blank(lines);
+			int inProgress = 0;
+			for (int ch : powers.keySet()) {
+				inProgress += Rebalance.isInProgress(titleKey(all.get(ch))) ? 1 : 0;
+			}
+			if (inProgress > 0) {
+				lines.add(Component.translatable("projecthero.guide.rebalance.in_progress").withStyle(s -> s.withColor(IN_PROGRESS_AMBER).withBold(true))
+						.append(Component.literal("  (" + inProgress + ")").withStyle(ChatFormatting.DARK_GRAY)));
+				for (int ch : powers.keySet()) {
+					if (Rebalance.isInProgress(titleKey(all.get(ch)))) {
+						lines.add(rebalanceLink(all, ch, "▶ ", IN_PROGRESS_AMBER, ChatFormatting.WHITE));
+					}
+				}
+				blank(lines);
+			}
 			lines.add(Component.translatable("projecthero.guide.rebalance.pending").withStyle(ChatFormatting.GRAY, ChatFormatting.BOLD)
-					.append(Component.literal("  (" + (powers.size() - balanced) + ")").withStyle(ChatFormatting.DARK_GRAY)));
+					.append(Component.literal("  (" + (powers.size() - balanced - inProgress) + ")").withStyle(ChatFormatting.DARK_GRAY)));
 			Category group = null;
 			for (var e : powers.entrySet()) {
-				if (Rebalance.isBalanced(titleKey(all.get(e.getKey())))) {
+				if (Rebalance.isBalanced(titleKey(all.get(e.getKey()))) || Rebalance.isInProgress(titleKey(all.get(e.getKey())))) {
 					continue;
 				}
 				if (e.getValue() != group) {
@@ -3152,6 +3166,8 @@ public final class HeroPackGuide {
 
 	/** The Balanced group's colour (its heading, ticks and the list pill). */
 	public static final int BALANCED_GREEN = 0x5FD068;
+	/** The In progress group's colour. */
+	public static final int IN_PROGRESS_AMBER = 0xF0B040;
 
 	/** One clickable Rebalance line: "  ✔ Super Soldier (Captain America)" -- the marker, the chapter's title, any second name. */
 	private static Component rebalanceLink(List<Chapter> all, int ch, String marker, int markerColour, ChatFormatting titleColour) {

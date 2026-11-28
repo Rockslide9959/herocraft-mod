@@ -17,6 +17,15 @@ public final class Rebalance {
 			"projecthero.guide.black_panther",
 			"projecthero.guide.super_soldier");
 
+	/** v0.17.7 (user: "add iron man to the revamp section, say that hes in progress"): powers being reworked right now. */
+	public static final Set<String> IN_PROGRESS = Set.of(
+			"projecthero.guide.iron_man");
+
+	/** Whether the power whose Guidebook chapter has this title key is being reworked right now (and not yet balanced). */
+	public static boolean isInProgress(String chapterKey) {
+		return chapterKey != null && IN_PROGRESS.contains(chapterKey) && !isBalanced(chapterKey);
+	}
+
 	/** A second name shown after a chapter's title in the Rebalance lists (lang keys), e.g. Super Soldier is Captain America. */
 	public static final Map<String, String> ALSO_KNOWN_AS = Map.of(
 			"projecthero.guide.super_soldier", "projecthero.guide.rebalance.aka.captain_america");

@@ -7984,6 +7984,7 @@
   "projecthero.guide.rebalance.hint": "Click a power to open its chapter.",
   "projecthero.guide.rebalance.balanced": "Balanced",
   "projecthero.guide.rebalance.pending": "Not yet rebalanced",
+  "projecthero.guide.rebalance.in_progress": "In progress",
   "projecthero.guide.rebalance.none": "No powers are balanced yet.",
   "projecthero.guide.rebalance.aka.captain_america": "Captain America",
   "projecthero.guide.ui.balanced_count": "%s of %s balanced",
