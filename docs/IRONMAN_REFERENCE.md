@@ -275,7 +275,42 @@ drains `damage × 18`.
 `IronManHud` (client) — shown only with the Tony Stark power **and** a valid Iron Man helmet worn.
 Removing the helmet drops the readout (unarmoured you get the CALL ARMOUR chip + the Phoenix timer).
 
-**v0.14.21 helmet-HUD redesign** (was ~20-28 stacked text lines from (6,24) that could reach the chat):
+**v0.17.7 -- concept "A · JARVIS visor (movie look)"** (the user's pick; current layout). Code: `IronManHud` (data, rows,
+pills, key column) + `IronManVisorHud` (drawing) + `IronManUiLayout.VISOR_*` (numbers).
+
+* **Visor** (faceplate closed, Mark II and up; `IronManVisorHud.visorArcs`): curved dark edges top and bottom (2 px at the
+  middle, ~1/7 of the screen in the corners, so the hotbar stays clear) with a faint cyan rim, thin cyan side arcs bowing in
+  at mid-height. Rims blink red while the suit is offline. Mark I keeps its heavier amber eye-slit band (`retroVisor`).
+* **Telemetry strip** (`telemetry`): ALT, heading (`HDG 274° W`) and SPD laid along a shallow arc across the top centre,
+  a thin cyan arc under them with a gold centre notch; the clock and X / Z are added on the outside only when the strip
+  still fits `visorArcMaxWidth` (min(320, screen - 2 x 108)). With boss bars on screen it drops under them
+  (`visorArcTop` = 19 x bars + 2). Not on Mark I.
+* **Reticle** (`reticle`): four short faint arcs round the crosshair + two side ticks. Target card (`IronManTargetScanner`)
+  unchanged beside the crosshair, its health bar now a Meter boss bar.
+* **Top-left block** (`topLeft`, from `HUD_X/HUD_Y` = 6,6; stays with the faceplate open): a 36 x 54 holographic frame
+  (scanlines, a slow sweep, floor ring, corner brackets) holding a **live paper doll** of the player (the inventory-screen
+  entity render, turned 28 degrees, fixed 1.8-block frame so crouch / flight poses don't zoom; the Hulkbuster is drawn as
+  its own body via `HulkbusterDisplay.preview`). Beside it: the suit's mark **bold** + its comic name dim ("**Mk VII**
+  Silver Centurion", the comic name ellipsized / dropped first), then the **Meter** rows `[bar] Integrity (82%)` and
+  `[bar] Reactor (64%)`: one bar length for both, up to 124 px (`VISOR_BAR_MAX`), at least 48 on one line, otherwise
+  (narrow screen / boss bar) the words go under the bar. Integrity cyan, amber under 60%, red under 30% (its value blinks
+  pale red under 35%); reactor gold (orange LOW POWER, blinking red BROWNOUT). Mark I: amber. Hulkbuster: a `Parts  HD TR
+  LA RA LL RL` line, each in its own health colour (broken: blinking red, struck through). Then a dim notes line (Hull x/y,
+  Power x/y, abs %, +regen / GANTRY / BOOST drain, at most two lines).
+* **Status pills** under the block (dark wash, coloured left edge, flowed with `flowChips`): CRITICAL, BROWNOUT / LOW POWER,
+  VISOR OPEN, HIGHLIGHT ON/OFF (+ Mark I timer), SCAN, the wheel binding, BLADES, MISSILES xN ready, PHOENIX mm:ss.
+* **Width rules**: the rows stop at screen/2 - 12 (no boss bar) or clear of the boss bars (screen/2 - 95) and the dropped
+  telemetry strip; the name line also stops short of the telemetry strip (its backing is stepped: narrow name line, wide
+  rows from `VISOR_ROWS_TOP` = 17 px down, under the strip's arc). The strip adds heading, then ALT + SPD, then clock + X / Z
+  only while it stays clear of the name (no boss) or the one-line rows (boss). On a screen too narrow for the block beside a
+  boss bar (e.g. 320 x 240) the block moves under the boss bars and the strip is left off. Everything else wraps / ellipsizes.
+  Screenshots: `docs/screenshots/v0177/ironman_hud/` (harness `scratchpad/IronManHudHarness.v0177.java.txt`).
+* **Bottom-right key column** unchanged in place (`VanillaHud.Stack`): the six keys, then every contextual bar as a Meter
+  with its words after it (`Stack.meterAfter`, one bar length 40-72 px for the column): Air, Heat, Sink, Flight, Overload /
+  Laser, Missiles (reload). INTEGRITY / REACTOR, the suit name and the tags moved top-left. The altitude warning and the
+  Left-Alt move list stay. `VanillaHud.secondaryOwnsHud()` still returns first.
+
+**v0.14.21 helmet-HUD redesign** (history -- superseded by the v0.17.3 column and the v0.17.7 visor above):
 
 * **Visor** — while the faceplate is *closed* (`IRON_MAN_FACEPLATE_OPEN` false): a faint edge vignette,
   thin cyan corner brackets (blink red while offline) and two tiny reticle ticks. Faceplate open = no

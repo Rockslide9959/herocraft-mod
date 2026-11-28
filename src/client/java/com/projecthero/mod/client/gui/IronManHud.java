@@ -37,17 +37,19 @@ import net.minecraft.world.phys.EntityHitResult;
  * The Iron Man helmet HUD (v0.14.21 redesign; spec sections 29 / 34, "changes 8" onwards).
  *
  * <ul>
- *   <li><b>Visor</b> -- while the faceplate is closed: a faint edge vignette + corner brackets (Mark I: a heavier
- *       eye-slit band in amber).</li>
- *   <li><b>Top-right</b> (v0.16.7 user redesign) -- one slim telemetry strip (ALT, SPD, X Y Z, clock / day).</li>
- *   <li><b>Top-left</b> -- the suit picture: a dial (segmented INTEGRITY / REACTOR rings) around a wireframe suit that
- *       reddens with damage (the Hulkbuster: its six parts).</li>
+ *   <li><b>Visor</b> (v0.17.7, user picked concept "A - JARVIS visor (movie look)") -- while the faceplate is closed: curved
+ *       dark visor edges top / bottom with a faint cyan rim, thin cyan side arcs, the curved telemetry strip across the top
+ *       (ALT, heading, SPD; clock and X / Z when they fit) and a minimal centre reticle ({@link IronManVisorHud}). Mark I: its
+ *       heavier amber eye-slit band.</li>
+ *   <li><b>Top-left</b> (v0.17.7 user) -- a live paper doll of the player in a holographic frame, the worn suit's name, Meter
+ *       bars "[bar] Integrity (82%)" / "[bar] Reactor (64%)", the Hulkbuster's six parts, dim notes (exact values, absorb,
+ *       regen), then the status pills (CRITICAL / BROWNOUT / LOW POWER, mob highlight, weapon-wheel binding, blades, entity
+ *       scan, missiles ready, Protocol Phoenix cooldown, VISOR OPEN). Stays with the faceplate open.</li>
  *   <li><b>Bottom-right</b> (v0.17.3, user: "I really like the Minecraft-style HUD and ability keybinds ... apply this to all
  *       the powers") -- the shared Minecraft-style column ({@link VanillaHud.Stack}): the six keys (R G Z X C V, read from
- *       the worn suit's {@code abilityInSlot()}, each with its item icon), the INTEGRITY / REACTOR gauges and the meters that
- *       matter right now (AIR, HEAT, HEAT SINK, FLIGHT burst, OVERLOAD, WRIST LASER, MISSILE reload), the suit's full name,
- *       the gauges' notes and the status chips as tags (mob highlight, weapon-wheel binding, blades, entity scan, missiles
- *       ready, Protocol Phoenix cooldown), the Mark II ceiling warning. Hold Left Alt for the move list.</li>
+ *       the worn suit's {@code abilityInSlot()}, each with its item icon) and the Meter bars that matter right now (AIR, HEAT,
+ *       HEAT SINK, FLIGHT burst, OVERLOAD, WRIST LASER, MISSILE reload) with their words after the bar, the Mark II ceiling
+ *       warning. Hold Left Alt for the move list.</li>
  *   <li><b>Target scanner</b> -- a holographic reticle on the target and a threat card beside the crosshair.</li>
  *   <li>Unarmoured Tony Stark: the CALL ARMOUR chip and the Phoenix timer.</li>
  * </ul>
@@ -141,24 +143,28 @@ public final class IronManHud {
 			com.projecthero.mod.client.ironman.IronManBattleDamage.renderVisorCracks(g, 0f, minimalHud);
 			return;
 		}
+		// v0.17.7 (user picked concept "A - JARVIS visor (movie look)"): curved visor edges, the curved telemetry strip across the
+		// top, a minimal centre reticle and the target card -- only while the faceplate is closed. Faceplate open: no visor, but
+		// the top-left block and the keys stay (it used to blank the whole HUD behind a "visor up" chip).
+		int bossBars = IronManVisorHud.bossBars(client);
 		if (visorClosed) {
-			visor(g, minimalHud, offline, now);
+			if (minimalHud) {
+				retroVisor(g); // Mark I keeps its heavier amber eye-slit band
+			} else {
+				IronManVisorHud.visorArcs(g, offline, now);
+			}
 			com.projecthero.mod.client.ironman.IronManBattleDamage.renderVisorCracks(g, integrityFrac, minimalHud); // v0.14.29 agent F
-		} else {
-			// v0.14.26: the HUD lives in the faceplate -- lift it and the display goes dark (just a reminder chip)
-			IronManGui.chip(g, font, x, IronManUiLayout.HUD_Y, w,
-					Component.translatable("hud.projecthero.ironman.hud_off_visor").getString(), IronManGui.TEXT_DIM);
-			return;
+			if (!minimalHud) {
+				IronManVisorHud.reticle(g, offline, now);
+			}
 		}
 
-		// v0.16.7 (user): the slim telemetry strip (ALT, SPD, X Y Z, clock / day) stays a helmet readout, top-right
-		if (!minimalHud) {
-			telemetryStrip(g, font, client, player);
+		// ---- top-left: the paper doll, the suit's name, "[bar] Integrity (82%)" / "[bar] Reactor (64%)", the notes, the pills
+		// (and the telemetry strip, which shares the top edge with it)
+		topLeft(g, font, client, player, state, suit, suitId, now, minimalHud, offline, visorClosed, integrity, maxIntegrity, bossBars);
+		if (visorClosed) {
+			boostTag(g, font, player, state, suit, now);
 		}
-		// v0.17.3: the dial + wireframe suit (Hulkbuster: its six parts) stay a visor readout, top-left; the suit's name,
-		// INTEGRITY, REACTOR and their notes moved to the Minecraft-style column below
-		suitDial(g, player, state, suit, now, minimalHud, integrity, maxIntegrity);
-		boostTag(g, font, player, state, suit, now);
 
 		// ---- the target scanner (Mark II+, visor closed): v0.16.7 (user) holographic reticle + threat card
 		boolean hbBlind = com.projecthero.mod.ironman.HulkbusterParts.SUIT_ID.equals(suit.id())
@@ -168,33 +174,18 @@ public final class IronManHud {
 			com.projecthero.mod.client.ironman.IronManTargetScanner.renderPanel(g, font, player, suit, delta.getGameTimeDeltaPartialTick(false));
 		}
 
-		column(g, font, player, state, suit, suitId, now, minimalHud, offline, integrity, maxIntegrity, overloaded);
+		column(g, font, player, state, suit, suitId, now, minimalHud, offline, overloaded);
 	}
 
 	/**
-	 * v0.17.3 (user: "I really like the Minecraft-style HUD and ability keybinds ... apply this to all the powers"): the
-	 * suit's corner block on the shared Minecraft-style column ({@link VanillaHud.Stack}), bottom-right:
-	 * <pre>
-	 *   Altitude warning / SYSTEMS FROZEN          warnings (wrapped)
-	 *   HIGHLIGHT ON  X: Unibeam  abs 40% ...      tags: the old status chips, the gauges' notes and exact values
-	 *   MK III CLASSIC                             title: the suit's full name
-	 *   MISSILES [Gauge ====--]  reload 4s         the contextual meters, only while relevant (AIR, HEAT, HEAT SINK, FLIGHT,
-	 *   FLIGHT   [Gauge ======]  12s               OVERLOAD / WRIST LASER, MISSILES reload) -- the user's Gauge style, as before
-	 *   REACTOR  [Gauge =======-]  84%             Era I / II
-	 *   INTEGRITY [Gauge =========]  96%
-	 *   +--+--+--+--+--+--+                        R G Z X C V: each move's item icon, the key in the cell's corner, cooldown
-	 *   |R |G |Z |X |C |V |                        sweep + seconds, the Shift move's cooldown on the durability bar, a running
-	 *   +--+--+--+--+--+--+                        toggle framed, greyed + red while the suit is offline
-	 * </pre>
-	 * Mark I keeps its stripped-down set (INTEGRITY, HEAT, its mob-highlight timer) in amber.
+	 * v0.17.7 (user: "have the integrity and reactor on the top left also with which armour is being worn, have those bars be
+	 * meter style bars, make them slightly long and also tell the player what it is after the bar ... have a paper doll view
+	 * of the player in the top left aswell"): builds the block's rows, notes and pills and hands them to
+	 * {@link IronManVisorHud#topLeft}.
 	 */
-	private static void column(GuiGraphics g, Font font, Player player, TonyStarkState state, IronManSuit suit, String suitId, long now,
-			boolean retro, boolean offline, float integrity, float maxIntegrity, boolean overloaded) {
-		int accent = retro ? IronManGui.AMBER : IronManGui.CYAN;
-		VanillaHud.Stack s = VanillaHud.Stack.bottomRight(g, 6).keys(6);
-		List<MoveListOverlay.Row> rows = keys(s, font, player, state, suit, suitId, now, retro, offline);
-
-		// ---- INTEGRITY and (Era I / II) REACTOR
+	private static void topLeft(GuiGraphics g, Font font, Minecraft client, Player player, TonyStarkState state, IronManSuit suit, String suitId,
+			long now, boolean retro, boolean offline, boolean visorClosed, float integrity, float maxIntegrity, int bossBars) {
+		int label = retro ? IronManGui.AMBER : IronManGui.TEXT;
 		boolean reactor = suit.hasReactor();
 		float iFrac = IronManUiLayout.clamp01(integrity / Math.max(1f, maxIntegrity));
 		float cap = Math.max(1f, suit.energyCapacity());
@@ -204,106 +195,55 @@ public final class IronManHud {
 		boolean low = reactor && !brownout && eFrac < IronManEnergy.LOW_POWER;
 		boolean critical = iFrac < 0.35f;
 		boolean blink = (now % 20) < 12;
-		int iFill = retro ? IronManGui.AMBER : iFrac < 0.3f ? IronManGui.RED : iFrac < 0.6f ? IronManGui.ORANGE : HOLO_FILL;
-		int eFill = brownout ? ((now / 6) % 2 == 0 ? IronManGui.RED : 0xFF601010) : low ? IronManGui.ORANGE : retro ? IronManGui.AMBER : REACTOR_FILL;
-		s.meter(Component.translatable("hud.projecthero.vanilla.ironman.integrity"), iFrac, iFill, pctText(iFrac),
-				critical && blink ? VanillaHud.RED : retro ? IronManGui.AMBER : VanillaHud.WHITE, MutationMeters.Style.GAUGE);
+
+		List<IronManVisorHud.Row> rows = new ArrayList<>();
+		int iColour = IronManVisorHud.integrityColour(iFrac, retro);
+		rows.add(new IronManVisorHud.Row(Component.translatable("hud.projecthero.vanilla.ironman.integrity"), pctText(iFrac), iFrac, iColour,
+				label, critical && !blink ? 0xFFFF9090 : iColour));
 		if (reactor) {
-			s.meter(Component.translatable("hud.projecthero.vanilla.ironman.reactor"), eFrac, eFill, pctText(eFrac),
-					brownout ? VanillaHud.RED : retro ? IronManGui.AMBER : VanillaHud.WHITE, MutationMeters.Style.GAUGE);
+			int eColour = brownout ? ((now / 6) % 2 == 0 ? IronManGui.RED : 0xFF601010) : low ? IronManGui.ORANGE
+					: retro ? IronManGui.AMBER : IronManGui.GOLD;
+			rows.add(new IronManVisorHud.Row(Component.translatable("hud.projecthero.vanilla.ironman.reactor"), pctText(eFrac), eFrac, eColour,
+					label, brownout ? IronManGui.RED : eColour));
 		}
 
-		// ---- contextual meters, only while relevant
-		if (!retro && suit.airTankSeconds() > 0 && state.suitAir < 0.999f) {
-			float airFrac = IronManUiLayout.clamp01(state.suitAir);
-			s.meter(Component.translatable("hud.projecthero.vanilla.ironman.air"), airFrac, airFrac < 0.25f ? IronManGui.RED : 0xFF5BC8FF,
-					Math.round(airFrac * suit.airTankSeconds()) + "s", VanillaHud.WHITE, MutationMeters.Style.GAUGE);
-		}
-		float maxHeat = IronManAbilities.flamethrowerMaxHeat(suit);
-		if ((hasAbility(suit, IronManAbilities.FLAMETHROWER) || suit.hasWeaponWheel() || com.projecthero.mod.ironman.ability.IronManMark6.isKitSuit(suitId)) // v0.15.4
-				&& state.flamethrowerHeat > 0.5f) {
-			float heatFrac = IronManUiLayout.clamp01(state.flamethrowerHeat / maxHeat);
-			s.meter(Component.translatable("hud.projecthero.vanilla.ironman.heat"), heatFrac, heatFrac > 0.8f ? IronManGui.RED : 0xFFFFA23C,
-					IronManUiLayout.pct(heatFrac) + " " + IronManUiLayout.amount(state.flamethrowerHeat, maxHeat),
-					retro ? IronManGui.AMBER : VanillaHud.WHITE, MutationMeters.Style.GAUGE);
-		}
-		// v0.16.7 (user) Era II stage 3: the Mk IX Inferno's heat sink -- always shown while it is worn (HOT from 50, FULL at 100)
-		if (com.projecthero.mod.ironman.ability.IronManMark9.SUIT.equals(suitId)) {
-			float sink = com.projecthero.mod.ironman.ability.IronManMark9.syncedHeat(player);
-			float sinkFrac = IronManUiLayout.clamp01(sink / com.projecthero.mod.ironman.ability.IronManMark9.HEAT_MAX);
-			String sinkValue = Math.round(sink) + "%"; // whole points: the sink is a 0-100 gauge
-			if (sink >= com.projecthero.mod.ironman.ability.IronManMark9.HEAT_MAX - 0.5f) {
-				sinkValue += " " + Component.translatable("hud.projecthero.ironman.heat_sink.full").getString();
-			} else if (sink >= com.projecthero.mod.ironman.ability.IronManMark9.HOT) {
-				sinkValue += " " + Component.translatable("hud.projecthero.ironman.heat_sink.hot").getString();
-			}
-			s.meter(Component.translatable("hud.projecthero.vanilla.ironman.heat_sink"), sinkFrac,
-					sink >= com.projecthero.mod.ironman.ability.IronManMark9.HEAT_MAX - 0.5f ? IronManGui.RED
-							: sink >= com.projecthero.mod.ironman.ability.IronManMark9.HOT ? 0xFFFF6A1A : 0xFFFFA23C,
-					sinkValue, VanillaHud.WHITE, MutationMeters.Style.GAUGE);
-		}
-		if (!retro && state.timedFlightUntil > now) {
-			long left = state.timedFlightUntil - now;
-			s.meter(Component.translatable("hud.projecthero.vanilla.ironman.flight"), left / (float) IronManAbilities.TIMED_FLIGHT_TICKS,
-					IronManGui.BLUE, IronManUiLayout.secs(left), VanillaHud.WHITE, MutationMeters.Style.GAUGE);
-		}
-		if (!retro && overloaded) {
-			long left = state.overloadUntil - now;
-			s.meter(Component.translatable("hud.projecthero.vanilla.ironman.overload"), left / (float) IronManAbilities.OVERLOAD_TICKS,
-					IronManGui.RED, IronManUiLayout.secs(left), VanillaHud.RED, MutationMeters.Style.GAUGE);
-		} else if (!retro && state.wristLaserUntil > now) {
-			long left = state.wristLaserUntil - now;
-			s.meter(Component.translatable("hud.projecthero.vanilla.ironman.wrist_laser"), left / (float) IronManAbilities.WRIST_LASER_TICKS,
-					0xFFFF3344, IronManUiLayout.secs(left), VanillaHud.WHITE, MutationMeters.Style.GAUGE);
-		}
-		boolean missilesReady = true;
-		if (!retro && suit.missileCount() > 0 && !com.projecthero.mod.ironman.ability.IronManMark3.isKitSuit(suitId)
-				&& !com.projecthero.mod.ironman.ability.IronManMark6.isKitSuit(suitId)) {
-			String key = suitId + "/" + IronManAbilities.MICRO_MISSILES;
-			Long readyAt = state.abilityReadyAt.get(key);
-			long left = readyAt == null ? 0 : readyAt - now;
-			if (left > 0) {
-				missilesReady = false;
-				s.meter(Component.translatable("hud.projecthero.vanilla.ironman.missiles"), 1f - cooldownFrac(key, readyAt, now), IronManGui.GOLD,
-						Component.translatable("hud.projecthero.ironman.reload", IronManUiLayout.secs(left)).getString(), VanillaHud.WHITE,
-						MutationMeters.Style.GAUGE);
-			}
-		}
-
-		// ---- the title: the suit's full name ("MK III CLASSIC")
-		String name = (Component.translatable(suit.nameKey()).getString() + " "
-				+ Component.translatable(suit.displayKey()).getString()).toUpperCase(java.util.Locale.ROOT);
-		s.wrapped(Component.literal(name), accent); // long comic names ("MK VII SILVER CENTURION") wrap rather than cut short
-
-		// ---- tags: the gauges' notes and exact values, then the old status chips
-		List<VanillaHud.Tag> tags = new ArrayList<>();
-		if (critical && !offline && !retro) {
-			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.ironman.status.critical").getString(),
-					blink ? VanillaHud.RED : 0xFFFF9090));
-		} else {
-			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.ironman.status.absorb", Math.round(suit.absorbShare() * 100f))
-					.getString(), VanillaHud.GREY));
-		}
-		tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.vanilla.ironman.integrity_exact", Math.round(integrity),
-				Math.round(maxIntegrity)).getString(), retro ? IronManGui.AMBER : VanillaHud.WHITE));
+		// ---- notes: exact values, the absorb share, the reactor's regen
+		List<VanillaHud.Tag> notes = new ArrayList<>();
+		int dim = retro ? IronManGui.AMBER_DIM : IronManGui.TEXT_DIM;
+		notes.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.vanilla.ironman.integrity_exact", Math.round(integrity),
+				Math.round(maxIntegrity)).getString(), dim));
 		if (reactor) {
-			tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.vanilla.ironman.reactor_exact", Math.round(en), Math.round(cap))
-					.getString(), retro ? IronManGui.AMBER : VanillaHud.WHITE));
-			if (brownout) {
-				tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.ironman.status.brownout").getString(),
-						(now / 10) % 2 == 0 ? VanillaHud.RED : 0xFFFF9090));
-			} else if (low) {
-				tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.ironman.status.low_power").getString(), VanillaHud.GOLD));
-			} else if (com.projecthero.mod.ironman.ability.IronManSpaceBoost.boosting(player)) {
-				// v0.16.7 (user): the Mk VIII Flight Boost drinks the reactor at 2.5x
-				tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.ironman.status.boost_drain").getString(), VanillaHud.GOLD));
+			notes.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.vanilla.ironman.reactor_exact", Math.round(en), Math.round(cap))
+					.getString(), dim));
+		}
+		notes.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.ironman.status.absorb", Math.round(suit.absorbShare() * 100f))
+				.getString(), dim));
+		if (reactor && !brownout && !low) {
+			if (com.projecthero.mod.ironman.ability.IronManSpaceBoost.boosting(player)) {
+				notes.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.ironman.status.boost_drain").getString(), IronManGui.GOLD));
 			} else if (gantryCached(player, now)) {
-				tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.ironman.status.gantry",
-						Math.round(IronManEnergy.GANTRY_CHARGE_PER_SECOND)).getString(), VanillaHud.GREEN));
+				notes.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.ironman.status.gantry",
+						Math.round(IronManEnergy.GANTRY_CHARGE_PER_SECOND)).getString(), IronManGui.GREEN));
 			} else {
-				tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.ironman.status.regen", fmt1(suit.energyRegenPerSecond()))
-						.getString(), VanillaHud.GREY));
+				notes.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.ironman.status.regen", fmt1(suit.energyRegenPerSecond()))
+						.getString(), dim));
 			}
+		}
+
+		// ---- the status pills (the old chips)
+		List<VanillaHud.Tag> pills = new ArrayList<>();
+		if (critical && !offline) {
+			pills.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.ironman.status.critical").getString(),
+					blink ? IronManGui.RED : 0xFFFF9090));
+		}
+		if (brownout) {
+			pills.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.ironman.status.brownout").getString(),
+					(now / 10) % 2 == 0 ? IronManGui.RED : 0xFFFF9090));
+		} else if (low) {
+			pills.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.ironman.status.low_power").getString(), IronManGui.GOLD));
+		}
+		if (!visorClosed) {
+			pills.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.ironman.chip.visor_open").getString(), IronManGui.TEXT_DIM));
 		}
 		if (hasAbility(suit, IronManAbilities.MOB_HIGHLIGHT_TOGGLE)) {
 			boolean on = player.getAttachedOrElse(ModAttachments.IRON_MAN_HIGHLIGHT_ON, false); // v0.15.4: wearer-only sync
@@ -315,32 +255,144 @@ public final class IronManHud {
 					t += " " + IronManUiLayout.secs(until - now);
 				}
 			}
-			tags.add(new VanillaHud.Tag(t, on ? (retro ? IronManGui.AMBER : VanillaHud.GREEN) : VanillaHud.GREY));
+			pills.add(new VanillaHud.Tag(t, on ? (retro ? IronManGui.AMBER : IronManGui.GREEN) : IronManGui.TEXT_DIM));
 		}
 		if (!retro) {
 			if (suit.passiveHighlightRange() > 0.0) {
-				tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.ironman.chip.scan", (int) suit.passiveHighlightRange()).getString(),
-						VanillaHud.GREY));
+				pills.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.ironman.chip.scan", (int) suit.passiveHighlightRange()).getString(),
+						IronManGui.TEXT_DIM));
 			}
 			if (suit.hasWeaponWheel()) {
-				tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.ironman.chip.wheel",
-						Component.translatable("hud.projecthero.ironman.ability." + state.weaponWheelChoice)).getString(), VanillaHud.GOLD));
+				pills.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.ironman.chip.wheel",
+						Component.translatable("hud.projecthero.ironman.ability." + state.weaponWheelChoice)).getString(), IronManGui.GOLD));
 			}
 			if (player.getAttachedOrElse(ModAttachments.IRON_MAN_BLADES, false)) {
-				tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.ironman.chip.blades").getString(), accent));
+				pills.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.ironman.chip.blades").getString(), IronManGui.CYAN));
 			}
 			if (suit.missileCount() > 0 && !com.projecthero.mod.ironman.ability.IronManMark3.isKitSuit(suitId)
-					&& !com.projecthero.mod.ironman.ability.IronManMark6.isKitSuit(suitId) && missilesReady) {
-				tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.ironman.missiles", suit.missileCount()).getString(),
-						VanillaHud.GOLD));
+					&& !com.projecthero.mod.ironman.ability.IronManMark6.isKitSuit(suitId)) {
+				Long readyAt = state.abilityReadyAt.get(suitId + "/" + IronManAbilities.MICRO_MISSILES);
+				if (readyAt == null || readyAt <= now) {
+					pills.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.ironman.missiles", suit.missileCount()).getString(),
+							IronManGui.GOLD));
+				}
 			}
 			long phoenixIn = state.phoenixReadyAt - now;
 			if (phoenixIn > 0 && com.projecthero.mod.ironman.gear.StarkGear.phoenixArmed(player)) { // v0.15.7: glasses only
-				tags.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.ironman.phoenix_cooldown",
-						IronManUiLayout.mmss(phoenixIn)).getString(), VanillaHud.GOLD));
+				pills.add(new VanillaHud.Tag(Component.translatable("hud.projecthero.ironman.phoenix_cooldown",
+						IronManUiLayout.mmss(phoenixIn)).getString(), IronManGui.GOLD));
 			}
 		}
-		s.tags(tags);
+
+		boolean hulkbuster = com.projecthero.mod.ironman.HulkbusterParts.SUIT_ID.equals(suit.id());
+		float[] parts = hulkbuster ? com.projecthero.mod.ironman.HulkbusterParts.of(player) : null;
+		Component name = Component.translatable(suit.nameKey());
+
+		// ---- sharing the top edge: the telemetry strip (visor closed, Mark II+) keeps clear of the block, and on a screen too
+		// narrow for the block beside the boss bars the block moves down under them (the strip is then left off)
+		int sw = g.guiWidth();
+		int infoX = IronManUiLayout.HUD_X + IronManUiLayout.VISOR_DOLL_W + IronManUiLayout.VISOR_GAP;
+		int textW = IronManVisorHud.rowsTextWidth(font, rows);
+		int oneLine = IronManUiLayout.VISOR_BAR_MIN + 4 + textW;
+		boolean moved = bossBars > 0 && sw / 2 - 95 - infoX < oneLine;
+		int y0 = moved ? 19 * bossBars + 4 : IronManUiLayout.HUD_Y;
+		int arcHalf = 0;
+		if (visorClosed && !retro && !moved) {
+			int keepLeft = bossBars > 0 ? infoX + oneLine + 6
+					: infoX + font.width(name.copy().withStyle(net.minecraft.ChatFormatting.BOLD)) + 8;
+			arcHalf = IronManVisorHud.telemetry(g, font, client, player, bossBars, keepLeft);
+		}
+		IronManVisorHud.topLeft(g, font, player, retro, hulkbuster, name, Component.translatable(suit.displayKey()), rows, parts, notes, pills,
+				moved ? 0 : bossBars, arcHalf, y0, now);
+	}
+
+	/**
+	 * v0.17.3 (user: "I really like the Minecraft-style HUD and ability keybinds ... apply this to all the powers"): the
+	 * suit's corner block on the shared Minecraft-style column ({@link VanillaHud.Stack}), bottom-right. v0.17.7 (user:
+	 * "Keep the ability Keys at the bottom right ... change out the bars for meter style bars"): every bar is a Meter with its
+	 * words after it; INTEGRITY / REACTOR, the suit's name and the status tags moved to the top-left block.
+	 * <pre>
+	 *   Altitude warning / SYSTEMS FROZEN          warnings (wrapped)
+	 *   [Meter ====--] Missiles (4s)               the contextual meters, only while relevant (AIR, HEAT, HEAT SINK,
+	 *   [Meter ======] Flight (12s)                FLIGHT, OVERLOAD / WRIST LASER, MISSILES reload), one bar length for all
+	 *   +--+--+--+--+--+--+                        R G Z X C V: each move's item icon, the key in the cell's corner, cooldown
+	 *   |R |G |Z |X |C |V |                        sweep + seconds, the Shift move's cooldown on the durability bar, a running
+	 *   +--+--+--+--+--+--+                        toggle framed, greyed + red while the suit is offline
+	 * </pre>
+	 * Mark I keeps its stripped-down set (HEAT) in amber.
+	 */
+	private static void column(GuiGraphics g, Font font, Player player, TonyStarkState state, IronManSuit suit, String suitId, long now,
+			boolean retro, boolean offline, boolean overloaded) {
+		VanillaHud.Stack s = VanillaHud.Stack.bottomRight(g, 6).keys(6);
+		List<MoveListOverlay.Row> rows = keys(s, font, player, state, suit, suitId, now, retro, offline);
+		int label = retro ? IronManGui.AMBER : VanillaHud.WHITE;
+
+		// ---- contextual meters, only while relevant
+		List<IronManVisorHud.Row> meters = new ArrayList<>();
+		if (!retro && suit.airTankSeconds() > 0 && state.suitAir < 0.999f) {
+			float airFrac = IronManUiLayout.clamp01(state.suitAir);
+			int c = airFrac < 0.25f ? IronManGui.RED : 0xFF5BC8FF;
+			meters.add(new IronManVisorHud.Row(Component.translatable("hud.projecthero.vanilla.ironman.air"),
+					Math.round(airFrac * suit.airTankSeconds()) + "s", airFrac, c, label, c));
+		}
+		float maxHeat = IronManAbilities.flamethrowerMaxHeat(suit);
+		if ((hasAbility(suit, IronManAbilities.FLAMETHROWER) || suit.hasWeaponWheel() || com.projecthero.mod.ironman.ability.IronManMark6.isKitSuit(suitId)) // v0.15.4
+				&& state.flamethrowerHeat > 0.5f) {
+			float heatFrac = IronManUiLayout.clamp01(state.flamethrowerHeat / maxHeat);
+			int c = heatFrac > 0.8f ? IronManGui.RED : 0xFFFFA23C;
+			meters.add(new IronManVisorHud.Row(Component.translatable("hud.projecthero.vanilla.ironman.heat"), pctText(heatFrac), heatFrac, c,
+					label, retro ? IronManGui.AMBER : c));
+		}
+		// v0.16.7 (user) Era II stage 3: the Mk IX Inferno's heat sink -- always shown while it is worn (HOT from 50, FULL at 100)
+		if (com.projecthero.mod.ironman.ability.IronManMark9.SUIT.equals(suitId)) {
+			float sink = com.projecthero.mod.ironman.ability.IronManMark9.syncedHeat(player);
+			float sinkFrac = IronManUiLayout.clamp01(sink / com.projecthero.mod.ironman.ability.IronManMark9.HEAT_MAX);
+			boolean full = sink >= com.projecthero.mod.ironman.ability.IronManMark9.HEAT_MAX - 0.5f;
+			boolean hot = sink >= com.projecthero.mod.ironman.ability.IronManMark9.HOT;
+			String sinkValue = Math.round(sink) + "%"; // whole points: the sink is a 0-100 gauge
+			if (full) {
+				sinkValue += " " + Component.translatable("hud.projecthero.ironman.heat_sink.full").getString();
+			} else if (hot) {
+				sinkValue += " " + Component.translatable("hud.projecthero.ironman.heat_sink.hot").getString();
+			}
+			int c = full ? IronManGui.RED : hot ? 0xFFFF6A1A : 0xFFFFA23C;
+			meters.add(new IronManVisorHud.Row(Component.translatable("hud.projecthero.vanilla.ironman.heat_sink"), sinkValue, sinkFrac, c,
+					label, c));
+		}
+		if (!retro && state.timedFlightUntil > now) {
+			long left = state.timedFlightUntil - now;
+			meters.add(new IronManVisorHud.Row(Component.translatable("hud.projecthero.vanilla.ironman.flight"), IronManUiLayout.secs(left),
+					left / (float) IronManAbilities.TIMED_FLIGHT_TICKS, IronManGui.BLUE, label, IronManGui.BLUE));
+		}
+		if (!retro && overloaded) {
+			long left = state.overloadUntil - now;
+			meters.add(new IronManVisorHud.Row(Component.translatable("hud.projecthero.vanilla.ironman.overload"), IronManUiLayout.secs(left),
+					left / (float) IronManAbilities.OVERLOAD_TICKS, IronManGui.RED, VanillaHud.RED, IronManGui.RED));
+		} else if (!retro && state.wristLaserUntil > now) {
+			long left = state.wristLaserUntil - now;
+			meters.add(new IronManVisorHud.Row(Component.translatable("hud.projecthero.vanilla.ironman.wrist_laser"), IronManUiLayout.secs(left),
+					left / (float) IronManAbilities.WRIST_LASER_TICKS, 0xFFFF3344, label, 0xFFFF6070));
+		}
+		if (!retro && suit.missileCount() > 0 && !com.projecthero.mod.ironman.ability.IronManMark3.isKitSuit(suitId)
+				&& !com.projecthero.mod.ironman.ability.IronManMark6.isKitSuit(suitId)) {
+			String key = suitId + "/" + IronManAbilities.MICRO_MISSILES;
+			Long readyAt = state.abilityReadyAt.get(key);
+			long left = readyAt == null ? 0 : readyAt - now;
+			if (left > 0) {
+				meters.add(new IronManVisorHud.Row(Component.translatable("hud.projecthero.vanilla.ironman.missiles"), IronManUiLayout.secs(left),
+						1f - cooldownFrac(key, readyAt, now), IronManGui.GOLD, label, IronManGui.GOLD));
+			}
+		}
+		// one bar length for the whole column (the words line up), as long as the longest "Label (value)" allows
+		int textW = 0;
+		for (IronManVisorHud.Row r : meters) {
+			String v = r.value() == null || r.value().isEmpty() ? "" : " (" + r.value() + ")";
+			textW = Math.max(textW, font.width(r.label()) + font.width(v));
+		}
+		int barW = Math.max(COLUMN_BAR_MIN, Math.min(COLUMN_BAR_MAX, s.width - textW - 4));
+		for (IronManVisorHud.Row r : meters) {
+			s.meterAfter(barW, r.label(), r.value(), r.frac(), r.colour(), r.labelColour(), r.valueColour());
+		}
 
 		// ---- warnings (wrapped to the column width; nothing may run off the side)
 		if (!retro && suit.altitudeCeiling() > 0.0) {
@@ -351,125 +403,17 @@ public final class IronManHud {
 				s.wrapped(Component.translatable("hud.projecthero.ironman.altitude_warning", (int) ceiling), VanillaHud.GOLD);
 			}
 		}
-		// v0.16.7 (user): no SUIT CRITICAL banner / SUIT OFFLINE line -- the INTEGRITY value blinks CRITICAL and the keys
-		// grey out (red wash) while the suit is offline
+		// v0.16.7 (user): no SUIT CRITICAL banner / SUIT OFFLINE line -- the top-left Integrity value blinks, a CRITICAL pill
+		// shows, and the keys grey out (red wash) while the suit is offline
 
 		if (MoveListOverlay.held()) {
 			s.moveList(rows); // v0.16.6: the shared move list
 		}
 	}
 
-	// ------------------------------------------------------------------ v0.16.7 (user) top-left telemetry strip
-
-	/**
-	 * The slim telemetry strip: ALT, SPD, X Y Z and the clock / day, segments separated by thin dividers, on one line --
-	 * wrapping onto more only when the screen is too narrow (it never runs into the status block). Returns the y under it.
-	 */
-	private static int telemetryStrip(GuiGraphics g, Font font, Minecraft client, Player player) {
-		if (client.level == null) {
-			return IronManUiLayout.HUD_Y;
-		}
-		double speed = player.getDeltaMovement().horizontalDistance() * 20.0;
-		long dayTime = client.level.getDayTime();
-		long tod = ((dayTime + 6000L) % 24000L + 24000L) % 24000L;
-		List<Component> segs = new ArrayList<>();
-		segs.add(seg("hud.projecthero.ironman.strip.alt", (int) Math.round(player.getY())));
-		segs.add(seg("hud.projecthero.ironman.strip.spd", (int) Math.round(speed)));
-		segs.add(seg("hud.projecthero.ironman.strip.pos", (int) Math.floor(player.getX()), (int) Math.floor(player.getY()),
-				(int) Math.floor(player.getZ())));
-		segs.add(seg("hud.projecthero.ironman.strip.clock",
-				String.format(java.util.Locale.ROOT, "%02d:%02d", tod / 1000L, (tod % 1000L) * 60L / 1000L), dayTime / 24000L + 1L));
-		int maxW = IronManUiLayout.stripMaxWidth(g.guiWidth()) - 10;
-		int[] widths = new int[segs.size()];
-		for (int i = 0; i < widths.length; i++) {
-			widths[i] = Math.min(maxW, font.width(segs.get(i)));
-		}
-		int sep = 11;
-		int[] line = IronManUiLayout.flowSegments(widths, sep, maxW);
-		int lines = line[line.length - 1] + 1;
-		int[] lineW = new int[lines];
-		for (int i = 0; i < widths.length; i++) {
-			lineW[line[i]] += (lineW[line[i]] > 0 ? sep : 0) + widths[i];
-		}
-		int innerW = 0;
-		for (int lw : lineW) {
-			innerW = Math.max(innerW, lw);
-		}
-		int h = lines * 10 + 5;
-		int bw = innerW + 10;
-		int x0 = g.guiWidth() - IronManUiLayout.HUD_X - bw; // v0.16.7 (user): top-right (the status block is top-left now)
-		int y0 = IronManUiLayout.HUD_Y;
-		g.fill(x0, y0, x0 + bw, y0 + h, 0x8C050B12);
-		g.renderOutline(x0, y0, bw, h, IronManGui.alpha(IronManGui.CYAN_DIM, 0.55f));
-		g.fill(x0, y0, x0 + 2, y0 + h, IronManGui.alpha(IronManGui.CYAN, 0.9f)); // the brighter left accent edge
-		g.fill(x0 + bw - 5, y0 - 1, x0 + bw - 1, y0, IronManGui.alpha(IronManGui.RED, 0.8f)); // a small red tick
-		int cx = x0 + 6;
-		int curLine = 0;
-		for (int i = 0; i < segs.size(); i++) {
-			if (line[i] != curLine) {
-				curLine = line[i];
-				cx = x0 + 6;
-			} else if (cx > x0 + 6) {
-				g.fill(cx + 5, y0 + 4 + curLine * 10, cx + 6, y0 + 10 + curLine * 10, IronManGui.alpha(IronManGui.CYAN_DIM, 0.8f));
-				cx += sep;
-			}
-			g.drawString(font, IronManGui.fit(font, segs.get(i), maxW), cx, y0 + 3 + curLine * 10, IronManGui.TEXT_DIM, false);
-			cx += widths[i];
-		}
-		return y0 + h + 4;
-	}
-
-	/** One strip segment: the label dim, the numbers bright. */
-	private static Component seg(String key, Object... args) {
-		Object[] bright = new Object[args.length];
-		for (int i = 0; i < args.length; i++) {
-			bright[i] = Component.literal(String.valueOf(args[i])).withStyle(s -> s.withColor(IronManGui.TEXT & 0xFFFFFF));
-		}
-		return Component.translatable(key, bright).withStyle(s -> s.withColor(IronManGui.CYAN_DIM & 0xFFFFFF));
-	}
-
-	// ------------------------------------------------------------------ v0.16.7 (user) top-right suit status
-
-	/** Pale holographic blue for the wireframe, and the healthy integrity fill. */
-	private static final int HOLO = 0xFFA9DDF2;
-	private static final int HOLO_FILL = 0xFFBFEFFF;
-	private static final int REACTOR_FILL = 0xFF4FE0FF;
-
-	/**
-	 * v0.16.7 (user) top-left suit picture, kept as a visor readout in v0.17.3 (the gauges, name and notes moved to the
-	 * Minecraft-style column): a dial (an outer segmented ring for INTEGRITY, an inner one for the REACTOR, small red ticks)
-	 * around a wireframe suit whose parts turn red as the hull is damaged (the Hulkbuster: each of its six parts by its own
-	 * health), in a small holographic frame. Mark I keeps its amber retro look.
-	 */
-	private static void suitDial(GuiGraphics g, Player player, TonyStarkState state, IronManSuit suit, long now, boolean retro,
-			float integrity, float maxIntegrity) {
-		boolean reactor = suit.hasReactor(); // v0.16.7 (user): Era I and Era II
-		int size = IronManUiLayout.STATUS_DIAL + 2 * IronManUiLayout.STATUS_PAD + 4;
-		int bx = IronManUiLayout.STATUS_MARGIN;
-		int by = IronManUiLayout.STATUS_MARGIN;
-		int line = retro ? IronManGui.AMBER : IronManGui.CYAN;
-		int lineDim = retro ? IronManGui.AMBER_DIM : IronManGui.CYAN_DIM;
-		g.fill(bx, by, bx + size, by + size, retro ? 0xA0140C04 : 0xA0040C14);
-		g.renderOutline(bx, by, size, size, IronManGui.alpha(lineDim, 0.45f));
-		IronManGui.brackets(g, bx, by, size, size, 6, IronManGui.alpha(line, 0.85f));
-		float iFrac = IronManUiLayout.clamp01(integrity / Math.max(1f, maxIntegrity));
-		float cap = Math.max(1f, suit.energyCapacity());
-		float en = reactor ? Math.max(0f, Math.min(cap, state.suitEnergy.getOrDefault(suit.id(), cap))) : 0f;
-		float eFrac = en / cap;
-		boolean brownout = state.brownout.contains(suit.id());
-		boolean low = reactor && !brownout && eFrac < IronManEnergy.LOW_POWER;
-		int iFill = retro ? IronManGui.AMBER : iFrac < 0.3f ? IronManGui.RED : iFrac < 0.6f ? IronManGui.ORANGE : HOLO_FILL;
-		int eFill = brownout ? ((now / 6) % 2 == 0 ? IronManGui.RED : 0xFF601010) : low ? IronManGui.ORANGE : retro ? IronManGui.AMBER : REACTOR_FILL;
-		float dcx = bx + size / 2f;
-		float dcy = by + size / 2f;
-		dial(g, dcx, dcy, iFrac, iFill, reactor ? eFrac : -1f, eFill, line, lineDim);
-		if (com.projecthero.mod.ironman.HulkbusterParts.SUIT_ID.equals(suit.id())) {
-			// v0.16.7 (user) Veronica: the Hulkbuster's six parts, each coloured by its own health (broken = red, crossed)
-			hulkbusterSilhouette(g, Math.round(dcx) - 6, Math.round(dcy) - 11, com.projecthero.mod.ironman.HulkbusterParts.of(player), now);
-		} else {
-			silhouette(g, Math.round(dcx) - 5, Math.round(dcy) - 10, iFrac, now, retro);
-		}
-	}
+	/** v0.17.7: the bottom-right column's Meter bars -- 40 to 72 px, the words after them. */
+	private static final int COLUMN_BAR_MIN = 40;
+	private static final int COLUMN_BAR_MAX = 72;
 
 	/**
 	 * v0.16.7 (user): the Mk VIII Flight Boost tag, centred under the crosshair -- "BOOST x2" pulsing orange-white while it
@@ -498,104 +442,6 @@ public final class IronManHud {
 		g.fill(x + 5, y + 5, x + 6, y + 8, chev);
 		int text = on ? (pulse < 5 ? 0xFFFFF2E0 : 0xFFFFB060) : IronManGui.TEXT_DIM;
 		g.drawString(font, tag, x + 9, y + 3, text, true);
-	}
-
-	/** The dial: an outer segmented ring (integrity), an optional inner one (reactor), four small red ticks. */
-	private static void dial(GuiGraphics g, float cx, float cy, float iFrac, int iFill, float eFrac, int eFill, int line, int lineDim) {
-		var vc = IronManGui.guiBuffer(g);
-		var m = g.pose().last().pose();
-		int segs = 30;
-		double step = Math.PI * 2 / segs;
-		int lit = (int) Math.ceil(iFrac * segs - 1e-4);
-		for (int k = 0; k < segs; k++) {
-			double a0 = -Math.PI / 2 + k * step + 0.03;
-			double a1 = a0 + step - 0.06;
-			IronManGui.sector(vc, m, cx, cy, 15.5f, 17.5f, a0, a1, k < lit ? IronManGui.alpha(iFill, 0.95f) : IronManGui.alpha(lineDim, 0.3f));
-		}
-		if (eFrac >= 0f) {
-			int esegs = 20;
-			double es = Math.PI * 2 / esegs;
-			int elit = (int) Math.ceil(eFrac * esegs - 1e-4);
-			for (int k = 0; k < esegs; k++) {
-				double a0 = -Math.PI / 2 + k * es + 0.04;
-				double a1 = a0 + es - 0.08;
-				IronManGui.sector(vc, m, cx, cy, 12.5f, 13.8f, a0, a1, k < elit ? IronManGui.alpha(eFill, 0.9f) : IronManGui.alpha(lineDim, 0.25f));
-			}
-		}
-		for (int k = 0; k < 4; k++) {
-			double a = k * Math.PI / 2 - Math.PI / 4;
-			IronManGui.sector(vc, m, cx, cy, 17.9f, 19.3f, a - 0.07, a + 0.07, IronManGui.alpha(IronManGui.RED, 0.85f));
-		}
-		IronManGui.sector(vc, m, cx, cy, 10.8f, 11.3f, 0, Math.PI * 2, IronManGui.alpha(line, 0.25f));
-		g.flush();
-	}
-
-	/**
-	 * A 10 x 20 px wireframe of the suit. Each part goes red (blinking once the hull is critical) as integrity falls, in a
-	 * fixed order -- right arm, left leg, left arm, torso, right leg, helmet -- so the figure reads as battle damage.
-	 */
-	private static void silhouette(GuiGraphics g, int x, int y, float iFrac, long now, boolean retro) {
-		int ok = retro ? IronManGui.AMBER : HOLO;
-		boolean blink = iFrac < 0.35f && (now % 16) < 8;
-		// {x, y, w, h, damaged below this integrity}
-		int[][] parts = {
-				{ 3, 0, 4, 4, 10 },   // helmet
-				{ 2, 5, 6, 7, 30 },   // torso
-				{ 0, 5, 2, 7, 45 },   // left arm (screen left)
-				{ 8, 5, 2, 7, 80 },   // right arm
-				{ 2, 13, 2, 7, 60 },  // left leg
-				{ 6, 13, 2, 7, 20 } };// right leg
-		for (int[] p : parts) {
-			boolean damaged = iFrac * 100f < p[4];
-			int c = damaged ? (blink ? 0xFFFF9090 : IronManGui.RED) : ok;
-			g.fill(x + p[0], y + p[1], x + p[0] + p[2], y + p[1] + p[3], IronManGui.alpha(c, damaged ? 0.75f : 0.35f));
-			g.renderOutline(x + p[0], y + p[1], p[2], p[3], IronManGui.alpha(c, 0.95f));
-		}
-		// the eye slit and the arc reactor
-		g.fill(x + 4, y + 2, x + 6, y + 3, retro ? IronManGui.AMBER : 0xFFFFFFFF);
-		g.fill(x + 4, y + 7, x + 6, y + 9, retro ? IronManGui.AMBER : 0xFFE6FBFF);
-	}
-
-	/**
-	 * v0.16.7 (user) Hulkbuster Veronica: a 12 x 22 px wireframe of the Hulkbuster -- head, torso, both arms, both legs --
-	 * each part filled by its own health (holo blue whole, orange damaged, red badly), a broken part dark red with a
-	 * blinking red cross.
-	 */
-	private static void hulkbusterSilhouette(GuiGraphics g, int x, int y, float[] eff, long now) {
-		// {x, y, w, h} per part, in HulkbusterParts order (the suit faces you: its left arm is on screen right)
-		int[][] box = {
-				{ 4, 0, 4, 4 },    // head
-				{ 3, 5, 6, 8 },    // torso
-				{ 10, 5, 2, 8 },   // left arm
-				{ 0, 5, 2, 8 },    // right arm
-				{ 6, 14, 2, 8 },   // left leg
-				{ 4, 14, 2, 8 } }; // right leg
-		boolean blink = (now % 16) < 9;
-		for (int i = 0; i < box.length; i++) {
-			int[] b = box[i];
-			float hp = 1f - eff[i];
-			boolean broken = com.projecthero.mod.ironman.HulkbusterParts.broken(eff[i]);
-			int c = broken ? 0xFF701010 : hp > 0.66f ? HOLO : hp > 0.33f ? IronManGui.ORANGE : IronManGui.RED;
-			g.fill(x + b[0], y + b[1], x + b[0] + b[2], y + b[1] + b[3], IronManGui.alpha(c, broken ? 0.9f : 0.45f));
-			g.renderOutline(x + b[0], y + b[1], b[2], b[3], IronManGui.alpha(broken ? (blink ? IronManGui.RED : 0xFFFF9090) : c, 0.95f));
-			if (broken && blink) {
-				// a small red cross over the part
-				int cx = x + b[0] + b[2] / 2, cy = y + b[1] + b[3] / 2;
-				for (int k = -1; k <= 1; k++) {
-					g.fill(cx + k, cy + k, cx + k + 1, cy + k + 1, 0xFFFF3030);
-					g.fill(cx + k, cy - k, cx + k + 1, cy - k + 1, 0xFFFF3030);
-				}
-			}
-		}
-		// the eye slit and the reactor (dark when that part is gone)
-		boolean head = com.projecthero.mod.ironman.HulkbusterParts.broken(eff[0]);
-		boolean torso = com.projecthero.mod.ironman.HulkbusterParts.broken(eff[1]);
-		if (!head) {
-			g.fill(x + 5, y + 2, x + 7, y + 3, 0xFFFFFFFF);
-		}
-		if (!torso) {
-			g.fill(x + 5, y + 7, x + 7, y + 9, 0xFFE6FBFF);
-		}
 	}
 
 	private static String pctText(float frac) {
@@ -635,16 +481,16 @@ public final class IronManHud {
 		}
 	}
 
-	/** The faint visor frame while the faceplate is closed. */
-	private static void visor(GuiGraphics g, boolean retro, boolean offline, long now) {
+	/** Mark I's visor (faceplate closed): its heavier amber eye-slit band -- edge gradients top / bottom and down the sides. */
+	private static void retroVisor(GuiGraphics g) {
 		int sw = g.guiWidth();
 		int sh = g.guiHeight();
-		int tint = retro ? 0x00140A00 : 0x00041826;
-		int edge = retro ? 0x70000000 : 0x38000000;
-		int band = retro ? Math.max(14, sh / 9) : Math.max(10, sh / 14);
+		int tint = 0x00140A00;
+		int edge = 0x70000000;
+		int band = Math.max(14, sh / 9);
 		g.fillGradient(0, 0, sw, band, edge | tint, tint);
 		g.fillGradient(0, sh - band, sw, sh, tint, edge | tint);
-		int side = retro ? Math.max(18, sw / 12) : Math.max(10, sw / 22);
+		int side = Math.max(18, sw / 12);
 		int steps = 8;
 		for (int i = 0; i < steps; i++) {
 			int a = Math.round(((edge >>> 24) & 0xFF) * (1f - i / (float) steps));
@@ -653,15 +499,6 @@ public final class IronManHud {
 			int x1 = side * (i + 1) / steps;
 			g.fill(x0, 0, x1, sh, c);
 			g.fill(sw - x1, 0, sw - x0, sh, c);
-		}
-		if (!retro) {
-			int c = offline && (now % 20) < 10 ? IronManGui.alpha(IronManGui.RED, 0.5f) : IronManGui.CYAN_FAINT;
-			IronManGui.brackets(g, 3, 3, sw - 6, sh - 6, 16, c);
-			// a small fixed reticle ring ticks around the crosshair
-			int cx = sw / 2;
-			int cy = sh / 2;
-			g.fill(cx - 12, cy, cx - 8, cy + 1, IronManGui.CYAN_FAINT);
-			g.fill(cx + 9, cy, cx + 13, cy + 1, IronManGui.CYAN_FAINT);
 		}
 	}
 
