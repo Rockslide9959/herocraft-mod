@@ -2408,7 +2408,9 @@ Tests: `IronManComicV0161GameTests`.
 
 ### Models, the Hulkbuster body, costs (v0.16.1, second pass)
 
-* **Suit skins.** The user-approved 64x64 skins + glowmasks (main checkout `scratchpad/concepts_ironman/skins/`) are the
+* **Suit skins.** (v0.17.7: the Mk I / III / IV Hydro / VI / VII Centurion and the Hulkbuster body now wear PlanetMinecraft
+  skins -- see "v0.17.7 suit look" at the end; do NOT re-run the install script below for those, it would put the old art back.)
+  The user-approved 64x64 skins + glowmasks (main checkout `scratchpad/concepts_ironman/skins/`) are the
   armour textures of the Mark 1 V2, 2, 3, Hydro, Stealth, Centurion and Space (`scratchpad/install_ironman_comic_skins.js`,
   repeatable). Every Iron Man geo already is the skin-layout rig (`mark_vii.geo.json`: base cubes +0.25, outer layer +0.5,
   helmet outer +0.75, `faceplate` its own bone on the helmet front, thigh + boot split), so they drop straight in; the
@@ -2506,3 +2508,48 @@ Tests: `IronManComicV0161GameTests`.
   squadmates or pets) takes the same hit (x the charge share) and is shoved away from it (`HAYMAKER_SPLASH_KNOCK`), with a
   ground ring. Tests: `EraOneMk12GameTests` (`mkOneHaymakerSplashesFifteenWithinThreeBlocks`: a mob 2 blocks from the
   target takes 15, one 5 blocks away nothing).
+## v0.17.7 suit look -- PlanetMinecraft skins worn skin-tight
+
+User: "Use these skins for the iron man suits ... Mark 4 Hydro armour: ... just put the glass helmet over the skin please".
+Generator (repeatable, every texture + glowmask + rig + preview): `node scratchpad/v0177/make_im_suits.js`; the six originals,
+untouched, are `scratchpad/v0177/im_skins/<name>_original.png` (all Steve = wide arms; page / file URLs in the script header).
+Borrowed skins ship publicly (CLAUDE.md); sources are noted in the script and `client.ironman.IronManSkinSuits`.
+
+| User's name | Suit (id) | PMC skin |
+|---|---|---|
+| mark 1 | Mk I Cave-Forged (`mark_1`) | Iron Man Model 1 |
+| mark 3 | Mk III Classic (`mark_iii`) | Iron Man Model 4 |
+| Mark 4 Hydro armour | Mk IV Hydro (`mark_4`) | Iron Man Model 8 - Hydro Armor + a glass dome |
+| mark 6 | Mk VI Suitcase (`mark_2` -- the Mk VI since the Era I renames) | Iron Man Model 16 - Renaissance / Heroes Return |
+| Mark 7 Silver Centurion | Mk VII Silver Centurion (`mark_6`) | Iron Man Model 7 - Silver Centurion |
+| Hulkbuster | the Hulkbuster body (`hulkbuster_body.png`) | Iron Man Model 13 |
+
+* **Rendering stays the GeckoLib armour path** (`SuperheroArmorRenderer`), so the per-piece slots, the self-assembly / per-texel
+  build, the Stark Gantry part textures, retract, Sentry back doors, the Mark 7 bracelet wrap, battle damage and the glow layer
+  all keep working unchanged -- they derive everything from `geo/<set>.geo.json` + `textures/armor/<set>.png`, which the script
+  rewrites in place. The rigs are now skin-tight: base layer 0.05 px over the body, outer layer at vanilla's overlay inflation
+  (hat 0.5, jacket / sleeves / trousers 0.25), legs moved 0.1 px out (GeckoLib draws leg bones at x +/-2, vanilla at +/-1.9),
+  thigh = leg rows 0-7 (leggings), boot = rows 8-11 (boots), every animation bone / pivot kept. The faceplate is one solid plate
+  flush with the hat layer's front; the hat front is merged onto the face front in the texture (and cleared) so H still lifts
+  the whole face. The wearer's own outer layer is hidden under worn pieces as before (`PlayerModelMixin`). `mark_1_v2` (Mk II)
+  shares the Mk I rig, so it got thin too (its own texture unchanged).
+* **Slim wearers:** one wide texture per suit. `SuperheroArmorRenderer.slimSymbioteArm` now also covers these sets: a slim
+  player's arm cubes are narrowed by a pixel on the outer side with the 4-texel faces squeezed (not cropped), so every texture
+  derived from the suit texture stays aligned. First person: `IronManFirstPersonGauntlets.SKIN_ARM` (0.05 / 0.25) and
+  `SKIN_ARM_SLIM` (3 px wide) for a slim wearer.
+* **Glow:** `<set>_glowmask.png` = the skin's own white / cream texels (never the gold / silver plating) on the eye rows of the
+  face, the chest front (arc reactor) and the boot soles, plus a 2x2 palm repulsor on each glove's underside (not the Mk I).
+  The Mk III, Hydro and Centurion skins paint their eye slits BLACK, so their eyes do not glow (faithful to the skins).
+* **Mk IV Hydro glass helmet:** the PMC skin's head + hat layer as on every suit, plus one more cube on the `helmet` bone: a
+  10 x 9.6 x 10 box (half a pixel clear of the hat layer, open at the neck) textured from the skin's free corner (u 56-63, v
+  16-23 sides: light-blue tint, a diagonal reflection streak, brighter rim; v 24-31 top: soft highlight). The Hydro is drawn
+  with `RenderType.entityTranslucent` (`SuperheroArmorRenderer.getRenderType`, `IronManSkinSuits.GLASS_HELMET`) so the glass
+  is see-through; it builds on with the helmet, and its front goes with the faceplate's when H lifts it. The old pauldrons
+  and the old dome texture are gone.
+* **Hulkbuster:** its body (`geo/ironman/hulkbuster_body.geo.json`) is already a player-shaped rig at Hulkbuster scale whose
+  segments (arm / forearm / fist 6+4+2 rows, thigh / shin / foot 6+4+2, both layers) map straight onto the 64x64 skin layout,
+  so the PMC skin replaced `hulkbuster_body.png` as-is (the joint-cap palette strip u 56-59, v 16-19 kept); size, rig,
+  animations, parts, crate / pod deployment, Sentry, first-person fists and battle damage are unchanged and all read that
+  texture. New `hulkbuster_body_glowmask.png` (eyes, reactor, soles, palms). `mark_8.png` / `geo/mark_8.geo.json` (the old
+  player-size Mark 8, never drawn) are left alone for the asset gametest.
+* Previews: `docs/screenshots/v0177/ironman_suits/`.

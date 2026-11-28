@@ -1,0 +1,406 @@
+// TEMP-HARNESS copy (v0.17.7 Iron Man suits from PlanetMinecraft skins). To use:
+//   node scratchpad/v0177/im_suits_harness.js install
+//   write run/imsuits.flag = "imsuits_out"
+//   node scratchpad/low_graphics_options.js run/options.txt ; ./gradlew runClient
+//   node scratchpad/v0177/im_suits_harness.js remove
+// Real client: Tony Stark granted, each suit worn piece by piece (setItemSlot), the wearer forced to Steve (wide) then Alex (slim)
+// by the skin mixin, a fixed camera (camera mixin); a Mk VII Silver Centurion suit-up (IronManSuitUpManager.beginSuitUp) filmed
+// for the mid-build stills; the Hulkbuster (full mark_8) drawn as its body.
+
+// ===== IronManPmcSuitsHarness.java =====
+package com.projecthero.mod.client;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.resources.PlayerSkin;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ArmorItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+
+import com.projecthero.mod.ironman.TonyStark;
+import com.projecthero.mod.ironman.item.IronManItems;
+
+import org.lwjgl.glfw.GLFW;
+
+/** TEMP-HARNESS (not shipped): stills of the v0.17.7 PMC-skin Iron Man suits. Enabled by run/imsuits.flag = "<out dir>". */
+public final class IronManPmcSuitsHarness implements ClientModInitializer {
+	private static boolean createdWorld;
+	private static int waitTicks, inWorldTicks;
+	private static BlockPos base;
+	private static File out;
+	private static final java.util.Map<Integer, List<Runnable>> AT = new java.util.HashMap<>();
+	private static float pitch = 8f, headYaw = 0f;
+	private static boolean fpOnly;
+
+	public static volatile double[] camPose;
+	public static volatile PlayerSkin.Model forceModel = PlayerSkin.Model.WIDE;
+
+	private static final String[] SUITS = { "mark_1", "mark_iii", "mark_4", "mark_2", "mark_6" };
+
+	@Override
+	public void onInitializeClient() {
+		Path flag = Path.of("imsuits.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			String spec = Files.readString(flag).trim();
+			fpOnly = spec.endsWith(";fp");
+			out = new File(spec.replace(";fp", ""));
+		} catch (Exception e) {
+			out = new File(".");
+		}
+		out.mkdirs();
+		ClientTickEvents.END_CLIENT_TICK.register(IronManPmcSuitsHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(420_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "imsuits-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(out, name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.computeIfAbsent(t, k -> new ArrayList<>()).add(r);
+	}
+
+	private static void cam(float angle, float dist, float h, float lookH) {
+		double r = Math.toRadians(angle);
+		double dx = Math.sin(r) * dist, dz = Math.cos(r) * dist;
+		double ldx = -dx, ldy = lookH - h, ldz = -dz;
+		float yaw = (float) Math.toDegrees(Math.atan2(-ldx, ldz));
+		float pt = (float) -Math.toDegrees(Math.atan2(ldy, Math.sqrt(ldx * ldx + ldz * ldz)));
+		camPose = new double[] { dx, h, dz, yaw, pt };
+		Minecraft mc = Minecraft.getInstance();
+		mc.options.hideGui = true;
+		mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+	}
+
+	private static void firstPerson() {
+		camPose = null;
+		Minecraft mc = Minecraft.getInstance();
+		mc.options.hideGui = false;
+		mc.options.setCameraType(CameraType.FIRST_PERSON);
+	}
+
+	private static void face(Minecraft mc) {
+		var p = mc.player;
+		p.setYRot(headYaw);
+		p.yRotO = headYaw;
+		p.setXRot(pitch);
+		p.xRotO = pitch;
+		p.yHeadRot = headYaw;
+		p.yHeadRotO = headYaw;
+		p.yBodyRot = 0f;
+		p.yBodyRotO = 0f;
+	}
+
+	private static void wear(ServerPlayer p, String suit, boolean head, boolean chest, boolean legs, boolean feet) {
+		p.setItemSlot(EquipmentSlot.HEAD, head && suit != null ? new ItemStack(IronManItems.armor(suit, ArmorItem.Type.HELMET)) : ItemStack.EMPTY);
+		p.setItemSlot(EquipmentSlot.CHEST, chest && suit != null ? new ItemStack(IronManItems.armor(suit, ArmorItem.Type.CHESTPLATE)) : ItemStack.EMPTY);
+		p.setItemSlot(EquipmentSlot.LEGS, legs && suit != null ? new ItemStack(IronManItems.armor(suit, ArmorItem.Type.LEGGINGS)) : ItemStack.EMPTY);
+		p.setItemSlot(EquipmentSlot.FEET, feet && suit != null ? new ItemStack(IronManItems.armor(suit, ArmorItem.Type.BOOTS)) : ItemStack.EMPTY);
+	}
+
+	private static void stage(ServerPlayer p) {
+		ServerLevel level = p.serverLevel();
+		level.setDayTime(6000L);
+		level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+		level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+		level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+		p.setGameMode(GameType.SURVIVAL);
+		base = p.blockPosition();
+		p.getInventory().clearContent();
+		TonyStark.grant(p);
+		TonyStark.unlockTech(p, 99);
+		p.getInventory().clearContent(); // empty hands (the grant hands out a blueprint)
+		System.out.println("[HARNESS] tony: " + TonyStark.hasPower(p));
+		p.connection.teleport(base.getX() + 0.5, base.getY(), base.getZ() + 0.5, 0f, 8f);
+	}
+
+	/** Front / back / side stills of one suit (the camera settles 3 ticks before each). */
+	private static int stills(Minecraft mc, int t, String tag) {
+		at(t, () -> cam(0f, 2.9f, 1.25f, 1.0f));
+		at(t + 4, () -> shot(mc, tag + "_front"));
+		at(t + 5, () -> cam(180f, 2.9f, 1.3f, 1.0f));
+		at(t + 9, () -> shot(mc, tag + "_back"));
+		at(t + 10, () -> cam(90f, 2.9f, 1.25f, 1.0f));
+		at(t + 14, () -> shot(mc, tag + "_side"));
+		return t + 16;
+	}
+
+	/** First-person arms of each suit, wide then slim (empty hand). */
+	private static void fpShots(Minecraft mc, int t0) {
+		int t = t0;
+		at(t, IronManPmcSuitsHarness::firstPerson);
+		for (String suit : SUITS) {
+			at(t + 1, () -> server(mc, p -> wear(p, suit, true, true, true, true)));
+			at(t + 30, () -> forceModel = PlayerSkin.Model.WIDE);
+			at(t + 34, () -> shot(mc, suit + "_first_person_wide"));
+			at(t + 35, () -> forceModel = PlayerSkin.Model.SLIM);
+			at(t + 39, () -> shot(mc, suit + "_first_person_slim"));
+			t += 40;
+		}
+	}
+
+	private static void plan() {
+		Minecraft mc = Minecraft.getInstance();
+		int t = 0;
+		if (fpOnly) {
+			fpShots(mc, 0);
+			at(200, () -> Runtime.getRuntime().halt(0));
+			return;
+		}
+		for (String model : new String[] { "wide", "slim" }) {
+			at(t, () -> forceModel = "slim".equals(model) ? PlayerSkin.Model.SLIM : PlayerSkin.Model.WIDE);
+			for (String suit : SUITS) {
+				at(t + 1, () -> server(mc, p -> wear(p, suit, true, true, true, true)));
+				t = stills(mc, t + 40, suit + "_" + model);
+				at(t, () -> server(mc, p -> wear(p, null, false, false, false, false)));
+				t += 4;
+			}
+		}
+		// the Hydro glass helmet close-ups (wide)
+		at(t, () -> forceModel = PlayerSkin.Model.WIDE);
+		at(t + 1, () -> server(mc, p -> wear(p, "mark_4", true, true, true, true)));
+		at(t + 40, () -> cam(25f, 1.3f, 1.75f, 1.6f));
+		at(t + 44, () -> shot(mc, "mark_4_glass_helmet_closeup"));
+		at(t + 45, () -> cam(120f, 1.4f, 1.8f, 1.6f));
+		at(t + 49, () -> shot(mc, "mark_4_glass_helmet_closeup_side"));
+		at(t + 50, () -> {
+			headYaw = 35f;
+			pitch = -25f;
+			cam(-30f, 1.4f, 1.6f, 1.6f);
+		});
+		at(t + 56, () -> shot(mc, "mark_4_glass_helmet_looking_up"));
+		at(t + 57, () -> {
+			headYaw = 0f;
+			pitch = 8f;
+		});
+		t += 60;
+		// a partial set: Mk III chestplate + boots only
+		at(t, () -> server(mc, p -> wear(p, "mark_iii", false, true, false, true)));
+		at(t + 36, () -> cam(25f, 3.0f, 1.3f, 1.0f));
+		at(t + 40, () -> shot(mc, "mark_iii_partial_chest_boots"));
+		t += 42;
+		// glow at night (Mk VI and Mk VII)
+		at(t, () -> server(mc, p -> {
+			p.serverLevel().setDayTime(18000L);
+			wear(p, "mark_2", true, true, true, true);
+		}));
+		at(t + 40, () -> cam(0f, 2.9f, 1.25f, 1.0f));
+		at(t + 44, () -> shot(mc, "mark_2_glow_night"));
+		at(t + 45, () -> server(mc, p -> wear(p, "mark_6", true, true, true, true)));
+		at(t + 85, () -> shot(mc, "mark_6_glow_night"));
+		at(t + 86, () -> server(mc, p -> {
+			p.serverLevel().setDayTime(6000L);
+			wear(p, null, false, false, false, false);
+		}));
+		t += 90;
+		// first person arms (Mk III), wide then slim
+		at(t, () -> server(mc, p -> wear(p, "mark_iii", true, true, true, true)));
+		at(t + 36, IronManPmcSuitsHarness::firstPerson);
+		at(t + 40, () -> shot(mc, "mark_iii_first_person_wide"));
+		at(t + 41, () -> forceModel = PlayerSkin.Model.SLIM);
+		at(t + 46, () -> shot(mc, "mark_iii_first_person_slim"));
+		at(t + 47, () -> {
+			forceModel = PlayerSkin.Model.WIDE;
+			server(mc, p -> wear(p, null, false, false, false, false));
+		});
+		t += 50;
+		// the Hulkbuster body
+		at(t, () -> server(mc, p -> wear(p, "mark_8", true, true, true, true)));
+		at(t + 40, () -> cam(0f, 6.5f, 2.0f, 1.6f));
+		at(t + 44, () -> shot(mc, "hulkbuster_front"));
+		at(t + 45, () -> cam(180f, 6.5f, 2.2f, 1.6f));
+		at(t + 49, () -> shot(mc, "hulkbuster_back"));
+		at(t + 50, () -> cam(70f, 6.5f, 2.0f, 1.6f));
+		at(t + 54, () -> shot(mc, "hulkbuster_side"));
+		at(t + 55, () -> server(mc, p -> wear(p, null, false, false, false, false)));
+		t += 60;
+		// a suit-up mid-way: the Mk VII Silver Centurion from the pack (C path)
+		at(t, () -> server(mc, p -> {
+			for (ArmorItem.Type type : new ArmorItem.Type[] { ArmorItem.Type.HELMET, ArmorItem.Type.CHESTPLATE, ArmorItem.Type.LEGGINGS, ArmorItem.Type.BOOTS }) {
+				p.getInventory().add(new ItemStack(IronManItems.armor("mark_6", type)));
+			}
+		}));
+		at(t + 4, () -> cam(25f, 3.0f, 1.3f, 1.0f));
+		at(t + 6, () -> server(mc, p -> System.out.println("[HARNESS] suit-up: "
+				+ com.projecthero.mod.ironman.suit.IronManSuitUpManager.beginSuitUp(p, "mark_6"))));
+		for (int k = 0; k < 16; k++) {
+			final int kk = k;
+			at(t + 10 + k * 15, () -> shot(mc, String.format("suitup_mark_6_t%03d", kk * 15)));
+		}
+		t += 10 + 16 * 15 + 4;
+		final int end = t;
+		at(end, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(IronManPmcSuitsHarness::createWorld);
+			}
+			return;
+		}
+		int t = ++inWorldTicks;
+		if (t == 20) {
+			GLFW.glfwSetWindowSize(mc.getWindow().getWindow(), 854, 480);
+		}
+		if (t == 40) {
+			mc.options.fov().set(70);
+			mc.options.fovEffectScale().set(0.0);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			mc.getToasts().clear();
+			mc.options.bobView().set(false);
+			mc.options.guiScale().set(2);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			server(mc, IronManPmcSuitsHarness::stage);
+		}
+		if (t < 140 || base == null) {
+			return;
+		}
+		face(mc);
+		int s = t - 140;
+		if (s == 0) {
+			plan();
+		}
+		if (s % 10 == 0) {
+			mc.gui.getChat().clearMessages(false);
+		}
+		List<Runnable> todo = AT.remove(s);
+		if (todo != null) {
+			todo.forEach(Runnable::run);
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		rules.getRule(GameRules.RULE_DOMOBSPAWNING).set(false, null);
+		LevelSettings settings = new LevelSettings("IMSUITS_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false, Difficulty.PEACEFUL, true,
+				rules, WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}
+
+// ===== mixin/IronManPmcSuitsHarnessCameraMixin.java =====
+package com.projecthero.mod.client.mixin;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import net.minecraft.client.Camera;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): the IronManPmcSuitsHarness's camera, a fixed offset from the player's interpolated position. */
+@Mixin(Camera.class)
+public abstract class IronManPmcSuitsHarnessCameraMixin {
+	@Shadow
+	private boolean detached;
+
+	@Shadow
+	protected abstract void setRotation(float yaw, float pitch);
+
+	@Shadow
+	protected abstract void setPosition(double x, double y, double z);
+
+	@Inject(method = "setup", at = @At("TAIL"))
+	private void projecthero$harnessCam(BlockGetter level, Entity entity, boolean detached, boolean mirrored, float partial, CallbackInfo ci) {
+		double[] c = com.projecthero.mod.client.IronManPmcSuitsHarness.camPose;
+		if (c != null && entity != null) {
+			Vec3 p = entity.getPosition(partial);
+			this.detached = true;
+			setPosition(p.x + c[0], p.y + c[1], p.z + c[2]);
+			setRotation((float) c[3], (float) c[4]);
+		}
+	}
+}
+
+// ===== mixin/IronManPmcSuitsHarnessSkinMixin.java =====
+package com.projecthero.mod.client.mixin;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.resources.PlayerSkin;
+import net.minecraft.resources.ResourceLocation;
+
+/** TEMP-HARNESS (not shipped): forces the local player's skin model (Steve wide / Alex slim) for IronManPmcSuitsHarness. */
+@Mixin(AbstractClientPlayer.class)
+public abstract class IronManPmcSuitsHarnessSkinMixin {
+	@Inject(method = "getSkin", at = @At("RETURN"), cancellable = true)
+	private void projecthero$harnessSkin(CallbackInfoReturnable<PlayerSkin> cir) {
+		PlayerSkin.Model m = com.projecthero.mod.client.IronManPmcSuitsHarness.forceModel;
+		if (m == null) {
+			return;
+		}
+		PlayerSkin s = cir.getReturnValue();
+		ResourceLocation tex = ResourceLocation.withDefaultNamespace(m == PlayerSkin.Model.SLIM ? "textures/entity/player/slim/alex.png"
+				: "textures/entity/player/wide/steve.png");
+		cir.setReturnValue(new PlayerSkin(tex, null, s.capeTexture(), s.elytraTexture(), m, true));
+	}
+}
