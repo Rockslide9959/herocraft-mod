@@ -1,0 +1,287 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import org.lwjgl.glfw.GLFW;
+
+import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.ironman.IronManEnergy;
+import com.projecthero.mod.ironman.TonyStark;
+import com.projecthero.mod.ironman.item.IronManItems;
+import com.projecthero.mod.ironman.suit.IronManSuits;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerBossEvent;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.BossEvent;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.item.ArmorItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+
+/**
+ * TEMP-HARNESS (not shipped): v0.17.7 Iron Man HUD concept A stills. Flag file {@code run/imhud.flag}; shots land in
+ * {@code run/screenshots/imhud_*.png}. Copy into src/client/java/com/projecthero/mod/client/, call {@code init()} from the
+ * client initializer, run, then REMOVE before committing.
+ */
+public final class IronManHudHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static volatile long lastProgress = System.currentTimeMillis();
+	private static ServerBossEvent boss;
+
+	private IronManHudHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("imhud.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(IronManHudHarness::tick);
+		Thread wd = new Thread(() -> {
+			while (true) {
+				try {
+					Thread.sleep(5000);
+				} catch (InterruptedException e) {
+					return;
+				}
+				if (System.currentTimeMillis() - lastProgress > 180_000L) {
+					System.out.println("[HARNESS] WATCHDOG");
+					Runtime.getRuntime().halt(3);
+				}
+			}
+		}, "imhud-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static ServerPlayer sp(Minecraft mc) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		return srv == null || srv.getPlayerList().getPlayers().isEmpty() ? null : srv.getPlayerList().getPlayers().get(0);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				ServerPlayer p = sp(mc);
+				if (p != null) {
+					try {
+						fn.accept(p);
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		Runnable prev = AT.get(t);
+		AT.put(t, prev == null ? r : () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	private static void shot(String name) {
+		Minecraft mc = Minecraft.getInstance();
+		Screenshot.grab(mc.gameDirectory, "imhud_" + name + ".png", mc.getMainRenderTarget(), c -> {
+		});
+		System.out.println("[HARNESS] shot " + name + " " + mc.getWindow().getGuiScaledWidth() + "x" + mc.getWindow().getGuiScaledHeight());
+		lastProgress = System.currentTimeMillis();
+	}
+
+	private static void window(int w, int h, int scale) {
+		Minecraft mc = Minecraft.getInstance();
+		GLFW.glfwSetWindowSize(mc.getWindow().getWindow(), w, h);
+		mc.options.guiScale().set(scale);
+		mc.resizeDisplay();
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				lastProgress = System.currentTimeMillis();
+				mc.execute(IronManHudHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks % 10 == 0) {
+			lastProgress = System.currentTimeMillis();
+		}
+		if (t0 >= 0) {
+			mc.player.setYRot(0f);
+			mc.player.yHeadRot = 0f;
+			mc.player.yBodyRot = 0f;
+			mc.player.setXRot(6f);
+			mc.gui.getChat().clearMessages(false);
+			mc.getToasts().clear();
+		}
+		if (inWorldTicks == 100) {
+			mc.options.fov().set(70);
+			mc.options.bobView().set(false);
+			window(1280, 720, 2);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.setGameMode(GameType.SURVIVAL);
+				TonyStark.grant(p);
+				p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 99999, 4, true, false, false));
+				p.addEffect(new MobEffectInstance(MobEffects.SATURATION, 99999, 4, true, false, false));
+				p.teleportTo(level, Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5, 0f, 6f);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void wear(ServerPlayer p, String suit, float integrityFrac, float energyFrac) {
+		p.getInventory().clearContent();
+		EquipmentSlot[] slots = { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET };
+		ArmorItem.Type[] types = { ArmorItem.Type.HELMET, ArmorItem.Type.CHESTPLATE, ArmorItem.Type.LEGGINGS, ArmorItem.Type.BOOTS };
+		for (int i = 0; i < 4; i++) {
+			p.setItemSlot(slots[i], new ItemStack(IronManItems.armor(suit, types[i])));
+		}
+		TonyStark.setActiveSuit(p, suit);
+		IronManEnergy.setIntegrity(p, suit, IronManEnergy.maxIntegrity(suit) * integrityFrac);
+		p.setAttached(ModAttachments.IRON_MAN_FACEPLATE_OPEN, false);
+		var st = TonyStark.state(p).copy();
+		st.abilityReadyAt.clear();
+		var s = IronManSuits.byId(suit);
+		if (s != null && s.hasReactor()) {
+			st.suitEnergy.put(suit, s.energyCapacity() * energyFrac);
+		}
+		p.setAttached(ModAttachments.TONY_STARK_STATE, st);
+		p.getInventory().setItem(0, new ItemStack(net.minecraft.world.item.Items.IRON_SWORD));
+		p.getInventory().setItem(1, new ItemStack(net.minecraft.world.item.Items.COOKED_BEEF, 12));
+	}
+
+	private static void target(ServerPlayer p) {
+		ServerLevel level = p.serverLevel();
+		for (var e : level.getEntitiesOfClass(Mob.class, p.getBoundingBox().inflate(40))) {
+			e.discard();
+		}
+		var h = EntityType.HUSK.create(level);
+		h.moveTo(p.getX(), p.getY(), p.getZ() + 6, 180f, 0f);
+		h.setNoAi(true);
+		h.setHealth(13f);
+		level.addFreshEntity(h);
+	}
+
+	private static void script(Minecraft mc) {
+		// A: Mk VII (mark_6) faceplate closed + a target, 82% / 64%
+		at(5, () -> server(mc, p -> {
+			wear(p, "mark_6", 0.82f, 0.64f);
+			target(p);
+		}));
+		at(70, () -> shot("mk7_closed_target_s2"));
+		at(75, () -> window(1280, 720, 3));
+		at(95, () -> shot("mk7_closed_target_s3"));
+		// B: faceplate open
+		at(100, () -> server(mc, p -> p.setAttached(ModAttachments.IRON_MAN_FACEPLATE_OPEN, true)));
+		at(125, () -> shot("mk7_open_s3"));
+		at(128, () -> window(1280, 720, 2));
+		at(148, () -> shot("mk7_open_s2"));
+		// C: Mark I
+		at(150, () -> server(mc, p -> wear(p, "mark_1", 0.9f, 0.7f)));
+		at(200, () -> shot("mark1_s2"));
+		at(203, () -> window(1280, 720, 3));
+		at(223, () -> shot("mark1_s3"));
+		// D: Hulkbuster with damaged parts
+		at(226, () -> server(mc, p -> {
+			wear(p, "mark_8", 0.7f, 0.85f);
+			ItemStack chest = p.getItemBySlot(EquipmentSlot.CHEST);
+			com.projecthero.mod.ironman.HulkbusterParts.write(chest, new float[] { 0f, 0.35f, 1.0f, 0.5f, 0f, 0.8f });
+			p.setItemSlot(EquipmentSlot.CHEST, chest);
+			target(p);
+		}));
+		at(290, () -> shot("hulkbuster_s3"));
+		at(293, () -> window(1280, 720, 2));
+		at(313, () -> shot("hulkbuster_s2"));
+		// E: low integrity + column meters (flight burst, wrist laser, heat, missiles)
+		at(316, () -> server(mc, p -> {
+			wear(p, "mark_6", 0.18f, 0.12f);
+			target(p);
+			var st = TonyStark.state(p).copy();
+			long now = p.level().getGameTime();
+			st.timedFlightUntil = now + 400;
+			st.wristLaserUntil = now + 300;
+			st.flamethrowerHeat = 30f;
+			p.setAttached(ModAttachments.TONY_STARK_STATE, st);
+		}));
+		at(360, () -> shot("mk7_low_integrity_s2"));
+		at(363, () -> window(1280, 720, 3));
+		at(383, () -> shot("mk7_low_integrity_s3"));
+		// F: a boss on screen (the telemetry strip drops under the boss bar), Mk VIII Space
+		at(386, () -> server(mc, p -> {
+			wear(p, "mark_vii", 1f, 1f);
+			target(p);
+			boss = new ServerBossEvent(Component.literal("Test Boss"), BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.PROGRESS);
+			boss.addPlayer(p);
+		}));
+		at(430, () -> shot("boss_s3"));
+		at(433, () -> window(1280, 720, 2));
+		at(453, () -> shot("boss_s2"));
+		// G: the smallest scaled screen, 320 x 240 (GUI scale 4 on 1280 x 960)
+		at(456, () -> window(1280, 960, 4));
+		at(476, () -> shot("boss_s4_320x240"));
+		at(478, () -> server(mc, p -> boss.removeAllPlayers()));
+		at(498, () -> shot("mk8_s4_320x240"));
+		at(520, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("IMHUD_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+				Difficulty.NORMAL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

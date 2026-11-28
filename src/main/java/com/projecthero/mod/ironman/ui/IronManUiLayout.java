@@ -189,6 +189,62 @@ public final class IronManUiLayout {
 		return line;
 	}
 
+	// ------------------------------------------------------------------ v0.17.7 (user) concept A: the JARVIS visor
+
+	/** The top-left paper doll's frame, the gap to the words beside it, one "[bar] Label (value)" row. */
+	public static final int VISOR_DOLL_W = 36;
+	public static final int VISOR_DOLL_H = 54;
+	public static final int VISOR_GAP = 6;
+	public static final int VISOR_ROW_H = 12;
+	/** The top-left Meter bars: "slightly long" (user) -- 124 px when there is room, never shorter than 48 on one line. */
+	public static final int VISOR_BAR_MAX = 124;
+	public static final int VISOR_BAR_MIN = 48;
+	/** How far the paper doll is turned off straight-on (degrees). */
+	public static final float VISOR_DOLL_YAW = 28f;
+	/** The gap between two telemetry-strip segments, and how far its arc curves down at the ends. */
+	public static final int VISOR_ARC_GAP = 14;
+	public static final int VISOR_ARC_DEPTH = 7;
+	/** Where the top-left rows' backing starts under the block's top (the name line above it is narrower). */
+	public static final int VISOR_ROWS_TOP = 17;
+
+	/** The widest the top telemetry strip may be (the outer clock / X Z segments are left off past this). */
+	public static int visorArcMaxWidth(int screenW) {
+		return Math.max(120, Math.min(320, screenW - 2 * (HUD_X + VISOR_DOLL_W + VISOR_GAP + 60)));
+	}
+
+	/** The telemetry strip's top: the top edge, or just under the boss bars (19 px each, from y 12) when a boss is up. */
+	public static int visorArcTop(int bossBars, int screenH) {
+		return bossBars <= 0 ? 3 : Math.min(19 * bossBars + 2, screenH / 3);
+	}
+
+	/**
+	 * How far right the top-left rows may reach: short of the screen's middle, or clear of the boss bars (182 px, centred)
+	 * and the telemetry strip under them while a boss is on screen.
+	 */
+	public static int visorRowsRight(int screenW, int bossBars, int arcHalf) {
+		if (bossBars > 0) {
+			return Math.min(screenW / 2 - 91 - 4, screenW / 2 - arcHalf - 6);
+		}
+		return screenW / 2 - 12;
+	}
+
+	/** How far right the top-left name line may reach (it shares the top line with the telemetry strip / boss bars). */
+	public static int visorNameRight(int screenW, int bossBars, int arcHalf) {
+		if (bossBars > 0) {
+			return screenW / 2 - 91 - 4;
+		}
+		return arcHalf > 0 ? screenW / 2 - arcHalf - 6 : screenW / 2 - 12;
+	}
+
+	/**
+	 * The top-left bar length for {@code room} px beside the doll and {@code textW} px of words after the bar: up to
+	 * {@link #VISOR_BAR_MAX}; -1 when even {@link #VISOR_BAR_MIN} leaves no room for the words (they then go under the bar).
+	 */
+	public static int visorBarWidth(int room, int textW) {
+		int w = Math.min(VISOR_BAR_MAX, room - textW - 4);
+		return w < VISOR_BAR_MIN ? -1 : w;
+	}
+
 	/** Ability column box size and gap. */
 	public static final int SLOT_W = 22;
 	public static final int SLOT_H = 22;

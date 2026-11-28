@@ -214,7 +214,7 @@ public final class IronManTargetScanner {
 				}
 			}
 		}
-		int h = 4 + 10 + 10 + 7 + 13 + reasons.size() * 9 + (power.isEmpty() ? 0 : 3 + power.size() * 9) + 3;
+		int h = 4 + 10 + 10 + 8 + 13 + reasons.size() * 9 + (power.isEmpty() ? 0 : 3 + power.size() * 9) + 3;
 		Rect card = IronManUiLayout.targetCard(g.guiWidth(), g.guiHeight(), w, h);
 		int x = card.x();
 		int y = card.y();
@@ -246,13 +246,10 @@ public final class IronManTargetScanner {
 		py += 10;
 		float frac = Math.max(0f, Math.min(1f, hp / max));
 		int barColour = frac > 0.6f ? 0xFF50D060 : frac > 0.3f ? 0xFFE0B030 : 0xFFE04040;
-		g.fill(px, py, px + inner, py + 3, 0x50103040);
-		g.fill(px, py, px + Math.round(inner * frac), py + 3, barColour);
-		for (int k = 1; k < 10; k++) {
-			int sx = px + inner * k / 10;
-			g.fill(sx, py, sx + 1, py + 3, 0x90020810);
-		}
-		py += 7;
+		// v0.17.7 (user: "change out the bars for meter style bars"): the health bar is the Meter boss bar
+		g.flush();
+		com.projecthero.mod.client.gui.VanillaHud.bar(g, px, py, inner, frac, barColour);
+		py += 8;
 
 		// ---- THREAT: a coloured pill with the level
 		String title = t("hud.projecthero.ironman.threat.title");

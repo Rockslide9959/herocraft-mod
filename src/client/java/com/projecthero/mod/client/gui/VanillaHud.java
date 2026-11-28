@@ -133,6 +133,32 @@ public final class VanillaHud {
 		g.drawString(mc.font, value, x0 + width - mc.font.width(value), by - 2, valueColour, true);
 	}
 
+	/**
+	 * v0.17.7 (user, Iron Man HUD): one "[bar] Label (value)" row -- the plain Meter boss bar {@code barW} px wide from
+	 * {@code x}, its text line at {@code y} (the bar sits 1 px lower, centred on the text), then the label and the value in
+	 * brackets, shadowed. The label is cut (with ".") so the row never passes {@code right}. Returns the x after the text.
+	 */
+	public static int meterAfter(GuiGraphics g, Font font, int x, int y, int barW, int right, Component label, String value, float frac,
+			int colour, int labelColour, int valueColour) {
+		g.flush(); // a batched backing fill must not land on top of the sprite bar
+		bar(g, x, y + 1, barW, frac, colour, MutationMeters.Style.METER);
+		int tx = x + barW + 4;
+		String v = value == null || value.isEmpty() ? "" : " (" + value + ")";
+		int room = right - tx - font.width(v);
+		String l = label.getString();
+		if (font.width(l) > room) {
+			l = room <= font.width(".") ? "" : font.plainSubstrByWidth(l, room - font.width(".")) + ".";
+		}
+		g.drawString(font, l, tx, y, labelColour, true);
+		int vx = tx + font.width(l);
+		if (!v.isEmpty()) {
+			String shown = font.width(v) > right - vx ? font.plainSubstrByWidth(v, Math.max(0, right - vx)) : v;
+			g.drawString(font, shown, vx, y, valueColour, true);
+			vx += font.width(shown);
+		}
+		return vx;
+	}
+
 	/** A bare boss bar (no label) {@code w} wide, its top at {@code y}, in the plain Meter style. */
 	public static void bar(GuiGraphics g, int x, int y, int w, float frac, int colour) {
 		bar(g, x, y, w, frac, colour, MutationMeters.Style.METER);
@@ -363,6 +389,20 @@ public final class VanillaHud {
 		public Stack meter(Component label, float frac, int colour, String value, int valueColour, MutationMeters.Style style) {
 			int by = barY();
 			VanillaHud.meter(g, x0, by, width, fit(label, value), frac, colour, value, valueColour, style);
+			top = by - 2;
+			last = 2;
+			return this;
+		}
+
+		/**
+		 * v0.17.7 (user, Iron Man HUD: "[bar] integrity (integrity percentage), that kinda thing"): a Meter row with the words
+		 * AFTER the bar -- the plain Meter boss bar {@code barW} px wide at the column's left edge, then "Label (value)", the label
+		 * cut (with ".") if the pair would pass the column's right edge.
+		 */
+		public Stack meterAfter(int barW, Component label, String value, float frac, int colour, int labelColour, int valueColour) {
+			int by = barY();
+			int bw = Math.max(20, Math.min(barW, width - 24));
+			VanillaHud.meterAfter(g, font, x0, by - 2, bw, x0 + width, label, value, frac, colour, labelColour, valueColour);
 			top = by - 2;
 			last = 2;
 			return this;
