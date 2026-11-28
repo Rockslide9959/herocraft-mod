@@ -52,6 +52,7 @@ public final class IronManSuits {
 			.missiles(0, 0f, 0f)
 			.strength(8.0f) // v0.16.7 (user): +8
 			.walkSpeed(-0.10)
+			.fireImmune() // v0.17.7 (user): fire and lava do not hurt the Mk I (full suit), like the old Mark 1
 			.noFlightLean()
 			.noManualFlight() // no sustained flight: rocket-boot hops + glide only
 			.scale(1.0f) // v0.16.7 (user): normal size (was 1.25) -- the Era I armour is thin

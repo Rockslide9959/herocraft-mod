@@ -138,6 +138,14 @@ public final class IronManAbilityVisuals {
 					case IronManAbilityFx.MK9_ERUPTION -> eruption(vc, glow, last, p, pt, age, cam);
 					case IronManAbilityFx.MK9_MAGMA_FIST -> magmaFist(vc, glow, last, p, pt, age, cam);
 					case IronManAbilityFx.MK9_SIPHON -> siphon(vc, glow, last, p, pt, age, cam);
+					// v0.17.7 (user): the Mk I Cave-Forged moveset
+					case IronManAbilityFx.MK1_GAUNTLET_SMASH -> mk1Smash(vc, glow, last, p, pt, age, cam);
+					case IronManAbilityFx.MK1_FIRE_NOVA -> mk1Nova(vc, glow, last, p, pt, age, cam);
+					case IronManAbilityFx.MK1_SCRAP_SHOTGUN -> mk1Muzzle(vc, glow, last, p, pt, age, cam, 1.0f);
+					case IronManAbilityFx.MK1_ARM_ROCKET -> mk1Muzzle(vc, glow, last, p, pt, age, cam, 0.6f);
+					case IronManAbilityFx.MK1_IRON_SHELL -> mk1Shell(vc, glow, last, p, pt, now, cam);
+					case IronManAbilityFx.MK1_OVERLOAD_CHARGE -> mk1Overload(vc, glow, last, p, pt, age, cam);
+					case IronManAbilityFx.MK1_SMASH_WINDUP -> mk1Windup(vc, glow, last, p, pt, age, cam);
 					default -> {
 					}
 				}
@@ -476,6 +484,116 @@ public final class IronManAbilityVisuals {
 			float k = ((age + i * 2.7f) % 8f) / 8f;
 			float alpha = Mth.sin(k * Mth.PI) * 0.8f;
 			heatRing(vc, glow, pose, chest, new Vec3(0, 1, 0), 0.3f + (1f - k) * 3.0f, glow ? (i == 1 ? MK9_GOLD : MK9_HOT) : 0xFFE8A0, alpha, cam, 32);
+		}
+	}
+
+	// ---------------------------------------------------------------- v0.17.7 (user): the Mk I Cave-Forged moveset
+
+	private static final int MK1_HOT = 0xFF7A1E;
+	private static final int MK1_DUST = 0xB8A890;
+	private static final int MK1_ARC = 0x9FE8FF;
+
+	/** The point on the ground the Gauntlet Smash comes down on: two blocks ahead of the feet, along the body's facing. */
+	private static Vec3 smashPoint(Player p, float pt) {
+		Vec3 look = p.getViewVector(pt);
+		Vec3 flat = new Vec3(look.x, 0, look.z);
+		flat = flat.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : flat.normalize();
+		return p.getPosition(pt).add(flat.scale(1.6)).add(0, 0.08, 0);
+	}
+
+	/** Gauntlet Smash: once the fists land (age 4) a dust shock ring and a hot crack ring roll out over the ground to 3 blocks. */
+	private static void mk1Smash(VertexConsumer vc, boolean glow, PoseStack.Pose pose, Player p, float pt, float age, Vec3 cam) {
+		if (age < 4f) {
+			return;
+		}
+		Vec3 at = smashPoint(p, pt);
+		for (int i = 0; i < 2; i++) {
+			float k = Mth.clamp((age - 4f - i * 1.5f) / 7f, 0f, 1f);
+			if (k <= 0f || k >= 1f) {
+				continue;
+			}
+			heatRing(vc, glow, pose, at, new Vec3(0, 1, 0), 0.3f + 2.9f * k, glow ? (i == 0 ? MK1_DUST : MK1_HOT) : 0xFFFFFF, (1f - k) * 0.9f, cam, 44);
+		}
+		// eight short crack lines radiating out, glowing hot for a moment
+		float g = Mth.clamp((age - 4f) / 5f, 0f, 1f);
+		if (g < 1f) {
+			for (int i = 0; i < 8; i++) {
+				double a = Math.PI * 2 * i / 8 + 0.2 * (i % 2);
+				Vec3 dir = new Vec3(Math.cos(a), 0, Math.sin(a));
+				Vec3 end = at.add(dir.scale(0.4 + 2.6 * g));
+				BeamDraw.segment(vc, pose, at.add(dir.scale(0.3)), end, cam, glow ? 0.12f : 0.035f, glow ? 0.04f : 0.015f,
+						glow ? MK1_HOT : 0xFFE0A0, (1f - g) * 0.9f, 0.1f);
+			}
+		}
+	}
+
+	/** Gauntlet Smash wind-up: a hot ring tightening round the locked fists overhead. */
+	private static void mk1Windup(VertexConsumer vc, boolean glow, PoseStack.Pose pose, Player p, float pt, float age, Vec3 cam) {
+		Vec3 fists = p.getEyePosition(pt).add(0, 0.65 * p.getScale(), 0);
+		float k = Mth.clamp(age / 20f, 0f, 1f);
+		float pulse = 0.5f + 0.5f * Mth.sin(age * 0.9f);
+		heatRing(vc, glow, pose, fists, new Vec3(0, 1, 0), 0.55f - 0.25f * k, glow ? MK1_HOT : 0xFFE8B0, (0.25f + 0.6f * k) * (0.6f + 0.4f * pulse),
+				cam, 18);
+	}
+
+	/** Fire Nova: once the arms fly open (age 4), two fire rings roll out flat to 5 blocks, a ground shock ring and a heat column. */
+	private static void mk1Nova(VertexConsumer vc, boolean glow, PoseStack.Pose pose, Player p, float pt, float age, Vec3 cam) {
+		Vec3 base = p.getPosition(pt);
+		Vec3 chest = base.add(0, p.getBbHeight() * 0.55, 0);
+		if (age < 4f) {
+			float k = age / 4f;
+			ring(vc, glow, pose, chest, new Vec3(0, 1, 0), 0.8f - k * 0.35f, glow ? MK1_HOT : 0xFFE08A, 0.4f + k * 0.5f, cam, 20);
+			return;
+		}
+		float radius = (float) com.projecthero.mod.ironman.ability.era1.EraOneMk1Moves.FIRE_NOVA_RADIUS;
+		for (int i = 0; i < 2; i++) {
+			float k = Mth.clamp((age - 4f - i * 1.5f) / 7f, 0f, 1f);
+			if (k <= 0f || k >= 1f) {
+				continue;
+			}
+			heatRing(vc, glow, pose, i == 0 ? chest : base.add(0, 0.15, 0), new Vec3(0, 1, 0), 0.4f + radius * k,
+					glow ? (i == 0 ? MK1_HOT : 0xFFC040) : 0xFFE8A0, (1f - k), cam, 60);
+		}
+		float g = Mth.clamp((age - 4f) / 6f, 0f, 1f);
+		if (g < 1f) {
+			Vec3 top = chest.add(0, 0.8 + 3.0 * g, 0);
+			BeamDraw.segment(vc, pose, chest, top, cam, glow ? 0.4f * (1f - g) + 0.08f : 0.12f * (1f - g) + 0.03f, glow ? 0.05f : 0.02f,
+					glow ? MK1_HOT : 0xFFE08A, (1f - g) * 0.7f, 0f);
+		}
+	}
+
+	/** Scrap Shotgun / Arm Rocket: a muzzle shock ring off the right hand as it goes off (the first 4 ticks). */
+	private static void mk1Muzzle(VertexConsumer vc, boolean glow, PoseStack.Pose pose, Player p, float pt, float age, Vec3 cam, float size) {
+		if (age > 5f) {
+			return;
+		}
+		float k = Mth.clamp(age / 5f, 0f, 1f);
+		Vec3 look = p.getViewVector(pt);
+		Vec3 right = look.cross(new Vec3(0, 1, 0));
+		right = right.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : right.normalize();
+		Vec3 hand = p.getEyePosition(pt).add(look.scale(0.9)).add(right.scale(0.3)).add(0, -0.35, 0);
+		ring(vc, glow, pose, hand.add(look.scale(k * 0.7)), look, (0.15f + k * 0.8f) * size, glow ? MK1_HOT : 0xFFFFFF, (1f - k) * 0.85f, cam, 18);
+	}
+
+	/** Iron Shell: a slow grey-steel ring pulsing round the braced body, low and at the chest. */
+	private static void mk1Shell(VertexConsumer vc, boolean glow, PoseStack.Pose pose, Player p, float pt, float now, Vec3 cam) {
+		Vec3 base = p.getPosition(pt);
+		float pulse = 0.5f + 0.5f * Mth.sin(now * 0.35f);
+		heatRing(vc, glow, pose, base.add(0, 0.12, 0), new Vec3(0, 1, 0), 0.85f, glow ? 0xA8B4C0 : 0xFFFFFF, 0.35f + 0.3f * pulse, cam, 28);
+		heatRing(vc, glow, pose, base.add(0, p.getBbHeight() * 0.55, 0), new Vec3(0, 1, 0), 0.75f + 0.05f * pulse, glow ? 0x8C98A4 : 0xFFFFFF,
+				0.25f + 0.2f * pulse, cam, 28);
+	}
+
+	/** Reactor Overload charging: rings shrinking into the chest reactor, faster as the second runs out. */
+	private static void mk1Overload(VertexConsumer vc, boolean glow, PoseStack.Pose pose, Player p, float pt, float age, Vec3 cam) {
+		Vec3 chest = p.getPosition(pt).add(0, p.getBbHeight() * 0.68, 0).add(p.getViewVector(pt).scale(0.3));
+		float speed = 6f - Mth.clamp(age / 16f, 0f, 1f) * 3f;
+		for (int i = 0; i < 3; i++) {
+			float k = ((age + i * speed / 3f) % speed) / speed;
+			float alpha = Mth.sin(k * Mth.PI) * 0.8f;
+			Vec3 look = p.getViewVector(pt);
+			ring(vc, glow, pose, chest, new Vec3(look.x, 0, look.z).lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : new Vec3(look.x, 0, look.z), 0.1f
+					+ (1f - k) * 0.9f, glow ? (i == 1 ? MK1_HOT : MK1_ARC) : 0xFFFFFF, alpha, cam, 20);
 		}
 	}
 

@@ -691,17 +691,33 @@ public final class IronManHud {
 			s.g.drawString(font, e, -font.width(e) / 2, 0, VanillaHud.GOLD, true);
 			s.g.pose().popPose();
 		} else {
+			// v0.17.7 (user): the Mk I's C -- tap = Smoke Screen, hold 1 s = Reactor Overload; the overload's own cooldown rides on
+			// the cell's lower bar
+			boolean mk1 = "mark_1".equals(suitId);
+			float otherFrac = 0f;
+			if (mk1) {
+				String oKey = suitId + "/" + com.projecthero.mod.ironman.ability.era1.EraOneMk1Moves.OVERLOAD_ID;
+				Long oAt = state.abilityReadyAt.get(oKey);
+				otherFrac = oAt != null && oAt > now ? cooldownFrac(oKey, oAt, now) : 0f;
+			}
 			VanillaHudExtras.icon(s, i, new ItemStack(tap.icon()));
 			VanillaHudExtras.iconSlot(s, i, key, !offline, false, left > 0 ? cooldownFrac(cdKey, readyAt, now) : 0f,
-					IronManUiLayout.ceilSecs(left), 0f, false);
+					IronManUiLayout.ceilSecs(left), otherFrac, false);
 			if (cDown) {
-				hold(s, i, Math.min(1f, (now - cHeldSince) / (float) com.projecthero.mod.ironman.ability.IronManComicMoves.SENTRY_HOLD_TICKS));
+				int holdTicks = mk1 ? com.projecthero.mod.ironman.ability.era1.EraOneMk1Moves.OVERLOAD_HOLD_TICKS
+						: com.projecthero.mod.ironman.ability.IronManComicMoves.SENTRY_HOLD_TICKS;
+				hold(s, i, Math.min(1f, (now - cHeldSince) / (float) holdTicks));
 			}
 			if (offline && left <= 0) {
 				VanillaHudExtras.tint(s, i, 0x70500000);
 			}
 		}
-		return MoveListOverlay.Row.of(MoveListOverlay.key(slot), Component.translatable(tap.nameKey()),
+		// v0.17.7 (user): the Mk I's C row names both halves (tap Smoke Screen, hold Reactor Overload)
+		Component plain = "mark_1".equals(suitId)
+				? Component.translatable("hud.projecthero.ironman.era1.mk1_c_move", Component.translatable(tap.nameKey()),
+						Component.translatable("hud.projecthero.ironman.comic." + com.projecthero.mod.ironman.ability.era1.EraOneMk1Moves.OVERLOAD_ID))
+				: Component.translatable(tap.nameKey());
+		return MoveListOverlay.Row.of(MoveListOverlay.key(slot), plain,
 				Component.translatable(fold != null ? "hud.projecthero.ironman.era2.fold_move" : "hud.projecthero.ironman.era1.eject_move"),
 				left > 0 ? Component.literal(IronManUiLayout.secs(left)) : null);
 	}

@@ -44,6 +44,15 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 	private boolean torpedo;
 	/** v0.16.7 Era I (user): the Mk IV Hydro torpedo drops out of the air (it only runs straight in water). */
 	private boolean sinksOnLand;
+	/**
+	 * v0.17.7 (user) Mk I Arm Rocket: an exact blast -- no vanilla explosion and no falloff: the creature it strikes takes only
+	 * {@code directDamage}, everything else within {@code blastRadius} of the impact takes exactly {@code splashDamage}. Never
+	 * breaks blocks. Not saved.
+	 */
+	private boolean exactBlast;
+	private LivingEntity struck;
+	/** Where it really struck (vanilla calls onHit before the tick's move, up to a step short of the target). Not saved. */
+	private Vec3 impact;
 	/** v0.15.12: Ultron's missiles (the Heavy's barrage, the Sentry's missile rain) are drawn with a red tint and trail. */
 	private static final net.minecraft.network.syncher.EntityDataAccessor<Boolean> DATA_RED = net.minecraft.network.syncher.SynchedEntityData
 			.defineId(IronManMissileEntity.class, net.minecraft.network.syncher.EntityDataSerializers.BOOLEAN);
@@ -151,6 +160,12 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 	@Override
 	protected float getLiquidInertia() {
 		return torpedo ? 0.99f : super.getLiquidInertia();
+	}
+
+	/** v0.17.7 (user) Mk I Arm Rocket: the exact direct / splash blast (see {@link #exactBlast}). */
+	public IronManMissileEntity withExactBlast() {
+		this.exactBlast = true;
+		return this;
 	}
 
 	/** Set the blast size of the on-impact AoE explosion (default 1.4). */
@@ -291,6 +306,11 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 	protected void onHitEntity(EntityHitResult hit) {
 		super.onHitEntity(hit);
 		if (!level().isClientSide() && hit.getEntity() instanceof LivingEntity le && canTargetLiving(le)) {
+			struck = le;
+			// the point of its box nearest the rocket = where the blast goes off
+			AABB b = le.getBoundingBox();
+			impact = new Vec3(net.minecraft.util.Mth.clamp(getX(), b.minX, b.maxX), net.minecraft.util.Mth.clamp(getY(), b.minY, b.maxY),
+					net.minecraft.util.Mth.clamp(getZ(), b.minZ, b.maxZ));
 			le.hurt(damageSources().mobProjectile(this, getOwner() instanceof LivingEntity o ? o : null), directDamage);
 		}
 		detonate();
@@ -299,6 +319,9 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 	@Override
 	protected void onHitBlock(net.minecraft.world.phys.BlockHitResult hit) {
 		super.onHitBlock(hit);
+		if (impact == null) {
+			impact = hit.getLocation();
+		}
 		detonate();
 	}
 
@@ -314,6 +337,10 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 			return;
 		}
 		ServerLevel level = (ServerLevel) level();
+		if (exactBlast) {
+			exactDetonate(level);
+			return;
+		}
 		if (vacuum) {
 			// v0.16.1: the vacuum warhead drags everything nearby into the blast first
 			for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, getBoundingBox().inflate(5.0), this::canTargetLiving)) {
@@ -356,6 +383,46 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 			level.sendParticles(ParticleTypes.FLAME, getX(), getY(), getZ(), 24, 0.8, 0.5, 0.8, 0.06);
 			level.sendParticles(ParticleTypes.LAVA, getX(), getY(), getZ(), 5, 0.5, 0.3, 0.5, 0.0);
 		}
+		discard();
+	}
+
+	/**
+	 * v0.17.7 (user) Mk I Arm Rocket: the exact blast -- {@code splashDamage} to everything but the creature it struck within
+	 * {@code blastRadius} of the impact (shoved away a little), an explosion's look and sound, no vanilla explosion (so no
+	 * block damage and no extra hurt).
+	 */
+	private void exactDetonate(ServerLevel level) {
+		if (impact != null) {
+			setPos(impact.x, impact.y, impact.z);
+		}
+		double r = blastRadius;
+		LivingEntity owner = getOwner() instanceof LivingEntity o ? o : null;
+		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, getBoundingBox().inflate(r + 1.0), this::canTargetLiving)) {
+			if (e == struck || e == owner) {
+				continue;
+			}
+			Vec3 c = e.position().add(0, e.getBbHeight() * 0.5, 0);
+			if (c.distanceTo(position()) > r) {
+				continue;
+			}
+			int inv = e.invulnerableTime;
+			e.invulnerableTime = 0;
+			if (!e.hurt(damageSources().explosion(this, owner), splashDamage)) {
+				e.invulnerableTime = inv;
+			}
+			Vec3 away = c.subtract(position());
+			Vec3 flat = new Vec3(away.x, 0, away.z);
+			flat = flat.lengthSqr() < 1.0e-4 ? Vec3.ZERO : flat.normalize();
+			e.setDeltaMovement(e.getDeltaMovement().add(flat.scale(0.5)).add(0, 0.25, 0));
+			e.hurtMarked = true;
+		}
+		level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, getX(), getY(), getZ(), 1, 0, 0, 0, 0);
+		level.sendParticles(ParticleTypes.FLAME, getX(), getY(), getZ(), 24, 0.6, 0.4, 0.6, 0.08);
+		level.sendParticles(ParticleTypes.LARGE_SMOKE, getX(), getY(), getZ(), 16, 0.8, 0.5, 0.8, 0.03);
+		level.sendParticles(ParticleTypes.LAVA, getX(), getY(), getZ(), 4, 0.4, 0.3, 0.4, 0.0);
+		level.playSound(null, getX(), getY(), getZ(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 1.1f, 1.15f);
+		com.projecthero.mod.ironman.IronManSounds.playAt(level, getX(), getY(), getZ(), com.projecthero.mod.ironman.IronManSounds.MISSILE_IMPACT,
+				1.0f, 0.9f);
 		discard();
 	}
 

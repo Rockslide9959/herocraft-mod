@@ -35,6 +35,7 @@ import net.minecraft.world.item.ArmorItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -144,6 +145,8 @@ public class EraOneMk12GameTests implements FabricGameTest {
 	}
 
 	// ================================================================== MK I
+	// v0.17.7 (user) moveset: R Iron Fist / Gauntlet Smash, G Flamethrower / Arm Rocket, X Rocket Jump / Leap, Z Scrap Shotgun /
+	// Fire Nova, V Iron Shell / Scrap Repair, C tap Smoke Screen / hold Reactor Overload
 
 	@GameTest(template = EMPTY_STRUCTURE, batch = "e1mk12_flame", timeoutTicks = 100)
 	public void mkOneFlamethrowerBurnsEightASecondInSixBlocks(GameTestHelper h) {
@@ -165,22 +168,24 @@ public class EraOneMk12GameTests implements FabricGameTest {
 		});
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, batch = "e1mk12_firewall", timeoutTicks = 160)
-	public void mkOneFireWallBurnsWhatTouchesItForFourSeconds(GameTestHelper h) {
+	/** v0.17.7 (user): the stream melts ice to water and burns cobwebs away where it is aimed. */
+	@GameTest(template = EMPTY_STRUCTURE, batch = "e1mk12_flame_melt")
+	public void mkOneFlamethrowerMeltsIceAndBurnsCobwebs(GameTestHelper h) {
 		ServerPlayer p = tony(h, "mark_1");
-		Spider s = dummy(h, new BlockPos(4, 1, 3));
-		h.assertTrue(fire(p, mk1(), 1, true), "Fire Wall goes off");
-		h.assertTrue(EraOneMk12State.fireWalls(p) == 1, "one wall down");
-		h.runAfterDelay(21, () -> {
-			float d = dealt(s);
-			h.assertTrue(d >= 3f - EPS, "3 a second to the spider in the line, got " + d);
-			h.assertTrue(s.getRemainingFireTicks() > 0, "set burning");
-		});
-		h.runAfterDelay(EraOneMk12State.FIRE_WALL_TICKS + 3, () -> {
-			h.assertTrue(EraOneMk12State.fireWalls(p) == 0, "gone after 4 s");
-			leave(h, p);
-			h.succeed();
-		});
+		face(p, 0f);
+		BlockPos web = new BlockPos(3, 2, 3);
+		BlockPos ice = new BlockPos(5, 2, 3);
+		h.setBlock(web, Blocks.COBWEB);
+		h.setBlock(ice, Blocks.ICE);
+		Vec3 eye = p.getEyePosition();
+		Vec3 dir = p.getLookAngle();
+		double len = com.projecthero.mod.ironman.ability.IronManComicAccess.wallDistance(p, eye, dir, EraOneMk1Moves.FLAME_RANGE);
+		int n = EraOneMk1Moves.meltAlong(p, eye, dir, len);
+		h.assertTrue(n == 2, "two blocks changed, got " + n);
+		h.assertTrue(h.getBlockState(web).isAir(), "the cobweb burned away");
+		h.assertTrue(h.getBlockState(ice).is(Blocks.WATER), "the ice melted to water, got " + h.getBlockState(ice));
+		leave(h, p);
+		h.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, batch = "e1mk12_fist")
@@ -188,7 +193,7 @@ public class EraOneMk12GameTests implements FabricGameTest {
 		ServerPlayer p = tony(h, "mark_1");
 		Spider s = dummy(h, new BlockPos(3, 1, 3));
 		face(p, 30f);
-		h.assertTrue(fire(p, mk1(), 2, false), "Iron Fist goes off");
+		h.assertTrue(fire(p, mk1(), 1, false), "Iron Fist goes off");
 		near(h, dealt(s), EraOneMk1Moves.IRON_FIST_DAMAGE, "Iron Fist damage");
 		h.assertTrue(EraOneMk1Moves.IRON_FIST_DAMAGE == 12f, "the user's 12");
 		h.assertTrue(s.getDeltaMovement().x > 1.5, "thrown back hard, vx " + s.getDeltaMovement().x);
@@ -196,32 +201,30 @@ public class EraOneMk12GameTests implements FabricGameTest {
 		h.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, batch = "e1mk12_haymaker", timeoutTicks = 100)
-	public void mkOneHaymakerChargesToFifteenAndStaggers(GameTestHelper h) {
+	@GameTest(template = EMPTY_STRUCTURE, batch = "e1mk12_smash", timeoutTicks = 100)
+	public void mkOneGauntletSmashChargesToFifteenAndHammersItDown(GameTestHelper h) {
 		ServerPlayer p = tony(h, "mark_1");
 		Spider s = dummy(h, new BlockPos(3, 1, 3));
 		face(p, 30f);
-		h.assertTrue(edge(p, mk1(), "e1mk1_haymaker", true), "the press commits the Haymaker");
-		h.assertTrue(dealt(s) < EPS, "nothing lands while it winds up");
-		h.runAfterDelay(EraOneMk12State.CHARGE_TICKS + 2, () -> {
-			edge(p, mk1(), "e1mk1_haymaker", false);
-			near(h, dealt(s), EraOneMk1Moves.HAYMAKER_DAMAGE, "a full Haymaker");
-			h.assertTrue(EraOneMk1Moves.HAYMAKER_DAMAGE == 15f, "the user's 15");
+		h.assertTrue(edge(p, mk1(), "e1mk1_gauntlet_smash", true), "the press commits the Gauntlet Smash");
+		h.assertTrue(EraOneMk12State.smashing(p) && dealt(s) < EPS, "nothing lands while the fists go up");
+		h.runAfterDelay(EraOneMk1Moves.GAUNTLET_SMASH_CHARGE_TICKS + 2, () -> {
+			edge(p, mk1(), "e1mk1_gauntlet_smash", false);
+			near(h, dealt(s), EraOneMk1Moves.GAUNTLET_SMASH_DAMAGE, "a full Gauntlet Smash");
+			h.assertTrue(EraOneMk1Moves.GAUNTLET_SMASH_DAMAGE == 15f && EraOneMk1Moves.GAUNTLET_SMASH_SPLASH_DAMAGE == 10f, "the user's 15 / 10");
+			h.assertTrue(s.getDeltaMovement().y < -0.5, "hammered down, vy " + s.getDeltaMovement().y);
 			MobEffectInstance slow = s.getEffect(MobEffects.MOVEMENT_SLOWDOWN);
 			h.assertTrue(slow != null && slow.getAmplifier() >= 4, "staggered");
 			h.assertTrue(EraOneMk1Moves.chargeShare(5) == 0.5f && EraOneMk1Moves.chargeShare(20) == 1f, "early release = half power");
+			h.assertFalse(EraOneMk12State.smashing(p), "over");
 			leave(h, p);
 			h.succeed();
 		});
 	}
 
-	/**
-	 * v0.17.7 (user: "make it slightly aoe like a 3 block radius outside of the center of the hit"): a full Haymaker hits its target
-	 * for 15 and everything else within 3 blocks of the impact for 15 too, shoved away from it; a mob 5 blocks from the target is
-	 * untouched.
-	 */
-	@GameTest(template = EMPTY_STRUCTURE, batch = "e1mk12_haymaker_aoe", timeoutTicks = 100)
-	public void mkOneHaymakerSplashesFifteenWithinThreeBlocks(GameTestHelper h) {
+	/** v0.17.7 (user): 15 to the target, 10 to everything else within 3 blocks of it, nothing 5 blocks away. */
+	@GameTest(template = EMPTY_STRUCTURE, batch = "e1mk12_smash_splash", timeoutTicks = 100)
+	public void mkOneGauntletSmashSplashesTenWithinThreeBlocks(GameTestHelper h) {
 		ServerPlayer p = tony(h, "mark_1");
 		BlockPos at = h.absolutePos(new BlockPos(1, 1, 1));
 		p.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
@@ -229,15 +232,34 @@ public class EraOneMk12GameTests implements FabricGameTest {
 		Spider target = dummy(h, new BlockPos(3, 1, 1));
 		Spider close = dummy(h, new BlockPos(3, 1, 3)); // 2 blocks from the target
 		Spider far = dummy(h, new BlockPos(6, 1, 5)); // 5 blocks from the target (3 across, 4 along)
-		h.assertTrue(edge(p, mk1(), "e1mk1_haymaker", true), "the press commits the Haymaker");
-		h.runAfterDelay(EraOneMk12State.CHARGE_TICKS + 2, () -> {
+		h.assertTrue(edge(p, mk1(), "e1mk1_gauntlet_smash", true), "the press commits the Gauntlet Smash");
+		h.runAfterDelay(EraOneMk1Moves.GAUNTLET_SMASH_CHARGE_TICKS + 2, () -> {
 			double closeZ = close.getZ();
-			edge(p, mk1(), "e1mk1_haymaker", false);
-			near(h, dealt(target), EraOneMk1Moves.HAYMAKER_DAMAGE, "the target takes the full Haymaker");
-			near(h, dealt(close), EraOneMk1Moves.HAYMAKER_DAMAGE, "a mob 2 blocks from the impact takes the splash");
-			h.assertTrue(close.getDeltaMovement().z > 0.1 || close.getZ() > closeZ, "and is shoved away from the impact, vz "
-					+ close.getDeltaMovement().z);
+			edge(p, mk1(), "e1mk1_gauntlet_smash", false);
+			near(h, dealt(target), 15f, "the target takes 15");
+			near(h, dealt(close), 10f, "a mob 2 blocks from it takes the 10 splash");
+			h.assertTrue(close.getDeltaMovement().z > 0.1 || close.getZ() > closeZ, "and is shoved away, vz " + close.getDeltaMovement().z);
 			h.assertTrue(dealt(far) < EPS, "a mob 5 blocks away is untouched, took " + dealt(far));
+			h.assertTrue(p.getHealth() >= p.getMaxHealth() - EPS, "never the player");
+			leave(h, p);
+			h.succeed();
+		});
+	}
+
+	/** v0.17.7 (user): the forearm rocket flies straight -- 14 to what it hits, 8 to everything within 3 blocks of the blast. */
+	@GameTest(template = EMPTY_STRUCTURE, batch = "e1mk12_arm_rocket", timeoutTicks = 100)
+	public void mkOneArmRocketHitsFourteenAndSplashesEight(GameTestHelper h) {
+		ServerPlayer p = tony(h, "mark_1");
+		Spider target = dummy(h, new BlockPos(4, 1, 3));
+		Spider close = dummy(h, new BlockPos(4, 1, 5)); // 2 blocks to the side of the target
+		Spider far = dummy(h, new BlockPos(6, 1, 6)); // over 3 blocks from the blast
+		face(p, 15f);
+		h.assertTrue(fire(p, mk1(), 2, true), "Arm Rocket fires");
+		h.assertFalse(TonyStark.abilityReady(p, "mark_1", "e1mk1_arm_rocket"), "its 6 s cooldown runs");
+		h.runAfterDelay(15, () -> {
+			near(h, dealt(target), EraOneMk1Moves.ARM_ROCKET_DAMAGE, "14 to what it hits");
+			near(h, dealt(close), EraOneMk1Moves.ARM_ROCKET_SPLASH_DAMAGE, "8 to a mob 2 blocks from the blast");
+			h.assertTrue(dealt(far) < EPS, "nothing past 3 blocks, took " + dealt(far));
 			h.assertTrue(p.getHealth() >= p.getMaxHealth() - EPS, "never the player");
 			leave(h, p);
 			h.succeed();
@@ -269,14 +291,24 @@ public class EraOneMk12GameTests implements FabricGameTest {
 		});
 	}
 
+	/** v0.17.7 (user): the leap follows the look pitch -- aimed up it goes higher and less far than a level leap. */
 	@GameTest(template = EMPTY_STRUCTURE, batch = "e1mk12_rocketleap", timeoutTicks = 60)
-	public void mkOneRocketLeapArcsFourteenBlocksForwardFallSafe(GameTestHelper h) {
+	public void mkOneRocketLeapFollowsThePitchFallSafe(GameTestHelper h) {
 		ServerPlayer p = tony(h, "mark_1");
+		face(p, -35f); // looking 35 degrees up
 		h.assertTrue(fire(p, mk1(), 3, true), "Rocket Leap goes off");
 		Vec3 v = p.getDeltaMovement();
-		h.assertTrue(v.x > 0.8 && Math.abs(v.z) < 0.05 && v.y > 0.3, "forward (+X) and up, " + v);
-		Vec3 want = com.projecthero.mod.hero.power.AbilityHelpers.ballisticLaunch(new Vec3(1, 0.45, 0), EraOneMk1Moves.ROCKET_LEAP_BLOCKS, true);
-		h.assertTrue(v.distanceTo(want) < 0.02, "the 14-block ballistic launch, " + v + " vs " + want);
+		Vec3 want = EraOneMk1Moves.leapVelocity(p.getLookAngle(), true);
+		h.assertTrue(v.distanceTo(want) < 0.02, "the launch for where it looks, " + v + " vs " + want);
+		Vec3 level = EraOneMk1Moves.leapVelocity(new Vec3(1, 0, 0), true);
+		Vec3 up = EraOneMk1Moves.leapVelocity(Vec3.directionFromRotation(-35f, -90f), true);
+		Vec3 down = EraOneMk1Moves.leapVelocity(Vec3.directionFromRotation(40f, -90f), true);
+		h.assertTrue(v.x > 0.3 && Math.abs(v.z) < 0.05, "forward (+X), " + v);
+		h.assertTrue(up.y / Math.hypot(up.x, up.z) > level.y / Math.hypot(level.x, level.z) + 0.3, "aimed up = a steeper launch: " + up + " vs " + level);
+		h.assertTrue(level.y > 0.2, "a level leap still arcs, " + level);
+		h.assertTrue(down.distanceTo(level) < 1.0e-6, "from the ground a downward look leaps level, never into the floor");
+		Vec3 old = com.projecthero.mod.hero.power.AbilityHelpers.ballisticLaunch(new Vec3(1, 0.45, 0), EraOneMk1Moves.ROCKET_LEAP_BLOCKS, true);
+		h.assertTrue(v.distanceTo(old) > 0.05, "not the old fixed arc any more");
 		h.assertTrue(EraOneMk12State.rocketSafe(p), "fall-safe");
 		p.fallDistance = 25f;
 		h.runAfterDelay(2, () -> {
@@ -286,6 +318,110 @@ public class EraOneMk12GameTests implements FabricGameTest {
 		});
 	}
 
+	@GameTest(template = EMPTY_STRUCTURE, batch = "e1mk12_scrap")
+	public void mkOneScrapShotgunFiresFivePelletsOfFourAndKnocksBack(GameTestHelper h) {
+		ServerPlayer p = tony(h, "mark_1");
+		Spider s = dummy(h, new BlockPos(4, 1, 3));
+		face(p, 22f);
+		h.assertTrue(fire(p, mk1(), 4, false), "Scrap Shotgun goes off");
+		h.assertTrue(EraOneMk1Moves.SCRAP_PELLETS == 5 && EraOneMk1Moves.SCRAP_PELLET_DAMAGE == 4f, "the user's 5 x 4");
+		near(h, dealt(s), 20f, "5 x 4 at close range");
+		h.assertTrue(s.getDeltaMovement().x > 0.4, "a small mob is knocked back, vx " + s.getDeltaMovement().x);
+		h.assertFalse(TonyStark.abilityReady(p, "mark_1", "e1mk1_scrap_shotgun"), "its 5 s cooldown runs");
+		leave(h, p);
+		h.succeed();
+	}
+
+	/** v0.17.7 (user): 10 + burning to everything within 5 blocks; nothing further out; no fire left on the ground. */
+	@GameTest(template = EMPTY_STRUCTURE, batch = "e1mk12_nova", timeoutTicks = 60)
+	public void mkOneFireNovaBurnsTenWithinFive(GameTestHelper h) {
+		ServerPlayer p = tony(h, "mark_1");
+		BlockPos at = h.absolutePos(new BlockPos(1, 1, 1));
+		p.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
+		Spider in = dummy(h, new BlockPos(3, 1, 2));
+		Spider edge = dummy(h, new BlockPos(5, 1, 3)); // about 3.6 blocks off
+		Spider far = dummy(h, new BlockPos(6, 1, 6)); // over 6 blocks off
+		h.assertTrue(fire(p, mk1(), 4, true), "Fire Nova goes off");
+		near(h, dealt(in), EraOneMk1Moves.FIRE_NOVA_DAMAGE, "10 close in");
+		near(h, dealt(edge), EraOneMk1Moves.FIRE_NOVA_DAMAGE, "10 further out, inside 5");
+		h.assertTrue(in.getRemainingFireTicks() > 0 && edge.getRemainingFireTicks() > 0, "and set burning");
+		h.assertTrue(dealt(far) < EPS && far.getRemainingFireTicks() <= 0, "nothing past 5 blocks");
+		h.assertTrue(p.getHealth() >= p.getMaxHealth() - EPS, "never the player");
+		h.runAfterDelay(EraOneMk1Moves.FIRE_NOVA_RING_TICKS + 2, () -> {
+			for (int x = 0; x < 8; x++) {
+				for (int z = 0; z < 8; z++) {
+					h.assertFalse(h.getBlockState(new BlockPos(x, 1, z)).is(Blocks.FIRE), "no fire blocks left at " + x + ", " + z);
+				}
+			}
+			leave(h, p);
+			h.succeed();
+		});
+	}
+
+	/** v0.17.7 (user): the old Brace + projectiles bounce off. */
+	@GameTest(template = EMPTY_STRUCTURE, batch = "e1mk12_shell", timeoutTicks = 140)
+	public void mkOneIronShellStopsSixtyPercentRootsAndBouncesArrows(GameTestHelper h) {
+		ServerPlayer p = tony(h, "mark_1");
+		Spider shooter = dummy(h, new BlockPos(6, 1, 3));
+		h.assertTrue(fire(p, mk1(), 5, false), "Iron Shell goes off");
+		h.assertTrue(EraOneMk12State.shelled(p), "shell up");
+		near(h, IronManComicState.incomingFactor(p, mk1(), h.getLevel().damageSources().generic()), 0.4f, "60% stopped");
+		h.assertTrue(p.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE) >= 1.0, "full knockback resistance");
+		h.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) < 1.0e-4, "rooted (no walking)");
+		h.assertTrue(p.getAttributeValue(Attributes.JUMP_STRENGTH) < 1.0e-4, "rooted (no jumping)");
+		p.setDeltaMovement(Vec3.ZERO);
+		p.knockback(2.0, 1.0, 0.0);
+		h.assertTrue(p.getDeltaMovement().lengthSqr() < 1.0e-6, "no knockback, " + p.getDeltaMovement());
+		Arrow arrow = new Arrow(h.getLevel(), p.getX() + 1.2, p.getY() + 1.0, p.getZ(), new ItemStack(Items.ARROW), null);
+		arrow.setOwner(shooter);
+		arrow.setDeltaMovement(-0.6, 0, 0);
+		h.getLevel().addFreshEntity(arrow);
+		h.assertTrue(EraOneMk1Moves.bounce(p) == 1, "the arrow bounces off");
+		h.assertTrue(arrow.getDeltaMovement().x > 0.2 && arrow.getOwner() == shooter, "turned back the way it came (still the shooter's), "
+				+ arrow.getDeltaMovement());
+		h.assertTrue(EraOneMk1Moves.bounce(p) == 0, "and is left alone once it is going away");
+		h.assertTrue(IronManComicState.incomingFactor(p, mk1(), h.getLevel().damageSources().arrow(arrow, shooter)) == 0f,
+				"a projectile never hurts through it");
+		h.runAfterDelay(EraOneMk1Moves.IRON_SHELL_TICKS + 2, () -> {
+			h.assertFalse(EraOneMk12State.shelled(p), "over after 4 s");
+			h.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) > 0.05, "walking again");
+			h.assertTrue(p.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE) < 1.0, "knockback back");
+			near(h, IronManComicState.incomingFactor(p, mk1(), h.getLevel().damageSources().generic()), 1f, "hits land in full again");
+			arrow.discard();
+			leave(h, p);
+			h.succeed();
+		});
+	}
+
+	/** v0.17.7 (user): one iron ingot = +150 integrity; refused (no cooldown, nothing used) without one or with the suit full. */
+	@GameTest(template = EMPTY_STRUCTURE, batch = "e1mk12_repair")
+	public void mkOneScrapRepairUsesAnIngotForOneHundredFifty(GameTestHelper h) {
+		ServerPlayer p = tony(h, "mark_1");
+		float max = IronManEnergy.maxIntegrity("mark_1");
+		IronManEnergy.setIntegrity(p, "mark_1", max - 400f);
+		float energy = IronManEnergy.energy(p, "mark_1");
+		h.assertFalse(fire(p, mk1(), 5, true), "refused with no iron ingot");
+		h.assertTrue(TonyStark.abilityReady(p, "mark_1", "e1mk1_scrap_repair"), "a refusal costs no cooldown");
+		h.assertTrue(Math.abs(IronManEnergy.energy(p, "mark_1") - energy) < 1.0e-3f, "nor energy");
+		near(h, IronManEnergy.integrity(p, "mark_1"), max - 400f, "integrity untouched");
+		p.getInventory().add(new ItemStack(Items.IRON_INGOT, 2));
+		h.assertTrue(fire(p, mk1(), 5, true), "with an ingot it goes off");
+		near(h, IronManEnergy.integrity(p, "mark_1"), max - 250f, "+150 integrity");
+		h.assertTrue(p.getInventory().countItem(Items.IRON_INGOT) == 1, "one ingot used, " + p.getInventory().countItem(Items.IRON_INGOT) + " left");
+		h.assertFalse(TonyStark.abilityReady(p, "mark_1", "e1mk1_scrap_repair"), "its 20 s cooldown runs");
+		near(h, IronManEnergy.energy(p, "mark_1"), energy - IronManComicKit.energyCost("e1mk1_scrap_repair"), "it paid its energy");
+		// straight to the handler (past the cooldown): a full suit refuses and keeps the ingot
+		IronManEnergy.setIntegrity(p, "mark_1", max);
+		h.assertFalse(edge(p, mk1(), "e1mk1_scrap_repair", true), "refused at full integrity");
+		h.assertTrue(p.getInventory().countItem(Items.IRON_INGOT) == 1, "the ingot is kept");
+		// capped at the max
+		IronManEnergy.setIntegrity(p, "mark_1", max - 40f);
+		h.assertTrue(edge(p, mk1(), "e1mk1_scrap_repair", true), "goes off with 40 missing");
+		near(h, IronManEnergy.integrity(p, "mark_1"), max, "capped at the suit's max");
+		leave(h, p);
+		h.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE, batch = "e1mk12_smoke", timeoutTicks = 60)
 	public void mkOneSmokeScreenMakesMobsLoseYou(GameTestHelper h) {
 		ServerPlayer p = tony(h, "mark_1");
@@ -293,7 +429,9 @@ public class EraOneMk12GameTests implements FabricGameTest {
 		Spider out = dummy(h, new BlockPos(13, 1, 3));
 		in.setTarget(p);
 		out.setTarget(p);
-		h.assertTrue(fire(p, mk1(), 4, false), "Smoke Screen goes off");
+		fire(p, mk1(), 6, false); // C tapped (pressed and let go at once)
+		h.assertFalse(TonyStark.abilityReady(p, "mark_1", EraOneMk1Moves.SMOKE_ID), "the Smoke Screen went off (its cooldown runs)");
+		h.assertFalse(EraOneMk12State.overloadArmed(p), "a tap is never the overload");
 		h.assertTrue(in.getTarget() == null && out.getTarget() == null, "everything near drops you");
 		h.runAfterDelay(3, () -> {
 			h.assertTrue(in.hasEffect(MobEffects.BLINDNESS), "blinded inside the cloud");
@@ -306,48 +444,31 @@ public class EraOneMk12GameTests implements FabricGameTest {
 		});
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, batch = "e1mk12_scrap")
-	public void mkOneScrapBurstFiresFourPelletsOfSeven(GameTestHelper h) {
+	/**
+	 * v0.17.7 (user): tap C = Smoke Screen, hold C 1 s = Reactor Overload -- never both. Held, the overload goes off at the 1 s mark
+	 * (still held) and letting go after it does nothing more; each keeps its own cooldown and energy.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE, batch = "e1mk12_c_key", timeoutTicks = 80)
+	public void mkOneTapCIsSmokeHoldCIsOverload(GameTestHelper h) {
 		ServerPlayer p = tony(h, "mark_1");
-		Spider s = dummy(h, new BlockPos(4, 1, 3));
-		face(p, 22f);
-		h.assertTrue(fire(p, mk1(), 4, true), "Scrap Burst goes off");
-		near(h, dealt(s), 28f, "4 x 7 at close range");
-		leave(h, p);
-		h.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "e1mk12_repel")
-	public void mkOneMagneticRepelShovesSevenBlocksForFour(GameTestHelper h) {
-		ServerPlayer p = tony(h, "mark_1");
-		Spider s = dummy(h, new BlockPos(4, 1, 3));
-		Spider far = dummy(h, new BlockPos(10, 1, 3));
-		h.assertTrue(fire(p, mk1(), 5, false), "Magnetic Repel goes off");
-		near(h, dealt(s), 4f, "Repel damage");
-		h.assertTrue(s.getDeltaMovement().x > 1.0, "shoved away, vx " + s.getDeltaMovement().x);
-		h.assertTrue(dealt(far) < EPS, "nothing 9 blocks out");
-		leave(h, p);
-		h.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "e1mk12_brace", timeoutTicks = 140)
-	public void mkOneBraceStopsSixtyPercentNoKnockbackRooted(GameTestHelper h) {
-		ServerPlayer p = tony(h, "mark_1");
-		h.assertTrue(fire(p, mk1(), 5, true), "Brace goes off");
-		h.assertTrue(EraOneMk12State.braced(p), "braced");
-		float f = IronManComicState.incomingFactor(p, mk1(), h.getLevel().damageSources().generic());
-		near(h, f, 0.4f, "60% stopped");
-		h.assertTrue(p.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE) >= 1.0, "full knockback resistance");
-		h.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) < 1.0e-4, "rooted (no walking)");
-		h.assertTrue(p.getAttributeValue(Attributes.JUMP_STRENGTH) < 1.0e-4, "rooted (no jumping)");
-		p.setDeltaMovement(Vec3.ZERO);
-		p.knockback(2.0, 1.0, 0.0);
-		h.assertTrue(p.getDeltaMovement().lengthSqr() < 1.0e-6, "no knockback, " + p.getDeltaMovement());
-		h.runAfterDelay(EraOneMk12State.BRACE_TICKS + 2, () -> {
-			h.assertFalse(EraOneMk12State.braced(p), "over after 4 s");
-			h.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) > 0.05, "walking again");
-			h.assertTrue(p.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE) < 1.0, "knockback back");
-			near(h, IronManComicState.incomingFactor(p, mk1(), h.getLevel().damageSources().generic()), 1f, "hits land in full again");
+		float e0 = IronManEnergy.energy(p, "mark_1");
+		h.assertFalse(edge(p, mk1(), EraOneMk1Moves.SMOKE_ID, true), "the press only marks the time");
+		h.assertTrue(EraOneMk1Moves.cHeld(p), "C is down");
+		h.runAfterDelay(EraOneMk1Moves.OVERLOAD_HOLD_TICKS - 6, () -> h.assertFalse(EraOneMk12State.overloadArmed(p), "not yet at 0.7 s"));
+		h.runAfterDelay(EraOneMk1Moves.OVERLOAD_HOLD_TICKS + 3, () -> {
+			h.assertTrue(EraOneMk12State.overloadArmed(p), "held 1 s: the overload goes off while still held");
+			near(h, IronManEnergy.energy(p, "mark_1"), e0 - EraOneMk1Moves.OVERLOAD_ENERGY, "it paid its 50");
+			edge(p, mk1(), EraOneMk1Moves.SMOKE_ID, false);
+			h.assertTrue(TonyStark.abilityReady(p, "mark_1", EraOneMk1Moves.SMOKE_ID), "letting go after the hold is not a Smoke Screen");
+			h.assertFalse(TonyStark.abilityReady(p, "mark_1", EraOneMk1Moves.OVERLOAD_ID), "the overload's 20 s cooldown runs");
+			float e1 = IronManEnergy.energy(p, "mark_1");
+			// a tap (under 1 s) is the Smoke Screen, even with the overload cooling down
+			h.assertTrue(EraOneMk1Moves.cKeyForTests(p, mk1(), 5), "a tap is the Smoke Screen");
+			h.assertFalse(TonyStark.abilityReady(p, "mark_1", EraOneMk1Moves.SMOKE_ID), "its 14 s cooldown runs");
+			near(h, IronManEnergy.energy(p, "mark_1"), e1 - EraOneMk1Moves.SMOKE_ENERGY, "it paid its 15");
+			// another hold is refused by the overload's own cooldown (and does not smoke instead)
+			h.assertFalse(EraOneMk1Moves.cKeyForTests(p, mk1(), 25), "the overload is cooling down");
+			h.assertTrue(EraOneMk1Moves.SMOKE_COOLDOWN_TICKS == 280 && EraOneMk1Moves.OVERLOAD_COOLDOWN_TICKS == 400, "14 s / 20 s");
 			leave(h, p);
 			h.succeed();
 		});
@@ -358,13 +479,13 @@ public class EraOneMk12GameTests implements FabricGameTest {
 		ServerPlayer p = tony(h, "mark_1");
 		Spider s = dummy(h, new BlockPos(3, 1, 3));
 		face(p, 30f);
-		h.assertTrue(fire(p, mk1(), 6, false), "Reactor Overload goes off");
+		h.assertTrue(EraOneMk1Moves.cKeyForTests(p, mk1(), EraOneMk1Moves.OVERLOAD_HOLD_TICKS + 2), "Reactor Overload goes off (C held)");
 		h.assertTrue(EraOneMk12State.overloadArmed(p), "armed");
-		h.assertTrue(fire(p, mk1(), 2, false), "Iron Fist");
+		h.assertTrue(fire(p, mk1(), 1, false), "Iron Fist");
 		near(h, dealt(s), EraOneMk1Moves.IRON_FIST_DAMAGE * 2f, "the next hit lands x2 (12 x 2)");
 		h.assertFalse(EraOneMk12State.overloadArmed(p), "spent");
-		// re-armed (the router's cooldown is skipped here): the flamethrower takes it as 3 s of double flame
-		edge(p, mk1(), "e1mk1_reactor_overload", true);
+		// re-armed (straight to the handler, past its cooldown): the flamethrower takes it as 3 s of double flame
+		EraOneMk1Moves.armOverloadForTests(p, mk1());
 		s.discard();
 		Spider s2 = dummy(h, new BlockPos(4, 1, 3));
 		face(p, 15f);
@@ -378,6 +499,22 @@ public class EraOneMk12GameTests implements FabricGameTest {
 			leave(h, p);
 			h.succeed();
 		});
+	}
+
+	/** v0.17.7 (user) passives: fire and lava do not hurt the full Mk I, and it is hard to knock back. */
+	@GameTest(template = EMPTY_STRUCTURE, batch = "e1mk12_passives")
+	public void mkOneIsFireProofAndHeavy(GameTestHelper h) {
+		ServerPlayer p = tony(h, "mark_1");
+		h.assertTrue(IronManSuits.MARK_1.fireImmune(), "fire-proof suit");
+		h.assertTrue(IronManDamage.fireProof(p, IronManSuits.MARK_1, p.damageSources().lava()), "lava does nothing (full suit)");
+		h.assertTrue(IronManDamage.fireProof(p, IronManSuits.MARK_1, p.damageSources().inFire()), "fire does nothing");
+		h.assertFalse(IronManDamage.fireProof(p, IronManSuits.MARK_1, p.damageSources().generic()), "an ordinary hit is not stopped");
+		p.setItemSlot(EquipmentSlot.FEET, ItemStack.EMPTY);
+		h.assertFalse(IronManDamage.fireProof(p, IronManSuits.MARK_1, p.damageSources().lava()), "only with the whole suit on");
+		h.assertTrue(EraOneMk1Moves.KNOCKBACK_RESISTANCE >= 0.5, "high knockback resistance");
+		h.assertTrue(IronManSuits.MARK_1.walkSpeedBonus() == -0.10 && IronManSuits.MARK_1.strengthBonus() == 8f, "walks 10% slower, melee +8");
+		leave(h, p);
+		h.succeed();
 	}
 
 	// ================================================================== MK II

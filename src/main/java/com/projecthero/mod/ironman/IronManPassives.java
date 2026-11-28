@@ -67,7 +67,10 @@ public final class IronManPassives {
 		set(player, Attributes.ATTACK_DAMAGE, ATK, strength, AttributeModifier.Operation.ADD_VALUE, strength > 0);
 		set(player, Attributes.ATTACK_KNOCKBACK, ATK_KB, 0.3 * markScale * frac,
 				AttributeModifier.Operation.ADD_VALUE, frac >= 0.75 && markScale >= 3);
-		set(player, Attributes.KNOCKBACK_RESISTANCE, KB_RES, 0.10 + 0.06 * markScale,
+		// v0.17.7 (user): the heavy Mk I shrugs off knockback (EraOneMk1Moves.KNOCKBACK_RESISTANCE)
+		double kbRes = suit != null && "mark_1".equals(suit.id()) ? com.projecthero.mod.ironman.ability.era1.EraOneMk1Moves.KNOCKBACK_RESISTANCE
+				: 0.10 + 0.06 * markScale;
+		set(player, Attributes.KNOCKBACK_RESISTANCE, KB_RES, kbRes,
 				AttributeModifier.Operation.ADD_VALUE, frac >= 1.0);
 		set(player, Attributes.BLOCK_INTERACTION_RANGE, REACH, 1.0,
 				AttributeModifier.Operation.ADD_VALUE, frac >= 1.0);

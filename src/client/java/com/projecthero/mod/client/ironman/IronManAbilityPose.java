@@ -393,6 +393,101 @@ public final class IronManAbilityPose {
 				com.projecthero.mod.client.HipBend.pitch(m, w, -0.1f);
 				m.head.xRot = Mth.lerp(w, m.head.xRot, -0.2f);
 			}
+			// ---------------- v0.17.7 (user) the Mk I Cave-Forged moveset
+			case IronManAbilityFx.MK1_SMASH_WINDUP -> {
+				// both fists locked together high over the head, the body arched back, a heavy tremble building
+				float k = Mth.clamp(t / 4f, 0f, 1f);
+				float tremble = Mth.sin(ageInTicks * 2.3f) * 0.025f * Mth.clamp(t / 20f, 0.3f, 1f);
+				set(m.rightArm, w, Mth.lerp(k, -0.6f, -2.95f) + tremble, -0.25f, -0.15f);
+				set(m.leftArm, w, Mth.lerp(k, -0.6f, -2.95f) - tremble, 0.25f, 0.15f);
+				com.projecthero.mod.client.HipBend.pitch(m, w, -0.18f * k);
+				m.head.xRot = Mth.lerp(w * k, m.head.xRot, -0.25f);
+				set(m.rightLeg, w * k, 0.2f, 0f, 0.1f);
+				set(m.leftLeg, w * k, -0.25f, 0f, -0.1f);
+			}
+			case IronManAbilityFx.MK1_GAUNTLET_SMASH -> {
+				if (t < 2f) {
+					// the last instant overhead
+					set(m.rightArm, w, -2.95f, -0.25f, -0.15f);
+					set(m.leftArm, w, -2.95f, 0.25f, 0.15f);
+					com.projecthero.mod.client.HipBend.pitch(m, w, -0.18f);
+				} else {
+					// hammered down through the target into the ground, hunched right over it, knees bent, a small bounce off it
+					float k = Mth.clamp((t - 2f) / 2f, 0f, 1f);
+					float ease = k * k;
+					float bounce = t > 4f && t < 8f ? Mth.sin((t - 4f) / 4f * Mth.PI) * 0.12f : 0f;
+					set(m.rightArm, w, Mth.lerp(ease, -2.95f, -0.55f) - bounce, Mth.lerp(ease, -0.25f, -0.12f), Mth.lerp(ease, -0.15f, 0.05f));
+					set(m.leftArm, w, Mth.lerp(ease, -2.95f, -0.55f) - bounce, Mth.lerp(ease, 0.25f, 0.12f), Mth.lerp(ease, 0.15f, -0.05f));
+					com.projecthero.mod.client.HipBend.pitch(m, w, Mth.lerp(ease, -0.18f, 0.5f) - bounce);
+					m.head.xRot = Mth.lerp(w * ease, m.head.xRot, 0.45f);
+					set(m.rightLeg, w * ease, -0.4f, 0f, 0.12f);
+					set(m.leftLeg, w * ease, 0.3f, 0f, -0.12f);
+				}
+			}
+			case IronManAbilityFx.MK1_ARM_ROCKET -> {
+				// the right forearm brought up on the aim, the left hand braced under the right wrist, a hard kick on launch
+				float kick = t < 5 ? (5 - t) / 5f * 0.55f : 0f;
+				set(m.rightArm, w, aimX - kick, aimY - 0.06f, 0f);
+				set(m.leftArm, w, aimX + 0.3f - kick * 0.6f, aimY + 0.55f, 0f);
+				m.body.yRot = Mth.lerp(w, m.body.yRot, -0.25f + kick * 0.25f);
+				com.projecthero.mod.client.HipBend.pitch(m, w, -kick * 0.25f);
+			}
+			case IronManAbilityFx.MK1_SCRAP_SHOTGUN -> {
+				// both palms punched out side by side on the aim, then the blast rocks the whole body back
+				float kick = t < 6 ? (6 - t) / 6f : 0f;
+				float k = kick * kick;
+				set(m.rightArm, w, aimX - 0.75f * k, aimY - 0.12f, 0f);
+				set(m.leftArm, w, aimX - 0.75f * k, aimY + 0.12f, 0f);
+				com.projecthero.mod.client.HipBend.pitch(m, w, -0.3f * k);
+				m.head.xRot = Mth.lerp(w * k, m.head.xRot, m.head.xRot - 0.25f);
+				set(m.rightLeg, w * k, -0.3f, 0f, 0.05f);
+			}
+			case IronManAbilityFx.MK1_FIRE_NOVA -> {
+				if (t < 4f) {
+					// curled in: forearms crossed low over the reactor, hunched, head down -- the heat building
+					set(m.rightArm, w, -0.9f, 0.55f, 0f);
+					set(m.leftArm, w, -0.9f, -0.55f, 0f);
+					com.projecthero.mod.client.HipBend.pitch(m, w, 0.35f);
+					m.head.xRot = Mth.lerp(w, m.head.xRot, 0.35f);
+					set(m.rightLeg, w, -0.3f, 0f, 0.1f);
+					set(m.leftLeg, w, 0.2f, 0f, -0.1f);
+				} else {
+					// flung open wide and down, palms out, chest thrust out and head back -- the vent
+					float k = Mth.clamp((t - 4f) / 2f, 0f, 1f);
+					float ease = 1f - (1f - k) * (1f - k);
+					set(m.rightArm, w, Mth.lerp(ease, -0.9f, 0.15f), Mth.lerp(ease, 0.55f, 0f), Mth.lerp(ease, 0f, 1.1f));
+					set(m.leftArm, w, Mth.lerp(ease, -0.9f, 0.15f), Mth.lerp(ease, -0.55f, 0f), Mth.lerp(ease, 0f, -1.1f));
+					com.projecthero.mod.client.HipBend.pitch(m, w, Mth.lerp(ease, 0.35f, -0.22f));
+					m.head.xRot = Mth.lerp(w, m.head.xRot, Mth.lerp(ease, 0.35f, -0.3f));
+					set(m.rightLeg, w, 0f, 0f, Mth.lerp(ease, 0.1f, 0.2f));
+					set(m.leftLeg, w, 0f, 0f, Mth.lerp(ease, -0.1f, -0.2f));
+				}
+			}
+			case IronManAbilityFx.MK1_IRON_SHELL -> {
+				// dug in: a low wide stance, both forearms crossed in front of the face, hunched in behind them
+				set(m.rightArm, w, -1.55f, 0.6f, 0f);
+				set(m.leftArm, w, -1.55f, -0.6f, 0f);
+				com.projecthero.mod.client.HipBend.pitch(m, w, 0.22f);
+				m.head.xRot = Mth.lerp(w, m.head.xRot, 0.2f);
+				set(m.rightLeg, w, -0.15f, 0f, 0.3f);
+				set(m.leftLeg, w, -0.15f, 0f, -0.3f);
+			}
+			case IronManAbilityFx.MK1_SCRAP_REPAIR -> {
+				// the left forearm held across the chest, the right fist hammering plates onto it, head bent over the work
+				float hammer = Mth.abs(Mth.sin(t * 0.55f));
+				set(m.leftArm, w, -1.25f, 0.85f, 0.1f);
+				set(m.rightArm, w, -1.6f + hammer * 0.75f, -0.35f, 0f);
+				m.head.xRot = Mth.lerp(w, m.head.xRot, 0.5f);
+				com.projecthero.mod.client.HipBend.pitch(m, w, 0.12f);
+			}
+			case IronManAbilityFx.MK1_OVERLOAD_CHARGE -> {
+				// the right hand pressed to the chest reactor, the left arm thrown out and back, head tipped back, trembling
+				float tremble = Mth.sin(ageInTicks * 2.7f) * 0.03f * Mth.clamp(t / 16f, 0.2f, 1f);
+				set(m.rightArm, w, -1.15f + tremble, -0.75f, 0f);
+				set(m.leftArm, w, 0.35f - tremble, 0f, -0.75f);
+				com.projecthero.mod.client.HipBend.pitch(m, w, -0.12f);
+				m.head.xRot = Mth.lerp(w, m.head.xRot, -0.3f);
+			}
 			default -> {
 			}
 		}

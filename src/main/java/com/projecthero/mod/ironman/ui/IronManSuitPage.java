@@ -8,6 +8,7 @@ import com.projecthero.mod.ironman.IronManPassives;
 import com.projecthero.mod.ironman.IronManTargeting;
 import com.projecthero.mod.ironman.ability.IronManComicKit;
 import com.projecthero.mod.ironman.ability.IronManComicMoves;
+import com.projecthero.mod.ironman.ability.era1.EraOneMk1Moves;
 import com.projecthero.mod.ironman.suit.IronManSuit;
 import com.projecthero.mod.ironman.suit.IronManSuits;
 
@@ -33,7 +34,8 @@ public final class IronManSuitPage {
 	public static final String[] DEFAULT_KEYS = { "R", "G", "X", "Z", "V", "C" };
 	private static final String P = "projecthero.ironman_page.";
 	/** Moves whose kit input is HOLD but that are used as a tap (the hold is a separate move, listed on its own). */
-	private static final Set<String> TAP_LIKE_HOLDS = Set.of("mk2_repulsor", "mk6_energy_shield", "mk8_hydraulic_brace");
+	private static final Set<String> TAP_LIKE_HOLDS = Set.of("mk2_repulsor", "mk6_energy_shield", "mk8_hydraulic_brace",
+			"e1mk1_smoke_screen");
 	/** Suits with an extra HUD meter of their own ({@code projecthero.ironman_page.<suit>.hud}). */
 	private static final Set<String> HUD_EXTRA = Set.of("mark_9", "mark_6", "mark_vii", "mark_8", "mark_v", "mark_1_v2");
 
@@ -209,7 +211,13 @@ public final class IronManSuitPage {
 			}
 			if (slot == 6) {
 				// the C key's extras: the hold moves, then Shift+C
-				if ("mark_6".equals(suit.id())) {
+				if ("mark_1".equals(suit.id())) {
+					// v0.17.7 (user): the Mk I's C held 1 s = Reactor Overload (its own cooldown / energy, EraOneMk1Moves)
+					line(out, Component.translatable(P + "move.hold", label).getString(),
+							Component.translatable("hud.projecthero.ironman.comic." + EraOneMk1Moves.OVERLOAD_ID),
+							stats(0f, EraOneMk1Moves.OVERLOAD_COOLDOWN_TICKS, EraOneMk1Moves.OVERLOAD_ENERGY, 0f, false),
+							"projecthero.guide.iron_man.comic." + EraOneMk1Moves.OVERLOAD_ID);
+				} else if ("mark_6".equals(suit.id())) {
 					line(out, Component.translatable(P + "move.hold", label).getString(), Component.translatable("hud.projecthero.ironman.comic.mk6_overload_burst"),
 							stats(IronManComicMoves.BURST_DAMAGE, IronManComicMoves.BURST_COOLDOWN_TICKS, IronManComicMoves.BURST_ENERGY, 0f, false),
 							P + "move.mk6_overload_burst");
@@ -256,6 +264,10 @@ public final class IronManSuitPage {
 			case "mk8_hydraulic_brace" -> {
 				cd = IronManComicMoves.BRACE_COOLDOWN_TICKS;
 				cost = IronManComicMoves.BRACE_ENERGY;
+			}
+			case "e1mk1_smoke_screen" -> { // v0.17.7 (user): the Mk I's C tap keeps its own cooldown / energy
+				cd = EraOneMk1Moves.SMOKE_COOLDOWN_TICKS;
+				cost = EraOneMk1Moves.SMOKE_ENERGY;
 			}
 			default -> {
 			}

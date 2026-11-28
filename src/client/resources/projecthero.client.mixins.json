@@ -173,6 +173,7 @@
 		"BlackPantherFirstPersonArmMixin",
 		"BlackPantherFlipMixin",
 		"ItemInHandRendererBlackPantherMixin",
+		"ItemInHandRendererIronManMk1Mixin",
 		"ItemInHandRendererSuperSoldierMixin",
 		"ItemInHandRendererThorMixin",
 		"ItemInHandRendererShazamMixin",

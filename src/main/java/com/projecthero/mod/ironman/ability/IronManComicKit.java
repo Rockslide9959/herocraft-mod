@@ -130,15 +130,20 @@ public final class IronManComicKit {
 		// (v0.16.7, user: lowered to about a third so a reactor lasts a long mission; the Mk I's numbers are the user's).
 
 		// MK I CAVE-FORGED: grey scrap iron, slow, no flight -- rocket jumps, a wrist flamethrower, hits hard.
+		// v0.17.7 (user) moveset: R Iron Fist / Gauntlet Smash, G Flamethrower / Arm Rocket, X Rocket Jump / Leap, Z Scrap
+		// Shotgun / Fire Nova, V Iron Shell / Scrap Repair, C tap Smoke Screen / hold Reactor Overload. Every number is a named
+		// constant in EraOneMk1Moves. C is a HOLD key with no kit cooldown or energy: the tap and the hold each check and pay
+		// their own there (SMOKE_* / OVERLOAD_*), so one cooling down never blocks the other.
 		kit6("mark_1",
-				key(enPerSecond(hold("e1mk1_flamethrower", 0, 8f, Items.FIRE_CHARGE), 5f), en(tap("e1mk1_fire_wall", s(14), 3f, Items.CAMPFIRE), 20f)),
-				// v0.17.7 (user): Iron Fist 12, Haymaker 15 + a 3-block splash round the impact (EraOneMk1Moves)
 				key(en(tap("e1mk1_iron_fist", s(1.5), com.projecthero.mod.ironman.ability.era1.EraOneMk1Moves.IRON_FIST_DAMAGE, Items.PISTON), 10f),
-						en(hold("e1mk1_haymaker", s(8), com.projecthero.mod.ironman.ability.era1.EraOneMk1Moves.HAYMAKER_DAMAGE, Items.ANVIL), 20f)),
+						en(hold("e1mk1_gauntlet_smash", s(8), com.projecthero.mod.ironman.ability.era1.EraOneMk1Moves.GAUNTLET_SMASH_DAMAGE, Items.ANVIL), 20f)),
+				key(enPerSecond(hold("e1mk1_flamethrower", 0, 8f, Items.FIRE_CHARGE), 5f),
+						en(tap("e1mk1_arm_rocket", s(6), com.projecthero.mod.ironman.ability.era1.EraOneMk1Moves.ARM_ROCKET_DAMAGE, Items.TNT), 15f)),
 				key(en(tap("e1mk1_rocket_jump", s(3), 0f, Items.FIREWORK_ROCKET), 5f), en(tap("e1mk1_rocket_leap", s(6), 0f, Items.FEATHER), 10f)),
-				key(en(tap("e1mk1_smoke_screen", s(14), 0f, Items.CAMPFIRE), 15f), en(tap("e1mk1_scrap_burst", s(6), 7f, Items.IRON_NUGGET), 10f)),
-				key(en(tap("e1mk1_magnetic_repel", s(8), 4f, Items.LODESTONE), 10f), en(tap("e1mk1_brace", s(16), 0f, Items.IRON_BLOCK), 25f)),
-				en(tap("e1mk1_reactor_overload", s(20), 0f, Items.REDSTONE_BLOCK), 50f));
+				key(en(tap("e1mk1_scrap_shotgun", s(5), com.projecthero.mod.ironman.ability.era1.EraOneMk1Moves.SCRAP_PELLET_DAMAGE, Items.IRON_NUGGET), 10f),
+						en(tap("e1mk1_fire_nova", s(14), com.projecthero.mod.ironman.ability.era1.EraOneMk1Moves.FIRE_NOVA_DAMAGE, Items.BLAZE_POWDER), 25f)),
+				key(en(tap("e1mk1_iron_shell", s(16), 0f, Items.IRON_BLOCK), 25f), en(tap("e1mk1_scrap_repair", s(20), 0f, Items.IRON_INGOT), 10f)),
+				hold("e1mk1_smoke_screen", 0, 0f, Items.CAMPFIRE));
 
 		// MK II GOLDEN AVENGER: the Mk I rebuilt in gold -- the first repulsors and a short boot-jet hover.
 		kit6("mark_1_v2",

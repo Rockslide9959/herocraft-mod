@@ -57,14 +57,18 @@ C is a kit key now for Era I (slot 6, `comic_c`); **Shift+C is always the emerge
 tables. H stays the faceplate / gantry key.
 
 ### Mk I Cave-Forged (`mark_1`, ids `e1mk1_*`)
+v0.17.7 (user-approved moveset; every number is a named constant in `EraOneMk1Moves`; en = the v0.17.7 low-energy scale):
 | Key | Tap | Shift |
 |---|---|---|
-| R | `flamethrower` hold: 6-block cone, 8/s + fire, 15 en/s | `fire_wall` 5-wide fire line ahead, 4 s, 3/s; cd 14, en 80 |
-| G | `iron_fist` 12 (v0.17.7, was 18), big knockback; cd 1.5, en 20 | `haymaker` charge 1 s, 15 + stagger, and 15 to everything else within 3 blocks of the impact (v0.17.7, was 36 single-target); cd 8, en 60 |
-| X | `rocket_jump` ~8 blocks up (fall-safe); cd 3, en 40 | `rocket_leap` long forward arc ~14 blocks; cd 6, en 60 |
-| Z | `smoke_screen` 6 s cloud: mobs inside lose you; cd 14, en 50 | `scrap_burst` close shotgun cone 4 x 7; cd 6, en 40 |
-| V | `magnetic_repel` shove everything 7 blocks, 4; cd 8, en 40 | `brace` 4 s: -60% damage, no knockback, rooted; cd 16, en 50 |
-| C | `reactor_overload` next hit / 3 s of flame x2; cd 20, en 120 | (eject) |
+| R | `iron_fist` 12, big knockback; cd 1.5, en 10 | `gauntlet_smash` hold ~1 s (early release scales to half), both fists hammer the target into the ground: 15 to it + stagger, 10 to everything else within 3 blocks, cracked-ground rings (no block breaking); cd 8, en 20 |
+| G | `flamethrower` hold: 6-block cone, 8/s + burning, 5 en/s; melts snow blocks / ice to water and snow layers away, burns cobwebs (never fire blocks, never packed / blue ice) | `arm_rocket` straight-flying forearm rocket: 14 direct, 8 to everything within 3 blocks of the blast (exact blast, no block breaking); cd 6, en 15 |
+| X | `rocket_jump` ~8 blocks up (fall-safe); cd 3, en 5 | `rocket_leap` ~14-block arc where you look, pitch included (from the ground never downward); cd 6, en 10 |
+| Z | `scrap_shotgun` 5 pellets x 4 out to 8 blocks, knocks small mobs back; cd 5, en 10 | `fire_nova` 10 + 5 s burning within 5 blocks, a ring of fire rolls out (no blocks lit); cd 14, en 25 |
+| V | `iron_shell` 4 s: -60% damage, no knockback, rooted, projectiles bounce off; cd 16, en 25 | `scrap_repair` uses 1 iron ingot: +150 integrity (refused, no cooldown / energy, with no ingot or full integrity; works on a wrecked suit); cd 20, en 10 |
+| C | tap: `smoke_screen` 6 s cloud, mobs inside lose you; cd 14, en 15. Hold 1 s: `reactor_overload` next hit within 10 s / 3 s of flame x2; cd 20, en 50 (each keeps its own cooldown + energy; the hold fires at the 1 s mark, the release after it does nothing) | (eject) |
+
+Passives: walks 10% slower, knockback resistance 0.6, fire / lava immune with the full suit, melee +8. Removed in v0.17.7: Fire
+Wall and Magnetic Repel (the Haymaker / Scrap Burst / Brace became Gauntlet Smash / Scrap Shotgun / Iron Shell).
 
 ### Mk II Golden Avenger (`mark_1_v2`, ids `e1mk2_*`)
 | Key | Tap | Shift |

@@ -1,9 +1,7 @@
 package com.projecthero.mod.ironman.ability.era1;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -22,12 +20,10 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
@@ -38,58 +34,43 @@ import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.level.ClipContext;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
  * v0.16.7 (user) Era I: everything the Mk I Cave-Forged / Mk II Golden Avenger moves leave RUNNING -- the flamethrower
- * stream, the Haymaker / Charged Repulsor wind-ups, rocket-jump fall safety, the Brace, Reactor Overload, the boot hover,
- * the Ground Pound slam, the jet skates, the magnetic shield, Golden Glare's dazzled mobs and the Fire Wall areas.
+ * stream, the Gauntlet Smash / Charged Repulsor wind-ups, rocket-jump fall safety, the Iron Shell, the Fire Nova ring, the
+ * Mk I's C hold, Reactor Overload, the boot hover, the Ground Pound slam, the jet skates, the magnetic shield and Golden
+ * Glare's dazzled mobs (v0.17.7 (user): the Fire Wall is gone).
  *
- * <p>Static server state keyed by player UUID (+ the fire-wall list), cleared by {@link #clearSessionState}
+ * <p>Static server state keyed by player UUID, cleared by {@link #clearSessionState}
  * ({@code ServerStateReset}) and per player on disconnect. Ticked on the server tick (not the suit ticker), and every
  * status ends the moment its suit comes off, is swapped or is disabled ({@link #shutDown}). The damage hooks
  * ({@link #incomingFactor}, {@link #outgoingMultiplier}) are read by {@code IronManComicState}.
  */
 public final class EraOneMk12State {
 	// ------------------------------------------------------------------ the numbers (plan rows Mk I / Mk II)
-	/** Flamethrower: a 6-block cone, 8 damage a second (2 every 5 ticks) + burning. */
-	public static final double FLAME_RANGE = 6.0;
-	public static final double FLAME_HALF_DEG = 30.0;
-	public static final int FLAME_HIT_EVERY = 5;
-	public static final int FLAME_FIRE_TICKS = 80;
-	/** Fire Wall: a 5-wide line of fire 3 blocks ahead for 4 s, 3 damage a second to anything touching it. */
-	public static final double FIRE_WALL_AHEAD = 3.0;
-	public static final double FIRE_WALL_HALF_WIDTH = 2.5;
-	public static final int FIRE_WALL_TICKS = 4 * 20;
-	/** Haymaker / Charged Repulsor: full power after a 1 s hold; let go sooner = scaled down to half; a 3 s hold fires itself. */
+	// v0.17.7 (user): the Mk I's own numbers (flamethrower, Gauntlet Smash, rockets, Iron Shell, smoke...) live in EraOneMk1Moves
+	/** Mk II Charged Repulsor: full power after a 1 s hold; let go sooner = scaled down to half; a 3 s hold fires itself. */
 	public static final int CHARGE_TICKS = 20;
 	public static final int CHARGE_MAX_HOLD = 60;
-	/** Haymaker stagger: stunned (no target, barely moves) for 1.5 s. */
-	public static final int STAGGER_TICKS = 30;
-	/** Rocket jump / leap: fall-safe until landing or 5 s. */
-	public static final int ROCKET_SAFE_TICKS = 100;
-	/** Brace: 60% of every hit stopped, no knockback, rooted, 4 s. */
-	public static final float BRACE_FACTOR = 0.4f;
-	public static final int BRACE_TICKS = 4 * 20;
 	/** Reactor Overload: armed for 10 s; the next hit lands x2, or (Mk I) the next 3 s of flamethrower. */
 	public static final float OVERLOAD_MULT = 2f;
 	public static final int OVERLOAD_ARMED_TICKS = 10 * 20;
 	public static final int OVERLOAD_FLAME_TICKS = 3 * 20;
-	/** Boot hover 5 s, Jet Skates 8 s, Magnetic Shield 5 s, Golden Glare 4 s, Smoke Screen 6 s. */
+	/** Boot hover 5 s, Jet Skates 8 s, Magnetic Shield 5 s, Golden Glare 4 s. */
 	public static final int HOVER_TICKS = 5 * 20;
 	public static final int SKATES_TICKS = 8 * 20;
 	public static final int SHIELD_TICKS = 5 * 20;
 	public static final int GLARE_TICKS = 4 * 20;
-	public static final int SMOKE_TICKS = 6 * 20;
 	/** Ground Pound: the slam's radius, and how long the dive may last before it pounds where it is. */
 	public static final double POUND_RADIUS = 4.0;
 	public static final int POUND_MAX_TICKS = 60;
 
-	private static final ResourceLocation BRACE_ROOT = ResourceLocation.fromNamespaceAndPath("projecthero", "e1_brace_root");
-	private static final ResourceLocation BRACE_JUMP = ResourceLocation.fromNamespaceAndPath("projecthero", "e1_brace_jump");
-	private static final ResourceLocation BRACE_KNOCK = ResourceLocation.fromNamespaceAndPath("projecthero", "e1_brace_knockback");
+	// (the Iron Shell keeps the old Brace's modifier ids, so one left on a player by a crash is still cleared)
+	private static final ResourceLocation SHELL_ROOT = ResourceLocation.fromNamespaceAndPath("projecthero", "e1_brace_root");
+	private static final ResourceLocation SHELL_JUMP = ResourceLocation.fromNamespaceAndPath("projecthero", "e1_brace_jump");
+	private static final ResourceLocation SHELL_KNOCK = ResourceLocation.fromNamespaceAndPath("projecthero", "e1_brace_knockback");
 	private static final ResourceLocation SKATES_STEP = ResourceLocation.fromNamespaceAndPath("projecthero", "e1_skates_step");
 	private static final DustParticleOptions GOLD = new DustParticleOptions(new org.joml.Vector3f(1f, 0.8f, 0.2f), 1.2f);
 
@@ -102,11 +83,18 @@ public final class EraOneMk12State {
 		String suit;
 		boolean flame;
 		long flameStart;
-		long hayStart;
+		long smashStart;
 		long chargeStart;
 		long rocketUntil;
 		long rocketStart;
-		long braceUntil;
+		long shellUntil;
+		/** Fire Nova: when its ring started rolling out (0 = none), and where. */
+		long novaStart;
+		Vec3 novaAt;
+		/** The C key (tap = Smoke Screen, hold 1 s = Reactor Overload): pressed when, still down, the hold already fired. */
+		long cDownAt;
+		boolean cHeld;
+		boolean cOverloadDone;
 		long overloadUntil;
 		long overloadFlameUntil;
 		long hoverUntil;
@@ -119,33 +107,13 @@ public final class EraOneMk12State {
 		final Map<Integer, Long> glared = new HashMap<>();
 
 		boolean idle(long now) {
-			return !flame && hayStart == 0L && chargeStart == 0L && rocketUntil <= now && braceUntil <= now && overloadUntil <= now
+			return !flame && smashStart == 0L && chargeStart == 0L && rocketUntil <= now && shellUntil == 0L && overloadUntil <= now
 					&& overloadFlameUntil <= now && hoverUntil == 0L && skatesUntil <= now && shieldUntil <= now && smokeUntil <= now
-					&& !pounding && glared.isEmpty();
-		}
-	}
-
-	/** A Fire Wall: a line {@code 2 * halfWidth} long across {@code right}, centred on {@code centre}. */
-	static final class FireWall {
-		final UUID owner;
-		final ResourceKey<Level> dim;
-		final Vec3 centre;
-		final Vec3 right;
-		final long born;
-		final long until;
-
-		FireWall(UUID owner, ResourceKey<Level> dim, Vec3 centre, Vec3 right, long born, long until) {
-			this.owner = owner;
-			this.dim = dim;
-			this.centre = centre;
-			this.right = right;
-			this.born = born;
-			this.until = until;
+					&& !pounding && glared.isEmpty() && novaStart == 0L && !cHeld;
 		}
 	}
 
 	private static final Map<UUID, Rt> RT = new HashMap<>();
-	private static final List<FireWall> WALLS = new ArrayList<>();
 	/** Set while the flamethrower deals its own damage, so {@link #outgoingMultiplier} knows the hit is flame. */
 	private static final ThreadLocal<Boolean> FLAME_HIT = ThreadLocal.withInitial(() -> false);
 	private static boolean initialized;
@@ -161,12 +129,10 @@ public final class EraOneMk12State {
 
 	public static void clearSessionState() {
 		RT.clear();
-		WALLS.clear();
 	}
 
 	public static void forget(UUID player) {
 		RT.remove(player);
-		WALLS.removeIf(w -> w.owner.equals(player));
 	}
 
 	static Rt rt(ServerPlayer p, IronManSuit suit) {
@@ -179,12 +145,6 @@ public final class EraOneMk12State {
 		return RT.get(p.getUUID());
 	}
 
-	static void addFireWall(ServerPlayer p, Vec3 centre, Vec3 right) {
-		long now = p.level().getGameTime();
-		WALLS.removeIf(w -> w.owner.equals(p.getUUID())); // one wall at a time
-		WALLS.add(new FireWall(p.getUUID(), p.level().dimension(), centre, right, now, now + FIRE_WALL_TICKS));
-	}
-
 	// ------------------------------------------------------------------ queries (HUD / gametests)
 
 	public static boolean flaming(ServerPlayer p) {
@@ -192,9 +152,16 @@ public final class EraOneMk12State {
 		return r != null && r.flame;
 	}
 
-	public static boolean braced(ServerPlayer p) {
+	/** v0.17.7 (user): is the Mk I's Iron Shell up? */
+	public static boolean shelled(ServerPlayer p) {
 		Rt r = peek(p);
-		return r != null && r.braceUntil > p.level().getGameTime();
+		return r != null && r.shellUntil > p.level().getGameTime();
+	}
+
+	/** v0.17.7 (user): is the Mk I's Gauntlet Smash winding up? */
+	public static boolean smashing(ServerPlayer p) {
+		Rt r = peek(p);
+		return r != null && r.smashStart != 0L;
 	}
 
 	public static boolean overloadArmed(ServerPlayer p) {
@@ -233,17 +200,9 @@ public final class EraOneMk12State {
 		return until != null && until > p.level().getGameTime();
 	}
 
-	public static int fireWalls(ServerPlayer p) {
-		int n = 0;
-		for (FireWall w : WALLS) {
-			n += w.owner.equals(p.getUUID()) ? 1 : 0;
-		}
-		return n;
-	}
-
 	// ------------------------------------------------------------------ damage hooks (read by IronManComicState)
 
-	/** Incoming: the Brace stops 60%; the Magnetic Shield stops every projectile outright. 1 = untouched. */
+	/** Incoming: the Iron Shell stops 60% and every projectile; the Magnetic Shield stops every projectile outright. 1 = untouched. */
 	public static float incomingFactor(ServerPlayer player, DamageSource source) {
 		Rt r = peek(player);
 		if (r == null || source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
@@ -255,8 +214,11 @@ public final class EraOneMk12State {
 			f = 0f;
 			IronManSounds.play(player, IronManSounds.SHIELD_DEFLECT, 0.8f, 1.3f);
 		}
-		if (r.braceUntil > now) {
-			f *= BRACE_FACTOR;
+		if (r.shellUntil > now) {
+			if (source.is(DamageTypeTags.IS_PROJECTILE) || source.getDirectEntity() instanceof Projectile) {
+				f = 0f; // v0.17.7 (user): projectiles bounce off the Iron Shell
+			}
+			f *= EraOneMk1Moves.IRON_SHELL_FACTOR;
 		}
 		return f;
 	}
@@ -310,7 +272,7 @@ public final class EraOneMk12State {
 	// ------------------------------------------------------------------ the tick
 
 	private static void serverTick(MinecraftServer server) {
-		if (RT.isEmpty() && WALLS.isEmpty()) {
+		if (RT.isEmpty()) {
 			return;
 		}
 		for (Iterator<Map.Entry<UUID, Rt>> it = RT.entrySet().iterator(); it.hasNext();) {
@@ -332,15 +294,6 @@ public final class EraOneMk12State {
 				it.remove();
 			}
 		}
-		for (Iterator<FireWall> it = WALLS.iterator(); it.hasNext();) {
-			FireWall w = it.next();
-			ServerLevel level = server.getLevel(w.dim);
-			if (level == null || w.until <= level.getGameTime()) {
-				it.remove();
-				continue;
-			}
-			tickWall(level, server.getPlayerList().getPlayer(w.owner), w);
-		}
 	}
 
 	/** Gametest helper: one server tick of everything here. */
@@ -357,8 +310,14 @@ public final class EraOneMk12State {
 				r.flame = false;
 			}
 		}
-		if (r.hayStart != 0L) {
-			EraOneMk1Moves.haymakerWindup(p, r, now);
+		if (r.smashStart != 0L) {
+			EraOneMk1Moves.smashWindup(p, r, now);
+		}
+		if (r.novaStart != 0L) {
+			EraOneMk1Moves.novaTick(p, r, now);
+		}
+		if (r.cHeld) {
+			EraOneMk1Moves.cHoldTick(p, suit, r, now);
 		}
 		if (r.chargeStart != 0L) {
 			EraOneMk2Moves.chargeWindup(p, r, now);
@@ -373,14 +332,15 @@ public final class EraOneMk12State {
 				r.rocketUntil = 0L;
 			}
 		}
-		if (r.braceUntil > now) {
-			IronManAbilityFx.hold(p, IronManAbilityFx.COMIC_GUARD);
+		if (r.shellUntil > now) {
+			IronManAbilityFx.hold(p, IronManAbilityFx.MK1_IRON_SHELL);
 			if (now % 6 == 0) {
 				level.sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 0.1, p.getZ(), 6, 0.5, 0.05, 0.5, 0.02);
 				level.sendParticles(ParticleTypes.CRIT, p.getX(), p.getY() + 1.0, p.getZ(), 3, 0.4, 0.6, 0.4, 0.02);
 			}
-		} else if (r.braceUntil != 0L) {
-			endBrace(p, r);
+			EraOneMk1Moves.bounce(p);
+		} else if (r.shellUntil != 0L) {
+			endShell(p, r);
 		}
 		if (r.overloadUntil > now && now % 5 == 0) {
 			Vec3 c = IronManComicAccess.chest(p);
@@ -438,45 +398,20 @@ public final class EraOneMk12State {
 		}
 	}
 
-	private static void tickWall(ServerLevel level, ServerPlayer owner, FireWall w) {
-		long age = level.getGameTime() - w.born;
-		Vec3 a = w.centre.add(w.right.scale(-FIRE_WALL_HALF_WIDTH));
-		Vec3 b = w.centre.add(w.right.scale(FIRE_WALL_HALF_WIDTH));
-		if (age % 2 == 0) {
-			for (double d = 0; d <= FIRE_WALL_HALF_WIDTH * 2 + 0.01; d += 0.5) {
-				Vec3 at = a.add(w.right.scale(d));
-				level.sendParticles(ParticleTypes.FLAME, at.x, at.y + 0.3, at.z, 2, 0.12, 0.35, 0.12, 0.01);
-				if (((int) (d * 2) + age) % 4 == 0) {
-					level.sendParticles(ParticleTypes.LARGE_SMOKE, at.x, at.y + 1.4, at.z, 1, 0.1, 0.2, 0.1, 0.01);
-				}
-			}
-		}
-		if (age % 20 == 0) {
-			IronManComicAccess.soundAt(level, w.centre, SoundEvents.FIRE_AMBIENT, 1.0f, 0.8f);
-		}
-		if (owner == null || age % 10 != 0) {
-			return;
-		}
-		// 3 a second (1.5 every half second) to everything touching the line
-		for (LivingEntity e : IronManComicAccess.along(owner, a.add(0, 0.8, 0), b.add(0, 0.8, 0), 0.7)) {
-			IronManComicAccess.burn(owner, e, 1.5f, FLAME_FIRE_TICKS);
-		}
-	}
-
 	// ------------------------------------------------------------------ ends
 
-	static void startBrace(ServerPlayer p, Rt r, long now) {
-		r.braceUntil = now + BRACE_TICKS;
-		modifier(p, Attributes.MOVEMENT_SPEED, BRACE_ROOT, -1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
-		modifier(p, Attributes.JUMP_STRENGTH, BRACE_JUMP, -1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
-		modifier(p, Attributes.KNOCKBACK_RESISTANCE, BRACE_KNOCK, 1.0, AttributeModifier.Operation.ADD_VALUE);
+	static void startShell(ServerPlayer p, Rt r, long now) {
+		r.shellUntil = now + EraOneMk1Moves.IRON_SHELL_TICKS;
+		modifier(p, Attributes.MOVEMENT_SPEED, SHELL_ROOT, -1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+		modifier(p, Attributes.JUMP_STRENGTH, SHELL_JUMP, -1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+		modifier(p, Attributes.KNOCKBACK_RESISTANCE, SHELL_KNOCK, 1.0, AttributeModifier.Operation.ADD_VALUE);
 	}
 
-	static void endBrace(ServerPlayer p, Rt r) {
-		r.braceUntil = 0L;
-		clear(p, Attributes.MOVEMENT_SPEED, BRACE_ROOT);
-		clear(p, Attributes.JUMP_STRENGTH, BRACE_JUMP);
-		clear(p, Attributes.KNOCKBACK_RESISTANCE, BRACE_KNOCK);
+	static void endShell(ServerPlayer p, Rt r) {
+		r.shellUntil = 0L;
+		clear(p, Attributes.MOVEMENT_SPEED, SHELL_ROOT);
+		clear(p, Attributes.JUMP_STRENGTH, SHELL_JUMP);
+		clear(p, Attributes.KNOCKBACK_RESISTANCE, SHELL_KNOCK);
 		IronManSounds.play(p, IronManSounds.CLAMP, 0.8f, 1.3f);
 	}
 
@@ -497,7 +432,9 @@ public final class EraOneMk12State {
 	/** The suit came off / was swapped / was disabled: every running status ends, held wind-ups are dropped. */
 	static void shutDown(ServerPlayer p, Rt r) {
 		r.flame = false;
-		r.hayStart = 0L;
+		r.smashStart = 0L;
+		r.novaStart = 0L;
+		r.cHeld = false;
 		r.chargeStart = 0L;
 		r.pounding = false;
 		r.overloadUntil = 0L;
@@ -505,8 +442,8 @@ public final class EraOneMk12State {
 		r.shieldUntil = 0L;
 		r.smokeUntil = 0L;
 		r.glared.clear();
-		if (r.braceUntil != 0L) {
-			endBrace(p, r);
+		if (r.shellUntil != 0L) {
+			endShell(p, r);
 		}
 		if (r.skatesUntil != 0L) {
 			endSkates(p, r);

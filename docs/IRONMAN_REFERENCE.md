@@ -2508,6 +2508,48 @@ Tests: `IronManComicV0161GameTests`.
   squadmates or pets) takes the same hit (x the charge share) and is shoved away from it (`HAYMAKER_SPLASH_KNOCK`), with a
   ground ring. Tests: `EraOneMk12GameTests` (`mkOneHaymakerSplashesFifteenWithinThreeBlocks`: a mob 2 blocks from the
   target takes 15, one 5 blocks away nothing).
+## v0.17.7 -- Mark 1 moveset (user-approved)
+
+The Mk I Cave-Forged (`mark_1`) kit was rebuilt (supersedes the Haymaker note above). Every number is a named constant in
+`ability/era1/EraOneMk1Moves`; the kit row is `IronManComicKit` `kit6("mark_1", ...)`; running state is `EraOneMk12State`.
+
+| Key | Move (id) | Numbers | Energy | Icon |
+|---|---|---|---|---|
+| R | Iron Fist (`e1mk1_iron_fist`) | 12, knockback 2.4; cd 1.5 s | 10 | piston |
+| Shift+R | Gauntlet Smash (`e1mk1_gauntlet_smash`, HOLD) | wind-up 1 s (early = x0.5..1), 15 to the target (driven down `GAUNTLET_SMASH_SLAM_VY`, 1.5 s stagger at full), 10 to everything else within 3 blocks of it; cd 8 s | 20 | anvil |
+| G | Flamethrower (`e1mk1_flamethrower`, HOLD) | 6-block 30-degree cone, 8/s + 4 s burning; every 10 ticks `meltAlong` turns snow blocks / ice / frosted ice to water (air in an ultra-warm dimension), snow layers / powder snow to air and burns cobwebs (up to 6 blocks a pass); fire blocks, packed and blue ice untouched | 5/s | fire charge |
+| Shift+G | Arm Rocket (`e1mk1_arm_rocket`) | `IronManMissileEntity.withExactBlast()` at 1.6 b/t: 14 to what it strikes, exactly 8 to everything else whose centre is within 3 blocks of the blast, no vanilla explosion / block damage; cd 6 s | 15 | TNT |
+| X | Rocket Jump (`e1mk1_rocket_jump`) | 1.18 b/t up (~8 blocks), fall-safe; cd 3 s | 5 | firework rocket |
+| Shift+X | Rocket Leap (`e1mk1_rocket_leap`) | `leapVelocity(look, onGround)` = `ballisticLaunch(look, 14)` with the look pitch (on the ground a downward look is flattened to level); fall-safe; cd 6 s | 10 | feather |
+| Z | Scrap Shotgun (`e1mk1_scrap_shotgun`) | 5 pellets (centre + diamond) x 4 out to 8; mobs up to 2 tall / 1.5 wide shoved 1.1 once; cd 5 s | 10 | iron nugget |
+| Shift+Z | Fire Nova (`e1mk1_fire_nova`) | 10 + 5 s burning to everything within 5 (box distance from the chest), shoved 0.6; ring of fire particles rolls out over 8 ticks (`novaTick`); never lights blocks; cd 14 s | 25 | blaze powder |
+| V | Iron Shell (`e1mk1_iron_shell`) | 4 s: hits x0.4, projectile hits 0, knockback resistance +1, speed / jump -100% (the old Brace modifier ids), `bounce()` every tick turns incoming projectiles back (owner unchanged); cd 16 s | 25 | iron block |
+| Shift+V | Scrap Repair (`e1mk1_scrap_repair`) | uses 1 iron ingot (none in creative): +150 integrity to the max; refused with no ingot / full integrity (no cooldown, no energy); in `worksWhileDisabled`; cd 20 s | 10 | iron ingot |
+| C | Smoke Screen (`e1mk1_smoke_screen`, HOLD, kit cd 0) | tap (released under 1 s): 6 s cloud r 5; own cd 14 s (`SMOKE_COOLDOWN_TICKS`) | 15 (`SMOKE_ENERGY`) | campfire |
+| hold C | Reactor Overload (`e1mk1_reactor_overload` cooldown key) | held 1 s (`OVERLOAD_HOLD_TICKS`): fires right then from `cHoldTick` (the release after does nothing); next hit within 10 s x2 or 3 s of double flame; own cd 20 s | 50 | -- |
+| Shift+C | Emergency Eject | unchanged | -- | suit crate |
+
+* **C key:** the kit move is HOLD with no cooldown / energy and is in `IronManComicMoves.skipsEnergyGate`, so the router never
+  blocks the press; `smokeOrOverload` checks and pays each half itself (`cooledDown`, `IronManEraOne.canPayAmount / payAmount`) and
+  always returns false to the router. The HUD C cell fills over the 1 s hold and shows the overload's cooldown on its lower bar; the
+  Alt move list row reads "Smoke Screen / hold: Reactor Overload" (`hud.projecthero.ironman.era1.mk1_c_move`). The I page / guide
+  (`IronManSuitPage`) lists the hold line with the overload's own numbers.
+* **Passives:** walk -10%, `fireImmune()` (fire / lava do nothing with the full suit, like the Mk IX), knockback resistance
+  `KNOCKBACK_RESISTANCE` 0.6 (`IronManPassives`), melee +8.
+* **Removed:** Fire Wall (its `EraOneMk12State` wall list / tick / `fireWalls()`), Magnetic Repel; the Haymaker / Scrap Burst / Brace
+  ids became `gauntlet_smash` / `scrap_shotgun` / `iron_shell` (old cooldown keys just expire; `e1mk1_reactor_overload` stays a
+  registered handler).
+* **Poses** (`IronManAbilityFx.MK1_*` 141-148, client `IronManAbilityPose`, ring FX in `IronManAbilityVisuals`): smash wind-up (held),
+  Gauntlet Smash (overhead -> hammered down, hunched; ground crack rings + 8 crack lines), Arm Rocket (right forearm on the aim, left
+  hand bracing, kick), Scrap Shotgun (both palms, big recoil), Fire Nova (curl, fling open; fire rings to 5 + heat column), Iron Shell
+  (held: low wide stance, forearms crossed; steel rings), Scrap Repair (left forearm across, right fist hammering), Overload charge
+  (held: hand on the reactor; rings shrinking into the chest). Rocket Leap keeps `COMIC_LAUNCH`, smoke / overload `COMIC_FLARE`.
+* **First person:** `client.ironman.IronManMk1FirstPerson` + `mixin.ItemInHandRendererIronManMk1Mixin` move both empty hands for the
+  MK1_* poses (Black Panther pattern), only in the Mk I with an empty main hand.
+* **Tests:** `EraOneMk12GameTests` (flame + melt, fist, smash 15 / splash 10 within 3 / none at 5, arm rocket 14 + 8, rocket jump,
+  leap follows pitch, scrap shotgun 5 x 4, fire nova 10 within 5 + burning, iron shell bounce, scrap repair, smoke, tap C vs hold C,
+  overload, passives).
+
 ## v0.17.7 suit look -- PlanetMinecraft skins worn skin-tight
 
 User: "Use these skins for the iron man suits ... Mark 4 Hydro armour: ... just put the glass helmet over the skin please".

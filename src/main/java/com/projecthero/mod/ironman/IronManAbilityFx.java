@@ -114,6 +114,36 @@ public final class IronManAbilityFx {
 	/** Ticks the fall landing pose runs (the flight landing's {@code IronManFlightLook.LANDING_END}). */
 	public static final int IM_LAND_TICKS = 19;
 
+	// v0.17.7 (user) Mk I Cave-Forged moveset: its own poses (client IronManAbilityPose / IronManAbilityVisuals / IronManMk1FirstPerson);
+	// numbered 141+ (130..140 are the fall landings)
+	/** Held: both fists locked together high over the head, the body arched back, trembling (the Gauntlet Smash wind-up). */
+	public static final int MK1_SMASH_WINDUP = 141;
+	/** Both fists hammered down from overhead into the ground in front, hunched over, knees bent (Gauntlet Smash). */
+	public static final int MK1_GAUNTLET_SMASH = 142;
+	/** The right forearm raised on the aim, the left hand bracing under it, a hard kick back (Arm Rocket). */
+	public static final int MK1_ARM_ROCKET = 143;
+	/** Both palms punched out together on the aim, then a big recoil that rocks the body back (Scrap Shotgun). */
+	public static final int MK1_SCRAP_SHOTGUN = 144;
+	/** Curled in, arms crossed low, then flung open wide and down, chest out -- the reactor vents (Fire Nova). */
+	public static final int MK1_FIRE_NOVA = 145;
+	/** Held: a low wide stance, both forearms crossed in front of the face, hunched behind them (Iron Shell). */
+	public static final int MK1_IRON_SHELL = 146;
+	/** The left forearm held across the chest, the right fist hammering plates onto it (Scrap Repair). */
+	public static final int MK1_SCRAP_REPAIR = 147;
+	/** Held: the right hand pressed to the chest reactor, the left arm out and back, head tipped back (Reactor Overload charge). */
+	public static final int MK1_OVERLOAD_CHARGE = 148;
+	/** Ticks the Mk I one-shot poses run. */
+	public static final int MK1_SMASH_TICKS = 16;
+	public static final int MK1_ROCKET_TICKS = 12;
+	public static final int MK1_SHOTGUN_TICKS = 12;
+	public static final int MK1_NOVA_TICKS = 18;
+	public static final int MK1_REPAIR_TICKS = 24;
+
+	/** v0.17.7 (user): is {@code anim} one of the Mk I moveset poses ({@link #MK1_SMASH_WINDUP}..{@link #MK1_OVERLOAD_CHARGE})? */
+	public static boolean isMkOnePose(int anim) {
+		return anim >= MK1_SMASH_WINDUP && anim <= MK1_OVERLOAD_CHARGE;
+	}
+
 	/** v0.16.7 (user): is {@code anim} a fall landing ({@link #IM_LAND_BASE}..{@link #IM_LAND_MAX})? */
 	public static boolean isFallLanding(int anim) {
 		return anim >= IM_LAND_BASE && anim <= IM_LAND_MAX;

@@ -66,7 +66,8 @@ public final class IronManComicMoves {
 	 * key -- the hold is Sentry Mode, the way out of a wrecked suit; the tap (the brace) refuses on its own.
 	 */
 	static boolean worksWhileDisabled(IronManComicKit.Move m) {
-		return "mk8_replacement_pod".equals(m.id()) || "mk8_hydraulic_brace".equals(m.id());
+		// v0.17.7 (user): the Mk I's Scrap Repair is its field repair too (one iron ingot brings a wrecked suit back)
+		return "mk8_replacement_pod".equals(m.id()) || "mk8_hydraulic_brace".equals(m.id()) || "e1mk1_scrap_repair".equals(m.id());
 	}
 
 	/**
@@ -75,7 +76,9 @@ public final class IronManComicMoves {
 	 * and pays its own {@link #BRACE_ENERGY}).
 	 */
 	static boolean skipsEnergyGate(IronManComicKit.Move m) {
-		return worksWhileDisabled(m) || "mk8_hydraulic_brace".equals(m.id()) || "mk6_energy_shield".equals(m.id());
+		// v0.17.7 (user): the Mk I's C pays inside too (tap = Smoke Screen, hold 1 s = Reactor Overload)
+		return "mk8_replacement_pod".equals(m.id()) || "mk8_hydraulic_brace".equals(m.id()) || "mk6_energy_shield".equals(m.id())
+				|| "e1mk1_smoke_screen".equals(m.id());
 	}
 
 	/** v0.16.7 (user): the Silver Centurion's C -- tap = Energy Shield, held 1 s = Overload Burst (own cooldowns / energy). */
