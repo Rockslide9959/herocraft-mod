@@ -232,6 +232,14 @@ public final class PowerInfoScreen extends Screen {
 					&& com.projecthero.mod.speedforce.SpeedForceSpeedster.hasPower(Minecraft.getInstance().player)) {
 				speedForceStatus(wrapW);
 			}
+			// v0.17.7 (user): Tony Stark with no suit on (I in a suit opens the suit's own page) -- how to get and wear a suit, and every
+			// suit with its era and how you get it, before the Iron Man chapter
+			if (heroChapter == com.projecthero.mod.hero.guide.HeroPackGuide.ironManChapter()) {
+				for (Component line : com.projecthero.mod.ironman.ui.IronManSuitPage.unsuited()) {
+					wrap(line, wrapW);
+				}
+				body.add(FormattedCharSequence.EMPTY);
+			}
 			for (Component line : heroChapter.lines()) {
 				wrap(line, wrapW);
 			}

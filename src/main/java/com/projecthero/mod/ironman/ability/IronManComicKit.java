@@ -132,7 +132,9 @@ public final class IronManComicKit {
 		// MK I CAVE-FORGED: grey scrap iron, slow, no flight -- rocket jumps, a wrist flamethrower, hits hard.
 		kit6("mark_1",
 				key(enPerSecond(hold("e1mk1_flamethrower", 0, 8f, Items.FIRE_CHARGE), 5f), en(tap("e1mk1_fire_wall", s(14), 3f, Items.CAMPFIRE), 20f)),
-				key(en(tap("e1mk1_iron_fist", s(1.5), 18f, Items.PISTON), 10f), en(hold("e1mk1_haymaker", s(8), 36f, Items.ANVIL), 20f)),
+				// v0.17.7 (user): Iron Fist 12, Haymaker 15 + a 3-block splash round the impact (EraOneMk1Moves)
+				key(en(tap("e1mk1_iron_fist", s(1.5), com.projecthero.mod.ironman.ability.era1.EraOneMk1Moves.IRON_FIST_DAMAGE, Items.PISTON), 10f),
+						en(hold("e1mk1_haymaker", s(8), com.projecthero.mod.ironman.ability.era1.EraOneMk1Moves.HAYMAKER_DAMAGE, Items.ANVIL), 20f)),
 				key(en(tap("e1mk1_rocket_jump", s(3), 0f, Items.FIREWORK_ROCKET), 5f), en(tap("e1mk1_rocket_leap", s(6), 0f, Items.FEATHER), 10f)),
 				key(en(tap("e1mk1_smoke_screen", s(14), 0f, Items.CAMPFIRE), 15f), en(tap("e1mk1_scrap_burst", s(6), 7f, Items.IRON_NUGGET), 10f)),
 				key(en(tap("e1mk1_magnetic_repel", s(8), 4f, Items.LODESTONE), 10f), en(tap("e1mk1_brace", s(16), 0f, Items.IRON_BLOCK), 25f)),

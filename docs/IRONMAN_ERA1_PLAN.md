@@ -60,7 +60,7 @@ tables. H stays the faceplate / gantry key.
 | Key | Tap | Shift |
 |---|---|---|
 | R | `flamethrower` hold: 6-block cone, 8/s + fire, 15 en/s | `fire_wall` 5-wide fire line ahead, 4 s, 3/s; cd 14, en 80 |
-| G | `iron_fist` 18, big knockback; cd 1.5, en 20 | `haymaker` charge 1 s, 36 + stagger; cd 8, en 60 |
+| G | `iron_fist` 12 (v0.17.7, was 18), big knockback; cd 1.5, en 20 | `haymaker` charge 1 s, 15 + stagger, and 15 to everything else within 3 blocks of the impact (v0.17.7, was 36 single-target); cd 8, en 60 |
 | X | `rocket_jump` ~8 blocks up (fall-safe); cd 3, en 40 | `rocket_leap` long forward arc ~14 blocks; cd 6, en 60 |
 | Z | `smoke_screen` 6 s cloud: mobs inside lose you; cd 14, en 50 | `scrap_burst` close shotgun cone 4 x 7; cd 6, en 40 |
 | V | `magnetic_repel` shove everything 7 blocks, 4; cd 8, en 40 | `brace` 4 s: -60% damage, no knockback, rooted; cd 16, en 50 |

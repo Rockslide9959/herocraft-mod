@@ -1148,11 +1148,15 @@ public final class HeroPackGuide {
 					"mark_1", "mark_1_v2", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii", "mark_9", "mark_8", "platform", "gantry", "combat", "jarvis",
 					"remote_pilot", "sentry", "armour_rules", "glasses", "bracelets", "phoenix"}) { // v0.15.9: + Mark 8, Sentry Mode; // v0.14.29: + Mark 4 / 5 / 6 / 7, combat, JARVIS, remote pilot; v0.15.1: + armour rules; v0.15.2: + Stark Glasses, Protocol Phoenix; v0.15.4: + Stark Gantry, Colantotte Bracelets
 				head(lines, "projecthero.guide.iron_man." + section);
-				para(lines, "projecthero.guide.iron_man." + section + ".body");
-				// v0.16.7 (user): an Era I suit's page lists its twelve moves straight from the kit (always in sync)
-				if (com.projecthero.mod.ironman.ability.era1.IronManEraOne.isEraOne(section)) {
-					eraOneMoves(lines, section);
+				// v0.17.7 (user): a suit's section is the same page the I key shows in that suit -- era, intro, stats, every key with its
+				// numbers and description, passives, getting / wearing it, the HUD and tips (IronManSuitPage, built from the suit's data)
+				com.projecthero.mod.ironman.suit.IronManSuit suitPage = com.projecthero.mod.ironman.suit.IronManSuits.byId(section);
+				if (suitPage != null && com.projecthero.mod.ironman.ability.IronManComicKit.kit(section) != null) {
+					lines.addAll(com.projecthero.mod.ironman.ui.IronManSuitPage.guide(suitPage));
+					blank(lines);
+					continue;
 				}
+				para(lines, "projecthero.guide.iron_man." + section + ".body");
 			}
 		}));
 
@@ -3573,31 +3577,6 @@ public final class HeroPackGuide {
 			lines.add(pageError());
 		}
 		return new Chapter(Component.translatable(titleKey), lines);
-	}
-
-	/** v0.16.7 (user): one line per Era I move -- key, name, description -- and the Shift+C eject. */
-	private static void eraOneMoves(List<Component> lines, String suitId) {
-		var kit = com.projecthero.mod.ironman.ability.IronManComicKit.kit(suitId);
-		if (kit == null) {
-			return;
-		}
-		String[] keys = { "R", "G", "X", "Z", "V", "C" };
-		for (int i = 0; i < kit.keys().size() && i < keys.length; i++) {
-			var key = kit.keys().get(i);
-			eraOneMove(lines, keys[i], key.tap());
-			if (key.shift() != null) {
-				eraOneMove(lines, "Shift+" + keys[i], key.shift());
-			}
-		}
-		lines.add(Component.literal("  Shift+C  ").withStyle(ChatFormatting.AQUA)
-				.append(Component.translatable("projecthero.guide.iron_man.era1_eject.line").withStyle(ChatFormatting.GRAY)));
-	}
-
-	private static void eraOneMove(List<Component> lines, String key, com.projecthero.mod.ironman.ability.IronManComicKit.Move m) {
-		lines.add(Component.literal("  " + key + "  ").withStyle(ChatFormatting.AQUA)
-				.append(Component.translatable(m.nameKey()).withStyle(ChatFormatting.WHITE))
-				.append(Component.literal(" -- ").withStyle(ChatFormatting.DARK_GRAY))
-				.append(Component.translatable(m.descKey()).withStyle(ChatFormatting.GRAY)));
 	}
 
 	private static void para(List<Component> lines, String key) {

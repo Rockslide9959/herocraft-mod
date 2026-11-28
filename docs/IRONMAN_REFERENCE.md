@@ -2450,3 +2450,24 @@ Tests: `IronManComicV0161GameTests`.
   line right above the key boxes; the C box shows its tap move, and with Shift the EJECT box (crate icon, fills during
   the hold) plus a centred eject bar. Spec sheet / platform screen / gantry menu show the reactor again for Era I suits.
 * Tests: `IronManEraOneCoreGameTests`.
+
+## v0.17.7 -- the I-key suit page and Mark 1 numbers
+
+* **I in a suit** (`client/gui/IronManSuitInfoScreen`) is now a full power-style page, built from the suit's data by
+  `ironman/ui/IronManSuitPage` (main source set, pure `Component` lines; callers wrap with a hanging indent): the era line
+  and a short intro, the live **Status** (pieces, integrity, reactor, plating, firewall, platform repair -- screen only),
+  **Suit Stats** (`IronManComicText.stats` + Haste, walk speed, size, Resistance, ceiling, scanner, highlight range,
+  targeting, night vision, air, nutrient feed), **Keys & Moves** (every tap / Shift move with damage, cooldown, energy or
+  energy/s and "hold" straight from `IronManComicKit`, the description under it; C's hold moves on the Mk VII / Hulkbuster
+  from `IronManComicMoves` constants; Shift+C = eject / fold), **Passives** (shared rules with the suit's numbers + a
+  per-suit line), **Getting the Suit**, **Putting It On & Taking It Off**, **HUD** and **Tips**. Per-suit lang:
+  `projecthero.ironman_page.<suit>.lore / .passive / .obtain / .wear / .tips` (+ `.hud` for the suits in
+  `IronManSuitPage.HUD_EXTRA`). Era II moves got their own `projecthero.guide.iron_man.comic.<id>` descriptions.
+* **Guidebook:** each suit section of the Iron Man chapter is `IronManSuitPage.guide(suit)` (the same page minus the live
+  status); the old `.body` paragraphs are only used for sections without a kit. **Unsuited Tony Stark** (I with no suit)
+  gets `IronManSuitPage.unsuited()` above the chapter: how to get and wear a first suit and every suit with how you get it.
+* **Mark 1** (`EraOneMk1Moves`): Iron Fist `IRON_FIST_DAMAGE` 12 (was 18); Haymaker `HAYMAKER_DAMAGE` 15 (was 36) and
+  slightly AoE -- everything else within `HAYMAKER_SPLASH_RADIUS` 3 of the impact (`around`, so never the player,
+  squadmates or pets) takes the same hit (x the charge share) and is shoved away from it (`HAYMAKER_SPLASH_KNOCK`), with a
+  ground ring. Tests: `EraOneMk12GameTests` (`mkOneHaymakerSplashesFifteenWithinThreeBlocks`: a mob 2 blocks from the
+  target takes 15, one 5 blocks away nothing).

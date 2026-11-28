@@ -184,19 +184,20 @@ public class EraOneMk12GameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, batch = "e1mk12_fist")
-	public void mkOneIronFistHitsEighteenWithBigKnockback(GameTestHelper h) {
+	public void mkOneIronFistHitsTwelveWithBigKnockback(GameTestHelper h) {
 		ServerPlayer p = tony(h, "mark_1");
 		Spider s = dummy(h, new BlockPos(3, 1, 3));
 		face(p, 30f);
 		h.assertTrue(fire(p, mk1(), 2, false), "Iron Fist goes off");
-		near(h, dealt(s), 18f, "Iron Fist damage");
+		near(h, dealt(s), EraOneMk1Moves.IRON_FIST_DAMAGE, "Iron Fist damage");
+		h.assertTrue(EraOneMk1Moves.IRON_FIST_DAMAGE == 12f, "the user's 12");
 		h.assertTrue(s.getDeltaMovement().x > 1.5, "thrown back hard, vx " + s.getDeltaMovement().x);
 		leave(h, p);
 		h.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, batch = "e1mk12_haymaker", timeoutTicks = 100)
-	public void mkOneHaymakerChargesToThirtySixAndStaggers(GameTestHelper h) {
+	public void mkOneHaymakerChargesToFifteenAndStaggers(GameTestHelper h) {
 		ServerPlayer p = tony(h, "mark_1");
 		Spider s = dummy(h, new BlockPos(3, 1, 3));
 		face(p, 30f);
@@ -204,10 +205,40 @@ public class EraOneMk12GameTests implements FabricGameTest {
 		h.assertTrue(dealt(s) < EPS, "nothing lands while it winds up");
 		h.runAfterDelay(EraOneMk12State.CHARGE_TICKS + 2, () -> {
 			edge(p, mk1(), "e1mk1_haymaker", false);
-			near(h, dealt(s), 36f, "a full Haymaker");
+			near(h, dealt(s), EraOneMk1Moves.HAYMAKER_DAMAGE, "a full Haymaker");
+			h.assertTrue(EraOneMk1Moves.HAYMAKER_DAMAGE == 15f, "the user's 15");
 			MobEffectInstance slow = s.getEffect(MobEffects.MOVEMENT_SLOWDOWN);
 			h.assertTrue(slow != null && slow.getAmplifier() >= 4, "staggered");
 			h.assertTrue(EraOneMk1Moves.chargeShare(5) == 0.5f && EraOneMk1Moves.chargeShare(20) == 1f, "early release = half power");
+			leave(h, p);
+			h.succeed();
+		});
+	}
+
+	/**
+	 * v0.17.7 (user: "make it slightly aoe like a 3 block radius outside of the center of the hit"): a full Haymaker hits its target
+	 * for 15 and everything else within 3 blocks of the impact for 15 too, shoved away from it; a mob 5 blocks from the target is
+	 * untouched.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE, batch = "e1mk12_haymaker_aoe", timeoutTicks = 100)
+	public void mkOneHaymakerSplashesFifteenWithinThreeBlocks(GameTestHelper h) {
+		ServerPlayer p = tony(h, "mark_1");
+		BlockPos at = h.absolutePos(new BlockPos(1, 1, 1));
+		p.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
+		face(p, 30f);
+		Spider target = dummy(h, new BlockPos(3, 1, 1));
+		Spider close = dummy(h, new BlockPos(3, 1, 3)); // 2 blocks from the target
+		Spider far = dummy(h, new BlockPos(6, 1, 5)); // 5 blocks from the target (3 across, 4 along)
+		h.assertTrue(edge(p, mk1(), "e1mk1_haymaker", true), "the press commits the Haymaker");
+		h.runAfterDelay(EraOneMk12State.CHARGE_TICKS + 2, () -> {
+			double closeZ = close.getZ();
+			edge(p, mk1(), "e1mk1_haymaker", false);
+			near(h, dealt(target), EraOneMk1Moves.HAYMAKER_DAMAGE, "the target takes the full Haymaker");
+			near(h, dealt(close), EraOneMk1Moves.HAYMAKER_DAMAGE, "a mob 2 blocks from the impact takes the splash");
+			h.assertTrue(close.getDeltaMovement().z > 0.1 || close.getZ() > closeZ, "and is shoved away from the impact, vz "
+					+ close.getDeltaMovement().z);
+			h.assertTrue(dealt(far) < EPS, "a mob 5 blocks away is untouched, took " + dealt(far));
+			h.assertTrue(p.getHealth() >= p.getMaxHealth() - EPS, "never the player");
 			leave(h, p);
 			h.succeed();
 		});
@@ -330,7 +361,7 @@ public class EraOneMk12GameTests implements FabricGameTest {
 		h.assertTrue(fire(p, mk1(), 6, false), "Reactor Overload goes off");
 		h.assertTrue(EraOneMk12State.overloadArmed(p), "armed");
 		h.assertTrue(fire(p, mk1(), 2, false), "Iron Fist");
-		near(h, dealt(s), 36f, "the next hit lands x2 (18 x 2)");
+		near(h, dealt(s), EraOneMk1Moves.IRON_FIST_DAMAGE * 2f, "the next hit lands x2 (12 x 2)");
 		h.assertFalse(EraOneMk12State.overloadArmed(p), "spent");
 		// re-armed (the router's cooldown is skipped here): the flamethrower takes it as 3 s of double flame
 		edge(p, mk1(), "e1mk1_reactor_overload", true);

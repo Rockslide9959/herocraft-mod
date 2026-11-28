@@ -1,12 +1,10 @@
 package com.projecthero.mod.client.gui;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.client.ModKeyBindings;
 import com.projecthero.mod.ironman.IronManEnergy;
-import com.projecthero.mod.ironman.IronManTargeting;
 import com.projecthero.mod.ironman.data.TonyStarkState;
 import com.projecthero.mod.ironman.item.IronManArmorItem;
 import com.projecthero.mod.ironman.suit.IronManSuit;
@@ -23,7 +21,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * v0.14.26: press I wearing Iron Man armour -- the suit's spec sheet: mark, pieces worn, energy and integrity (now / max,
+ * v0.14.26: press I wearing Iron Man armour -- the suit's spec sheet (v0.17.7: a full power-style page, IronManSuitPage): mark, pieces worn, energy and integrity (now / max,
  * regeneration), flight, weapons and their damage, every ability on R / G / X / Z / V / C, and the helmet systems (scanner
  * range, Mark III targeting, night vision, air supply). Read-only; Esc or I closes it.
  */
@@ -74,6 +72,10 @@ public class IronManSuitInfoScreen extends Screen {
 		float maxInt = IronManEnergy.maxIntegrity(suit.id());
 		float integ = st == null ? maxInt : st.suitIntegrity.getOrDefault(suit.id(), maxInt);
 
+		// v0.17.7: the era and a short intro first, like a power's page
+		for (Component line : com.projecthero.mod.ironman.ui.IronManSuitPage.intro(suit)) {
+			wrap(line, wrap);
+		}
 		// v0.16.1 comic rework: no suit energy -- integrity and its absorb share are the status
 		head("screen.projecthero.ironman_info.status");
 		row(wrap, "screen.projecthero.ironman_info.pieces", pieces + " / 4");
@@ -114,51 +116,18 @@ public class IronManSuitInfoScreen extends Screen {
 		boolean protocol = p.getAttachedOrElse(com.projecthero.mod.ultron.contagion.SuitHijack.FIREWALL_PROTOCOL, false);
 		row(wrap, "screen.projecthero.ironman_info.firewall", Component.translatable(protocol ? "screen.projecthero.ironman_info.firewall_protocol"
 				: chip ? "screen.projecthero.ironman_info.firewall_chip" : "screen.projecthero.ironman_info.firewall_none").getString());
-		if (suit.resistanceAmplifier() >= 0) {
-			row(wrap, "screen.projecthero.ironman_info.resistance", String.valueOf(suit.resistanceAmplifier() + 1));
-		}
 		row(wrap, "screen.projecthero.ironman_info.platform_repair",
 				String.format(java.util.Locale.ROOT, "%.1f / s", IronManEnergy.platformIntegrityPerSecond(suit)));
 
-		head("screen.projecthero.ironman_comic.stats");
-		for (com.projecthero.mod.ironman.ui.IronManComicText.Row r : com.projecthero.mod.ironman.ui.IronManComicText.stats(suit)) {
-			row(wrap, r.label(), r.value());
-		}
-		if (suit.altitudeCeiling() > 0 && suit.altitudeCeiling() < 10000) {
-			row(wrap, "screen.projecthero.ironman_info.ceiling", String.format(java.util.Locale.ROOT, "%.0f", suit.altitudeCeiling()));
-		}
-
-		// v0.16.1: the comic kit -- every key, tap / Shift, with damage and cooldown
-		head("screen.projecthero.ironman_comic.moves");
+		// v0.17.7 (user: "make it more fleshed out ... as if its a regular power"): the rest of the page is the shared suit page --
+		// stats, every key with its numbers and what it does, passives, how to get / wear it, the HUD and tips (IronManSuitPage)
 		String[] keys = new String[6];
 		for (int i = 0; i < 6; i++) {
 			keys[i] = ModKeyBindings.ABILITY_SLOTS[i].getTranslatedKeyMessage().getString();
 		}
-		for (Component line : com.projecthero.mod.ironman.ui.IronManComicText.moves(suit, keys)) {
-			lines.addAll(font.split(line.copy().withStyle(ChatFormatting.WHITE), wrap));
+		for (Component line : com.projecthero.mod.ironman.ui.IronManSuitPage.details(suit, keys)) {
+			wrap(line, wrap);
 		}
-		var infoKit = com.projecthero.mod.ironman.ability.IronManComicKit.kit(suit.id());
-		if (infoKit == null || infoKit.key(6) == null) { // v0.16.7: an Era I / Era II kit lists its C key above
-			String c = keys[5];
-			row(wrap, Component.literal("[" + c + "]"), Component.translatable("hud.projecthero.ironman.ability." + suit.abilityInSlot(6)).getString());
-		}
-
-		head("screen.projecthero.ironman_info.systems");
-		row(wrap, "screen.projecthero.ironman_info.scanner", "mark_1".equals(suit.id()) ? "-"
-				: ("mark_2".equals(suit.id()) ? "25" : "100") + " m");
-		row(wrap, "screen.projecthero.ironman_info.targeting", Component.translatable(IronManTargeting.hasTargeting(suit)
-				? "screen.projecthero.ironman_info.yes" : "screen.projecthero.ironman_info.no").getString());
-		row(wrap, "screen.projecthero.ironman_info.night_vision", Component.translatable(suit.helmetNightVision()
-				? "screen.projecthero.ironman_info.night_vision_auto" : "screen.projecthero.ironman_info.no").getString());
-		if (suit.waterBreathing()) {
-			row(wrap, "screen.projecthero.ironman_info.air", Component.translatable("screen.projecthero.ironman_info.air_unlimited").getString());
-		} else if (suit.airTankSeconds() > 0) {
-			row(wrap, "screen.projecthero.ironman_info.air", suit.airTankSeconds() + " s");
-		} else {
-			row(wrap, "screen.projecthero.ironman_info.air", Component.translatable("screen.projecthero.ironman_info.no").getString());
-		}
-		row(wrap, "screen.projecthero.ironman_info.auto_feed", Component.translatable(suit.autoFeed() // v0.14.27
-				? "screen.projecthero.ironman_info.yes" : "screen.projecthero.ironman_info.no").getString());
 		lines.add(FormattedCharSequence.EMPTY);
 		for (FormattedCharSequence l : font.split(Component.translatable("screen.projecthero.ironman_info.hint").withStyle(ChatFormatting.DARK_GRAY), wrap)) {
 			lines.add(l);
@@ -177,6 +146,26 @@ public class IronManSuitInfoScreen extends Screen {
 		lines.add(Component.translatable(key).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD).getVisualOrderText());
 	}
 
+	/** v0.17.7: word-wraps one line; a line that starts indented keeps its wrapped rows under the same indent (like the power page). */
+	private void wrap(Component line, int width) {
+		String text = line.getString();
+		if (text.isEmpty()) {
+			lines.add(FormattedCharSequence.EMPTY);
+			return;
+		}
+		int lead = 0;
+		while (lead < text.length() && lead < 8 && text.charAt(lead) == ' ') {
+			lead++;
+		}
+		String indent = " ".repeat(lead);
+		int indentW = font.width(indent);
+		List<FormattedCharSequence> split = font.split(line, Math.max(40, width - indentW));
+		for (int i = 0; i < split.size(); i++) {
+			lines.add(i == 0 || lead == 0 ? split.get(i)
+					: FormattedCharSequence.composite(FormattedCharSequence.forward(indent, net.minecraft.network.chat.Style.EMPTY), split.get(i)));
+		}
+	}
+
 	private void row(int wrap, String key, String value) {
 		row(wrap, Component.translatable(key), value);
 	}
@@ -193,7 +182,7 @@ public class IronManSuitInfoScreen extends Screen {
 		IronManSuit suit = p == null ? null : wornSuit(p);
 		g.drawCenteredString(font, this.title, width / 2, 16, 0xFFFFFFFF);
 		Component heading = suit == null ? Component.translatable("screen.projecthero.ironman_info.none")
-				: Component.translatable(suit.nameKey()).withStyle(ChatFormatting.BOLD);
+				: com.projecthero.mod.ironman.ui.IronManSuitPage.fullName(suit).withStyle(ChatFormatting.BOLD);
 		page.render(g, font, heading, mouseX, mouseY);
 	}
 

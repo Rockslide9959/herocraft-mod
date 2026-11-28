@@ -38,6 +38,14 @@ public final class EraOneMk1Moves {
 	public static final double FIST_REACH = 4.0;
 	public static final double IRON_FIST_KNOCK = 2.4;
 	public static final double HAYMAKER_KNOCK = 1.8;
+	/** v0.17.7 (user): "Iron Fist: lower damage to 12". */
+	public static final float IRON_FIST_DAMAGE = 12f;
+	/** v0.17.7 (user): "Haymaker: lower damage to 15, make it slightly aoe like a 3 block radius outside of the center of the hit". */
+	public static final float HAYMAKER_DAMAGE = 15f;
+	/** v0.17.7 (user): everything else within this many blocks of the Haymaker's impact point takes the same hit. */
+	public static final double HAYMAKER_SPLASH_RADIUS = 3.0;
+	/** v0.17.7: the splash shoves the others away from the impact point. */
+	public static final double HAYMAKER_SPLASH_KNOCK = 1.2;
 	/** Scrap Burst: 4 pellets out to 8 blocks. */
 	public static final int SCRAP_PELLETS = 4;
 	public static final double SCRAP_RANGE = 8.0;
@@ -155,7 +163,7 @@ public final class EraOneMk1Moves {
 		return t;
 	}
 
-	/** 18, big knockback. A swing at nothing still goes off (a punch is a punch). */
+	/** {@link #IRON_FIST_DAMAGE}, big knockback. A swing at nothing still goes off (a punch is a punch). */
 	private static boolean ironFist(ServerPlayer p, IronManSuit suit, IronManComicKit.Move m) {
 		LivingEntity t = fistTarget(p);
 		IronManComicAccess.pose(p, IronManAbilityFx.PUNCH, 10);
@@ -171,7 +179,8 @@ public final class EraOneMk1Moves {
 	}
 
 	/**
-	 * HOLD: the press commits (pays, cooldown) and winds the fist back; the release throws it -- full 36 + a 1.5 s stagger
+	 * HOLD: the press commits (pays, cooldown) and winds the fist back; the release throws it -- full {@link #HAYMAKER_DAMAGE} + a 1.5 s stagger
+	 * to the target and the same to everything else within {@link #HAYMAKER_SPLASH_RADIUS} of the impact (v0.17.7),
 	 * after a 1 s charge, less (down to half) if let go sooner. A 3 s hold throws it anyway.
 	 */
 	private static boolean haymaker(ServerPlayer p, IronManSuit suit, IronManComicKit.Move m, boolean pressed) {
@@ -220,7 +229,7 @@ public final class EraOneMk1Moves {
 		r.hayStart = 0L;
 		IronManComicKit.Move m = IronManComicKit.byId("e1mk1_haymaker");
 		boolean full = held >= EraOneMk12State.CHARGE_TICKS;
-		float dmg = (m == null ? 36f : m.damage()) * chargeShare(held);
+		float dmg = (m == null ? HAYMAKER_DAMAGE : m.damage()) * chargeShare(held);
 		IronManComicAccess.pose(p, IronManAbilityFx.PUNCH, 12);
 		IronManSounds.move(p, IronManSounds.PUNCH, 1.3f, full ? 0.55f : 0.75f);
 		LivingEntity t = fistTarget(p);
@@ -230,6 +239,17 @@ public final class EraOneMk1Moves {
 		}
 		IronManComicAccess.hit(p, t, dmg);
 		IronManComicAccess.shove(t, p.position(), HAYMAKER_KNOCK * (full ? 1.0 : 0.6), 0.5);
+		// v0.17.7 (user): slightly AoE -- everything else within 3 blocks of the impact takes the same hit and is shoved away from
+		// it (around() already leaves out the player, squadmates and pets)
+		Vec3 at = IronManComicAccess.centre(t);
+		for (LivingEntity e : IronManComicAccess.around(p, at, HAYMAKER_SPLASH_RADIUS)) {
+			if (e == t) {
+				continue;
+			}
+			IronManComicAccess.hit(p, e, dmg);
+			IronManComicAccess.shove(e, at, HAYMAKER_SPLASH_KNOCK * (full ? 1.0 : 0.6), 0.35);
+		}
+		IronManComicAccess.groundRing(IronManComicAccess.level(p), new Vec3(at.x, t.getY() + 0.1, at.z), HAYMAKER_SPLASH_RADIUS, 24);
 		if (full && t instanceof Mob mob) {
 			IronManComicAccess.stun(mob, EraOneMk12State.STAGGER_TICKS);
 		} else if (full) {
